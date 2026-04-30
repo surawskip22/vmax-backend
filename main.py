@@ -9,6 +9,11 @@ import csv
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, List
+import os
+import csv
+import uuid
+import re   # <--- TO DODAJEMY (do czytania dat)
+from datetime import datetime, timedelta
 
 # 1. KONFIGURACJA BAZY DANYCH
 db_url = os.getenv("DATABASE_URL", "sqlite:///./test.db")
@@ -430,6 +435,87 @@ def get_planning():
         weekly_data.append({"date": date_str, "found": True, "url": sheet_url})
         
     return weekly_data
+# --- TAJNY MECHANIZM MIGRACJI DANYCH ---
+from fastapi.responses import HTMLResponse
+
+@app.get("/api/secret-migration-123", response_class=HTMLResponse)
+def run_migration(db: Session = Depends(get_db)):
+    try:
+        def parse_dt(d_raw, t_raw):
+            if not d_raw or not t_raw or t_raw == "-": return None
+            d_match = re.search(r'(\d+)[-./](\d+)[-./](\d+)', str(d_raw))
+            if not d_match: return None
+            p1, p2, p3 = d_match.groups()
+            y, m, d = (p1, p2, p3) if len(p1) == 4 else (p3, p2, p1)
+            d_str = f"{y}-{int(m):02d}-{int(d):02d}"
+            
+            t_match = re.search(r'(\d+):(\d+)', str(t_raw))
+            if not t_match: return None
+            h, mnt = t_match.groups()
+            return datetime.strptime(f"{d_str} {h}:{mnt}", "%Y-%m-%d %H:%M"), d_str
+
+        def read_csv(filename):
+            if not os.path.exists(filename): return []
+            with open(filename, 'r', encoding='utf-8-sig') as f:
+                content = f.read()
+                if not content.strip(): return []
+                dialect = csv.Sniffer().sniff(content[:1024], delimiters=',;')
+                f.seek(0)
+                return list(csv.reader(f, dialect))
+
+        Base.metadata.drop_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
+
+        db_rows = read_csv('Database.csv')
+        for i, row in enumerate(db_rows):
+            if i == 0 or not row: continue
+            if len(row) > 0 and row[0].strip() and not db.query(User).filter_by(name=row[0].strip()).first():
+                db.add(User(name=row[0].strip(), pin=row[1].strip() if len(row)>1 else "1234", role="EMPLOYEE"))
+            if len(row) > 2 and row[2].strip() and not db.query(Activity).filter_by(name=row[2].strip()).first():
+                db.add(Activity(name=row[2].strip()))
+            if len(row) > 4 and row[4].strip() and not db.query(User).filter_by(name=row[4].strip()).first():
+                db.add(User(name=row[4].strip(), pin=row[5].strip() if len(row)>5 else "admin", role="ADMIN"))
+        db.commit()
+
+        rap_rows = read_csv('Raport.csv')
+        for i, row in enumerate(rap_rows):
+            if i == 0 or len(row) < 5: continue
+            u, task, d_raw, start_raw, end_raw = [x.strip() for x in row[:5]]
+            skaner = row[7].strip() if len(row) > 7 else ""
+            wozek = row[8].strip() if len(row) > 8 else ""
+            
+            if u and not db.query(User).filter_by(name=u).first():
+                db.add(User(name=u, pin="1234", role="EMPLOYEE"))
+                db.commit()
+            if task and task not in ["Rozpoczęcie pracy", "Zakończenie pracy"] and not db.query(Activity).filter_by(name=task).first():
+                db.add(Activity(name=task))
+                db.commit()
+                
+            parsed = parse_dt(d_raw, start_raw)
+            if parsed:
+                start_dt, d_str = parsed
+                end_dt, _ = parse_dt(d_raw, end_raw) if end_raw and end_raw != "-" else (None, None)
+                db.add(WorkLog(username=u, task_name=task, start_time=start_dt, end_time=end_dt, date_str=d_str, skaner=skaner, wozek=wozek))
+        db.commit()
+
+        prod_rows = read_csv('Produktywnosc.csv')
+        for i, row in enumerate(prod_rows):
+            if i == 0 or len(row) < 5: continue
+            d_raw, u = row[0].strip(), row[1].strip()
+            try:
+                paczki, produkty, mins = int(row[2] or 0), int(row[3] or 0), int(float(row[4] or 0))
+                d_match = re.search(r'(\d+)[-./](\d+)[-./](\d+)', str(d_raw))
+                if d_match:
+                    p1, p2, p3 = d_match.groups()
+                    y, m, d = (p1, p2, p3) if len(p1) == 4 else (p3, p2, p1)
+                    d_str = f"{y}-{int(m):02d}-{int(d):02d}"
+                    db.add(Productivity(date_str=d_str, username=u, paczki=paczki, produkty=produkty, mins=mins))
+            except Exception: pass
+        db.commit()
+        
+        return "<h1>✅ MIGRACJA ZAKONCZONA SUKCESEM!</h1><p>Baza danych została odtworzona. Możesz teraz usunąć pliki CSV z GitHuba.</p>"
+    except Exception as e:
+        return f"<h1>❌ BŁĄD PODCZAS MIGRACJI:</h1><p>{str(e)}</p>"
 
 # 6. SERWOWANIE FRONTENDU (HTML)
 @app.get("/")
