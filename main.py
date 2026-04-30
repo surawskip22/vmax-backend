@@ -42,6 +42,7 @@ class WorkLog(Base):
     wozek = Column(String, nullable=True)
 
 # Automatyczne utworzenie tabel
+Base.metadata.drop_all(bind=engine)
 Base.metadata.create_all(bind=engine)
 
 # 3. KONFIGURACJA SERWERA
