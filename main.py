@@ -93,12 +93,22 @@ def get_config(db: Session = Depends(get_db)):
 
 @app.post("/api/auth/login")
 def login(req: dict, db: Session = Depends(get_db)):
-    u = req.get("username")
-    p = req.get("pin")
-    if u == "ADMIN" and p == "admin": return {"name": "ADMIN", "role": "ADMIN"}
+    u = str(req.get("username", "")).strip()
+    p = str(req.get("pin", "")).strip()
+    
+    # Domyślny admin awaryjny
+    if u == "ADMIN" and p == "admin": 
+        return {"name": "ADMIN", "role": "ADMIN"}
+        
     user = db.query(User).filter(User.name == u, User.pin == p).first()
-    if not user: raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
-    return {"name": user.name, "role": user.role}
+    if not user: 
+        raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
+    
+    # TŁUMACZ DLA FRONTENDU: 
+    # Baza używa nazwy "EMPLOYEE", ale nasz kod HTML oczekuje nazwy "USER"
+    front_role = "USER" if user.role == "EMPLOYEE" else user.role
+    
+    return {"name": user.name, "role": front_role}
 
 @app.post("/api/user/history")
 def get_user_history(req: dict, db: Session = Depends(get_db)):
