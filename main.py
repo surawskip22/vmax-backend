@@ -454,14 +454,22 @@ def run_migration(db: Session = Depends(get_db)):
             h, mnt = t_match.groups()
             return datetime.strptime(f"{d_str} {h}:{mnt}", "%Y-%m-%d %H:%M"), d_str
 
-        def read_csv(filename):
+     def read_csv(filename):
             if not os.path.exists(filename): return []
             with open(filename, 'r', encoding='utf-8-sig') as f:
                 content = f.read()
                 if not content.strip(): return []
-                dialect = csv.Sniffer().sniff(content[:1024], delimiters=',;')
                 f.seek(0)
-                return list(csv.reader(f, dialect))
+                try:
+                    dialect = csv.Sniffer().sniff(content[:1024], delimiters=',;')
+                    return list(csv.reader(f, dialect))
+                except Exception:
+                    # Gdy Sniffer zwariuje, wymuszamy ręczne ustawienie separatora
+                    f.seek(0)
+                    if ';' in content[:1024]:
+                        return list(csv.reader(f, delimiter=';'))
+                    else:
+                        return list(csv.reader(f, delimiter=','))
 
         Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
