@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WorkFlow V-MAX 6.0 - SQL Powered</title>
+  
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  
+  <style>
+    /* STYLIZACJA POZOSTAJE BEZ ZMIAN - JEST ŚWIETNA */
+    :root { --primary: #0b57d0; --success: #188038; --warning: #f29900; --danger: #b3261e; --bg: #f0f4f9; --card-bg: #ffffff; --text: #1f1f1f; --border: #d1d5db; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg); margin: 0; padding: 10px; color: var(--text); }
+    
+    .card { background: var(--card-bg); padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; border: 1px solid var(--border); transition: 0.2s; }
+    .main-title { color: var(--primary); text-align: center; font-size: 26px; font-weight: 800; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 1px; }
+    
+    button, select, input { width: 100%; padding: 16px; margin-bottom: 12px; border-radius: 12px; border: 1px solid var(--border); font-size: 16px; outline: none; transition: 0.2s; }
+    button { font-weight: bold; cursor: pointer; border: none; }
+    button:active { transform: scale(0.97); }
+    
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-success { background: var(--success); color: white; height: 65px; font-size: 19px; box-shadow: 0 4px 0 #0d5423; }
+    .btn-danger { background: #fff; color: var(--danger); border: 2px solid var(--danger); }
+    .btn-warn { background: #fff8e1; color: #b26a00; border: 1px solid var(--warning); font-size: 14px; }
+    .btn-hr { background: #b3261e; color: white; }
+    .btn-sheets { background: #0f9d58; color: white; }
+    .btn-admin { background: #333; color: white; }
+
+    .swal2-select, .swal2-input { box-sizing: border-box !important; max-width: 100% !important; width: 80% !important; margin: 15px auto !important; }
+
+    .status-box { padding: 18px; border-radius: 14px; text-align: center; font-weight: bold; margin-bottom: 20px; border: 1px solid #eee; background: #f1f3f4; color: #5f6368; font-size: 17px; transition: 0.3s; }
+    .status-on { background: #e6f4ea; color: var(--success); border-color: #ceead6; animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th { text-align: left; background: #f8fafd; padding: 14px 10px; font-size: 12px; color: #666; text-transform: uppercase; border-bottom: 2px solid #eee; }
+    td { padding: 14px 10px; border-bottom: 1px solid #f1f3f4; font-size: 15px; }
+    .col-time { white-space: nowrap; font-family: 'Roboto Mono', monospace; font-weight: 700; color: #333; }
+    .total-pill { background: var(--primary); color: white; padding: 8px 18px; border-radius: 25px; font-size: 14px; font-weight: bold; display: inline-block; }
+    
+    .day-sep-row td { background: #f1f3f4; font-weight: bold; padding: 12px; border-top: 2px solid #ccc; color: #333; font-size: 14px; }
+    .day-sep-admin { background: #eff6ff; color: var(--primary); font-weight: bold; padding: 12px 15px; margin-top: 15px; border-radius: 10px; border-left: 6px solid var(--primary); display: flex; justify-content: space-between; font-size: 15px; }
+    
+    #userView, #adminView { display: none; max-width: 1000px; margin: 0 auto; }
+    
+    .tabs { display: flex; gap: 8px; background: #e2e8f0; padding: 6px; border-radius: 14px; margin-bottom: 20px; overflow-x: auto; }
+    .tab { flex: 1; text-align: center; padding: 14px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 14px; color: #4a5568; transition: 0.3s; min-width: 120px;}
+    .tab.active { background: white; color: var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
+    .equipment-block { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+    .eq-log-item { background: #f8fafc; border-left: 4px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+
+    .chart-container { background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-top: 20px; display: none; text-align: center; }
+    .chart-wrapper { position: relative; height: 350px; width: 100%; max-width: 100%; margin: 0 auto; }
+    .headcount-badge { background: #e8f0fe; color: var(--primary); padding: 8px 15px; border-radius: 20px; font-size: 13px; font-weight: bold; display: inline-block; margin: 5px; border: 1px solid #c3d4f2;}
+    
+    .efficiency-card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 18px; margin-bottom: 15px; }
+    .efficiency-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; }
+    .efficiency-grid label { font-size: 12px; color: #666; font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase;}
+    .efficiency-input { padding: 12px; margin: 0; font-size: 16px; text-align: center; border: 2px solid #e2e8f0; }
+    .efficiency-input:focus { border-color: var(--primary); }
+    .efficiency-stats { font-size: 14px; font-weight: bold; color: var(--primary); background: #eff6ff; padding: 12px; border-radius: 8px; text-align: center; grid-column: span 2; margin-top: 10px;}
+
+    .admin-report-worker-block { border: 1px solid var(--border); border-radius: 16px; margin-bottom: 30px; overflow: hidden; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 100%; }
+    summary { padding: 20px; background: #f8fafc; cursor: pointer; font-weight: bold; list-style: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; font-size: 18px; }
+    summary::-webkit-details-marker { display: none; }
+    
+    .bulk-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .bulk-actions button { flex: 1; font-size: 13px; padding: 12px; border-radius: 8px; min-width: 140px; }
+
+    .db-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+    .admin-edit-row { background: #fff; padding: 18px; border: 1px solid #ddd; border-radius: 14px; margin-bottom: 18px; border-left: 6px solid var(--warning); }
+    
+    .inline-loader { text-align: center; padding: 30px; color: #666; font-weight: bold; font-size: 16px; }
+  </style>
+</head>
+<body>
+
+<div id="loginModal">
+  <div class="card" style="max-width:450px; margin: 40px auto;">
+    <div class="main-title">WorkFlow V-MAX</div>
+    <select id="userSelect"><option value="">Ładowanie...</option></select>
+    <input type="password" id="pinInput" placeholder="KOD PIN" style="text-align:center; letter-spacing:10px; font-size: 24px;">
+    <button class="btn-primary" onclick="login()">ZALOGUJ SIĘ</button>
+  </div>
+</div>
+
+<div id="userView">
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h3 id="userNameDisplay" style="color:var(--primary); margin:0;">Pracownik</h3>
+      <button onclick="logout()" style="width:auto; padding:8px 15px; background:#eee;">Wyloguj</button>
+    </div>
+
+    <button class="btn-warn" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2; margin-bottom:15px;" onclick="togglePlanning()">📅 ZOBACZ PLAN TYGODNIA</button>
+
+    <div id="planningSection" class="card" style="display:none; background:#f8fafd; border:1px solid var(--primary); font-size:14px; margin-bottom:20px;">
+      <h4 style="margin-top:0;">📋 Twój grafik (kliknij, by otworzyć)</h4>
+      <div id="planningContent">Ładowanie...</div>
+    </div>
+    
+    <div id="statusBanner" class="status-box">Status...</div>
+    
+    <div class="equipment-block">
+        <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">🛠️ Twój Sprzęt</h4>
+        <div style="display:flex; gap:10px;">
+           <input type="text" id="eqSkaner" placeholder="Nr Skanera" style="margin:0; padding:10px;">
+           <input type="text" id="eqWozek" placeholder="Nr Wózka" style="margin:0; padding:10px;">
+           <button class="btn-primary" style="width:auto; margin:0;" onclick="updateMyEquipment()">ZAPISZ</button>
+        </div>
+    </div>
+    
+    <div id="mainControls">
+      <div id="startSection" style="display:none;">
+        <button class="btn-success" onclick="action('START', 'Rozpoczęcie pracy')">▶ ROZPOCZNIJ DZIEŃ</button>
+      </div>
+      
+      <div id="taskSection" style="display:none;">
+        <select id="taskSelect"></select>
+        <button class="btn-warn" style="background:#fff; color:var(--warning); border:1px solid var(--warning);" onclick="correctLastTask()">✏️ Popraw aktywność</button>
+        <button class="btn-primary" onclick="action('TASK')">ZATWIERDŹ ZMIANĘ</button>
+        <button class="btn-danger" style="margin-top:12px;" onclick="action('STOP')">🛑 ZAKOŃCZ PRACĘ</button>
+      </div>
+    </div>
+    
+    <button onclick="changeMyPin()" style="background:none; border:none; text-decoration:underline; font-size:13px; margin-top:25px; width:100%; cursor:pointer; color:#666;">🔐 Zmień swój kod PIN</button>
+  </div>
+  
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h4 style="margin:0;">📅 TWOJA HISTORIA</h4>
+      <div id="monthTotalBadge" class="total-pill">Suma: 0h 0m</div>
+    </div>
+    <input type="month" id="histMonth" onchange="loadUserData()">
+    <table id="histTable">
+      <thead><tr><th>Zadanie</th><th>Godziny</th><th style="text-align:right">Suma</th></tr></thead>
+      <tbody id="histTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="adminView">
+  <div class="card" style="background:#1f2937; color:white; display:flex; justify-content:space-between; align-items:center;">
+    <h2 style="font-size:18px; margin:0;">👑 PANEL ADMINA <span id="adminNameDisplay" style="color:#f29900; font-size:14px; margin-left:10px;"></span></h2>
+    <div>
+      <button onclick="changeMyPinAdmin()" style="width:auto; background:#f29900; color:#333; padding:8px 15px; margin-right:10px; font-size: 13px;">Zmień Hasło</button>
+      <button onclick="logout()" style="width:auto; background:var(--danger); color:white; padding:8px 15px; font-size: 13px;">Wyloguj</button>
+    </div>
+  </div>
+  
+  <div class="card">
+    <div class="tabs">
+      <div class="tab active" onclick="switchAdminTab('raporty', this)">📊 Raporty</div>
+      <div class="tab" onclick="switchAdminTab('produkcja', this)">📦 Analityka</div>
+      <div class="tab" onclick="switchAdminTab('sprzet', this)">🛠️ Sprzęt</div>
+      <div class="tab" onclick="switchAdminTab('edycja', this)">✏️ Edycja</div>
+      <div class="tab" onclick="switchAdminTab('baza', this)">⚙️ Ustawienia</div>
+    </div>
+
+    <!-- ZAWARTOSC ZAKLADEK ADMINA POZOSTAJE BEZ ZMIAN -->
+    <div id="tab-raporty" class="tab-content active">
+      <div style="display:flex; gap:12px;">
+        <div style="flex:1"><label>OD</label><input type="date" id="ad1"></div>
+        <div style="flex:1"><label>DO</label><input type="date" id="ad2"></div>
+      </div>
+      <select id="adUser"><option value="Wszyscy">Wszyscy pracownicy</option></select>
+      
+      <div class="bulk-actions">
+        <button class="btn-success" onclick="loadAdminReports()">POKAŻ RAPORT</button>
+        <button class="btn-success" style="background:#0f9d58;" onclick="generateSheetsReport()">🟢 PEŁNY ARKUSZ</button>
+        <button class="btn-success" style="background:#b3261e;" onclick="generateHrReport()">📁 RAPORT HR</button>
+      </div>
+      <div id="adminResults" style="margin-top:20px;"></div>
+    </div>
+
+    <div id="tab-produkcja" class="tab-content">
+       <div style="display:flex; gap:12px; margin-bottom:12px;">
+         <div style="flex:1"><label>OD daty:</label><input type="date" id="prodDate1"></div>
+         <div style="flex:1"><label>DO daty:</label><input type="date" id="prodDate2"></div>
+       </div>
+       <button class="btn-success" style="margin-bottom:20px;" onclick="loadEfficiency()">POKAŻ RAPORT ANALITYCZNY</button>
+
+       <div id="chartContainer" class="chart-container">
+          <h4 style="margin-top:0; color:#333; font-size:16px;">Podział Pracy Zespołu</h4>
+          <div class="chart-wrapper"><canvas id="prodChart"></canvas></div>
+          <div id="headcountBadges" style="margin-top:15px; text-align:center;"></div>
+          <div id="prodDailyTotals" style="margin-top:15px; text-align:center; font-size:15px; font-weight:bold; color:var(--primary); background:#e8f0fe; padding:10px; border-radius:10px; display:none;"></div>
+          <button class="btn-success" style="margin-top:15px; height: 50px; font-size: 15px;" onclick="exportProductivityRange()">📊 POBIERZ ARKUSZ WYDAJNOŚCI</button>
+       </div>
+       <select id="prodActivitySelect" onchange="renderEfficiencyList()" style="margin-top:20px; display:none;"></select>
+       <div id="efficiencyList"></div>
+       <div id="efficiencyActions" style="display:none; margin-top:20px;">
+         <button class="btn-success" style="height:70px; font-size:18px;" onclick="saveAllEfficiency()">💾 ZAPISZ WYNIKI PAKOWANIA</button>
+       </div>
+    </div>
+
+    <div id="tab-sprzet" class="tab-content">
+       <div style="display:flex; gap:12px; margin-bottom:12px;">
+         <div style="flex:1"><label>OD daty:</label><input type="date" id="eqDate1"></div>
+         <div style="flex:1"><label>DO daty:</label><input type="date" id="eqDate2"></div>
+       </div>
+       <div style="display:flex; gap:12px; margin-bottom:12px;">
+         <div style="flex:1"><label>Szukaj Skanera:</label><input type="text" id="eqFilterSkaner" placeholder="Wpisz numer"></div>
+         <div style="flex:1"><label>Szukaj Wózka:</label><input type="text" id="eqFilterWozek" placeholder="Wpisz numer"></div>
+       </div>
+       <div class="bulk-actions">
+         <button class="btn-success" onclick="loadEqLog()">🔍 SZUKAJ</button>
+         <button class="btn-success" style="background:#0f9d58;" onclick="generateEqSheet()">🟢 GENERUJ ARKUSZ</button>
+       </div>
+       <div id="eqLogResults" style="margin-top:15px;"></div>
+    </div>
+
+    <div id="tab-edycja" class="tab-content">
+      <select id="adEditUser"><option value="">-- Pracownik --</option></select>
+      <input type="date" id="adEditDate">
+      <button class="btn-primary" onclick="loadAdminEditLogs()">POBIERZ WPISY DO EDYCJI</button>
+      <div id="adminEditResults" style="margin-top:15px;"></div>
+    </div>
+
+    <div id="tab-baza" class="tab-content">
+       <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px;">Konta Administratorów</h4>
+       <div id="db-admins"></div>
+       <button class="btn-admin" onclick="dbAdd('ADMIN')" style="margin-top:12px;">+ Dodaj Admina</button>
+       
+       <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Pracownicy</h4>
+       <div id="db-employees"></div>
+       <button class="btn-primary" onclick="dbAdd('EMPLOYEE')" style="margin-top:12px;">+ Dodaj Pracownika</button>
+       
+       <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Aktywności</h4>
+       <div id="db-activities"></div>
+       <button class="btn-primary" onclick="dbAdd('ACTIVITY')" style="margin-top:12px;">+ Dodaj Aktywność</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ==========================================
+     NOWY SILNIK KOMUNIKACJI Z RENDER.COM
+     ========================================== */
+  
+  // TUTAJ WKLEJ SWÓJ LINK Z RENDERA (bez ukośnika na końcu):
+const API_URL = "https://vmax-api.onrender.com/api";
+
+
+  // Uniwersalna funkcja do gadania z nowym serwerem w Pythonie
+  async function apiCall(endpoint, method = 'GET', body = null) {
+    try {
+      let options = { 
+        method: method, 
+        headers: { 'Content-Type': 'application/json' } 
+      };
+      if (body) options.body = JSON.stringify(body);
+      
+      const response = await fetch(API_URL + endpoint, options);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || `Błąd serwera: ${response.status}`);
+      }
+      return await response.json();
+    } catch (err) {
+      console.error("Błąd API:", err);
+      notify.error("Błąd połączenia", err.message);
+      return null;
+    }
+  }
+
+  /* ==========================================
+     LOGIKA APLIKACJI
+     ========================================== */
+
+  let currentUser = ""; let currentAdminName = ""; let allAktywnosci = []; 
+  let prodChartInstance = null; let currentProdData = null; let planningLoaded = false;
+  
+  const notify = {
+    toast: (t, icon='success') => Swal.fire({ icon: icon, title: t, timer: 1500, showConfirmButton: false, position: 'top-end', toast: true }),
+    success: (t) => Swal.fire({ icon: 'success', title: t, timer: 1500, showConfirmButton: false }),
+    error: (t, txt = "") => Swal.fire({ icon: 'error', title: t, text: txt }),
+    loading: (t) => Swal.fire({ title: t, allowOutsideClick: false, didOpen: () => Swal.showLoading() }),
+    close: () => Swal.close()
+  };
+
+  const parseTime = (s) => { let m = s.match(/(\d+)h\s*(\d+)m/); return m ? (parseInt(m[1])*60 + parseInt(m[2])) : 0; };
+  const formatMins = (m) => `${Math.floor(m/60)}h ${m%60}m`;
+
+  window.onload = () => {
+    let tzOffset = (new Date()).getTimezoneOffset() * 60000;
+    let localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
+    
+    document.getElementById('ad1').value = localISOTime; document.getElementById('ad2').value = localISOTime;
+    document.getElementById('prodDate1').value = localISOTime; document.getElementById('prodDate2').value = localISOTime; 
+    document.getElementById('eqDate1').value = localISOTime; document.getElementById('eqDate2').value = localISOTime; 
+    document.getElementById('adEditDate').value = localISOTime; document.getElementById('histMonth').value = localISOTime.substring(0, 7);
+    
+    refreshGlobalConfig();
+  };
+
+  function refreshGlobalConfig() {
+    apiCall('/config', 'GET').then(res => {
+      if(!res) return;
+      allAktywnosci = res.aktywnosci;
+      const uS = document.getElementById('userSelect'), aS = document.getElementById('adUser'), aeS = document.getElementById('adEditUser'), tS = document.getElementById('taskSelect');
+      
+      let uHtml = '<option value="">-- Wybierz profil --</option>'; let aHtml = '<option value="Wszyscy">Wszyscy pracownicy</option>'; let aeHtml = '<option value="">-- Pracownik --</option>';
+      let adminLogins = Object.keys(res.admins);
+      if(adminLogins.length === 0) uHtml += '<option value="ADMIN">👑 Główny Admin (Domyślny)</option>';
+      else adminLogins.forEach(ad => { uHtml += `<option value="${ad}">👑 Admin: ${ad}</option>`; });
+      
+      res.pracownicy.forEach(p => { uHtml += `<option value="${p}">${p}</option>`; aHtml += `<option value="${p}">${p}</option>`; aeHtml += `<option value="${p}">${p}</option>`; });
+      uS.innerHTML = uHtml; aS.innerHTML = aHtml; aeS.innerHTML = aeHtml;
+
+      let tHtml = ''; res.aktywnosci.forEach(a => { if(a !== "Rozpoczęcie pracy" && a !== "Zakończenie pracy") tHtml += `<option value="${a}">${a}</option>`; });
+      tS.innerHTML = tHtml;
+
+      let adminHtml = []; adminLogins.forEach(ad => { adminHtml.push(`<div class="db-item"><span>👑 <b>${ad}</b></span><div><button onclick="dbEditPinAdmin('${ad}')" style="width:auto; padding:8px 15px; margin-right:5px;" class="btn-warn">Hasło</button><button onclick="dbDelete('ADMIN','${ad}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div></div>`); });
+      if(adminLogins.length === 0) adminHtml.push("<div style='padding:15px; color:#888;'>Brak kont. Działa domyślne (ADMIN/admin).</div>");
+      document.getElementById('db-admins').innerHTML = adminHtml.join('');
+
+      let empHtml = []; res.pracownicy.forEach(p => { empHtml.push(`<div class="db-item"><span>${p}</span><div><button onclick="dbEditPin('${p}')" style="width:auto; padding:8px 15px; margin-right:5px;" class="btn-warn">PIN</button><button onclick="dbDelete('EMPLOYEE','${p}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div></div>`); });
+      document.getElementById('db-employees').innerHTML = empHtml.join('');
+        
+      let actHtml = []; res.aktywnosci.forEach(a => { actHtml.push(`<div class="db-item"><span>${a}</span><button onclick="dbDelete('ACTIVITY','${a}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div>`); });
+      document.getElementById('db-activities').innerHTML = actHtml.join('');
+    });
+  }
+
+  function login() {
+    const u = document.getElementById('userSelect').value, p = document.getElementById('pinInput').value;
+    if(!u || !p) return; notify.loading('Weryfikacja...');
+    
+    apiCall('/auth/login', 'POST', { username: u, pin: p }).then(res => {
+      notify.close();
+      if(res && res.role === "ADMIN") { 
+        currentAdminName = res.name; document.getElementById('adminNameDisplay').innerText = `(${currentAdminName})`;
+        document.getElementById('loginModal').style.display='none'; document.getElementById('adminView').style.display='block'; 
+      } else if(res && res.role === "USER") { 
+        currentUser = res.name; document.getElementById('userNameDisplay').innerText = currentUser; 
+        document.getElementById('userView').style.display='block'; document.getElementById('loginModal').style.display='none'; loadUserData(); 
+      } else { 
+        notify.error('Błędny PIN / Hasło!'); 
+      }
+    });
+  }
+
+  function logout() {
+    Swal.fire({ title: 'Wylogować?', icon: 'question', showCancelButton: true, confirmButtonText: 'Tak', cancelButtonText: 'Anuluj' }).then(res => {
+      if (res.isConfirmed) {
+        currentUser = ""; currentAdminName = ""; document.getElementById('pinInput').value = ""; document.getElementById('userSelect').value = "";
+        document.getElementById('userView').style.display = 'none'; document.getElementById('adminView').style.display = 'none'; document.getElementById('loginModal').style.display = 'block';
+        if(prodChartInstance) { prodChartInstance.destroy(); prodChartInstance = null; } notify.toast('Wylogowano!');
+      }
+    });
+  }
+
+  /* --- PLANOWANIE PRACY --- */
+  function togglePlanning() {
+    const section = document.getElementById('planningSection');
+    if (section.style.display === 'none') { section.style.display = 'block'; if (!planningLoaded) loadPlanningData(); } 
+    else { section.style.display = 'none'; }
+  }
+
+  function loadPlanningData() {
+    document.getElementById('planningContent').innerHTML = "<div class='inline-loader'>⏳ Sprawdzam grafik...</div>";
+    apiCall('/planning', 'GET').then(data => {
+      if (!data) return;
+      if (typeof data === 'string') { document.getElementById('planningContent').innerHTML = `<b style="color:red;">${data}</b>`; return; }
+      let html = "<div style='display:grid; gap:8px;'>";
+      data.forEach(day => {
+        if (day.found) { html += `<a href="${day.url}" target="_blank" style="text-decoration:none;"><button style="width:100%; margin:0; background:#0f9d58; color:white; border:none; padding:16px; border-radius:8px; font-weight:bold; cursor:pointer;">📅 ${day.date} (Otwórz arkusz)</button></a>`; } 
+        else { html += `<button disabled style="width:100%; margin:0; background:#eee; color:#999; border:none; padding:16px; border-radius:8px; font-weight:bold;">❌ ${day.date} (Brak grafiku)</button>`; }
+      });
+      html += "</div>"; document.getElementById('planningContent').innerHTML = html; planningLoaded = true;
+    });
+  }
+
+  /* --- WIDOK PRACOWNIKA & OPTIMISTIC UI --- */
+  function renderUserHistory(res) {
+    const b = document.getElementById('statusBanner');
+    if(res.currentTask) { 
+      b.className = "status-box status-on"; b.innerText = `🟢 TRWA: ${res.currentTask.name}`; 
+      document.getElementById('taskSection').style.display='block'; document.getElementById('startSection').style.display='none';
+      document.getElementById('eqSkaner').value = res.currentTask.skaner || ""; document.getElementById('eqWozek').value = res.currentTask.wozek || "";
+    } else { 
+      b.className = "status-box"; b.innerText = "⚪ Offline"; 
+      document.getElementById('startSection').style.display='block'; document.getElementById('taskSection').style.display='none'; 
+    }
+    
+    let hArray = []; let grouped = {}; let totalMins = 0;
+    res.hist.forEach(r => { if(!grouped[r.data]) grouped[r.data] = []; grouped[r.data].push(r); totalMins += parseTime(r.czas); });
+
+    Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(date => {
+      let dayMins = 0; grouped[date].forEach(r => dayMins += parseTime(r.czas));
+      hArray.push(`<tr class="day-sep-row"><td colspan="2">📅 ${date}</td><td style="text-align:right; color:var(--primary);">Σ ${formatMins(dayMins)}</td></tr>`);
+      grouped[date].forEach(r => {
+        let eq = (r.skaner || r.wozek) ? `<br><small style="color:#888;">Sk: ${r.skaner||'-'} | Wó: ${r.wozek||'-'}</small>` : "";
+        hArray.push(`<tr><td><b>${r.zadanie}</b>${eq}</td><td class="col-time">${r.start}-${r.koniec}</td><td style="text-align:right">${r.czas}</td></tr>`);
+      });
+    });
+    document.getElementById("histTableBody").innerHTML = hArray.join('') || '<tr><td colspan="3" style="text-align:center;">Brak wpisów</td></tr>';
+    document.getElementById('monthTotalBadge').innerText = `Suma: ${formatMins(totalMins)}`;
+  }
+
+  function loadUserData() {
+    if(!currentUser) return;
+    document.getElementById("histTableBody").innerHTML = '<tr><td colspan="3" class="inline-loader">Pobieranie danych...</td></tr>';
+    apiCall('/user/history', 'POST', { username: currentUser, month: document.getElementById('histMonth').value }).then(res => {
+      if(res) renderUserHistory(res);
+    });
+  }
+
+  function action(type, specific = null) {
+    if(type === 'STOP' && !confirm("Zakończyć pracę?")) return;
+    const s = document.getElementById('eqSkaner').value, w = document.getElementById('eqWozek').value, taskName = specific || document.getElementById('taskSelect').value, mStr = document.getElementById('histMonth').value;
+    const b = document.getElementById('statusBanner'); const tbody = document.getElementById("histTableBody");
+    let now = new Date(); let h = ("0"+now.getHours()).slice(-2) + ":" + ("0"+now.getMinutes()).slice(-2);
+    
+    if (type !== 'STOP') {
+        b.className = "status-box status-on"; b.innerText = `🟢 TRWA: ${taskName} (Zapisuję...)`; 
+        document.getElementById('taskSection').style.display='block'; document.getElementById('startSection').style.display='none';
+        let eq = (s || w) ? `<br><small style="color:#888;">Sk: ${s||'-'} | Wó: ${w||'-'}</small>` : "";
+        let fakeRow = `<tr style="opacity:0.5; background:#fffdf2;"><td><b>${taskName}</b>${eq}</td><td class="col-time">${h}-Trwa...</td><td style="text-align:right">Zapis...</td></tr>`;
+        tbody.insertAdjacentHTML('afterbegin', fakeRow);
+    } else {
+        b.className = "status-box"; b.innerText = "⚪ Zapisywanie..."; document.getElementById('startSection').style.display='block'; document.getElementById('taskSection').style.display='none';
+        let fakeRow = `<tr style="opacity:0.5; background:#fffdf2;"><td><b>Zakończenie pracy</b></td><td class="col-time">${h}-${h}</td><td style="text-align:right">-</td></tr>`; tbody.insertAdjacentHTML('afterbegin', fakeRow);
+    }
+    notify.toast('Zapisuję...', 'info'); 
+    
+    apiCall('/user/action', 'POST', { username: currentUser, type: type, task: taskName, skaner: s, wozek: w, month: mStr }).then(res => { 
+      if(!res) { notify.error("Błąd zapisu! Odświeżam..."); loadUserData(); return; } 
+      notify.toast('Zapisano!'); renderUserHistory(res); 
+    });
+  }
+
+  function updateMyEquipment() {
+    const s = document.getElementById('eqSkaner').value, w = document.getElementById('eqWozek').value, mStr = document.getElementById('histMonth').value; notify.toast('Zapisuję...', 'info');
+    apiCall('/user/equipment', 'POST', { username: currentUser, skaner: s, wozek: w, month: mStr }).then(res => { 
+      if(!res) { notify.error('Brak aktywnego zadania!'); loadUserData(); return; } 
+      notify.toast('Zapisano sprzęt!'); renderUserHistory(res); 
+    });
+  }
+
+  function changeMyPin() { 
+    Swal.fire({ title: 'Zmień swój PIN', input: 'password', showCancelButton: true, confirmButtonText: 'Zmień', cancelButtonText: 'Anuluj' }).then(res => { 
+      if(res.isConfirmed && res.value) { 
+        notify.loading('Zapisywanie...'); 
+        apiCall('/user/change-pin', 'POST', { username: currentUser, newPin: res.value }).then(resp => { 
+          if(resp) { notify.success('PIN zmieniony!'); refreshGlobalConfig(); }
+        }); 
+      } 
+    }); 
+  }
+
+  function changeMyPinAdmin() { 
+    if(currentAdminName === "ADMIN") { notify.error("Nie możesz zmienić hasła systemowego konta 'ADMIN'."); return; } 
+    Swal.fire({ title: 'Zmień swoje hasło', input: 'password', showCancelButton: true, confirmButtonText: 'Zmień', cancelButtonText: 'Anuluj' }).then(res => { 
+      if(res.isConfirmed && res.value) { 
+        notify.loading('Zapisywanie...'); 
+        apiCall('/admin/db', 'POST', { type: 'ADMIN', action: 'EDIT_PIN', name: currentAdminName, val: res.value }).then(resp => { 
+          if(resp) { notify.success('Hasło zmienione!'); refreshGlobalConfig(); }
+        }); 
+      } 
+    }); 
+  }
+  
+  function correctLastTask() { 
+    let opts = {}; allAktywnosci.forEach(a => { if(a !== "Rozpoczęcie pracy" && a !== "Zakończenie pracy") opts[a] = a; }); 
+    Swal.fire({ title: 'Popraw aktywność', input: 'select', inputOptions: opts, showCancelButton: true, confirmButtonText: 'Zmień' }).then(res => { 
+      if(res.isConfirmed && res.value) { 
+        notify.toast('Zmiana...', 'info'); 
+        apiCall('/user/correct-task', 'POST', { username: currentUser, task: res.value, month: document.getElementById('histMonth').value }).then(resData => { 
+          if(resData){ notify.toast('Poprawiono!'); renderUserHistory(resData); } else { notify.error('Błąd!'); loadUserData(); } 
+        }); 
+      } 
+    }); 
+  }
+
+  /* --- RAPORTY ADMINA --- */
+  function toggleAllDetails(state) { document.querySelectorAll('#adminResults details').forEach(d => d.open = state); }
+
+  function loadAdminReports() {
+    document.getElementById('adminResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie logów...</div>";
+    apiCall('/admin/reports', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value, user: document.getElementById('adUser').value }).then(res => {
+      if(!res) return;
+      let hArray = []; if (Object.keys(res).length > 0) { hArray.push(`<div class="bulk-actions"><button onclick="toggleAllDetails(true)" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;">↔ ROZWIŃ WSZYSTKICH</button><button onclick="toggleAllDetails(false)" style="background:#f1f3f4; color:#5f6368; border:1px solid #ddd;">↕ ZWIŃ WSZYSTKICH</button></div>`); }
+      for (let u in res) {
+        let card = `<div class="admin-report-worker-block"><details><summary><span>👤 ${u}</span><span class="total-pill">${res[u].totalStr}</span></summary><div style="padding:15px;">`;
+        let grouped = {}; res[u].logi.forEach(l => { if(!grouped[l.data]) grouped[l.data] = []; grouped[l.data].push(l); });
+        Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(d => {
+          let dayMins = 0; grouped[d].forEach(l => dayMins += parseTime(l.czas)); card += `<div class="day-sep-admin"><span>📅 ${d}</span><span>Σ ${formatMins(dayMins)}</span></div><table style="margin-bottom:15px;">`;
+          grouped[d].forEach(l => { let eq = (l.skaner || l.wozek) ? `<br><small style="color:#888;">Sk: ${l.skaner||'-'} | Wó: ${l.wozek||'-'}</small>` : ""; card += `<tr><td style="width:45%"><b>${l.zadanie}</b>${eq}</td><td class="col-time">${l.start}-${l.koniec}</td><td style="text-align:right">${l.czas}</td></tr>`; }); card += `</table>`;
+        }); card += `</div></details></div>`; hArray.push(card);
+      } document.getElementById('adminResults').innerHTML = hArray.join('') || "<div style='text-align:center;'>Brak danych.</div>";
+    });
+  }
+
+  function generateHrReport() { 
+    notify.toast('Pobieranie...', 'info'); 
+    apiCall('/admin/export-hr', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value }).then(data => { 
+      if(data && data.url) window.open(data.url, '_blank'); 
+    }); 
+  }
+  
+  function generateSheetsReport() { 
+    notify.toast('Pobieranie...', 'info'); 
+    apiCall('/admin/export-sheets', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value, user: document.getElementById('adUser').value }).then(data => { 
+      if(data && data.url) window.open(data.url, '_blank'); 
+    }); 
+  }
+
+  /* --- EDYCJA ADMINA --- */
+  function loadAdminEditLogs() {
+    const u = document.getElementById('adEditUser').value, d = document.getElementById('adEditDate').value; if(!u || !d) { notify.error("Wybierz pracownika i datę"); return; }
+    document.getElementById('adminEditResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie wpisów...</div>";
+    apiCall('/admin/edit-logs', 'POST', { username: u, date: d }).then(res => {
+      if(!res) return;
+      if(res.length === 0) { document.getElementById('adminEditResults').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów.</div>"; return; } let h = '';
+      res.forEach(r => { h += `<div class="admin-edit-row" id="edit_row_${r.id}"><div style="font-size:12px; color:#666; margin-bottom:5px;">ID wpisu: ${r.id}</div><div style="display:flex; gap:10px; margin-bottom:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Zadanie</label><input type="text" id="edit_task_${r.id}" value="${r.zadanie}" style="margin:0;"></div></div><div style="display:flex; gap:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Start</label><input type="time" id="edit_start_${r.id}" value="${r.start}" style="margin:0;"></div><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Koniec</label><input type="time" id="edit_end_${r.id}" value="${r.koniec}" style="margin:0;"></div></div></div>`; });
+      h += `<button class="btn-success" style="height:60px; font-size:16px;" onclick="saveAdminEdits('${d}')">💾 ZAPISZ ZMIANY W TYM DNIU</button>`; document.getElementById('adminEditResults').innerHTML = h;
+    });
+  }
+
+  function saveAdminEdits(dateStr) {
+    let updates = []; document.querySelectorAll('.admin-edit-row').forEach(row => { let id = row.id.replace('edit_row_', ''); updates.push({ id: id, task: document.getElementById('edit_task_' + id).value, start: document.getElementById('edit_start_' + id).value, end: document.getElementById('edit_end_' + id).value }); });
+    notify.toast('Zapisywanie...', 'info'); 
+    apiCall('/admin/update-batch', 'POST', { updates: updates, date: dateStr }).then(res => { 
+      if(res) { notify.toast('Zapisano pomyślnie!'); loadAdminEditLogs(); }
+    });
+  }
+
+  /* --- ANALITYKA --- */
+  function exportProductivityRange() {
+    Swal.fire({
+      title: 'Raport Wydajności', html: `<label>Data OD:</label><input type="date" id="swal-d1" class="swal2-input" value="${document.getElementById('prodDate1').value}" style="margin-top:5px; margin-bottom:15px;"><label>Data DO:</label><input type="date" id="swal-d2" class="swal2-input" value="${document.getElementById('prodDate2').value}" style="margin-top:5px;">`, showCancelButton: true, confirmButtonText: 'Generuj', cancelButtonText: 'Anuluj', preConfirm: () => { return [document.getElementById('swal-d1').value, document.getElementById('swal-d2').value] }
+    }).then(res => { 
+      if (res.isConfirmed && res.value[0] && res.value[1]) { 
+        notify.toast('Tworzę...', 'info'); 
+        apiCall('/admin/export-productivity', 'POST', { d1: res.value[0], d2: res.value[1] }).then(data => { 
+          if(data && data.url) window.open(data.url, '_blank'); else notify.error('Błąd generowania'); 
+        }); 
+      } 
+    });
+  }
+
+  function loadEfficiency() {
+    const d1 = document.getElementById('prodDate1').value, d2 = document.getElementById('prodDate2').value;
+    document.getElementById('efficiencyList').innerHTML = "<div class='inline-loader'>⏳ Analizowanie danych...</div>"; document.getElementById('chartContainer').style.display='none'; document.getElementById('efficiencyActions').style.display='none'; document.getElementById('prodActivitySelect').style.display='none';
+
+    apiCall('/admin/productivity', 'POST', { d1: d1, d2: d2 }).then(res => {
+      if(!res) return;
+      currentProdData = res; let acts = Object.keys(res.chartData);
+      if (acts.length === 0) { document.getElementById('efficiencyList').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów w wybranym zakresie.</div>"; return; }
+      
+      document.getElementById('chartContainer').style.display='block'; document.getElementById('prodActivitySelect').style.display='block';
+      let badgesArray = []; for(let a in res.headcount) { badgesArray.push(`<span class="headcount-badge">${a}: ${res.headcount[a]} os.</span>`); } document.getElementById('headcountBadges').innerHTML = badgesArray.join('');
+      
+      let totalPaczki = 0; let totalProdukty = 0;
+      for (let u in res.packingStats) { totalPaczki += (parseInt(res.packingStats[u].paczki) || 0); totalProdukty += (parseInt(res.packingStats[u].produkty) || 0); }
+      const totalsDiv = document.getElementById('prodDailyTotals'); if (totalPaczki > 0 || totalProdukty > 0) { totalsDiv.innerHTML = `📦 Spakowano paczek: <b>${totalPaczki}</b> &nbsp;|&nbsp; 🛒 Spakowano produktów: <b>${totalProdukty}</b>`; totalsDiv.style.display = 'block'; } else { totalsDiv.style.display = 'none'; }
+
+      let totalMinsAll = 0; acts.forEach(a => totalMinsAll += res.chartData[a]);
+      let richLabels = acts.map(a => { let m = res.chartData[a]; let pct = ((m / totalMinsAll) * 100).toFixed(1); let hStr = Math.floor(m/60) + "h " + (m%60) + "m"; return `${a} — ${hStr} (${pct}%)`; });
+
+      if(prodChartInstance) prodChartInstance.destroy();
+      prodChartInstance = new Chart(document.getElementById('prodChart'), { type:'doughnut', data: { labels: richLabels, datasets: [{ data: acts.map(a => (res.chartData[a]/60).toFixed(2)), backgroundColor: ['#0b57d0','#188038','#f29900','#8e24aa','#b3261e','#009688','#3f51b5','#e91e63'] }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 13, family: 'system-ui' }, padding: 15 } }, tooltip: { callbacks: { label: function(context) { return " " + context.label; } } } } } });
+      
+      let sel = document.getElementById('prodActivitySelect'); sel.innerHTML = ""; acts.forEach(a => sel.add(new Option(a, a))); if(acts.includes("Pakowanie Paczek")) sel.value = "Pakowanie Paczek"; renderEfficiencyList();
+    });
+  }
+
+  function calcRealTime(safeId, totalMins) { const p = parseFloat(document.getElementById(`paczki_${safeId}`).value) || 0; const prod = parseFloat(document.getElementById(`prod_${safeId}`).value) || 0; const h = totalMins / 60; document.getElementById(`stats_${safeId}`).innerText = `📦 Wydajność: ${h > 0 ? (p/h).toFixed(1) : 0} pacz/h | 🛒 ${h > 0 ? (prod/h).toFixed(1) : 0} prod/h`; }
+
+  function renderEfficiencyList() {
+    if(!currentProdData) return;
+    const act = document.getElementById('prodActivitySelect').value, d1 = document.getElementById('prodDate1').value, d2 = document.getElementById('prodDate2').value, isSingleDay = (d1 === d2); let hArray = [];
+    for(let u in currentProdData.workerDetails) {
+      let mins = currentProdData.workerDetails[u][act];
+      if(mins) {
+        if(act === "Pakowanie Paczek") {
+          let s = currentProdData.packingStats[u] || {paczki:0, produkty:0}; let safeId = u.replace(/\s+/g,'');
+          if(isSingleDay) { hArray.push(`<div class="efficiency-card worker-prod-card" data-worker="${u}" data-mins="${mins}"><div style="margin-bottom: 10px; font-weight:bold;">👤 ${u} (${(mins/60).toFixed(1)}h)</div><div class="efficiency-grid"><div><label>Paczki</label><input type="number" id="paczki_${safeId}" value="${s.paczki}" class="efficiency-input" oninput="calcRealTime('${safeId}', ${mins})"></div><div><label>Produkty</label><input type="number" id="prod_${safeId}" value="${s.produkty}" class="efficiency-input" oninput="calcRealTime('${safeId}', ${mins})"></div><div id="stats_${safeId}" class="efficiency-stats">📦 Wydajność: ${mins > 0 ? (s.paczki/(mins/60)).toFixed(1) : 0} pacz/h | 🛒 ${mins > 0 ? (s.produkty/(mins/60)).toFixed(1) : 0} prod/h</div></div></div>`); } 
+          else { hArray.push(`<div class="efficiency-card"><div style="margin-bottom: 10px; font-weight:bold; font-size:16px;">👤 ${u} (${(mins/60).toFixed(1)}h)</div><div class="efficiency-grid"><div><label>Spakowano paczek</label><div style="font-size:22px; font-weight:900; text-align:center; padding:10px; background:#f8fafc; border-radius:8px;">${s.paczki}</div></div><div><label>Spakowano produktów</label><div style="font-size:22px; font-weight:900; text-align:center; padding:10px; background:#f8fafc; border-radius:8px;">${s.produkty}</div></div><div class="efficiency-stats">📦 Wydajność: ${mins > 0 ? (s.paczki/(mins/60)).toFixed(1) : 0} pacz/h | 🛒 ${mins > 0 ? (s.produkty/(mins/60)).toFixed(1) : 0} prod/h</div></div></div>`); }
+        } else hArray.push(`<div class="efficiency-card"><b>👤 ${u}</b>: ${Math.floor(mins/60)}h ${mins%60}m</div>`);
+      }
+    }
+    document.getElementById('efficiencyList').innerHTML = hArray.join(''); document.getElementById('efficiencyActions').style.display = (act === "Pakowanie Paczek" && isSingleDay) ? 'block' : 'none';
+  }
+
+  function saveAllEfficiency() { 
+    const d1 = document.getElementById('prodDate1').value; let updates = []; 
+    document.querySelectorAll('.worker-prod-card').forEach(c => { let u = c.getAttribute('data-worker'), m = c.getAttribute('data-mins'), sId = u.replace(/\s+/g,''); updates.push({ worker: u, paczki: document.getElementById('paczki_' + sId).value || 0, produkty: document.getElementById('prod_' + sId).value || 0, mins: m }); }); 
+    notify.toast('Zapisuję...', 'info'); 
+    apiCall('/admin/save-productivity', 'POST', { date: d1, updates: updates }).then(res => { 
+      if(res) { notify.toast('Zapisano!'); loadEfficiency(); }
+    }); 
+  }
+
+  /* --- SPRZĘT I INNE --- */
+  function loadEqLog() {
+    const d1 = document.getElementById('eqDate1').value, d2 = document.getElementById('eqDate2').value, skaner = document.getElementById('eqFilterSkaner').value.trim(), wozek = document.getElementById('eqFilterWozek').value.trim(); 
+    document.getElementById('eqLogResults').innerHTML = "<div class='inline-loader'>⏳ Szukanie sprzętu...</div>";
+    apiCall('/admin/equipment-log', 'POST', { d1: d1, d2: d2, skaner: skaner, wozek: wozek }).then(res => { 
+      if(!res) return;
+      let hArray = []; res.forEach(r => { hArray.push(`<div class="eq-log-item"><b>${r.worker}</b> (${r.data} | ${r.start}-${r.koniec})<br>Zadanie: ${r.task} | Skaner: <b>${r.skaner||'-'}</b> | Wózek: <b>${r.wozek||'-'}</b></div>`); }); 
+      document.getElementById('eqLogResults').innerHTML = hArray.join('') || "<div class='card' style='text-align:center;'>Brak danych.</div>"; 
+    });
+  }
+
+  function generateEqSheet() { 
+    const d1 = document.getElementById('eqDate1').value, d2 = document.getElementById('eqDate2').value, skaner = document.getElementById('eqFilterSkaner').value.trim(), wozek = document.getElementById('eqFilterWozek').value.trim(); 
+    notify.toast('Generowanie...', 'info'); 
+    apiCall('/admin/export-equipment', 'POST', { d1: d1, d2: d2, skaner: skaner, wozek: wozek }).then(data => { 
+      if(data && data.url) window.open(data.url, '_blank'); 
+    }); 
+  }
+
+  function switchAdminTab(id, el) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); el.classList.add('active'); document.getElementById('tab-'+id).classList.add('active'); if(id === 'sprzet') loadEqLog(); }
+
+  function dbDelete(t, n) { 
+    Swal.fire({ title: `Usunąć ${n}?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Tak', cancelButtonText: 'Anuluj' }).then(res => { 
+      if (res.isConfirmed) { 
+        notify.loading('Usuwanie...'); 
+        apiCall('/admin/db', 'POST', { type: t, action: 'DELETE', name: n }).then(resp => { 
+          if(resp) { notify.toast('Usunięto'); refreshGlobalConfig(); }
+        }); 
+      } 
+    }); 
+  }
+  
+  function dbAdd(t) { 
+    let title = t === 'ADMIN' ? 'Dodaj Administratora' : (t === 'EMPLOYEE' ? 'Dodaj Pracownika' : 'Dodaj Aktywność'); 
+    let html = t === 'ACTIVITY' ? '<input id="sw_n" class="swal2-input" placeholder="Nazwa">' : '<input id="sw_n" class="swal2-input" placeholder="Login/Imię"><input id="sw_p" class="swal2-input" placeholder="Hasło/PIN">'; 
+    Swal.fire({ title: title, html: html, showCancelButton: true, preConfirm: () => [document.getElementById('sw_n').value, document.getElementById('sw_p') ? document.getElementById('sw_p').value : ""] }).then(r => { 
+      if(r.isConfirmed && r.value[0]) { 
+        notify.loading('Zapisuję...'); 
+        apiCall('/admin/db', 'POST', { type: t, action: 'ADD', name: r.value[0], val: r.value[1] }).then(resp => { 
+          if(resp) { notify.toast('Dodano'); refreshGlobalConfig(); }
+        }); 
+      } 
+    }); 
+  }
+</script>
+</body>
+</html>
