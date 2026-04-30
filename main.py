@@ -86,3 +86,22 @@ def start_task(action: ActionStart, db: Session = Depends(get_db)):
     # Tutaj w przyszłości dodamy wysyłanie do Google Sheets "w tle"
     
     return {"success": True, "message": f"Zapisano start: {action.task_name}", "user": user.name}
+
+# Dodaj ten schemat w sekcji 4 (tam gdzie jest ActionStart)
+class UserCreate(BaseModel):
+    name: str
+    pin: str
+
+# Dodaj ten endpoint w sekcji 5 (na samym końcu pliku)
+@app.post("/api/add-user")
+def add_user(user: UserCreate, db: Session = Depends(get_db)):
+    # Sprawdzamy czy PIN jest już zajęty
+    db_user = db.query(User).filter(User.pin == user.pin).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Ten PIN jest już w bazie!")
+    
+    # Tworzymy nowego pracownika
+    new_user = User(name=user.name, pin=user.pin)
+    db.add(new_user)
+    db.commit()
+    return {"success": True, "message": f"Dodano pracownika: {user.name}"}
