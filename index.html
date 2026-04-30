@@ -644,6 +644,27 @@ const API_URL = "https://vmax-api.onrender.com/api";
       } 
     }); 
   }
+  function dbEditPin(name) { 
+    Swal.fire({ title: `Zmień PIN pracownika: ${name}`, input: 'password', showCancelButton: true, confirmButtonText: 'Zapisz', cancelButtonText: 'Anuluj' }).then(res => { 
+      if(res.isConfirmed && res.value) { 
+        notify.loading('Zapisywanie...'); 
+        apiCall('/admin/db', 'POST', { type: 'EMPLOYEE', action: 'EDIT_PIN', name: name, val: res.value }).then(resp => { 
+          if(resp) { notify.toast('Zmieniono PIN'); refreshGlobalConfig(); }
+        }); 
+      } 
+    }); 
+  }
+
+  function dbEditPinAdmin(name) { 
+    Swal.fire({ title: `Zmień Hasło admina: ${name}`, input: 'password', showCancelButton: true, confirmButtonText: 'Zapisz', cancelButtonText: 'Anuluj' }).then(res => { 
+      if(res.isConfirmed && res.value) { 
+        notify.loading('Zapisywanie...'); 
+        apiCall('/admin/db', 'POST', { type: 'ADMIN', action: 'EDIT_PIN', name: name, val: res.value }).then(resp => { 
+          if(resp) { notify.toast('Zmieniono Hasło'); refreshGlobalConfig(); }
+        }); 
+      } 
+    }); 
+  }
 </script>
 </body>
 </html>
