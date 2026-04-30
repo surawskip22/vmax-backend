@@ -5,7 +5,9 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, desc
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from pydantic import BaseModel
 import os
-from datetime import datetime
+import csv
+import uuid
+from datetime import datetime, timedelta
 from typing import Optional, List
 
 # 1. KONFIGURACJA BAZY DANYCH
@@ -21,7 +23,7 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    role = Column(String, default="EMPLOYEE") # ADMIN lub EMPLOYEE
+    role = Column(String, default="EMPLOYEE")
     name = Column(String, unique=True, index=True)
     pin = Column(String)
 
@@ -37,23 +39,28 @@ class WorkLog(Base):
     task_name = Column(String)
     start_time = Column(DateTime, default=datetime.utcnow)
     end_time = Column(DateTime, nullable=True)
-    date_str = Column(String, index=True) # np. "2026-04-30"
-    skaner = Column(String, nullable=True)
-    wozek = Column(String, nullable=True)
+    date_str = Column(String, index=True)
+    skaner = Column(String, nullable=True, default="")
+    wozek = Column(String, nullable=True, default="")
 
-# Automatyczne utworzenie tabel
+class Productivity(Base):
+    __tablename__ = "productivity"
+    id = Column(Integer, primary_key=True, index=True)
+    date_str = Column(String, index=True)
+    username = Column(String, index=True)
+    paczki = Column(Integer, default=0)
+    produkty = Column(Integer, default=0)
+    mins = Column(Integer, default=0)
+
+# Automatyczne utworzenie tabel (jeśli nie istnieją)
 Base.metadata.create_all(bind=engine)
+
+# Tworzymy folder na pliki eksportu
+os.makedirs("exports", exist_ok=True)
 
 # 3. KONFIGURACJA SERWERA
 app = FastAPI(title="V-MAX 8.0 API")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 def get_db():
     db = SessionLocal()
@@ -62,139 +69,357 @@ def get_db():
     finally:
         db.close()
 
-# 4. SCHEMATY PYDANTIC (Odbieranie danych z HTML)
-class LoginRequest(BaseModel):
-    username: str
-    pin: str
+# 4. POMOCNICZE FUNKCJE
+def calc_mins(start: datetime, end: datetime):
+    if not start or not end: return 0
+    return int((end - start).total_seconds() / 60)
 
-class ActionRequest(BaseModel):
-    username: str
-    type: str
-    task: Optional[str] = None
-    skaner: Optional[str] = ""
-    wozek: Optional[str] = ""
-    month: Optional[str] = ""
+def format_dur(mins: int):
+    if mins < 0: mins = 0
+    return f"{mins//60}h {mins%60}m"
 
 # 5. GŁÓWNE ŚCIEŻKI (ENDPOINTY API)
 @app.get("/api/config")
 def get_config(db: Session = Depends(get_db)):
-    # Pobieranie konfiguracji dla ekranu logowania
     admins = {u.name: u.pin for u in db.query(User).filter(User.role == "ADMIN").all()}
     employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
     activities = [a.name for a in db.query(Activity).all()]
-    
-    # Dodajemy domyślne aktywności, jeśli baza jest nowa
     if not activities:
         default_acts = ["Rozpoczęcie pracy", "Zakończenie pracy", "Pakowanie Paczek", "Kompletacja"]
-        for act in default_acts:
-            db.add(Activity(name=act))
+        for act in default_acts: db.add(Activity(name=act))
         db.commit()
         activities = default_acts
-
-    return {
-        "admins": admins,
-        "pracownicy": employees,
-        "aktywnosci": activities
-    }
+    return {"admins": admins, "pracownicy": employees, "aktywnosci": activities}
 
 @app.post("/api/auth/login")
-def login(req: LoginRequest, db: Session = Depends(get_db)):
-    # Specjalne awaryjne logowanie dla pierwszego uruchomienia
-    if req.username == "ADMIN" and req.pin == "admin":
-        return {"name": "ADMIN", "role": "ADMIN"}
-        
-    user = db.query(User).filter(User.name == req.username, User.pin == req.pin).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
-    
+def login(req: dict, db: Session = Depends(get_db)):
+    u = req.get("username")
+    p = req.get("pin")
+    if u == "ADMIN" and p == "admin": return {"name": "ADMIN", "role": "ADMIN"}
+    user = db.query(User).filter(User.name == u, User.pin == p).first()
+    if not user: raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
     return {"name": user.name, "role": user.role}
 
 @app.post("/api/user/history")
 def get_user_history(req: dict, db: Session = Depends(get_db)):
-    # Pobiera historię pracy pracownika
-    logs = db.query(WorkLog).filter(WorkLog.username == req.get("username")).order_by(desc(WorkLog.id)).limit(50).all()
-    
-    hist_data = []
-    current_task = None
+    user = req.get("username")
+    month = req.get("month", "") # format "YYYY-MM"
+    logs = db.query(WorkLog).filter(WorkLog.username == user).order_by(desc(WorkLog.id)).limit(100).all()
+    hist_data, current_task = [], None
     
     for log in logs:
-        start_str = log.start_time.strftime("%H:%M") if log.start_time else ""
-        end_str = log.end_time.strftime("%H:%M") if log.end_time else "Trwa..."
-        
-        # Obliczanie czasu
-        czas_str = "-"
-        if log.end_time and log.start_time:
-            diff = int((log.end_time - log.start_time).total_seconds() / 60)
-            czas_str = f"{diff//60}h {diff%60}m"
-            
-        hist_data.append({
-            "data": log.date_str,
-            "zadanie": log.task_name,
-            "start": start_str,
-            "koniec": end_str,
-            "czas": czas_str,
-            "skaner": log.skaner,
-            "wozek": log.wozek
-        })
-        
-        if not log.end_time and not current_task:
+        if not month or log.date_str.startswith(month):
+            start_str = log.start_time.strftime("%H:%M") if log.start_time else ""
+            end_str = log.end_time.strftime("%H:%M") if log.end_time else "Trwa..."
+            czas_str = "-"
+            if log.end_time and log.start_time:
+                czas_str = format_dur(calc_mins(log.start_time, log.end_time))
+            hist_data.append({"data": log.date_str, "zadanie": log.task_name, "start": start_str, "koniec": end_str, "czas": czas_str, "skaner": log.skaner, "wozek": log.wozek})
+        if not log.end_time and not current_task and log.task_name != "Zakończenie pracy":
             current_task = {"name": log.task_name, "skaner": log.skaner, "wozek": log.wozek}
-
     return {"hist": hist_data, "currentTask": current_task}
 
 @app.post("/api/user/action")
-def user_action(req: ActionRequest, db: Session = Depends(get_db)):
+def user_action(req: dict, db: Session = Depends(get_db)):
+    user, act_type, task = req.get("username"), req.get("type"), req.get("task")
+    skaner, wozek = req.get("skaner", ""), req.get("wozek", "")
     now = datetime.utcnow()
     date_str = now.strftime("%Y-%m-%d")
     
-    # Znajdź niezakończone zadanie
-    active_log = db.query(WorkLog).filter(WorkLog.username == req.username, WorkLog.end_time == None).first()
+    active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
     
-    if req.type == "STOP":
-        if active_log:
-            active_log.end_time = now
-            db.commit()
-    else: # START lub ZMIANA ZADANIA
-        if active_log:
-            active_log.end_time = now
-            
-        new_log = WorkLog(
-            username=req.username,
-            task_name=req.task,
-            start_time=now,
-            date_str=date_str,
-            skaner=req.skaner,
-            wozek=req.wozek
-        )
+    if active_log:
+        active_log.end_time = now
+        db.commit()
+        
+    if act_type in ["START", "TASK"]:
+        new_log = WorkLog(username=user, task_name=task, start_time=now, date_str=date_str, skaner=skaner, wozek=wozek)
+        db.add(new_log)
+        db.commit()
+    elif act_type == "STOP":
+        new_log = WorkLog(username=user, task_name="Zakończenie pracy", start_time=now, end_time=now, date_str=date_str)
         db.add(new_log)
         db.commit()
 
-    # Zwraca odświeżoną historię
-    return get_user_history({"username": req.username}, db)
+    return get_user_history({"username": user}, db)
 
-# Prosty menedżer bazy danych z panelu Admina (Ustawienia)
+@app.post("/api/user/equipment")
+def update_equipment(req: dict, db: Session = Depends(get_db)):
+    active_log = db.query(WorkLog).filter(WorkLog.username == req.get("username"), WorkLog.end_time == None).first()
+    if not active_log: return False
+    active_log.skaner = req.get("skaner", "")
+    active_log.wozek = req.get("wozek", "")
+    db.commit()
+    return get_user_history({"username": req.get("username")}, db)
+
+@app.post("/api/user/change-pin")
+def change_pin(req: dict, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.name == req.get("username")).first()
+    if user:
+        user.pin = req.get("newPin")
+        db.commit()
+        return True
+    return False
+
+@app.post("/api/user/correct-task")
+def correct_task(req: dict, db: Session = Depends(get_db)):
+    last_log = db.query(WorkLog).filter(WorkLog.username == req.get("username"), WorkLog.task_name != "Zakończenie pracy").order_by(desc(WorkLog.id)).first()
+    if last_log:
+        last_log.task_name = req.get("task")
+        db.commit()
+        return get_user_history({"username": req.get("username")}, db)
+    return False
+
+# --- SEKCJA ADMINA ---
+@app.post("/api/admin/reports")
+def get_admin_reports(req: dict, db: Session = Depends(get_db)):
+    d1, d2, u_filter = req.get("d1"), req.get("d2"), req.get("user")
+    query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
+    if u_filter and u_filter != "Wszyscy": query = query.filter(WorkLog.username == u_filter)
+    
+    logs = query.order_by(desc(WorkLog.start_time)).all()
+    raport = {}
+    
+    for log in logs:
+        u = log.username
+        if u not in raport: raport[u] = {"totalMins": 0, "logi": []}
+        mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
+        raport[u]["totalMins"] += mins
+        
+        raport[u]["logi"].append({
+            "zadanie": log.task_name, "data": log.date_str,
+            "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
+            "czas": format_dur(mins) if log.end_time else "-", "skaner": log.skaner, "wozek": log.wozek
+        })
+        
+    for u in raport: raport[u]["totalStr"] = format_dur(raport[u]["totalMins"])
+    return raport
+
+@app.post("/api/admin/productivity")
+def get_productivity(req: dict, db: Session = Depends(get_db)):
+    d1, d2 = req.get("d1"), req.get("d2")
+    logs = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2).all()
+    prod_entries = db.query(Productivity).filter(Productivity.date_str >= d1, Productivity.date_str <= d2).all()
+    
+    chartData, headcount, workerDetails, packingStats = {}, {}, {}, {}
+    
+    for log in logs:
+        if log.task_name in ["Rozpoczęcie pracy", "Zakończenie pracy"]: continue
+        mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
+        if mins > 0:
+            act, u = log.task_name, log.username
+            chartData[act] = chartData.get(act, 0) + mins
+            if act not in headcount: headcount[act] = []
+            if u not in headcount[act]: headcount[act].append(u)
+            if u not in workerDetails: workerDetails[u] = {}
+            workerDetails[u][act] = workerDetails[u].get(act, 0) + mins
+            
+    for p in prod_entries:
+        u = p.username
+        if u not in packingStats: packingStats[u] = {"paczki": 0, "produkty": 0}
+        packingStats[u]["paczki"] += p.paczki
+        packingStats[u]["produkty"] += p.produkty
+        
+    for act in headcount: headcount[act] = len(headcount[act])
+    return {"chartData": chartData, "headcount": headcount, "workerDetails": workerDetails, "packingStats": packingStats}
+
+@app.post("/api/admin/save-productivity")
+def save_prod(req: dict, db: Session = Depends(get_db)):
+    date_str, updates = req.get("date"), req.get("updates", [])
+    for u in updates:
+        worker = u.get("worker")
+        entry = db.query(Productivity).filter(Productivity.date_str == date_str, Productivity.username == worker).first()
+        if not entry:
+            entry = Productivity(date_str=date_str, username=worker)
+            db.add(entry)
+        entry.paczki = int(u.get("paczki", 0))
+        entry.produkty = int(u.get("produkty", 0))
+        entry.mins = int(float(u.get("mins", 0)))
+    db.commit()
+    return True
+
+@app.post("/api/admin/equipment-log")
+def eq_log(req: dict, db: Session = Depends(get_db)):
+    d1, d2, s_filt, w_filt = req.get("d1"), req.get("d2"), req.get("skaner", ""), req.get("wozek", "")
+    query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
+    if s_filt: query = query.filter(WorkLog.skaner == s_filt)
+    if w_filt: query = query.filter(WorkLog.wozek == w_filt)
+    
+    logs = query.order_by(desc(WorkLog.start_time)).all()
+    results = []
+    for log in logs:
+        if not log.skaner and not log.wozek: continue
+        results.append({
+            "worker": log.username, "task": log.task_name, "data": log.date_str,
+            "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
+            "skaner": log.skaner, "wozek": log.wozek
+        })
+    return results
+
+@app.post("/api/admin/edit-logs")
+def get_edit_logs(req: dict, db: Session = Depends(get_db)):
+    logs = db.query(WorkLog).filter(WorkLog.username == req.get("username"), WorkLog.date_str == req.get("date")).order_by(desc(WorkLog.id)).all()
+    results = []
+    for log in logs:
+        results.append({
+            "id": log.id, "zadanie": log.task_name,
+            "start": log.start_time.strftime("%H:%M") if log.start_time else "",
+            "koniec": log.end_time.strftime("%H:%M") if log.end_time else ""
+        })
+    return results
+
+@app.post("/api/admin/update-batch")
+def update_batch(req: dict, db: Session = Depends(get_db)):
+    date_str = req.get("date")
+    updates = req.get("updates", [])
+    for u in updates:
+        log = db.query(WorkLog).filter(WorkLog.id == int(u.get("id"))).first()
+        if log:
+            log.task_name = u.get("task")
+            if u.get("start"):
+                log.start_time = datetime.strptime(f"{date_str} {u.get('start')}", "%Y-%m-%d %H:%M")
+            if u.get("end"):
+                log.end_time = datetime.strptime(f"{date_str} {u.get('end')}", "%Y-%m-%d %H:%M")
+    db.commit()
+    return True
+
 @app.post("/api/admin/db")
 def manage_db(req: dict, db: Session = Depends(get_db)):
-    action = req.get("action")
-    db_type = req.get("type")
-    name = req.get("name")
-    val = req.get("val")
-
+    action, db_type, name, val = req.get("action"), req.get("type"), req.get("name"), req.get("val")
     if action == "ADD":
-        if db_type == "EMPLOYEE":
-            db.add(User(name=name, pin=val, role="EMPLOYEE"))
-        elif db_type == "ADMIN":
-            db.add(User(name=name, pin=val, role="ADMIN"))
-        elif db_type == "ACTIVITY":
-            db.add(Activity(name=name))
+        if db_type == "EMPLOYEE": db.add(User(name=name, pin=val, role="EMPLOYEE"))
+        elif db_type == "ADMIN": db.add(User(name=name, pin=val, role="ADMIN"))
+        elif db_type == "ACTIVITY": db.add(Activity(name=name))
     elif action == "DELETE":
-        if db_type in ["EMPLOYEE", "ADMIN"]:
-            db.query(User).filter(User.name == name).delete()
-        elif db_type == "ACTIVITY":
-            db.query(Activity).filter(Activity.name == name).delete()
-            
+        if db_type in ["EMPLOYEE", "ADMIN"]: db.query(User).filter(User.name == name).delete()
+        elif db_type == "ACTIVITY": db.query(Activity).filter(Activity.name == name).delete()
+    elif action == "EDIT_PIN":
+        user = db.query(User).filter(User.name == name, User.role == db_type).first()
+        if user: user.pin = val
     db.commit()
     return {"status": "success"}
+
+# --- SYSTEM EKSPORTU PLIKÓW ---
+def create_csv(filename: str, rows: list):
+    filepath = os.path.join("exports", filename)
+    # Zapis z BOM, aby Excel na Windowsie z miejsca rozpoznawał UTF-8 i polskie znaki
+    with open(filepath, 'w', newline='', encoding='utf-8-sig') as f:
+        writer = csv.writer(f, delimiter=';') # Średnik to domyślny podział kolumn w polskim Excelu
+        writer.writerows(rows)
+    return f"/api/download/{filename}"
+
+@app.post("/api/admin/export-hr")
+def export_hr(req: dict, db: Session = Depends(get_db)):
+    d1, d2 = req.get("d1"), req.get("d2")
+    logs = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2).all()
+    stats = {}
+    for log in logs:
+        if not log.end_time: continue
+        u = log.username
+        if u not in stats: stats[u] = {"weekday": 0, "weekend": 0}
+        mins = calc_mins(log.start_time, log.end_time)
+        if log.start_time.weekday() >= 5: stats[u]["weekend"] += mins
+        else: stats[u]["weekday"] += mins
+        
+    rows = [["Pracownik", "Godziny Pn-Pt", "Godziny Weekend", "Suma Godzin"]]
+    for u, v in stats.items():
+        rows.append([u, format_dur(v["weekday"]), format_dur(v["weekend"]), format_dur(v["weekday"] + v["weekend"])])
+        
+    url = create_csv(f"Raport_HR_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)
+    return {"url": url}
+
+@app.post("/api/admin/export-sheets")
+def export_sheets(req: dict, db: Session = Depends(get_db)):
+    d1, d2, u_filt = req.get("d1"), req.get("d2"), req.get("user")
+    query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
+    if u_filt and u_filt != "Wszyscy": query = query.filter(WorkLog.username == u_filt)
+    logs = query.order_by(WorkLog.start_time).all()
+    
+    rows = [["Pracownik", "Zadanie", "Data", "Start", "Koniec", "Czas trwania", "Skaner", "Wozek"]]
+    for log in logs:
+        mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
+        rows.append([
+            log.username, log.task_name, log.date_str, 
+            log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
+            format_dur(mins) if log.end_time else "-", log.skaner, log.wozek
+        ])
+    
+    url = create_csv(f"Raport_Pelny_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)
+    return {"url": url}
+
+@app.post("/api/admin/export-productivity")
+def export_prod(req: dict, db: Session = Depends(get_db)):
+    d1, d2 = req.get("d1"), req.get("d2")
+    logs = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2, WorkLog.task_name == "Pakowanie Paczek").all()
+    prod_entries = db.query(Productivity).filter(Productivity.date_str >= d1, Productivity.date_str <= d2).all()
+    stats = {}
+    
+    for log in logs:
+        u = log.username
+        if u not in stats: stats[u] = {"mins": 0, "paczki": 0, "produkty": 0}
+        stats[u]["mins"] += calc_mins(log.start_time, log.end_time) if log.end_time else 0
+        
+    for p in prod_entries:
+        u = p.username
+        if u not in stats: stats[u] = {"mins": 0, "paczki": 0, "produkty": 0}
+        stats[u]["paczki"] += p.paczki
+        stats[u]["produkty"] += p.produkty
+        
+    rows = [["Pracownik", "Suma Godzin", "Spakowane Paczki", "Spakowane Produkty", "Paczki/h", "Produkty/h"]]
+    for u, v in stats.items():
+        if v["mins"] == 0 and v["paczki"] == 0: continue
+        h = v["mins"] / 60
+        pph = round(v["paczki"] / h, 2) if h > 0 else 0
+        prh = round(v["produkty"] / h, 2) if h > 0 else 0
+        rows.append([u, format_dur(v["mins"]), v["paczki"], v["produkty"], pph, prh])
+        
+    url = create_csv(f"Wydajnosc_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)
+    return {"url": url}
+
+@app.post("/api/admin/export-equipment")
+def export_eq(req: dict, db: Session = Depends(get_db)):
+    d1, d2, s_filt, w_filt = req.get("d1"), req.get("d2"), req.get("skaner", ""), req.get("wozek", "")
+    query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
+    if s_filt: query = query.filter(WorkLog.skaner == s_filt)
+    if w_filt: query = query.filter(WorkLog.wozek == w_filt)
+    logs = query.order_by(WorkLog.start_time).all()
+    
+    rows = [["Pracownik", "Zadanie", "Data", "Start", "Koniec", "Skaner", "Wozek"]]
+    for log in logs:
+        if not log.skaner and not log.wozek: continue
+        rows.append([
+            log.username, log.task_name, log.date_str,
+            log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
+            log.skaner, log.wozek
+        ])
+        
+    url = create_csv(f"Sprzet_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)
+    return {"url": url}
+
+@app.get("/api/download/{filename}")
+def download_file(filename: str):
+    file_path = os.path.join("exports", filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path, filename=filename, media_type="text/csv")
+    raise HTTPException(status_code=404, detail="Plik nie istnieje.")
+
+@app.get("/api/planning")
+def get_planning():
+    # Pobiera z Google tylko daty i generuje struktury pod ten specyficzny URL
+    PLANNING_SHEET_ID = "1kP-AIiDTPPwWJurt8AtQNnpuj_HhTciLzNHbToqgYjs"
+    today = datetime.now()
+    monday = today - timedelta(days=today.weekday())
+    weekly_data = []
+    
+    for i in range(7):
+        day = monday + timedelta(days=i)
+        date_str = day.strftime("%d.%m.%Y")
+        # Ponieważ z zewnątrz bez autoryzacji Google API nie możemy sprawdzić istnienia zakładki, 
+        # odsyłamy domyślny link kierujący na plik ogólny (Pracownik sam wybierze zakładkę).
+        sheet_url = f"https://docs.google.com/spreadsheets/d/{PLANNING_SHEET_ID}/edit"
+        weekly_data.append({"date": date_str, "found": True, "url": sheet_url})
+        
+    return weekly_data
 
 # 6. SERWOWANIE FRONTENDU (HTML)
 @app.get("/")
