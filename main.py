@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, desc
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
@@ -7,13 +7,9 @@ from pydantic import BaseModel
 import os
 import csv
 import uuid
+import re   
 from datetime import datetime, timedelta
 from typing import Optional, List
-import os
-import csv
-import uuid
-import re   # <--- TO DODAJEMY (do czytania dat)
-from datetime import datetime, timedelta
 
 # 1. KONFIGURACJA BAZY DANYCH
 db_url = os.getenv("DATABASE_URL", "sqlite:///./test.db")
@@ -47,6 +43,7 @@ class WorkLog(Base):
     date_str = Column(String, index=True)
     skaner = Column(String, nullable=True, default="")
     wozek = Column(String, nullable=True, default="")
+    is_autoclosed = Column(Integer, default=0) # Flaga auto-zamykania
 
 class Productivity(Base):
     __tablename__ = "productivity"
@@ -57,10 +54,8 @@ class Productivity(Base):
     produkty = Column(Integer, default=0)
     mins = Column(Integer, default=0)
 
-# Automatyczne utworzenie tabel (jeśli nie istnieją)
+# Automatyczne utworzenie tabel
 Base.metadata.create_all(bind=engine)
-
-# Tworzymy folder na pliki eksportu
 os.makedirs("exports", exist_ok=True)
 
 # 3. KONFIGURACJA SERWERA
@@ -69,10 +64,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, 
 
 def get_db():
     db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    try: yield db
+    finally: db.close()
 
 # 4. POMOCNICZE FUNKCJE
 def calc_mins(start: datetime, end: datetime):
@@ -83,9 +76,20 @@ def format_dur(mins: int):
     if mins < 0: mins = 0
     return f"{mins//60}h {mins%60}m"
 
+# Funkcja Auto-Control: Zamykanie sesji po 15h
+def run_checks(db: Session):
+    now = datetime.utcnow()
+    stale_logs = db.query(WorkLog).filter(WorkLog.end_time == None).all()
+    for log in stale_logs:
+        if (now - log.start_time).total_seconds() > 15 * 3600:
+            log.end_time = log.start_time + timedelta(hours=15)
+            log.is_autoclosed = 1
+    db.commit()
+
 # 5. GŁÓWNE ŚCIEŻKI (ENDPOINTY API)
 @app.get("/api/config")
 def get_config(db: Session = Depends(get_db)):
+    run_checks(db)
     admins = {u.name: u.pin for u in db.query(User).filter(User.role == "ADMIN").all()}
     employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
     activities = [a.name for a in db.query(Activity).all()]
@@ -100,25 +104,18 @@ def get_config(db: Session = Depends(get_db)):
 def login(req: dict, db: Session = Depends(get_db)):
     u = str(req.get("username", "")).strip()
     p = str(req.get("pin", "")).strip()
-    
-    # Domyślny admin awaryjny
     if u == "ADMIN" and p == "admin": 
         return {"name": "ADMIN", "role": "ADMIN"}
-        
     user = db.query(User).filter(User.name == u, User.pin == p).first()
     if not user: 
         raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
-    
-    # TŁUMACZ DLA FRONTENDU: 
-    # Baza używa nazwy "EMPLOYEE", ale nasz kod HTML oczekuje nazwy "USER"
     front_role = "USER" if user.role == "EMPLOYEE" else user.role
-    
     return {"name": user.name, "role": front_role}
 
 @app.post("/api/user/history")
 def get_user_history(req: dict, db: Session = Depends(get_db)):
     user = req.get("username")
-    month = req.get("month", "") # format "YYYY-MM"
+    month = req.get("month", "")
     logs = db.query(WorkLog).filter(WorkLog.username == user).order_by(desc(WorkLog.id)).limit(100).all()
     hist_data, current_task = [], None
     
@@ -136,13 +133,15 @@ def get_user_history(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/user/action")
 def user_action(req: dict, db: Session = Depends(get_db)):
-    user, act_type, task = req.get("username"), req.get("type"), req.get("task")
-    skaner, wozek = req.get("skaner", ""), req.get("wozek", "")
+    user = str(req.get("username", "")).strip()
+    act_type = req.get("type")
+    task = req.get("task")
+    skaner = str(req.get("skaner", "")).strip()
+    wozek = str(req.get("wozek", "")).strip()
     now = datetime.utcnow()
     date_str = now.strftime("%Y-%m-%d")
     
     active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
-    
     if active_log:
         active_log.end_time = now
         db.commit()
@@ -160,12 +159,13 @@ def user_action(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/user/equipment")
 def update_equipment(req: dict, db: Session = Depends(get_db)):
-    active_log = db.query(WorkLog).filter(WorkLog.username == req.get("username"), WorkLog.end_time == None).first()
+    user = str(req.get("username", "")).strip()
+    active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
     if not active_log: return False
-    active_log.skaner = req.get("skaner", "")
-    active_log.wozek = req.get("wozek", "")
+    active_log.skaner = str(req.get("skaner", "")).strip()
+    active_log.wozek = str(req.get("wozek", "")).strip()
     db.commit()
-    return get_user_history({"username": req.get("username")}, db)
+    return get_user_history({"username": user}, db)
 
 @app.post("/api/user/change-pin")
 def change_pin(req: dict, db: Session = Depends(get_db)):
@@ -186,6 +186,43 @@ def correct_task(req: dict, db: Session = Depends(get_db)):
     return False
 
 # --- SEKCJA ADMINA ---
+@app.get("/api/admin/active-sessions")
+def get_active_sessions(db: Session = Depends(get_db)):
+    run_checks(db)
+    active_logs = db.query(WorkLog).filter(WorkLog.end_time == None).all()
+    sessions = {}
+    for log in active_logs:
+        task = log.task_name
+        if task not in sessions: sessions[task] = []
+        sessions[task].append({
+            "user": log.username,
+            "skaner": log.skaner,
+            "wozek": log.wozek,
+            "start": log.start_time.strftime("%H:%M")
+        })
+    return sessions
+
+@app.get("/api/admin/alerts")
+def get_alerts(db: Session = Depends(get_db)):
+    run_checks(db)
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    logs = db.query(WorkLog).filter(WorkLog.date_str == today).all()
+    alerts = []
+    
+    auto = set([l.username for l in logs if l.is_autoclosed == 1])
+    for u in auto: alerts.append(f"🔴 {u}: System zamknął sesję z powodu braku aktywności (>15h).")
+    
+    users = set([l.username for l in logs])
+    for u in users:
+        u_logs = [l for l in logs if l.username == u]
+        break_mins = sum([calc_mins(l.start_time, l.end_time) for l in u_logs if "Przerwa" in l.task_name and l.end_time])
+        has_finished = any([l.end_time and l.task_name == "Zakończenie pracy" for l in u_logs])
+        
+        if break_mins == 0 and has_finished: alerts.append(f"⚠️ {u}: Zakończył pracę bez użycia przerwy.")
+        elif break_mins > 40: alerts.append(f"⏱️ {u}: Przekroczono limit przerwy (trwała {break_mins} min).")
+            
+    return alerts
+
 @app.post("/api/admin/reports")
 def get_admin_reports(req: dict, db: Session = Depends(get_db)):
     d1, d2, u_filter = req.get("d1"), req.get("d2"), req.get("user")
@@ -194,19 +231,16 @@ def get_admin_reports(req: dict, db: Session = Depends(get_db)):
     
     logs = query.order_by(desc(WorkLog.start_time)).all()
     raport = {}
-    
     for log in logs:
         u = log.username
         if u not in raport: raport[u] = {"totalMins": 0, "logi": []}
         mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
         raport[u]["totalMins"] += mins
-        
         raport[u]["logi"].append({
             "zadanie": log.task_name, "data": log.date_str,
             "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
             "czas": format_dur(mins) if log.end_time else "-", "skaner": log.skaner, "wozek": log.wozek
         })
-        
     for u in raport: raport[u]["totalStr"] = format_dur(raport[u]["totalMins"])
     return raport
 
@@ -217,7 +251,6 @@ def get_productivity(req: dict, db: Session = Depends(get_db)):
     prod_entries = db.query(Productivity).filter(Productivity.date_str >= d1, Productivity.date_str <= d2).all()
     
     chartData, headcount, workerDetails, packingStats = {}, {}, {}, {}
-    
     for log in logs:
         if log.task_name in ["Rozpoczęcie pracy", "Zakończenie pracy"]: continue
         mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
@@ -259,7 +292,6 @@ def eq_log(req: dict, db: Session = Depends(get_db)):
     query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
     if s_filt: query = query.filter(WorkLog.skaner == s_filt)
     if w_filt: query = query.filter(WorkLog.wozek == w_filt)
-    
     logs = query.order_by(desc(WorkLog.start_time)).all()
     results = []
     for log in logs:
@@ -300,7 +332,7 @@ def update_batch(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/admin/db")
 def manage_db(req: dict, db: Session = Depends(get_db)):
-    action, db_type, name, val = req.get("action"), req.get("type"), req.get("name"), req.get("val")
+    action, db_type, name, val = req.get("action"), req.get("type"), str(req.get("name", "")).strip(), str(req.get("val", "")).strip()
     if action == "ADD":
         if db_type == "EMPLOYEE": db.add(User(name=name, pin=val, role="EMPLOYEE"))
         elif db_type == "ADMIN": db.add(User(name=name, pin=val, role="ADMIN"))
@@ -317,9 +349,8 @@ def manage_db(req: dict, db: Session = Depends(get_db)):
 # --- SYSTEM EKSPORTU PLIKÓW ---
 def create_csv(filename: str, rows: list):
     filepath = os.path.join("exports", filename)
-    # Zapis z BOM, aby Excel na Windowsie z miejsca rozpoznawał UTF-8 i polskie znaki
     with open(filepath, 'w', newline='', encoding='utf-8-sig') as f:
-        writer = csv.writer(f, delimiter=';') # Średnik to domyślny podział kolumn w polskim Excelu
+        writer = csv.writer(f, delimiter=';')
         writer.writerows(rows)
     return f"/api/download/{filename}"
 
@@ -335,13 +366,9 @@ def export_hr(req: dict, db: Session = Depends(get_db)):
         mins = calc_mins(log.start_time, log.end_time)
         if log.start_time.weekday() >= 5: stats[u]["weekend"] += mins
         else: stats[u]["weekday"] += mins
-        
     rows = [["Pracownik", "Godziny Pn-Pt", "Godziny Weekend", "Suma Godzin"]]
-    for u, v in stats.items():
-        rows.append([u, format_dur(v["weekday"]), format_dur(v["weekend"]), format_dur(v["weekday"] + v["weekend"])])
-        
-    url = create_csv(f"Raport_HR_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)
-    return {"url": url}
+    for u, v in stats.items(): rows.append([u, format_dur(v["weekday"]), format_dur(v["weekend"]), format_dur(v["weekday"] + v["weekend"])])
+    return {"url": create_csv(f"Raport_HR_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)}
 
 @app.post("/api/admin/export-sheets")
 def export_sheets(req: dict, db: Session = Depends(get_db)):
@@ -349,18 +376,11 @@ def export_sheets(req: dict, db: Session = Depends(get_db)):
     query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
     if u_filt and u_filt != "Wszyscy": query = query.filter(WorkLog.username == u_filt)
     logs = query.order_by(WorkLog.start_time).all()
-    
     rows = [["Pracownik", "Zadanie", "Data", "Start", "Koniec", "Czas trwania", "Skaner", "Wozek"]]
     for log in logs:
         mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
-        rows.append([
-            log.username, log.task_name, log.date_str, 
-            log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
-            format_dur(mins) if log.end_time else "-", log.skaner, log.wozek
-        ])
-    
-    url = create_csv(f"Raport_Pelny_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)
-    return {"url": url}
+        rows.append([log.username, log.task_name, log.date_str, log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa", format_dur(mins) if log.end_time else "-", log.skaner, log.wozek])
+    return {"url": create_csv(f"Raport_Pelny_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)}
 
 @app.post("/api/admin/export-productivity")
 def export_prod(req: dict, db: Session = Depends(get_db)):
@@ -368,18 +388,15 @@ def export_prod(req: dict, db: Session = Depends(get_db)):
     logs = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2, WorkLog.task_name == "Pakowanie Paczek").all()
     prod_entries = db.query(Productivity).filter(Productivity.date_str >= d1, Productivity.date_str <= d2).all()
     stats = {}
-    
     for log in logs:
         u = log.username
         if u not in stats: stats[u] = {"mins": 0, "paczki": 0, "produkty": 0}
         stats[u]["mins"] += calc_mins(log.start_time, log.end_time) if log.end_time else 0
-        
     for p in prod_entries:
         u = p.username
         if u not in stats: stats[u] = {"mins": 0, "paczki": 0, "produkty": 0}
         stats[u]["paczki"] += p.paczki
         stats[u]["produkty"] += p.produkty
-        
     rows = [["Pracownik", "Suma Godzin", "Spakowane Paczki", "Spakowane Produkty", "Paczki/h", "Produkty/h"]]
     for u, v in stats.items():
         if v["mins"] == 0 and v["paczki"] == 0: continue
@@ -387,9 +404,7 @@ def export_prod(req: dict, db: Session = Depends(get_db)):
         pph = round(v["paczki"] / h, 2) if h > 0 else 0
         prh = round(v["produkty"] / h, 2) if h > 0 else 0
         rows.append([u, format_dur(v["mins"]), v["paczki"], v["produkty"], pph, prh])
-        
-    url = create_csv(f"Wydajnosc_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)
-    return {"url": url}
+    return {"url": create_csv(f"Wydajnosc_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)}
 
 @app.post("/api/admin/export-equipment")
 def export_eq(req: dict, db: Session = Depends(get_db)):
@@ -398,18 +413,11 @@ def export_eq(req: dict, db: Session = Depends(get_db)):
     if s_filt: query = query.filter(WorkLog.skaner == s_filt)
     if w_filt: query = query.filter(WorkLog.wozek == w_filt)
     logs = query.order_by(WorkLog.start_time).all()
-    
     rows = [["Pracownik", "Zadanie", "Data", "Start", "Koniec", "Skaner", "Wozek"]]
     for log in logs:
         if not log.skaner and not log.wozek: continue
-        rows.append([
-            log.username, log.task_name, log.date_str,
-            log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
-            log.skaner, log.wozek
-        ])
-        
-    url = create_csv(f"Sprzet_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)
-    return {"url": url}
+        rows.append([log.username, log.task_name, log.date_str, log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa", log.skaner, log.wozek])
+    return {"url": create_csv(f"Sprzet_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)}
 
 @app.get("/api/download/{filename}")
 def download_file(filename: str):
@@ -420,24 +428,18 @@ def download_file(filename: str):
 
 @app.get("/api/planning")
 def get_planning():
-    # Pobiera z Google tylko daty i generuje struktury pod ten specyficzny URL
     PLANNING_SHEET_ID = "1kP-AIiDTPPwWJurt8AtQNnpuj_HhTciLzNHbToqgYjs"
     today = datetime.now()
     monday = today - timedelta(days=today.weekday())
     weekly_data = []
-    
     for i in range(7):
         day = monday + timedelta(days=i)
         date_str = day.strftime("%d.%m.%Y")
-        # Ponieważ z zewnątrz bez autoryzacji Google API nie możemy sprawdzić istnienia zakładki, 
-        # odsyłamy domyślny link kierujący na plik ogólny (Pracownik sam wybierze zakładkę).
         sheet_url = f"https://docs.google.com/spreadsheets/d/{PLANNING_SHEET_ID}/edit"
         weekly_data.append({"date": date_str, "found": True, "url": sheet_url})
-        
     return weekly_data
-# --- TAJNY MECHANIZM MIGRACJI DANYCH ---
-from fastapi.responses import HTMLResponse
 
+# --- TAJNY MECHANIZM MIGRACJI DANYCH ---
 @app.get("/api/secret-migration-123", response_class=HTMLResponse)
 def run_migration(db: Session = Depends(get_db)):
     try:
@@ -464,10 +466,8 @@ def run_migration(db: Session = Depends(get_db)):
                     return list(csv.reader(f, dialect))
                 except Exception:
                     f.seek(0)
-                    if ';' in content[:1024]:
-                        return list(csv.reader(f, delimiter=';'))
-                    else:
-                        return list(csv.reader(f, delimiter=','))
+                    if ';' in content[:1024]: return list(csv.reader(f, delimiter=';'))
+                    else: return list(csv.reader(f, delimiter=','))
 
         Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
@@ -481,13 +481,11 @@ def run_migration(db: Session = Depends(get_db)):
                 db.add(User(name=name, pin=pin, role="EMPLOYEE"))
             if len(row) > 2 and row[2].strip():
                 act_name = row[2].strip()
-                if not db.query(Activity).filter_by(name=act_name).first():
-                    db.add(Activity(name=act_name))
+                if not db.query(Activity).filter_by(name=act_name).first(): db.add(Activity(name=act_name))
             if len(row) > 4 and row[4].strip():
                 ad_name = row[4].strip()
                 ad_pin = row[5].strip() if len(row) > 5 else "admin"
-                if not db.query(User).filter_by(name=ad_name).first():
-                    db.add(User(name=ad_name, pin=ad_pin, role="ADMIN"))
+                if not db.query(User).filter_by(name=ad_name).first(): db.add(User(name=ad_name, pin=ad_pin, role="ADMIN"))
         db.commit()
 
         rap_rows = read_csv('Raport.csv')
@@ -525,7 +523,6 @@ def run_migration(db: Session = Depends(get_db)):
     except Exception as e:
         return f"<h1>❌ BLAD:</h1><p>{str(e)}</p>"
 
-# 6. SERWOWANIE FRONTENDU
 @app.get("/")
 def serve_frontend():
     return FileResponse("index.html")
