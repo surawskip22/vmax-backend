@@ -174,8 +174,9 @@
       <select id="adUser"><option value="Wszyscy">Wszyscy pracownicy</option></select>
       <div class="bulk-actions">
         <button class="btn-success" onclick="loadAdminReports()">POKAŻ RAPORT</button>
-        <button class="btn-success" style="background:#0f9d58;" onclick="generateSheetsReport()">🟢 PEŁNY ARKUSZ</button>
-        <button class="btn-success" style="background:#b3261e;" onclick="generateHrReport()">📁 RAPORT HR</button>
+        <!-- Wyłączamy bezpośrednie ładowanie przez stare linki Sheets na ten moment -->
+        <button class="btn-success" style="background:#b3261e;" onclick="generateHrReport()">📁 POBIERZ RAPORT HR</button>
+        <button class="btn-success" style="background:#0f9d58;" onclick="generateSheetsReport()">📊 POBIERZ PEŁNY RAPORT</button>
       </div>
       <div id="adminResults" style="margin-top:20px;"></div>
     </div>
@@ -190,7 +191,9 @@
           <h4 style="margin-top:0; color:#333; font-size:16px;">Podział Pracy Zespołu</h4>
           <div class="chart-wrapper"><canvas id="prodChart"></canvas></div>
           <div id="headcountBadges" style="margin-top:15px; text-align:center;"></div>
-          <div id="prodDailyTotals" style="margin-top:15px; text-align:center; font-size:15px; font-weight:bold; color:var(--primary); background:#e8f0fe; padding:10px; border-radius:10px; display:none;"></div>
+          
+          <div id="prodDailyTotals" style="margin-top:15px; text-align:center; background:#e8f0fe; padding:15px; border-radius:10px; border: 1px solid #c3d4f2; display:none;"></div>
+          
           <button class="btn-success" style="margin-top:15px; height: 50px; font-size: 15px;" onclick="exportProductivityRange()">📊 POBIERZ ARKUSZ WYDAJNOŚCI</button>
        </div>
        <select id="prodActivitySelect" onchange="renderEfficiencyList()" style="margin-top:20px; display:none;"></select>
@@ -211,7 +214,7 @@
        </div>
        <div class="bulk-actions">
          <button class="btn-success" onclick="loadEqLog()">🔍 SZUKAJ</button>
-         <button class="btn-success" style="background:#0f9d58;" onclick="generateEqSheet()">🟢 GENERUJ ARKUSZ</button>
+         <button class="btn-success" style="background:#0f9d58;" onclick="generateEqSheet()">📊 POBIERZ ARKUSZ</button>
        </div>
        <div id="eqLogResults" style="margin-top:15px;"></div>
     </div>
@@ -249,6 +252,7 @@
 
 <script>
   const API_URL = "https://vmax-api.onrender.com/api";
+  const BASE_URL = "https://vmax-api.onrender.com";
 
   async function apiCall(endpoint, method = 'GET', body = null) {
     try {
@@ -583,8 +587,9 @@
     });
   }
 
-  function generateHrReport() { apiCall('/admin/export-hr', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value }).then(data => { if(data && data.url) window.open(data.url, '_blank'); }); }
-  function generateSheetsReport() { apiCall('/admin/export-sheets', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value, user: document.getElementById('adUser').value }).then(data => { if(data && data.url) window.open(data.url, '_blank'); }); }
+  // Używamy globalnego BASE_URL aby obejść problem pobierania plików
+  function generateHrReport() { apiCall('/admin/export-hr', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value }).then(data => { if(data && data.url) window.location.href = BASE_URL + data.url; }); }
+  function generateSheetsReport() { apiCall('/admin/export-sheets', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value, user: document.getElementById('adUser').value }).then(data => { if(data && data.url) window.location.href = BASE_URL + data.url; }); }
 
   function loadEfficiency() {
     const d1 = document.getElementById('prodDate1').value, d2 = document.getElementById('prodDate2').value;
@@ -595,12 +600,22 @@
       if (acts.length === 0) { document.getElementById('efficiencyList').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów w wybranym zakresie.</div>"; return; }
       document.getElementById('chartContainer').style.display='block'; document.getElementById('prodActivitySelect').style.display='block';
       let badgesArray = []; for(let a in res.headcount) { badgesArray.push(`<span class="headcount-badge">${a}: ${res.headcount[a]} os.</span>`); } document.getElementById('headcountBadges').innerHTML = badgesArray.join('');
+      
+      let totalPaczki = 0; let totalProdukty = 0;
+      for (let u in res.packingStats) { totalPaczki += (parseInt(res.packingStats[u].paczki) || 0); totalProdukty += (parseInt(res.packingStats[u].produkty) || 0); }
+      const totalsDiv = document.getElementById('prodDailyTotals'); 
+      if (totalPaczki > 0 || totalProdukty > 0) { totalsDiv.innerHTML = `📦 Calkowita wydajność zespołu:<br>Spakowano paczek: <b>${totalPaczki}</b> &nbsp;|&nbsp; Spakowano produktów: <b>${totalProdukty}</b>`; totalsDiv.style.display = 'block'; } else { totalsDiv.style.display = 'none'; }
+
       let totalMinsAll = 0; acts.forEach(a => totalMinsAll += res.chartData[a]);
       let richLabels = acts.map(a => { let m = res.chartData[a]; let pct = ((m / totalMinsAll) * 100).toFixed(1); let hStr = Math.floor(m/60) + "h " + (m%60) + "m"; return `${a} — ${hStr} (${pct}%)`; });
       if(prodChartInstance) prodChartInstance.destroy();
       prodChartInstance = new Chart(document.getElementById('prodChart'), { type:'doughnut', data: { labels: richLabels, datasets: [{ data: acts.map(a => (res.chartData[a]/60).toFixed(2)), backgroundColor: ['#0b57d0','#188038','#f29900','#8e24aa','#b3261e','#009688','#3f51b5','#e91e63'] }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 13, family: 'system-ui' }, padding: 15 } } } } });
       let sel = document.getElementById('prodActivitySelect'); sel.innerHTML = ""; acts.forEach(a => sel.add(new Option(a, a))); if(acts.includes("Pakowanie Paczek")) sel.value = "Pakowanie Paczek"; renderEfficiencyList();
     });
+  }
+
+  function exportProductivityRange() {
+      apiCall('/admin/export-productivity', 'POST', { d1: document.getElementById('prodDate1').value, d2: document.getElementById('prodDate2').value }).then(data => { if(data && data.url) window.location.href = BASE_URL + data.url; });
   }
 
   function renderEfficiencyList() {
@@ -633,7 +648,7 @@
     });
   }
 
-  function generateEqSheet() { apiCall('/admin/export-equipment', 'POST', { d1: document.getElementById('eqDate1').value, d2: document.getElementById('eqDate2').value, skaner: document.getElementById('eqFilterSkaner').value.trim(), wozek: document.getElementById('eqFilterWozek').value.trim() }).then(data => { if(data && data.url) window.open(data.url, '_blank'); }); }
+  function generateEqSheet() { apiCall('/admin/export-equipment', 'POST', { d1: document.getElementById('eqDate1').value, d2: document.getElementById('eqDate2').value, skaner: document.getElementById('eqFilterSkaner').value.trim(), wozek: document.getElementById('eqFilterWozek').value.trim() }).then(data => { if(data && data.url) window.location.href = BASE_URL + data.url; }); }
 
   function switchAdminTab(id, el) { 
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
