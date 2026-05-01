@@ -60,13 +60,7 @@
     .inline-loader { text-align: center; padding: 30px; color: #666; font-weight: bold; font-size: 16px; }
     .alert-card { background: #fff5f5; border: 1px solid #feb2b2; border-left: 6px solid var(--danger); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; }
     .live-session-card { background: #e6f4ea; border: 1px solid #ceead6; border-left: 6px solid var(--success); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; display:flex; justify-content:space-between; align-items:center; }
-    
-    /* NOWOŚĆ: ComboBox Custom Styling */
-    .combo-wrapper { position: relative; width: 100%; }
-    .combo-input { width: 100%; padding: 16px; border-radius: 12px; border: 1px solid var(--border); font-size: 16px; font-weight: bold; text-align: center; }
-    .combo-list { position: absolute; top: 100%; left: 0; width: 100%; background: #fff; border: 1px solid #ccc; border-radius: 8px; max-height: 250px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .combo-item { padding: 12px; cursor: pointer; text-align: left; font-size: 16px; border-bottom: 1px solid #eee; }
-    .combo-item:hover { background: var(--bg); color: var(--primary); font-weight: bold; }
+    .msg-checkbox { transform: scale(1.5); margin-right: 15px; cursor: pointer;}
   </style>
 </head>
 <body>
@@ -74,13 +68,8 @@
 <div id="loginModal">
   <div class="card" style="max-width:450px; margin: 40px auto;">
     <div class="main-title">WorkFlow V-MAX</div>
-    
-    <!-- COMBOBOX DLA PRACOWNIKÓW -->
-    <div class="combo-wrapper" id="comboWrapper">
-        <input type="text" id="userSelectInput" class="combo-input" placeholder="Wybierz lub wpisz profil..." onfocus="showCombo()" oninput="filterCombo()" autocomplete="off">
-        <div id="comboList" class="combo-list"></div>
-    </div>
-
+    <input list="usersList" id="userSelectInput" placeholder="Wybierz lub wpisz imię..." style="text-align:center; font-weight:bold;">
+    <datalist id="usersList"></datalist>
     <input type="password" id="pinInput" placeholder="KOD PIN" style="text-align:center; letter-spacing:10px; font-size: 24px;">
     <button class="btn-primary" onclick="login()">ZALOGUJ SIĘ</button>
   </div>
@@ -93,16 +82,20 @@
       <button onclick="logout()" style="width:auto; padding:8px 15px; background:#eee;">Wyloguj</button>
     </div>
 
-    <button class="btn-warn" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2; margin-bottom:15px;" onclick="togglePlanning()">📅 ZOBACZ PLAN TYGODNIA</button>
+    <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <button class="btn-warn" style="flex:1; background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2; margin:0;" onclick="togglePlanning()">📅 ZOBACZ GRAFIK</button>
+        <button class="btn-danger" style="flex:1; background:#fff5f5; border:1px solid #feb2b2; margin:0; padding:10px;" onclick="reportProblem()">⚠️ ZGŁOŚ PROBLEM</button>
+    </div>
+    
     <div id="planningSection" class="card" style="display:none; background:#f8fafd; border:1px solid var(--primary); font-size:14px; margin-bottom:20px;">
-      <h4 style="margin-top:0;">📋 Twój grafik (kliknij, by otworzyć)</h4>
+      <h4 style="margin-top:0;">📋 Twój grafik</h4>
       <div id="planningContent">Ładowanie...</div>
     </div>
     
     <div id="statusBanner" class="status-box">Status...</div>
     
     <div class="equipment-block">
-        <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">🛠️ Wybierz swój sprzęt</h4>
+        <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">🛠️ Twój Sprzęt</h4>
         <div style="display:flex; gap:10px;">
            <select id="eqSkaner" style="margin:0; padding:10px;" disabled><option value="">-- Skaner --</option></select>
            <select id="eqWozek" style="margin:0; padding:10px;" disabled><option value="">-- Wózek --</option></select>
@@ -114,7 +107,6 @@
       <div id="startSection" style="display:none;">
         <button class="btn-success" onclick="action('START', 'Rozpoczęcie pracy')">▶ ROZPOCZNIJ DZIEŃ</button>
       </div>
-      
       <div id="taskSection" style="display:none;">
         <select id="taskSelect"></select>
         <button class="btn-warn" style="background:#fff; color:var(--warning); border:1px solid var(--warning);" onclick="correctLastTask()">✏️ Popraw aktywność</button>
@@ -142,63 +134,60 @@
   <div class="card" style="background:#1f2937; color:white; display:flex; justify-content:space-between; align-items:center;">
     <h2 style="font-size:18px; margin:0;">👑 PANEL ADMINA <span id="adminNameDisplay" style="color:#f29900; font-size:14px; margin-left:10px;"></span></h2>
     <div>
-      <button onclick="changeMyPinAdmin()" style="width:auto; background:#f29900; color:#333; padding:8px 15px; margin-right:10px; font-size: 13px;">Zmień Hasło</button>
+      <button onclick="changeMyPinAdmin()" style="width:auto; background:#f29900; color:#333; padding:8px 15px; margin-right:10px; font-size: 13px;">Hasło</button>
       <button onclick="logout()" style="width:auto; background:var(--danger); color:white; padding:8px 15px; font-size: 13px;">Wyloguj</button>
     </div>
   </div>
   
-  <div class="card">
+  <div class="card" style="padding:10px;">
     <div class="tabs">
-      <div class="tab active" onclick="switchAdminTab('live', this)">🟢 Aktywne Sesje</div>
-      <div class="tab" onclick="switchAdminTab('alerty', this)">⚠️ Alerty</div>
+      <div class="tab active" onclick="switchAdminTab('live', this)">🟢 Live Sesje</div>
+      <div class="tab" onclick="switchAdminTab('alerty', this)">⚠️ Alert & Problemy</div>
       <div class="tab" onclick="switchAdminTab('raporty', this)">📊 Raporty</div>
       <div class="tab" onclick="switchAdminTab('produkcja', this)">📦 Analityka</div>
       <div class="tab" onclick="switchAdminTab('sprzet', this)">🛠️ Sprzęt</div>
       <div class="tab" onclick="switchAdminTab('edycja', this)">✏️ Edycja</div>
-      <div class="tab" onclick="switchAdminTab('baza', this)">⚙️ Ustawienia</div>
       <div class="tab" onclick="switchAdminTab('backup', this)">💾 Kopia Bazy</div>
+      <div class="tab" onclick="switchAdminTab('baza', this)">⚙️ Ustawienia</div>
     </div>
 
-    <div id="tab-live" class="tab-content active">
-        <h4 style="color:var(--success);">Pracownicy aktualnie w pracy</h4>
-        <div class="bulk-actions">
-            <button class="btn-primary" onclick="loadActiveSessions()">Odśwież Listę</button>
-            <button class="btn-danger" style="background:#b3261e; color:white; border:none;" onclick="closeAllLiveSessions()">🛑 ZAMKNIJ WSZYSTKIE SESJE</button>
+    <!-- RADIOWĘZEŁ I LIVE SESSIONS -->
+    <div id="tab-live" class="tab-content active" style="padding:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h4 style="color:var(--success); margin:0;">Zarządzaj zespołem</h4>
+            <button class="btn-danger" style="width:auto; padding:10px; font-size:13px; background:#b3261e; color:white; border:none;" onclick="closeAllLiveSessions()">🛑 ZAMKNIJ WSZYSTKIE</button>
         </div>
-        
-        <!-- PANEL RADIOWĘZŁA -->
-        <div style="background:#fff3e0; border:1px solid #ffe0b2; padding:15px; border-radius:10px; margin-bottom:15px;">
-            <h4 style="margin-top:0; color:#e65100;">📢 Wyślij Komunikat</h4>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <input type="text" id="liveMsgInput" placeholder="Treść komunikatu..." style="margin:0; flex:2;">
-                <button class="btn-warn" style="margin:0; width:auto; flex:1;" onclick="sendNotification()">Wyslij Zaznaczonym</button>
-            </div>
+        <div class="bulk-actions" style="margin-bottom:10px;">
+            <button class="btn-primary" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadActiveSessions()">🔄 Odśwież Statusy</button>
+            <button class="btn-success" onclick="sendAdminMessage()">✉️ WYŚLIJ KOMUNIKAT</button>
         </div>
-
         <div id="activeSessionsResults" style="margin-top:15px;"></div>
     </div>
 
-    <div id="tab-alerty" class="tab-content">
-        <h4 style="color:var(--danger);">Powiadomienia i Ostrzeżenia (Dzisiaj)</h4>
-        <div class="bulk-actions"><button class="btn-primary" onclick="loadAdminAlerts()">Odśwież Alerty</button></div>
+    <!-- POWIADOMIENIA I PROBLEMY -->
+    <div id="tab-alerty" class="tab-content" style="padding:10px;">
+        <h4 style="color:var(--danger); margin-top:0;">Centrum Zgłoszeń i Alertów</h4>
+        <div class="bulk-actions"><button class="btn-primary" onclick="loadAdminAlerts()">🔄 Odśwież Skrzynkę</button></div>
         <div id="adminAlertsResults" style="margin-top:15px;"></div>
     </div>
 
-    <div id="tab-raporty" class="tab-content">
+    <!-- RAPORTY -->
+    <div id="tab-raporty" class="tab-content" style="padding:10px;">
       <div style="display:flex; gap:12px;">
         <div style="flex:1"><label>OD</label><input type="date" id="ad1"></div>
         <div style="flex:1"><label>DO</label><input type="date" id="ad2"></div>
       </div>
       <select id="adUser"><option value="Wszyscy">Wszyscy pracownicy</option></select>
       <div class="bulk-actions">
-        <button class="btn-success" onclick="loadAdminReports()">POKAŻ RAPORT</button>
-        <button class="btn-success" style="background:#b3261e;" onclick="generateHrReport()">📁 KOPIUJ DLA HR</button>
-        <button class="btn-success" style="background:#0f9d58;" onclick="generateSheetsReport()">📊 KOPIUJ DANE DO SHEETS</button>
+        <button class="btn-success" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadAdminReports()">👀 PODGLĄD</button>
+        <button class="btn-success" style="background:#0f9d58;" onclick="promptExport('FULL', document.getElementById('ad1').value, document.getElementById('ad2').value, {user: document.getElementById('adUser').value})">📊 POBIERZ PEŁNY RAPORT</button>
+        <button class="btn-success" style="background:#b3261e;" onclick="promptExport('HR', document.getElementById('ad1').value, document.getElementById('ad2').value)">📁 POBIERZ RAPORT HR</button>
       </div>
       <div id="adminResults" style="margin-top:20px;"></div>
     </div>
 
-    <div id="tab-produkcja" class="tab-content">
+    <!-- ANALITYKA -->
+    <div id="tab-produkcja" class="tab-content" style="padding:10px;">
        <div style="display:flex; gap:12px; margin-bottom:12px;">
          <div style="flex:1"><label>OD daty:</label><input type="date" id="prodDate1"></div>
          <div style="flex:1"><label>DO daty:</label><input type="date" id="prodDate2"></div>
@@ -208,10 +197,8 @@
           <h4 style="margin-top:0; color:#333; font-size:16px;">Podział Pracy Zespołu</h4>
           <div class="chart-wrapper"><canvas id="prodChart"></canvas></div>
           <div id="headcountBadges" style="margin-top:15px; text-align:center;"></div>
-          
           <div id="prodDailyTotals" style="margin-top:15px; text-align:center; background:#e8f0fe; padding:15px; border-radius:10px; border: 1px solid #c3d4f2; display:none;"></div>
-          
-          <button class="btn-success" style="margin-top:15px; height: 50px; font-size: 15px;" onclick="exportProductivityRange()">📊 KOPIUJ ARKUSZ WYDAJNOŚCI</button>
+          <button class="btn-success" style="margin-top:15px; height: 50px; font-size: 15px;" onclick="promptExport('PROD', document.getElementById('prodDate1').value, document.getElementById('prodDate2').value)">📊 POBIERZ ARKUSZ WYDAJNOŚCI</button>
        </div>
        <select id="prodActivitySelect" onchange="renderEfficiencyList()" style="margin-top:20px; display:none;"></select>
        <div id="efficiencyList"></div>
@@ -220,85 +207,98 @@
        </div>
     </div>
 
-    <div id="tab-sprzet" class="tab-content">
+    <!-- SPRZĘT -->
+    <div id="tab-sprzet" class="tab-content" style="padding:10px;">
        <div style="display:flex; gap:12px; margin-bottom:12px;">
          <div style="flex:1"><label>OD daty:</label><input type="date" id="eqDate1"></div>
          <div style="flex:1"><label>DO daty:</label><input type="date" id="eqDate2"></div>
        </div>
        <div style="display:flex; gap:12px; margin-bottom:12px;">
-         <div style="flex:1"><label>Skaner:</label><select id="eqFilterSkaner"><option value="">Wszystkie Skanery</option></select></div>
-         <div style="flex:1"><label>Wózek:</label><select id="eqFilterWozek"><option value="">Wszystkie Wózki</option></select></div>
+         <div style="flex:1">
+             <label>Szukaj Skanera:</label>
+             <select id="eqFilterSkaner" style="margin:0;"><option value="">Wszystkie</option></select>
+         </div>
+         <div style="flex:1">
+             <label>Szukaj Wózka:</label>
+             <select id="eqFilterWozek" style="margin:0;"><option value="">Wszystkie</option></select>
+         </div>
        </div>
        <div class="bulk-actions">
-         <button class="btn-success" onclick="loadEqLog()">🔍 SZUKAJ</button>
-         <button class="btn-success" style="background:#0f9d58;" onclick="generateEqSheet()">📊 KOPIUJ DO SHEETS</button>
+         <button class="btn-success" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadEqLog()">👀 PODGLĄD</button>
+         <button class="btn-success" style="background:#0f9d58;" onclick="promptExport('EQ', document.getElementById('eqDate1').value, document.getElementById('eqDate2').value, {skaner: document.getElementById('eqFilterSkaner').value, wozek: document.getElementById('eqFilterWozek').value})">📊 POBIERZ ARKUSZ SPRZĘTU</button>
        </div>
        <div id="eqLogResults" style="margin-top:15px;"></div>
     </div>
 
-    <div id="tab-edycja" class="tab-content">
+    <!-- EDYCJA WPISÓW -->
+    <div id="tab-edycja" class="tab-content" style="padding:10px;">
       <select id="adEditUser"><option value="">-- Pracownik --</option></select>
       <input type="date" id="adEditDate">
       <button class="btn-primary" onclick="loadAdminEditLogs()">POBIERZ WPISY DO EDYCJI</button>
       <div id="adminEditResults" style="margin-top:15px;"></div>
     </div>
 
-    <div id="tab-baza" class="tab-content">
+    <!-- BACKUP -->
+    <div id="tab-backup" class="tab-content" style="padding:10px; text-align:center;">
+        <h3 style="color:var(--primary);">Kopia Zapasowa Bazy Danych</h3>
+        <p style="color:#666; font-size:14px;">Zrzut absolutnie wszystkich surowych logów.</p>
+        <div style="display:flex; gap:12px; margin:20px 0;">
+            <div style="flex:1"><label style="font-size:12px; font-weight:bold;">Zakres OD:</label><input type="date" id="backupD1"></div>
+            <div style="flex:1"><label style="font-size:12px; font-weight:bold;">Zakres DO:</label><input type="date" id="backupD2"></div>
+        </div>
+        <button class="btn-success" style="height:70px; width:100%; font-size:18px;" onclick="promptExport('BACKUP', document.getElementById('backupD1').value, document.getElementById('backupD2').value)">💾 GENERUJ KOPIĘ BAZY</button>
+    </div>
+
+    <!-- USTAWIENIA -->
+    <div id="tab-baza" class="tab-content" style="padding:10px;">
        <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px;">Konta Administratorów</h4>
        <div id="db-admins"></div>
        <button class="btn-admin" onclick="dbAdd('ADMIN')" style="margin-top:12px;">+ Dodaj Admina</button>
+       
        <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Pracownicy</h4>
        <div id="db-employees"></div>
        <button class="btn-primary" onclick="dbAdd('EMPLOYEE')" style="margin-top:12px;">+ Dodaj Pracownika</button>
+       
        <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Aktywności</h4>
        <div id="db-activities"></div>
        <button class="btn-primary" onclick="dbAdd('ACTIVITY')" style="margin-top:12px;">+ Dodaj Aktywność</button>
+
        <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Skanery</h4>
        <div id="db-scanners"></div>
        <button class="btn-primary" onclick="dbAdd('SCANNER')" style="margin-top:12px;">+ Dodaj Skaner</button>
+
        <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Wózki</h4>
        <div id="db-trolleys"></div>
        <button class="btn-primary" onclick="dbAdd('TROLLEY')" style="margin-top:12px;">+ Dodaj Wózek</button>
-    </div>
-
-    <!-- NOWA ZAKŁADKA KOPII ZAPASOWEJ -->
-    <div id="tab-backup" class="tab-content">
-       <div style="background:#f1f3f4; border:1px solid #d1d5db; padding:20px; border-radius:12px; text-align:center;">
-          <h3 style="margin-top:0;">💾 Bezpieczny Zrzut Bazy Danych</h3>
-          <p style="font-size:14px; color:#555;">Pobierz kompletny, nieobrobiony zrzut wszystkich wpisów pracowników (historia aktywności) z wybranego zakresu w formacie arkusza gotowego do wklejenia.</p>
-          <div style="display:flex; gap:12px; margin:20px 0; justify-content:center;">
-             <div><label>OD:</label><input type="date" id="bkpDate1" style="width:150px;"></div>
-             <div><label>DO:</label><input type="date" id="bkpDate2" style="width:150px;"></div>
-          </div>
-          <button class="btn-success" style="background:#0b57d0; height:70px; font-size:18px;" onclick="exportFullDatabase()">⏬ GENERUJ ZRZUT BAZY</button>
-       </div>
     </div>
   </div>
 </div>
 
 <script>
-  const API_URL = "https://vmax-api.onrender.com/api";
-  const BASE_URL = "https://vmax-api.onrender.com";
+  const BASE_URL = "https://vmax-api.onrender.com"; 
+  const API_URL = BASE_URL + "/api";
 
   async function apiCall(endpoint, method = 'GET', body = null) {
     try {
       let options = { method: method, headers: { 'Content-Type': 'application/json' } };
       if (body) options.body = JSON.stringify(body);
       const response = await fetch(API_URL + endpoint, options);
-      if (!response.ok) { const errData = await response.json(); throw new Error(errData.detail || `Błąd serwera: ${response.status}`); }
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || `Błąd serwera: ${response.status}`);
+      }
       return await response.json();
-    } catch (err) { console.error("Błąd API:", err); notify.error("Błąd", err.message); return null; }
+    } catch (err) {
+      console.error("Błąd API:", err); notify.error("Błąd połączenia", err.message); return null;
+    }
   }
 
   let currentUser = ""; let currentAdminName = ""; let allAktywnosci = []; 
   let systemScanners = []; let systemTrolleys = [];
   let usedScanners = []; let usedTrolleys = [];
   let prodChartInstance = null; let currentProdData = null; let planningLoaded = false;
-  let allProfiles = []; // Do ComboBoxa
+  let messagePollingInterval = null; 
   
-  // RADIOWĘZEŁ
-  let notiInterval = null;
-
   const notify = {
     toast: (t, icon='success') => Swal.fire({ icon: icon, title: t, timer: 1500, showConfirmButton: false, position: 'top-end', toast: true }),
     success: (t) => Swal.fire({ icon: 'success', title: t, timer: 1500, showConfirmButton: false }),
@@ -307,71 +307,57 @@
     close: () => Swal.close()
   };
 
-  const parseTime = (s) => { if(!s || s === "-") return 0; let m = s.match(/(\d+)h\s*(\d+)m/); return m ? (parseInt(m[1])*60 + parseInt(m[2])) : 0; };
+  const parseTime = (s) => { 
+      if(!s || s === "-") return 0;
+      let m = s.match(/(\d+)h\s*(\d+)m/); 
+      return m ? (parseInt(m[1])*60 + parseInt(m[2])) : 0; 
+  };
   const formatMins = (m) => `${Math.floor(m/60)}h ${m%60}m`;
 
   window.onload = () => {
     let tzOffset = (new Date()).getTimezoneOffset() * 60000;
     let localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
-    ['ad1','ad2','prodDate1','prodDate2','eqDate1','eqDate2','adEditDate','bkpDate1','bkpDate2'].forEach(id => { document.getElementById(id).value = localISOTime; });
-    document.getElementById('histMonth').value = localISOTime.substring(0, 7);
+    document.getElementById('ad1').value = localISOTime; document.getElementById('ad2').value = localISOTime;
+    document.getElementById('prodDate1').value = localISOTime; document.getElementById('prodDate2').value = localISOTime; 
+    document.getElementById('eqDate1').value = localISOTime; document.getElementById('eqDate2').value = localISOTime; 
+    document.getElementById('adEditDate').value = localISOTime; document.getElementById('histMonth').value = localISOTime.substring(0, 7);
+    document.getElementById('backupD1').value = localISOTime; document.getElementById('backupD2').value = localISOTime;
     refreshGlobalConfig();
-
-    // Zamknij ComboBox jak klikniesz obok
-    document.addEventListener('click', function(e) {
-        if (!document.getElementById('comboWrapper').contains(e.target)) {
-            document.getElementById('comboList').style.display = 'none';
-        }
-    });
   };
-
-  /* --- COMBOBOX DLA PRACOWNIKÓW --- */
-  function showCombo() { filterCombo(); document.getElementById('comboList').style.display = 'block'; }
-  function selectComboItem(val) { document.getElementById('userSelectInput').value = val; document.getElementById('comboList').style.display = 'none'; }
-  function filterCombo() {
-      const input = document.getElementById('userSelectInput').value.toLowerCase();
-      const list = document.getElementById('comboList');
-      let html = "";
-      allProfiles.forEach(p => {
-          if (p.name.toLowerCase().includes(input)) {
-              let icon = p.role === "ADMIN" ? "👑 " : "👤 ";
-              html += `<div class="combo-item" onclick="selectComboItem('${p.name}')">${icon}${p.name}</div>`;
-          }
-      });
-      list.innerHTML = html || "<div style='padding:10px; color:#999; text-align:center;'>Brak wyników</div>";
-  }
 
   function refreshGlobalConfig() {
     apiCall('/config', 'GET').then(res => {
       if(!res) return;
-      allAktywnosci = res.aktywnosci; systemScanners = res.skanery; systemTrolleys = res.wozki; usedScanners = res.zajete_skanery; usedTrolleys = res.zajete_wozki;
+      allAktywnosci = res.aktywnosci;
+      systemScanners = res.skanery; systemTrolleys = res.wozki;
+      usedScanners = res.zajete_skanery; usedTrolleys = res.zajete_wozki;
 
-      // Zbuduj profile dla ComboBoxa
-      allProfiles = [];
-      Object.keys(res.admins).forEach(ad => { allProfiles.push({name: ad, role: "ADMIN"}); });
-      res.pracownicy.forEach(p => { allProfiles.push({name: p, role: "USER"}); });
+      const uList = document.getElementById('usersList'), aS = document.getElementById('adUser'), aeS = document.getElementById('adEditUser'), tS = document.getElementById('taskSelect');
+      const filterSk = document.getElementById('eqFilterSkaner'), filterWz = document.getElementById('eqFilterWozek');
+      
+      let uHtml = ''; let aHtml = '<option value="Wszyscy">Wszyscy pracownicy</option>'; let aeHtml = '<option value="">-- Pracownik --</option>';
+      Object.keys(res.admins).forEach(ad => { uHtml += `<option value="${ad}">👑 Administrator</option>`; });
+      res.pracownicy.forEach(p => { uHtml += `<option value="${p}">Pracownik</option>`; aHtml += `<option value="${p}">${p}</option>`; aeHtml += `<option value="${p}">${p}</option>`; });
+      uList.innerHTML = uHtml; aS.innerHTML = aHtml; aeS.innerHTML = aeHtml;
 
-      const aS = document.getElementById('adUser'), aeS = document.getElementById('adEditUser'), tS = document.getElementById('taskSelect');
-      let aHtml = '<option value="Wszyscy">Wszyscy pracownicy</option>'; let aeHtml = '<option value="">-- Pracownik --</option>';
-      res.pracownicy.forEach(p => { aHtml += `<option value="${p}">${p}</option>`; aeHtml += `<option value="${p}">${p}</option>`; });
-      aS.innerHTML = aHtml; aeS.innerHTML = aeHtml;
+      let tHtml = ''; res.aktywnosci.forEach(a => { if(a !== "Rozpoczęcie pracy" && a !== "Zakończenie pracy") tHtml += `<option value="${a}">${a}</option>`; });
+      tS.innerHTML = tHtml;
 
-      let tHtml = ''; res.aktywnosci.forEach(a => { if(a !== "Rozpoczęcie pracy" && a !== "Zakończenie pracy") tHtml += `<option value="${a}">${a}</option>`; }); tS.innerHTML = tHtml;
+      let fSk = '<option value="">Wszystkie Skanery</option>'; systemScanners.forEach(s => fSk += `<option value="${s}">${s}</option>`); filterSk.innerHTML = fSk;
+      let fWz = '<option value="">Wszystkie Wózki</option>'; systemTrolleys.forEach(w => fWz += `<option value="${w}">${w}</option>`); filterWz.innerHTML = fWz;
 
-      // Filtry Sprzętu w Adminie
-      const fSk = document.getElementById('eqFilterSkaner'); const fWz = document.getElementById('eqFilterWozek');
-      let fSkH = '<option value="">Wszystkie Skanery</option>'; systemScanners.forEach(s => fSkH += `<option value="${s}">${s}</option>`); fSk.innerHTML = fSkH;
-      let fWzH = '<option value="">Wszystkie Wózki</option>'; systemTrolleys.forEach(w => fWzH += `<option value="${w}">${w}</option>`); fWz.innerHTML = fWzH;
-
-      // Budowanie Ustawień Admina
       let adminHtml = []; Object.keys(res.admins).forEach(ad => { adminHtml.push(`<div class="db-item"><span>👑 <b>${ad}</b></span><div><button onclick="dbEditPinAdmin('${ad}')" style="width:auto; padding:8px 15px; margin-right:5px;" class="btn-warn">Hasło</button><button onclick="dbDelete('ADMIN','${ad}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div></div>`); });
       document.getElementById('db-admins').innerHTML = adminHtml.join('') || "<div style='padding:15px; color:#888;'>Brak kont. Zaloguj się domyślnym ADMIN/admin.</div>";
+
       let empHtml = []; res.pracownicy.forEach(p => { empHtml.push(`<div class="db-item"><span>${p}</span><div><button onclick="dbEditPin('${p}')" style="width:auto; padding:8px 15px; margin-right:5px;" class="btn-warn">PIN</button><button onclick="dbDelete('EMPLOYEE','${p}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div></div>`); });
       document.getElementById('db-employees').innerHTML = empHtml.join('');
+        
       let actHtml = []; res.aktywnosci.forEach(a => { actHtml.push(`<div class="db-item"><span>${a}</span><button onclick="dbDelete('ACTIVITY','${a}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div>`); });
       document.getElementById('db-activities').innerHTML = actHtml.join('');
+
       let skHtml = []; systemScanners.forEach(s => { skHtml.push(`<div class="db-item"><span>${s}</span><button onclick="dbDelete('SCANNER','${s}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div>`); });
       document.getElementById('db-scanners').innerHTML = skHtml.join('');
+
       let wzHtml = []; systemTrolleys.forEach(w => { wzHtml.push(`<div class="db-item"><span>${w}</span><button onclick="dbDelete('TROLLEY','${w}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div>`); });
       document.getElementById('db-trolleys').innerHTML = wzHtml.join('');
 
@@ -401,7 +387,7 @@
       } else if(res && res.role === "USER") { 
         currentUser = res.name; document.getElementById('userNameDisplay').innerText = currentUser; 
         document.getElementById('userView').style.display='block'; document.getElementById('loginModal').style.display='none'; 
-        loadUserData(); startRadiowezel();
+        loadUserData(); startMessageAgent();
       }
     });
   }
@@ -412,33 +398,59 @@
         currentUser = ""; currentAdminName = ""; document.getElementById('pinInput').value = ""; document.getElementById('userSelectInput').value = "";
         document.getElementById('userView').style.display = 'none'; document.getElementById('adminView').style.display = 'none'; document.getElementById('loginModal').style.display = 'block';
         if(prodChartInstance) { prodChartInstance.destroy(); prodChartInstance = null; } 
-        if(notiInterval) { clearInterval(notiInterval); notiInterval = null; }
+        if(messagePollingInterval) clearInterval(messagePollingInterval);
         notify.toast('Wylogowano!');
       }
     });
   }
 
-  /* --- RADIOWĘZEŁ (Agent Pracownika) --- */
-  function startRadiowezel() {
-      notiInterval = setInterval(() => {
-          apiCall('/notifications/check', 'POST', {username: currentUser}).then(res => {
-              if (res && res.id) {
-                  Swal.fire({
-                      title: '🔔 KOMUNIKAT OD ADMINA', text: res.message, icon: 'warning',
-                      input: 'text', inputPlaceholder: 'Napisz odpowiedź (np. Ok)...',
-                      showCancelButton: true, confirmButtonText: 'Odpisz i Zamknij', cancelButtonText: 'Zamknij bez odpisywania'
-                  }).then(reply => {
-                      let rText = reply.isConfirmed ? (reply.value || "Odebrano.") : "Odebrano (Brak Odpowiedzi).";
-                      apiCall('/notifications/reply', 'POST', {id: res.id, reply: rText});
-                  });
-              }
-          });
-      }, 60000); // 60 sekund
+  function startMessageAgent() {
+      if(messagePollingInterval) clearInterval(messagePollingInterval);
+      checkMyMessages(); 
+      messagePollingInterval = setInterval(checkMyMessages, 60000); 
+  }
+
+  function checkMyMessages() {
+      if(!currentUser) return;
+      apiCall('/user/messages/unread', 'POST', {username: currentUser}).then(msgs => {
+          if(msgs && msgs.length > 0) {
+              let m = msgs[0];
+              Swal.fire({
+                  title: '⚠️ KOMUNIKAT OD SZEFA',
+                  html: `<div style="font-size:18px; padding:15px; background:#fff5f5; border:2px solid red; border-radius:10px; margin-bottom:15px;"><b>${m.content}</b></div>`,
+                  input: 'text',
+                  inputPlaceholder: 'Wpisz odpowiedź...',
+                  confirmButtonText: 'Potwierdź i Odpisz',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false
+              }).then(res => {
+                  if(res.isConfirmed) { apiCall('/user/messages/reply', 'POST', {msg_id: m.id, reply: res.value || "Przeczytano (Brak treści)"}); }
+              });
+          }
+      });
+  }
+
+  function reportProblem() {
+      Swal.fire({
+          title: '⚠️ Zgłoś Problem',
+          input: 'textarea',
+          inputPlaceholder: 'Opisz awarię (np. Brak internetu, pusty wózek...)',
+          showCancelButton: true,
+          confirmButtonText: 'Wyślij Zgłoszenie',
+          confirmButtonColor: '#b3261e'
+      }).then(res => {
+          if(res.isConfirmed && res.value) {
+              notify.loading('Wysyłanie...');
+              apiCall('/user/problem', 'POST', {username: currentUser, description: res.value}).then(()=>notify.success('Wysłano do Admina!'));
+          }
+      });
   }
 
   function renderUserHistory(res) {
     const b = document.getElementById('statusBanner'), sInp = document.getElementById('eqSkaner'), wInp = document.getElementById('eqWozek'), btnEq = document.getElementById('eqBtn');
+    
     buildEquipmentSelects(res.currentTask ? res.currentTask.skaner : "", res.currentTask ? res.currentTask.wozek : "");
+
     if(res.currentTask) { 
       b.className = "status-box status-on"; b.innerText = `🟢 TRWA: ${res.currentTask.name}`; 
       document.getElementById('taskSection').style.display='block'; document.getElementById('startSection').style.display='none';
@@ -537,29 +549,59 @@
     }); 
   }
   function changeMyPinAdmin() { 
-    if(currentAdminName === "ADMIN") { notify.error("Nie możesz zmienić hasła systemowego konta 'ADMIN'."); return; } 
+    if(currentAdminName === "ADMIN") { notify.error("Nie możesz zmienić hasła konta domyślnego."); return; } 
     Swal.fire({ title: 'Zmień swoje hasło', input: 'password', showCancelButton: true, confirmButtonText: 'Zmień' }).then(res => { 
       if(res.isConfirmed && res.value) apiCall('/admin/db', 'POST', { type: 'ADMIN', action: 'EDIT_PIN', name: currentAdminName, val: res.value }).then(resp => { if(resp) notify.success('Hasło zmienione!'); }); 
     }); 
   }
 
-  /* --- ADMIN: SESJE LIVE, POWIADOMIENIA I ALERT --- */
+  /* --- SYSTEM EKSPORTU PLIKÓW (EXCEL/CSV MODAL) --- */
+  function promptExport(exportType, d1, d2, extraPayload = {}) {
+      if(!d1 || !d2) { notify.error("Wybierz zakres dat!"); return; }
+      Swal.fire({
+          title: 'Wybierz format eksportu',
+          text: 'Zalecany format: Excel',
+          icon: 'question',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: '📗 EXCEL (.xlsx)',
+          denyButtonText: '📄 CSV',
+          cancelButtonText: 'Anuluj'
+      }).then((result) => {
+          let fmt = '';
+          if (result.isConfirmed) fmt = 'xls';
+          else if (result.isDenied) fmt = 'csv';
+          else return;
+
+          notify.loading('Tworzenie pliku na serwerze...');
+          let payload = { export_type: exportType, format: fmt, d1: d1, d2: d2, ...extraPayload };
+          apiCall('/admin/export', 'POST', payload).then(data => {
+              if(data && data.url) window.location.href = BASE_URL + data.url;
+              notify.close();
+          });
+      });
+  }
+
+  /* --- ADMIN: SESJE LIVE, RADIOWĘZEŁ I ALERT --- */
   function loadActiveSessions() {
-    document.getElementById('activeSessionsResults').innerHTML = "<div class='inline-loader'>⏳ Analiza sesji...</div>";
+    document.getElementById('activeSessionsResults').innerHTML = "<div class='inline-loader'>⏳ Analiza matrycy...</div>";
     apiCall('/admin/active-sessions', 'GET').then(res => {
       if(!res) return;
       let tasks = Object.keys(res);
-      if (tasks.length === 0) { document.getElementById('activeSessionsResults').innerHTML = "<div class='card' style='text-align:center;'>Wszyscy pracownicy są obecnie wylogowani.</div>"; return; }
-      
+      if (tasks.length === 0) { document.getElementById('activeSessionsResults').innerHTML = "<div class='card' style='text-align:center;'>Magazyn pusty. Brak zalogowanych.</div>"; return; }
       let h = '';
       tasks.forEach(task => {
-        h += `<div style="margin-bottom:15px;"><div style="background:#e8f0fe; color:var(--primary); padding:10px; border-radius:8px; font-weight:bold; margin-bottom:5px; display:flex; justify-content:space-between;"><span>${task} (${res[task].length} osób)</span><input type="checkbox" onchange="toggleGroup('${task}', this.checked)"></div>`;
+        h += `<div style="margin-bottom:15px;">
+                <div style="background:#e8f0fe; color:var(--primary); padding:10px; border-radius:8px; font-weight:bold; margin-bottom:5px; display:flex; align-items:center;">
+                    <input type="checkbox" class="msg-checkbox" onchange="toggleGroup(this, '${task.replace(/\s+/g, '')}')">
+                    Grupa: ${task} (${res[task].length} osób)
+                </div>`;
         res[task].forEach(emp => {
             let eqStr = (emp.skaner || emp.wozek) ? ` | Sk: ${emp.skaner||'-'} | Wó: ${emp.wozek||'-'}` : "";
             h += `<div class="live-session-card">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                      <input type="checkbox" class="notify-cb group-${task.replace(/\s+/g, '')}" value="${emp.user}">
-                      <div>👤 <b>${emp.user}</b> <br><small style="color:#666;">Od: ${emp.start}${eqStr}</small></div>
+                    <div style="display:flex; align-items:center;">
+                        <input type="checkbox" class="msg-checkbox cb-group-${task.replace(/\s+/g, '')}" value="${emp.user}">
+                        <div>👤 <b>${emp.user}</b> <br><small style="color:#666;">Od: ${emp.start}${eqStr}</small></div>
                     </div>
                     <div style="display:flex; gap:5px;">
                       <button onclick="editLiveSession('${emp.user}', '${task}', '${emp.start}', '${emp.skaner}', '${emp.wozek}')" class="btn-warn" style="margin:0; padding:8px 12px; font-size:12px; width:auto;">✏️ Edytuj</button>
@@ -573,31 +615,41 @@
     });
   }
 
-  function toggleGroup(task, isChecked) {
-      document.querySelectorAll(`.group-${task.replace(/\s+/g, '')}`).forEach(cb => cb.checked = isChecked);
+  function toggleGroup(checkbox, groupClass) {
+      document.querySelectorAll('.cb-group-' + groupClass).forEach(cb => cb.checked = checkbox.checked);
   }
 
-  function sendNotification() {
-      let msg = document.getElementById('liveMsgInput').value.trim();
-      let users = Array.from(document.querySelectorAll('.notify-cb:checked')).map(cb => cb.value);
-      if (!msg) { notify.error("Wpisz treść komunikatu!"); return; }
-      if (users.length === 0) { notify.error("Zaznacz co najmniej jedną osobę!"); return; }
-
-      notify.loading("Wysyłanie...");
-      apiCall('/admin/notify', 'POST', {users: users, message: msg}).then(res => {
-          if (res) { notify.success(`Wysłano do ${users.length} osób.`); document.getElementById('liveMsgInput').value = ""; document.querySelectorAll('.notify-cb').forEach(cb => cb.checked = false); }
+  function sendAdminMessage() {
+      let selected = [];
+      document.querySelectorAll('.msg-checkbox[value]:checked').forEach(cb => selected.push(cb.value));
+      if (selected.length === 0) { notify.error("Zaznacz co najmniej jednego pracownika!"); return; }
+      
+      Swal.fire({
+          title: 'Wyślij Komunikat',
+          input: 'textarea',
+          inputPlaceholder: 'Treść wiadomości do zespołu...',
+          showCancelButton: true,
+          confirmButtonText: 'Wyślij'
+      }).then(res => {
+          if (res.isConfirmed && res.value) {
+              notify.loading("Wysyłanie...");
+              apiCall('/admin/messages/send', 'POST', {receivers: selected, content: res.value}).then(() => {
+                  notify.success("Wysłano komunikat!");
+                  document.querySelectorAll('.msg-checkbox').forEach(cb => cb.checked = false);
+              });
+          }
       });
   }
 
   function closeLiveSession(user) {
-      Swal.fire({title: `Zamknąć sesję: ${user}?`, text: 'Spowoduje to wylogowanie tego pracownika.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Zamknij'}).then(res => {
+      Swal.fire({title: `Zamknąć sesję: ${user}?`, text: 'Spowoduje to wylogowanie pracownika.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Zamknij'}).then(res => {
           if(res.isConfirmed) { notify.loading('Zamykanie...'); apiCall('/admin/live-session/close', 'POST', {username: user}).then(() => { notify.toast('Sesja zamknięta'); loadActiveSessions(); }); }
       });
   }
 
   function closeAllLiveSessions() {
-      Swal.fire({title: `Zamknąć WSZYSTKIE sesje?`, text: 'Spowoduje to masowe zakończenie pracy wszystkich osób online.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Zamknij wszystkie', confirmButtonColor: '#b3261e'}).then(res => {
-          if(res.isConfirmed) { notify.loading('Zamykanie...'); apiCall('/admin/live-session/close-all', 'POST').then(() => { notify.success('Wszystkie sesje zamknięte!'); loadActiveSessions(); }); }
+      Swal.fire({title: `Zamknąć WSZYSTKIE sesje?`, text: 'Masowe zakończenie pracy wszystkich osób online.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Zamknij', confirmButtonColor: '#b3261e'}).then(res => {
+          if(res.isConfirmed) { notify.loading('Zamykanie...'); apiCall('/admin/live-session/close-all', 'POST').then(() => { notify.success('Zamknięto!'); loadActiveSessions(); }); }
       });
   }
 
@@ -623,17 +675,29 @@
       });
   }
 
+  function resolveProblem(id) { apiCall('/admin/problems/resolve', 'POST', {id: id}).then(() => loadAdminAlerts()); }
+  function archiveMessage(id) { apiCall('/admin/messages/archive', 'POST', {id: id}).then(() => loadAdminAlerts()); }
+
   function loadAdminAlerts() {
     document.getElementById('adminAlertsResults').innerHTML = "<div class='inline-loader'>⏳ Skanowanie logów...</div>";
     apiCall('/admin/alerts', 'GET').then(res => {
       if(!res) return;
-      if (res.length === 0) { document.getElementById('adminAlertsResults').innerHTML = "<div class='card' style='text-align:center; color:green; font-weight:bold;'>✅ Brak ostrzeżeń. Wszystko w normie.</div>"; return; }
-      let h = ''; res.forEach(a => { h += `<div class="alert-card">${a}</div>`; });
+      if (res.length === 0) { document.getElementById('adminAlertsResults').innerHTML = "<div class='card' style='text-align:center; color:green; font-weight:bold;'>✅ Brak alertów. Wszystko w normie.</div>"; return; }
+      let h = ''; 
+      res.forEach(a => { 
+          if(a.type === 'prob') {
+              h += `<div class="alert-card" style="border-left-color:var(--warning); background:#fff8e1; display:block;">${a.text} <br><button onclick="resolveProblem(${a.id})" class="btn-primary" style="margin-top:10px; padding:8px; font-size:12px;">✅ Oznacz jako rozwiązane</button></div>`;
+          } else if(a.type === 'msg') {
+              h += `<div class="alert-card" style="border-left-color:var(--primary); background:#e8f0fe; display:block;">${a.text} <br><button onclick="archiveMessage(${a.id})" class="btn-warn" style="margin-top:10px; padding:8px; font-size:12px;">🗄️ Ukryj odpowiedź</button></div>`;
+          } else {
+              h += `<div class="alert-card">${a.text}</div>`; 
+          }
+      });
       document.getElementById('adminAlertsResults').innerHTML = h;
     });
   }
 
-  /* --- ADMIN RAPORTY I EXPORTY --- */
+  /* --- ADMIN RAPORTY I EDYCJA --- */
   function toggleAllDetails(state) { document.querySelectorAll('#adminResults details').forEach(d => d.open = state); }
 
   function loadAdminReports() {
@@ -652,26 +716,9 @@
     });
   }
 
-  // KOPIOWANIE DO SCHOWKA / GOOGLE SHEETS
-  // System generuje tab-separated-values (.tsv) na backendzie.
-  async function downloadAndCopy(url, successMsg) {
-      notify.loading('Przetwarzanie pliku...');
-      try {
-          const res = await fetch(BASE_URL + url);
-          if (!res.ok) throw new Error("Błąd pobierania");
-          const text = await res.text();
-          await navigator.clipboard.writeText(text);
-          Swal.fire({ title: 'Gotowe!', text: successMsg, icon: 'success', confirmButtonText: 'OK' });
-      } catch (e) { notify.error("Błąd zapisu do schowka", "Upewnij się, że używasz przeglądarki ze wsparciem dla schowka."); }
-  }
-
-  function generateHrReport() { apiCall('/admin/export-hr', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value }).then(data => { if(data && data.url) downloadAndCopy(data.url, "Skopiowano Raport HR! Wejdź w puste Arkusze Google i wciśnij CTRL+V."); }); }
-  function generateSheetsReport() { apiCall('/admin/export-sheets', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value, user: document.getElementById('adUser').value }).then(data => { if(data && data.url) downloadAndCopy(data.url, "Skopiowano Pełny Raport! Wklej (CTRL+V) w nowym Google Sheets."); }); }
-  function exportFullDatabase() { apiCall('/admin/export-db', 'POST', { d1: document.getElementById('bkpDate1').value, d2: document.getElementById('bkpDate2').value }).then(data => { if(data && data.url) window.location.href = BASE_URL + data.url; }); }
-
   function loadEfficiency() {
     const d1 = document.getElementById('prodDate1').value, d2 = document.getElementById('prodDate2').value;
-    document.getElementById('efficiencyList').innerHTML = "<div class='inline-loader'>⏳ Analizowanie danych...</div>"; document.getElementById('chartContainer').style.display='none'; document.getElementById('efficiencyActions').style.display='none'; document.getElementById('prodActivitySelect').style.display='none';
+    document.getElementById('efficiencyList').innerHTML = "<div class='inline-loader'>⏳ Analizowanie...</div>"; document.getElementById('chartContainer').style.display='none'; document.getElementById('efficiencyActions').style.display='none'; document.getElementById('prodActivitySelect').style.display='none';
     apiCall('/admin/productivity', 'POST', { d1: d1, d2: d2 }).then(res => {
       if(!res) return;
       currentProdData = res; let acts = Object.keys(res.chartData);
@@ -682,7 +729,7 @@
       let totalPaczki = 0; let totalProdukty = 0;
       for (let u in res.packingStats) { totalPaczki += (parseInt(res.packingStats[u].paczki) || 0); totalProdukty += (parseInt(res.packingStats[u].produkty) || 0); }
       const totalsDiv = document.getElementById('prodDailyTotals'); 
-      if (totalPaczki > 0 || totalProdukty > 0) { totalsDiv.innerHTML = `📦 Całkowita wydajność w tym okresie:<br>Spakowano paczek: <b>${totalPaczki}</b> &nbsp;|&nbsp; Spakowano produktów: <b>${totalProdukty}</b>`; totalsDiv.style.display = 'block'; } else { totalsDiv.style.display = 'none'; }
+      if (totalPaczki > 0 || totalProdukty > 0) { totalsDiv.innerHTML = `📦 Calkowita wydajność zespołu:<br>Spakowano paczek: <b>${totalPaczki}</b> &nbsp;|&nbsp; Spakowano produktów: <b>${totalProdukty}</b>`; totalsDiv.style.display = 'block'; } else { totalsDiv.style.display = 'none'; }
 
       let totalMinsAll = 0; acts.forEach(a => totalMinsAll += res.chartData[a]);
       let richLabels = acts.map(a => { let m = res.chartData[a]; let pct = ((m / totalMinsAll) * 100).toFixed(1); let hStr = Math.floor(m/60) + "h " + (m%60) + "m"; return `${a} — ${hStr} (${pct}%)`; });
@@ -690,10 +737,6 @@
       prodChartInstance = new Chart(document.getElementById('prodChart'), { type:'doughnut', data: { labels: richLabels, datasets: [{ data: acts.map(a => (res.chartData[a]/60).toFixed(2)), backgroundColor: ['#0b57d0','#188038','#f29900','#8e24aa','#b3261e','#009688','#3f51b5','#e91e63'] }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 13, family: 'system-ui' }, padding: 15 } } } } });
       let sel = document.getElementById('prodActivitySelect'); sel.innerHTML = ""; acts.forEach(a => sel.add(new Option(a, a))); if(acts.includes("Pakowanie Paczek")) sel.value = "Pakowanie Paczek"; renderEfficiencyList();
     });
-  }
-
-  function exportProductivityRange() {
-      apiCall('/admin/export-productivity', 'POST', { d1: document.getElementById('prodDate1').value, d2: document.getElementById('prodDate2').value }).then(data => { if(data && data.url) downloadAndCopy(data.url, "Skopiowano Arkusz Wydajności! Wklej (CTRL+V) w nowym Google Sheets."); });
   }
 
   function renderEfficiencyList() {
@@ -726,7 +769,33 @@
     });
   }
 
-  function generateEqSheet() { apiCall('/admin/export-equipment', 'POST', { d1: document.getElementById('eqDate1').value, d2: document.getElementById('eqDate2').value, skaner: document.getElementById('eqFilterSkaner').value, wozek: document.getElementById('eqFilterWozek').value }).then(data => { if(data && data.url) downloadAndCopy(data.url, "Skopiowano Arkusz Sprzętu! Wklej (CTRL+V) w nowym Google Sheets."); }); }
+  function saveAdminEdits(dateStr) {
+      let updates = []; 
+      document.querySelectorAll('.admin-edit-row').forEach(row => { 
+          let id = row.id.replace('edit_row_', ''); 
+          updates.push({ id: id, task: document.getElementById('edit_task_' + id).value, start: document.getElementById('edit_start_' + id).value, end: document.getElementById('edit_end_' + id).value }); 
+      });
+      notify.toast('Zapisywanie...', 'info'); 
+      apiCall('/admin/update-batch', 'POST', { updates: updates, date: dateStr }).then(res => { 
+          if(res) { notify.success('Zapisano pomyślnie!'); loadAdminEditLogs(); }
+      });
+  }
+
+  function loadAdminEditLogs() {
+      const u = document.getElementById('adEditUser').value, d = document.getElementById('adEditDate').value; 
+      if(!u || !d) { notify.error("Wybierz pracownika i datę"); return; }
+      document.getElementById('adminEditResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie wpisów...</div>";
+      apiCall('/admin/edit-logs', 'POST', { username: u, date: d }).then(res => {
+          if(!res) return;
+          if(res.length === 0) { document.getElementById('adminEditResults').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów.</div>"; return; } 
+          let h = '';
+          res.forEach(r => { 
+              h += `<div class="admin-edit-row" id="edit_row_${r.id}"><div style="font-size:12px; color:#666; margin-bottom:5px;">ID wpisu: ${r.id}</div><div style="display:flex; gap:10px; margin-bottom:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Zadanie</label><input type="text" id="edit_task_${r.id}" value="${r.zadanie}" style="margin:0;"></div></div><div style="display:flex; gap:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Start</label><input type="time" id="edit_start_${r.id}" value="${r.start}" style="margin:0;"></div><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Koniec</label><input type="time" id="edit_end_${r.id}" value="${r.koniec}" style="margin:0;"></div></div></div>`; 
+          });
+          h += `<button class="btn-success" style="height:60px; font-size:16px;" onclick="saveAdminEdits('${d}')">💾 ZAPISZ ZMIANY W TYM DNIU</button>`; 
+          document.getElementById('adminEditResults').innerHTML = h;
+      });
+  }
 
   function switchAdminTab(id, el) { 
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
