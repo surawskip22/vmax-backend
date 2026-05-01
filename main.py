@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, desc
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, desc, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from pydantic import BaseModel
 import os
@@ -439,89 +439,15 @@ def get_planning():
         weekly_data.append({"date": date_str, "found": True, "url": sheet_url})
     return weekly_data
 
-# --- TAJNY MECHANIZM MIGRACJI DANYCH ---
-@app.get("/api/secret-migration-123", response_class=HTMLResponse)
-def run_migration(db: Session = Depends(get_db)):
+# --- NAPRAWA BAZY DANYCH (Skalpel!) ---
+@app.get("/api/fix-db", response_class=HTMLResponse)
+def fix_db(db: Session = Depends(get_db)):
     try:
-        def parse_dt(d_raw, t_raw):
-            if not d_raw or not t_raw or t_raw == "-": return None
-            d_match = re.search(r'(\d+)[-./](\d+)[-./](\d+)', str(d_raw))
-            if not d_match: return None
-            p1, p2, p3 = d_match.groups()
-            y, m, d = (p1, p2, p3) if len(p1) == 4 else (p3, p2, p1)
-            d_str = f"{y}-{int(m):02d}-{int(d):02d}"
-            t_match = re.search(r'(\d+):(\d+)', str(t_raw))
-            if not t_match: return None
-            h, mnt = t_match.groups()
-            return datetime.strptime(f"{d_str} {h}:{mnt}", "%Y-%m-%d %H:%M"), d_str
-
-        def read_csv(filename):
-            if not os.path.exists(filename): return []
-            with open(filename, 'r', encoding='utf-8-sig') as f:
-                content = f.read()
-                if not content.strip(): return []
-                f.seek(0)
-                try:
-                    dialect = csv.Sniffer().sniff(content[:1024], delimiters=',;')
-                    return list(csv.reader(f, dialect))
-                except Exception:
-                    f.seek(0)
-                    if ';' in content[:1024]: return list(csv.reader(f, delimiter=';'))
-                    else: return list(csv.reader(f, delimiter=','))
-
-        Base.metadata.drop_all(bind=engine)
-        Base.metadata.create_all(bind=engine)
-
-        db_rows = read_csv('Database.csv')
-        for i, row in enumerate(db_rows):
-            if i == 0 or not row: continue
-            name = row[0].strip() if len(row) > 0 else ""
-            pin = row[1].strip() if len(row) > 1 else "1234"
-            if name and not db.query(User).filter_by(name=name).first():
-                db.add(User(name=name, pin=pin, role="EMPLOYEE"))
-            if len(row) > 2 and row[2].strip():
-                act_name = row[2].strip()
-                if not db.query(Activity).filter_by(name=act_name).first(): db.add(Activity(name=act_name))
-            if len(row) > 4 and row[4].strip():
-                ad_name = row[4].strip()
-                ad_pin = row[5].strip() if len(row) > 5 else "admin"
-                if not db.query(User).filter_by(name=ad_name).first(): db.add(User(name=ad_name, pin=ad_pin, role="ADMIN"))
+        db.execute(text("ALTER TABLE work_logs ADD COLUMN is_autoclosed INTEGER DEFAULT 0"))
         db.commit()
-
-        rap_rows = read_csv('Raport.csv')
-        for i, row in enumerate(rap_rows):
-            if i == 0 or len(row) < 5: continue
-            u, task, d_raw, start_raw, end_raw = [x.strip() for x in row[:5]]
-            skaner = row[7].strip() if len(row) > 7 else ""
-            wozek = row[8].strip() if len(row) > 8 else ""
-            parsed = parse_dt(d_raw, start_raw)
-            if parsed:
-                start_dt, d_str = parsed
-                end_dt = None
-                if end_raw and end_raw != "-":
-                    res_e = parse_dt(d_raw, end_raw)
-                    if res_e: end_dt = res_e[0]
-                db.add(WorkLog(username=u, task_name=task, start_time=start_dt, end_time=end_dt, date_str=d_str, skaner=skaner, wozek=wozek))
-        db.commit()
-
-        prod_rows = read_csv('Produktywnosc.csv')
-        for i, row in enumerate(prod_rows):
-            if i == 0 or len(row) < 5: continue
-            d_raw, u = row[0].strip(), row[1].strip()
-            try:
-                paczki, produkty = int(row[2] or 0), int(row[3] or 0)
-                mins = int(float(row[4] or 0))
-                d_match = re.search(r'(\d+)[-./](\d+)[-./](\d+)', str(d_raw))
-                if d_match:
-                    p1, p2, p3 = d_match.groups()
-                    y, m, d = (p1, p2, p3) if len(p1) == 4 else (p3, p2, p1)
-                    d_str = f"{y}-{int(m):02d}-{int(d):02d}"
-                    db.add(Productivity(date_str=d_str, username=u, paczki=paczki, produkty=produkty, mins=mins))
-            except: pass
-        db.commit()
-        return "<h1>✅ MIGRACJA ZAKONCZONA SUKCESEM!</h1>"
+        return "<h1>✅ Baza zaktualizowana! Nowa kolumna dodana.</h1><p>Możesz już wejść do głównej aplikacji.</p>"
     except Exception as e:
-        return f"<h1>❌ BLAD:</h1><p>{str(e)}</p>"
+        return f"<h1>⚠️ Komunikat (kolumna mogła już istnieć): {str(e)}</h1><p>Możesz wrócić do aplikacji.</p>"
 
 @app.get("/")
 def serve_frontend():
