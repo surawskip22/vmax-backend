@@ -58,13 +58,14 @@
     .db-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
     .admin-edit-row { background: #fff; padding: 18px; border: 1px solid #ddd; border-radius: 14px; margin-bottom: 18px; border-left: 6px solid var(--warning); }
     .inline-loader { text-align: center; padding: 30px; color: #666; font-weight: bold; font-size: 16px; }
-    .alert-card { background: #fff5f5; border: 1px solid #feb2b2; border-left: 6px solid var(--danger); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; }
+    .alert-card { background: #fff5f5; border: 1px solid #feb2b2; border-left: 6px solid var(--danger); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; display:flex; justify-content:space-between; align-items:center; }
     .live-session-card { background: #e6f4ea; border: 1px solid #ceead6; border-left: 6px solid var(--success); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; display:flex; justify-content:space-between; align-items:center; }
     .msg-checkbox { transform: scale(1.5); margin-right: 15px; cursor: pointer;}
   </style>
 </head>
 <body>
 
+<!-- EKRAN LOGOWANIA -->
 <div id="loginModal">
   <div class="card" style="max-width:450px; margin: 40px auto;">
     <div class="main-title">WorkFlow V-MAX</div>
@@ -75,6 +76,7 @@
   </div>
 </div>
 
+<!-- EKRAN PRACOWNIKA -->
 <div id="userView">
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
@@ -130,6 +132,7 @@
   </div>
 </div>
 
+<!-- EKRAN ADMINA -->
 <div id="adminView">
   <div class="card" style="background:#1f2937; color:white; display:flex; justify-content:space-between; align-items:center;">
     <h2 style="font-size:18px; margin:0;">👑 PANEL ADMINA <span id="adminNameDisplay" style="color:#f29900; font-size:14px; margin-left:10px;"></span></h2>
@@ -142,7 +145,7 @@
   <div class="card" style="padding:10px;">
     <div class="tabs">
       <div class="tab active" onclick="switchAdminTab('live', this)">🟢 Live Sesje</div>
-      <div class="tab" onclick="switchAdminTab('alerty', this)">⚠️ Alert & Problemy</div>
+      <div class="tab" onclick="switchAdminTab('alerty', this)">⚠️ Powiadomienia</div>
       <div class="tab" onclick="switchAdminTab('raporty', this)">📊 Raporty</div>
       <div class="tab" onclick="switchAdminTab('produkcja', this)">📦 Analityka</div>
       <div class="tab" onclick="switchAdminTab('sprzet', this)">🛠️ Sprzęt</div>
@@ -167,7 +170,11 @@
     <!-- POWIADOMIENIA I PROBLEMY -->
     <div id="tab-alerty" class="tab-content" style="padding:10px;">
         <h4 style="color:var(--danger); margin-top:0;">Centrum Zgłoszeń i Alertów</h4>
-        <div class="bulk-actions"><button class="btn-primary" onclick="loadAdminAlerts()">🔄 Odśwież Skrzynkę</button></div>
+        <div class="bulk-actions" style="margin-bottom:15px;">
+            <button class="btn-primary" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadAdminAlerts()">🔄 Odśwież</button>
+            <button class="btn-warn" style="background:#fff8e1; color:#b26a00; border:1px solid var(--warning);" onclick="dismissSelectedAlerts()">🗑️ Usuń zaznaczone</button>
+            <button class="btn-danger" onclick="dismissAllAlerts()">🧹 Wyczyść wszystko</button>
+        </div>
         <div id="adminAlertsResults" style="margin-top:15px;"></div>
     </div>
 
@@ -179,9 +186,9 @@
       </div>
       <select id="adUser"><option value="Wszyscy">Wszyscy pracownicy</option></select>
       <div class="bulk-actions">
-        <button class="btn-success" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadAdminReports()">👀 PODGLĄD</button>
-        <button class="btn-success" style="background:#0f9d58;" onclick="promptExport('FULL', document.getElementById('ad1').value, document.getElementById('ad2').value, {user: document.getElementById('adUser').value})">📊 POBIERZ PEŁNY RAPORT</button>
-        <button class="btn-success" style="background:#b3261e;" onclick="promptExport('HR', document.getElementById('ad1').value, document.getElementById('ad2').value)">📁 POBIERZ RAPORT HR</button>
+        <button class="btn-success" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadAdminReports()">👀 PODGLĄD JSON</button>
+        <button class="btn-success" style="background:#0f9d58;" onclick="promptExport('FULL', document.getElementById('ad1').value, document.getElementById('ad2').value, {user: document.getElementById('adUser').value})">📊 POBIERZ PLIK RAPORTU</button>
+        <button class="btn-success" style="background:#b3261e;" onclick="promptExport('HR', document.getElementById('ad1').value, document.getElementById('ad2').value)">📁 POBIERZ PLIK HR</button>
       </div>
       <div id="adminResults" style="margin-top:20px;"></div>
     </div>
@@ -224,7 +231,7 @@
          </div>
        </div>
        <div class="bulk-actions">
-         <button class="btn-success" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadEqLog()">👀 PODGLĄD</button>
+         <button class="btn-success" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadEqLog()">👀 PODGLĄD JSON</button>
          <button class="btn-success" style="background:#0f9d58;" onclick="promptExport('EQ', document.getElementById('eqDate1').value, document.getElementById('eqDate2').value, {skaner: document.getElementById('eqFilterSkaner').value, wozek: document.getElementById('eqFilterWozek').value})">📊 POBIERZ ARKUSZ SPRZĘTU</button>
        </div>
        <div id="eqLogResults" style="margin-top:15px;"></div>
@@ -241,12 +248,12 @@
     <!-- BACKUP -->
     <div id="tab-backup" class="tab-content" style="padding:10px; text-align:center;">
         <h3 style="color:var(--primary);">Kopia Zapasowa Bazy Danych</h3>
-        <p style="color:#666; font-size:14px;">Zrzut absolutnie wszystkich surowych logów.</p>
+        <p style="color:#666; font-size:14px;">Zrzut absolutnie wszystkich surowych logów w formacie gotowym do odzyskania.</p>
         <div style="display:flex; gap:12px; margin:20px 0;">
             <div style="flex:1"><label style="font-size:12px; font-weight:bold;">Zakres OD:</label><input type="date" id="backupD1"></div>
             <div style="flex:1"><label style="font-size:12px; font-weight:bold;">Zakres DO:</label><input type="date" id="backupD2"></div>
         </div>
-        <button class="btn-success" style="height:70px; width:100%; font-size:18px;" onclick="promptExport('BACKUP', document.getElementById('backupD1').value, document.getElementById('backupD2').value)">💾 GENERUJ KOPIĘ BAZY</button>
+        <button class="btn-success" style="height:70px; width:100%; font-size:18px;" onclick="promptBackupExport(document.getElementById('backupD1').value, document.getElementById('backupD2').value)">💾 GENERUJ KOPIĘ BAZY</button>
     </div>
 
     <!-- USTAWIENIA -->
@@ -275,6 +282,7 @@
 </div>
 
 <script>
+  // WAŻNE: Podmień ten adres, na ten z Twojego serwera Render!
   const BASE_URL = "https://vmax-api.onrender.com"; 
   const API_URL = BASE_URL + "/api";
 
@@ -298,6 +306,7 @@
   let usedScanners = []; let usedTrolleys = [];
   let prodChartInstance = null; let currentProdData = null; let planningLoaded = false;
   let messagePollingInterval = null; 
+  let currentAlertsData = []; // Zmienna do przechowywania aktualnych alertów
   
   const notify = {
     toast: (t, icon='success') => Swal.fire({ icon: icon, title: t, timer: 1500, showConfirmButton: false, position: 'top-end', toast: true }),
@@ -559,8 +568,8 @@
   function promptExport(exportType, d1, d2, extraPayload = {}) {
       if(!d1 || !d2) { notify.error("Wybierz zakres dat!"); return; }
       Swal.fire({
-          title: 'Wybierz format eksportu',
-          text: 'Zalecany format: Excel',
+          title: 'Wybierz format pliku',
+          text: 'Plik z Excela jest gotowy do druku i analizy.',
           icon: 'question',
           showDenyButton: true,
           showCancelButton: true,
@@ -573,7 +582,7 @@
           else if (result.isDenied) fmt = 'csv';
           else return;
 
-          notify.loading('Tworzenie pliku na serwerze...');
+          notify.loading('Tworzenie pliku...');
           let payload = { export_type: exportType, format: fmt, d1: d1, d2: d2, ...extraPayload };
           apiCall('/admin/export', 'POST', payload).then(data => {
               if(data && data.url) window.location.href = BASE_URL + data.url;
@@ -582,7 +591,32 @@
       });
   }
 
-  /* --- ADMIN: SESJE LIVE, RADIOWĘZEŁ I ALERT --- */
+  function promptBackupExport(d1, d2) {
+      if(!d1 || !d2) { notify.error("Wybierz zakres dat!"); return; }
+      Swal.fire({
+          title: 'Eksport Bazy Danych',
+          text: 'Pobierz pełną kopię bezpieczeństwa. Format JSON służy do wgrania na nowy serwer.',
+          icon: 'warning',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: '💾 Snapshot (JSON)',
+          denyButtonText: '📗 Excel (.xlsx)',
+          cancelButtonText: 'Anuluj'
+      }).then((result) => {
+          let fmt = '';
+          if (result.isConfirmed) fmt = 'json';
+          else if (result.isDenied) fmt = 'xls';
+          else return;
+
+          notify.loading('Generowanie Zrzutu Bazy...');
+          apiCall('/admin/export', 'POST', { export_type: 'BACKUP', format: fmt, d1: d1, d2: d2 }).then(data => {
+              if(data && data.url) window.location.href = BASE_URL + data.url;
+              notify.close();
+          });
+      });
+  }
+
+  /* --- ADMIN: SESJE LIVE, RADIOWĘZEŁ I ALERTY --- */
   function loadActiveSessions() {
     document.getElementById('activeSessionsResults').innerHTML = "<div class='inline-loader'>⏳ Analiza matrycy...</div>";
     apiCall('/admin/active-sessions', 'GET').then(res => {
@@ -615,9 +649,7 @@
     });
   }
 
-  function toggleGroup(checkbox, groupClass) {
-      document.querySelectorAll('.cb-group-' + groupClass).forEach(cb => cb.checked = checkbox.checked);
-  }
+  function toggleGroup(checkbox, groupClass) { document.querySelectorAll('.cb-group-' + groupClass).forEach(cb => cb.checked = checkbox.checked); }
 
   function sendAdminMessage() {
       let selected = [];
@@ -675,29 +707,87 @@
       });
   }
 
-  function resolveProblem(id) { apiCall('/admin/problems/resolve', 'POST', {id: id}).then(() => loadAdminAlerts()); }
-  function archiveMessage(id) { apiCall('/admin/messages/archive', 'POST', {id: id}).then(() => loadAdminAlerts()); }
-
+  // SYSTEM POWIADOMIEŃ Z GRUPOWANIEM
   function loadAdminAlerts() {
-    document.getElementById('adminAlertsResults').innerHTML = "<div class='inline-loader'>⏳ Skanowanie logów...</div>";
+    document.getElementById('adminAlertsResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie logów...</div>";
     apiCall('/admin/alerts', 'GET').then(res => {
       if(!res) return;
-      if (res.length === 0) { document.getElementById('adminAlertsResults').innerHTML = "<div class='card' style='text-align:center; color:green; font-weight:bold;'>✅ Brak alertów. Wszystko w normie.</div>"; return; }
-      let h = ''; 
-      res.forEach(a => { 
-          if(a.type === 'prob') {
-              h += `<div class="alert-card" style="border-left-color:var(--warning); background:#fff8e1; display:block;">${a.text} <br><button onclick="resolveProblem(${a.id})" class="btn-primary" style="margin-top:10px; padding:8px; font-size:12px;">✅ Oznacz jako rozwiązane</button></div>`;
-          } else if(a.type === 'msg') {
-              h += `<div class="alert-card" style="border-left-color:var(--primary); background:#e8f0fe; display:block;">${a.text} <br><button onclick="archiveMessage(${a.id})" class="btn-warn" style="margin-top:10px; padding:8px; font-size:12px;">🗄️ Ukryj odpowiedź</button></div>`;
-          } else {
-              h += `<div class="alert-card">${a.text}</div>`; 
-          }
-      });
-      document.getElementById('adminAlertsResults').innerHTML = h;
+      currentAlertsData = res;
+      renderAlerts();
     });
   }
 
-  /* --- ADMIN RAPORTY I EDYCJA --- */
+  function renderAlerts() {
+      if (currentAlertsData.length === 0) { document.getElementById('adminAlertsResults').innerHTML = "<div class='card' style='text-align:center; color:green; font-weight:bold;'>✅ Skrzynka pusta. Brak ostrzeżeń.</div>"; return; }
+      
+      let grouped = {};
+      currentAlertsData.forEach(a => {
+          if (!grouped[a.date]) grouped[a.date] = { prob: [], msg: [], sys: [] };
+          grouped[a.date][a.type].push(a);
+      });
+
+      let h = '';
+      Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(date => {
+          h += `<div class="day-sep-admin" style="margin-top:20px;">📅 Data: ${date}</div>`;
+          
+          if(grouped[date].prob.length > 0) {
+              h += `<h5 style="color:var(--danger); margin:10px 0 5px 0;">🚨 AWARIE / PROBLEMY</h5>`;
+              grouped[date].prob.forEach(a => {
+                  h += `<div class="alert-card" style="border-left-color:var(--danger); background:#fff5f5;">
+                          <div style="display:flex; align-items:center;">
+                              <input type="checkbox" class="alert-checkbox" data-type="${a.type}" value="${a.id}">
+                              <div>${a.text}</div>
+                          </div>
+                        </div>`;
+              });
+          }
+          if(grouped[date].msg.length > 0) {
+              h += `<h5 style="color:var(--primary); margin:10px 0 5px 0;">✉️ ODPOWIEDZI Z RADIOWĘZŁA</h5>`;
+              grouped[date].msg.forEach(a => {
+                  h += `<div class="alert-card" style="border-left-color:var(--primary); background:#e8f0fe;">
+                          <div style="display:flex; align-items:center;">
+                              <input type="checkbox" class="alert-checkbox" data-type="${a.type}" value="${a.id}">
+                              <div>${a.text}</div>
+                          </div>
+                        </div>`;
+              });
+          }
+          if(grouped[date].sys.length > 0) {
+              h += `<h5 style="color:var(--warning); margin:10px 0 5px 0;">⚙️ SYSTEMOWE OSTRZEŻENIA</h5>`;
+              grouped[date].sys.forEach(a => {
+                  h += `<div class="alert-card" style="border-left-color:var(--warning); background:#fff8e1;">
+                          <div style="display:flex; align-items:center;">
+                              <input type="checkbox" class="alert-checkbox" data-type="${a.type}" value="${a.id}">
+                              <div>${a.text}</div>
+                          </div>
+                        </div>`;
+              });
+          }
+      });
+      document.getElementById('adminAlertsResults').innerHTML = h;
+  }
+
+  function dismissSelectedAlerts() {
+      let selected = [];
+      document.querySelectorAll('.alert-checkbox:checked').forEach(cb => { selected.push({type: cb.getAttribute('data-type'), id: cb.value}); });
+      if (selected.length === 0) { notify.error("Zaznacz alerty do usunięcia!"); return; }
+      
+      notify.loading('Usuwanie...');
+      apiCall('/admin/alerts/dismiss-all', 'POST', {alerts: selected}).then(res => { if(res) { notify.success('Usunięto!'); loadAdminAlerts(); } });
+  }
+
+  function dismissAllAlerts() {
+      if (currentAlertsData.length === 0) return;
+      Swal.fire({title: 'Jesteś pewien?', text: 'To ukryje / oznaczy jako rozwiązane WSZYSTKIE widoczne alerty ze wszystkich dni.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#b3261e', confirmButtonText: 'Tak, wyczyść wszystko'}).then(res => {
+          if (res.isConfirmed) {
+              notify.loading('Czyszczenie...');
+              let all = currentAlertsData.map(a => ({type: a.type, id: a.id}));
+              apiCall('/admin/alerts/dismiss-all', 'POST', {alerts: all}).then(resp => { if(resp) { notify.success('Wyzerowano skrzynkę!'); loadAdminAlerts(); } });
+          }
+      });
+  }
+
+  /* --- ADMIN PODGLĄDY DANYCH --- */
   function toggleAllDetails(state) { document.querySelectorAll('#adminResults details').forEach(d => d.open = state); }
 
   function loadAdminReports() {
@@ -712,7 +802,7 @@
           let dayMins = 0; grouped[d].forEach(l => dayMins += parseTime(l.czas)); card += `<div class="day-sep-admin"><span>📅 ${d}</span><span>Σ ${formatMins(dayMins)}</span></div><table style="margin-bottom:15px;">`;
           grouped[d].forEach(l => { let eq = (l.skaner || l.wozek) ? `<br><small style="color:#888;">Sk: ${l.skaner||'-'} | Wó: ${l.wozek||'-'}</small>` : ""; card += `<tr><td style="width:45%"><b>${l.zadanie}</b>${eq}</td><td class="col-time">${l.start}-${l.koniec}</td><td style="text-align:right">${l.czas}</td></tr>`; }); card += `</table>`;
         }); card += `</div></details></div>`; hArray.push(card);
-      } document.getElementById('adminResults').innerHTML = hArray.join('') || "<div style='text-align:center;'>Brak danych.</div>";
+      } document.getElementById('adminResults').innerHTML = hArray.join('') || "<div style='text-align:center;'>Brak danych w wybranym okresie.</div>";
     });
   }
 
@@ -722,7 +812,7 @@
     apiCall('/admin/productivity', 'POST', { d1: d1, d2: d2 }).then(res => {
       if(!res) return;
       currentProdData = res; let acts = Object.keys(res.chartData);
-      if (acts.length === 0) { document.getElementById('efficiencyList').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów w wybranym zakresie.</div>"; return; }
+      if (acts.length === 0) { document.getElementById('efficiencyList').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów produkcyjnych w tym okresie.</div>"; return; }
       document.getElementById('chartContainer').style.display='block'; document.getElementById('prodActivitySelect').style.display='block';
       let badgesArray = []; for(let a in res.headcount) { badgesArray.push(`<span class="headcount-badge">${a}: ${res.headcount[a]} os.</span>`); } document.getElementById('headcountBadges').innerHTML = badgesArray.join('');
       
@@ -765,8 +855,24 @@
     apiCall('/admin/equipment-log', 'POST', { d1: document.getElementById('eqDate1').value, d2: document.getElementById('eqDate2').value, skaner: document.getElementById('eqFilterSkaner').value, wozek: document.getElementById('eqFilterWozek').value }).then(res => { 
       if(!res) return;
       let hArray = []; res.forEach(r => { hArray.push(`<div class="eq-log-item"><b>${r.worker}</b> (${r.data} | ${r.start}-${r.koniec})<br>Zadanie: ${r.task} | Skaner: <b>${r.skaner||'-'}</b> | Wózek: <b>${r.wozek||'-'}</b></div>`); }); 
-      document.getElementById('eqLogResults').innerHTML = hArray.join('') || "<div class='card' style='text-align:center;'>Brak danych.</div>"; 
+      document.getElementById('eqLogResults').innerHTML = hArray.join('') || "<div class='card' style='text-align:center;'>Brak wpisów z danym sprzętem w tym okresie.</div>"; 
     });
+  }
+
+  function loadAdminEditLogs() {
+      const u = document.getElementById('adEditUser').value, d = document.getElementById('adEditDate').value; 
+      if(!u || !d) { notify.error("Wybierz pracownika i datę"); return; }
+      document.getElementById('adminEditResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie wpisów...</div>";
+      apiCall('/admin/edit-logs', 'POST', { username: u, date: d }).then(res => {
+          if(!res) return;
+          if(res.length === 0) { document.getElementById('adminEditResults').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów dla tego pracownika.</div>"; return; } 
+          let h = '';
+          res.forEach(r => { 
+              h += `<div class="admin-edit-row" id="edit_row_${r.id}"><div style="font-size:12px; color:#666; margin-bottom:5px;">ID wpisu: ${r.id}</div><div style="display:flex; gap:10px; margin-bottom:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Zadanie</label><input type="text" id="edit_task_${r.id}" value="${r.zadanie}" style="margin:0;"></div></div><div style="display:flex; gap:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Start</label><input type="time" id="edit_start_${r.id}" value="${r.start}" style="margin:0;"></div><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Koniec</label><input type="time" id="edit_end_${r.id}" value="${r.koniec}" style="margin:0;"></div></div></div>`; 
+          });
+          h += `<button class="btn-success" style="height:60px; font-size:16px;" onclick="saveAdminEdits('${d}')">💾 ZAPISZ ZMIANY W TYM DNIU</button>`; 
+          document.getElementById('adminEditResults').innerHTML = h;
+      });
   }
 
   function saveAdminEdits(dateStr) {
@@ -778,22 +884,6 @@
       notify.toast('Zapisywanie...', 'info'); 
       apiCall('/admin/update-batch', 'POST', { updates: updates, date: dateStr }).then(res => { 
           if(res) { notify.success('Zapisano pomyślnie!'); loadAdminEditLogs(); }
-      });
-  }
-
-  function loadAdminEditLogs() {
-      const u = document.getElementById('adEditUser').value, d = document.getElementById('adEditDate').value; 
-      if(!u || !d) { notify.error("Wybierz pracownika i datę"); return; }
-      document.getElementById('adminEditResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie wpisów...</div>";
-      apiCall('/admin/edit-logs', 'POST', { username: u, date: d }).then(res => {
-          if(!res) return;
-          if(res.length === 0) { document.getElementById('adminEditResults').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów.</div>"; return; } 
-          let h = '';
-          res.forEach(r => { 
-              h += `<div class="admin-edit-row" id="edit_row_${r.id}"><div style="font-size:12px; color:#666; margin-bottom:5px;">ID wpisu: ${r.id}</div><div style="display:flex; gap:10px; margin-bottom:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Zadanie</label><input type="text" id="edit_task_${r.id}" value="${r.zadanie}" style="margin:0;"></div></div><div style="display:flex; gap:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Start</label><input type="time" id="edit_start_${r.id}" value="${r.start}" style="margin:0;"></div><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Koniec</label><input type="time" id="edit_end_${r.id}" value="${r.koniec}" style="margin:0;"></div></div></div>`; 
-          });
-          h += `<button class="btn-success" style="height:60px; font-size:16px;" onclick="saveAdminEdits('${d}')">💾 ZAPISZ ZMIANY W TYM DNIU</button>`; 
-          document.getElementById('adminEditResults').innerHTML = h;
       });
   }
 
