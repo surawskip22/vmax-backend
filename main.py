@@ -10,7 +10,7 @@ import uuid
 import re   
 import random
 from datetime import datetime, timedelta
-import zoneinfo # Do poprawnej strefy czasowej PL
+import zoneinfo
 
 # 1. KONFIGURACJA BAZY DANYCH
 db_url = os.getenv("DATABASE_URL", "sqlite:///./test.db")
@@ -24,10 +24,8 @@ Base = declarative_base()
 # --- STREFA CZASOWA POLSKA ---
 def get_now():
     try:
-        # Konwersja na czas polski
         return datetime.now(zoneinfo.ZoneInfo("Europe/Warsaw")).replace(tzinfo=None)
     except Exception:
-        # Fallback (Gdyby serwer marudził)
         return datetime.utcnow() + timedelta(hours=2)
 
 # 2. DEFINICJA TABEL W BAZIE
@@ -74,11 +72,21 @@ class Productivity(Base):
     produkty = Column(Integer, default=0)
     mins = Column(Integer, default=0)
 
+# NOWOŚĆ: Tabela do systemu powiadomień (Radiowęzeł)
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    recipient = Column(String, index=True)
+    message = Column(String)
+    created_at = Column(DateTime, default=get_now)
+    is_read = Column(Integer, default=0)
+    reply = Column(String, nullable=True)
+
 # Automatyczne utworzenie tabel
 Base.metadata.create_all(bind=engine)
 os.makedirs("exports", exist_ok=True)
 
-app = FastAPI(title="V-MAX 10.0 Matrix API")
+app = FastAPI(title="V-MAX 11.0 Enterprise API")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 def get_db():
@@ -113,7 +121,6 @@ def get_config(db: Session = Depends(get_db)):
     scanners = [s.name for s in db.query(Scanner).all()]
     trolleys = [t.name for t in db.query(Trolley).all()]
     
-    # Znajdź używany sprzęt (żeby zablokować na frontendzie)
     active_logs = db.query(WorkLog).filter(WorkLog.end_time == None).all()
     used_scanners = [log.skaner for log in active_logs if log.skaner]
     used_trolleys = [log.wozek for log in active_logs if log.wozek]
@@ -158,7 +165,14 @@ def user_action(req: dict, db: Session = Depends(get_db)):
     now = get_now()
     date_str = now.strftime("%Y-%m-%d")
     
-    # Bezpieczeństwo: Upewnij się że skaner nie jest kradziony
+    # Przenoszenie sprzętu (Inheritance) - jeśli puste, weź z poprzedniego zadania
+    active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
+    if active_log:
+        if not skaner: skaner = active_log.skaner
+        if not wozek: wozek = active_log.wozek
+        active_log.end_time = now
+        db.commit()
+
     if act_type in ["START", "TASK"]:
         if skaner:
             in_use = db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first()
@@ -167,11 +181,6 @@ def user_action(req: dict, db: Session = Depends(get_db)):
             in_use = db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first()
             if in_use: raise HTTPException(status_code=400, detail="Wózek zajęty przez kogoś innego!")
 
-    active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
-    if active_log:
-        active_log.end_time = now
-        db.commit()
-    if act_type in ["START", "TASK"]:
         db.add(WorkLog(username=user, task_name=task, start_time=now, date_str=date_str, skaner=skaner, wozek=wozek))
         db.commit()
     elif act_type == "STOP":
@@ -213,6 +222,34 @@ def correct_task(req: dict, db: Session = Depends(get_db)):
         db.commit()
         return get_user_history({"username": req.get("username")}, db)
     return False
+
+# --- NOWOŚĆ: SYSTEM RADIOWĘZŁA (Powiadomienia) ---
+@app.post("/api/notifications/check")
+def check_notifications(req: dict, db: Session = Depends(get_db)):
+    user = req.get("username")
+    noti = db.query(Notification).filter(Notification.recipient == user, Notification.is_read == 0).first()
+    if noti:
+        return {"id": noti.id, "message": noti.message}
+    return None
+
+@app.post("/api/notifications/reply")
+def reply_notification(req: dict, db: Session = Depends(get_db)):
+    noti = db.query(Notification).filter(Notification.id == req.get("id")).first()
+    if noti:
+        noti.is_read = 1
+        noti.reply = req.get("reply")
+        db.commit()
+        return True
+    return False
+
+@app.post("/api/admin/notify")
+def send_notification(req: dict, db: Session = Depends(get_db)):
+    users = req.get("users", [])
+    msg = req.get("message")
+    for u in users:
+        db.add(Notification(recipient=u, message=msg))
+    db.commit()
+    return True
 
 # --- SEKCJA ADMINA: LIVE SESSIONS ---
 @app.get("/api/admin/active-sessions")
@@ -282,11 +319,12 @@ def manage_db(req: dict, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "success"}
 
-# --- SYSTEM EKSPORTU ---
-def create_csv(filename: str, rows: list):
+# --- SYSTEM EKSPORTU I BAZA (TSV) ---
+# Tsv ensures perfect copy-pasting to Google Sheets
+def create_tsv(filename: str, rows: list):
     filepath = os.path.join("exports", filename)
-    with open(filepath, 'w', newline='', encoding='utf-8-sig') as f:
-        writer = csv.writer(f, delimiter=';')
+    with open(filepath, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f, delimiter='\t')
         writer.writerows(rows)
     return f"/api/download/{filename}"
 
@@ -304,7 +342,7 @@ def export_hr(req: dict, db: Session = Depends(get_db)):
         else: stats[u]["weekday"] += mins
     rows = [["Pracownik", "Godziny Pn-Pt", "Godziny Weekend", "Suma Godzin"]]
     for u, v in stats.items(): rows.append([u, format_dur(v["weekday"]), format_dur(v["weekend"]), format_dur(v["weekday"] + v["weekend"])])
-    return {"url": create_csv(f"Raport_HR_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)}
+    return {"url": create_tsv(f"Raport_HR_{d1}_{uuid.uuid4().hex[:4]}.tsv", rows)}
 
 @app.post("/api/admin/export-sheets")
 def export_sheets(req: dict, db: Session = Depends(get_db)):
@@ -316,7 +354,7 @@ def export_sheets(req: dict, db: Session = Depends(get_db)):
     for log in logs:
         mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
         rows.append([log.username, log.task_name, log.date_str, log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa", format_dur(mins) if log.end_time else "-", log.skaner, log.wozek])
-    return {"url": create_csv(f"Raport_Pelny_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)}
+    return {"url": create_tsv(f"Raport_Pelny_{d1}_{uuid.uuid4().hex[:4]}.tsv", rows)}
 
 @app.post("/api/admin/export-productivity")
 def export_prod(req: dict, db: Session = Depends(get_db)):
@@ -340,7 +378,7 @@ def export_prod(req: dict, db: Session = Depends(get_db)):
         pph = round(v["paczki"] / h, 2) if h > 0 else 0
         prh = round(v["produkty"] / h, 2) if h > 0 else 0
         rows.append([u, format_dur(v["mins"]), v["paczki"], v["produkty"], pph, prh])
-    return {"url": create_csv(f"Wydajnosc_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)}
+    return {"url": create_tsv(f"Wydajnosc_{d1}_{uuid.uuid4().hex[:4]}.tsv", rows)}
 
 @app.post("/api/admin/export-equipment")
 def export_eq(req: dict, db: Session = Depends(get_db)):
@@ -353,12 +391,24 @@ def export_eq(req: dict, db: Session = Depends(get_db)):
     for log in logs:
         if not log.skaner and not log.wozek: continue
         rows.append([log.username, log.task_name, log.date_str, log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa", log.skaner, log.wozek])
-    return {"url": create_csv(f"Sprzet_{d1}_{uuid.uuid4().hex[:4]}.csv", rows)}
+    return {"url": create_tsv(f"Sprzet_{d1}_{uuid.uuid4().hex[:4]}.tsv", rows)}
+
+@app.post("/api/admin/export-db")
+def export_full_db(req: dict, db: Session = Depends(get_db)):
+    d1, d2 = req.get("d1"), req.get("d2")
+    logs = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2).order_by(WorkLog.id).all()
+    rows = [["ID", "Pracownik", "Zadanie", "Start", "Koniec", "Data", "Skaner", "Wózek", "Zamknięcie Systemowe"]]
+    for log in logs:
+        rows.append([
+            log.id, log.username, log.task_name, log.start_time.strftime("%Y-%m-%d %H:%M:%S") if log.start_time else "",
+            log.end_time.strftime("%Y-%m-%d %H:%M:%S") if log.end_time else "", log.date_str, log.skaner, log.wozek, log.is_autoclosed
+        ])
+    return {"url": create_tsv(f"Baza_Danych_{d1}_{d2}.tsv", rows)}
 
 @app.get("/api/download/{filename}")
 def download_file(filename: str):
     file_path = os.path.join("exports", filename)
-    if os.path.exists(file_path): return FileResponse(file_path, filename=filename, media_type="text/csv")
+    if os.path.exists(file_path): return FileResponse(file_path, filename=filename, media_type="text/tab-separated-values")
     raise HTTPException(status_code=404, detail="Plik nie istnieje.")
 
 @app.get("/api/planning")
@@ -370,32 +420,18 @@ def get_planning():
         weekly_data.append({"date": (monday + timedelta(days=i)).strftime("%d.%m.%Y"), "found": True, "url": "https://docs.google.com/spreadsheets/d/1kP-AIiDTPPwWJurt8AtQNnpuj_HhTciLzNHbToqgYjs/edit"})
     return weekly_data
 
-# --- POZOSTAŁE FUNKCJE ---
-@app.post("/api/admin/reports")
-def get_admin_reports_list(req: dict, db: Session = Depends(get_db)):
-    d1, d2, u_filter = req.get("d1"), req.get("d2"), req.get("user")
-    query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
-    if u_filter and u_filter != "Wszyscy": query = query.filter(WorkLog.username == u_filter)
-    logs = query.order_by(desc(WorkLog.start_time)).all()
-    raport = {}
-    for log in logs:
-        u = log.username
-        if u not in raport: raport[u] = {"totalMins": 0, "logi": []}
-        mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
-        raport[u]["totalMins"] += mins
-        raport[u]["logi"].append({
-            "zadanie": log.task_name, "data": log.date_str,
-            "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
-            "czas": format_dur(mins) if log.end_time else "-", "skaner": log.skaner, "wozek": log.wozek
-        })
-    for u in raport: raport[u]["totalStr"] = format_dur(raport[u]["totalMins"])
-    return raport
-
+# --- INNE ---
 @app.get("/api/admin/alerts")
 def get_alerts(db: Session = Depends(get_db)):
     today = get_now().strftime("%Y-%m-%d")
     logs = db.query(WorkLog).filter(WorkLog.date_str == today).all()
     alerts = []
+    
+    # Check Replies from users
+    replies = db.query(Notification).filter(Notification.reply != None).order_by(desc(Notification.id)).limit(20).all()
+    for r in replies:
+        alerts.append(f"📩 <b>{r.recipient} odpisał:</b> {r.reply} <small>(Odp na: {r.message})</small>")
+
     auto = set([l.username for l in logs if l.is_autoclosed == 1])
     for u in auto: alerts.append(f"🔴 {u}: System zamknął sesję z powodu braku aktywności (>15h).")
     users = set([l.username for l in logs])
@@ -406,60 +442,6 @@ def get_alerts(db: Session = Depends(get_db)):
         if break_mins == 0 and has_finished: alerts.append(f"⚠️ {u}: Zakończył pracę bez użycia przerwy.")
         elif break_mins > 40: alerts.append(f"⏱️ {u}: Przekroczono limit przerwy (trwała {break_mins} min).")
     return alerts
-
-@app.post("/api/admin/productivity")
-def get_productivity(req: dict, db: Session = Depends(get_db)):
-    d1, d2 = req.get("d1"), req.get("d2")
-    logs = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2).all()
-    prod_entries = db.query(Productivity).filter(Productivity.date_str >= d1, Productivity.date_str <= d2).all()
-    chartData, headcount, workerDetails, packingStats = {}, {}, {}, {}
-    for log in logs:
-        if log.task_name in ["Rozpoczęcie pracy", "Zakończenie pracy"]: continue
-        mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
-        if mins > 0:
-            act, u = log.task_name, log.username
-            chartData[act] = chartData.get(act, 0) + mins
-            if act not in headcount: headcount[act] = []
-            if u not in headcount[act]: headcount[act].append(u)
-            if u not in workerDetails: workerDetails[u] = {}
-            workerDetails[u][act] = workerDetails[u].get(act, 0) + mins
-    for p in prod_entries:
-        u = p.username
-        if u not in packingStats: packingStats[u] = {"paczki": 0, "produkty": 0}
-        packingStats[u]["paczki"] += p.paczki
-        packingStats[u]["produkty"] += p.produkty
-    for act in headcount: headcount[act] = len(headcount[act])
-    return {"chartData": chartData, "headcount": headcount, "workerDetails": workerDetails, "packingStats": packingStats}
-
-@app.post("/api/admin/save-productivity")
-def save_prod(req: dict, db: Session = Depends(get_db)):
-    date_str, updates = req.get("date"), req.get("updates", [])
-    for u in updates:
-        worker = u.get("worker")
-        entry = db.query(Productivity).filter(Productivity.date_str == date_str, Productivity.username == worker).first()
-        if not entry:
-            entry = Productivity(date_str=date_str, username=worker)
-            db.add(entry)
-        entry.paczki, entry.produkty, entry.mins = int(u.get("paczki", 0)), int(u.get("produkty", 0)), int(float(u.get("mins", 0)))
-    db.commit()
-    return True
-
-@app.post("/api/admin/equipment-log")
-def eq_log(req: dict, db: Session = Depends(get_db)):
-    d1, d2, s_filt, w_filt = req.get("d1"), req.get("d2"), req.get("skaner", ""), req.get("wozek", "")
-    query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
-    if s_filt: query = query.filter(WorkLog.skaner == s_filt)
-    if w_filt: query = query.filter(WorkLog.wozek == w_filt)
-    logs = query.order_by(desc(WorkLog.start_time)).all()
-    results = []
-    for log in logs:
-        if not log.skaner and not log.wozek: continue
-        results.append({
-            "worker": log.username, "task": log.task_name, "data": log.date_str,
-            "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
-            "skaner": log.skaner, "wozek": log.wozek
-        })
-    return results
 
 @app.post("/api/admin/edit-logs")
 def get_edit_logs(req: dict, db: Session = Depends(get_db)):
@@ -489,7 +471,6 @@ def update_batch(req: dict, db: Session = Depends(get_db)):
 @app.get("/api/generate-mock-data", response_class=HTMLResponse)
 def generate_mock_data(db: Session = Depends(get_db)):
     try:
-        # Usunięcie starych logów totalnie
         db.query(WorkLog).delete()
         db.query(Productivity).delete()
         db.commit()
@@ -504,7 +485,6 @@ def generate_mock_data(db: Session = Depends(get_db)):
             all_acts.append("Przerwa")
         task_acts = [a for a in all_acts if a not in ["Rozpoczęcie pracy", "Zakończenie pracy", "Przerwa"]]
 
-        # Zapewnij istnienie skanerów i wózków w bazie
         scanners_in_db = [s.name for s in db.query(Scanner).all()]
         trolleys_in_db = [t.name for t in db.query(Trolley).all()]
         
@@ -519,25 +499,22 @@ def generate_mock_data(db: Session = Depends(get_db)):
         pool_s = [s.name for s in db.query(Scanner).all()]
         pool_t = [t.name for t in db.query(Trolley).all()]
 
-        # Generowanie od 1 stycznia do 30 kwietnia 2026
         start_date = datetime(2026, 1, 1)
         end_date = datetime(2026, 4, 30)
         days = (end_date - start_date).days
 
         for i in range(days + 1):
             curr_date = start_date + timedelta(days=i)
-            if curr_date.weekday() == 6: continue # Niedziela wolna
+            if curr_date.weekday() == 6: continue 
 
-            # Reset puli sprzętu na ten dzień (unikalne rozdanie)
             random.shuffle(pool_s)
             random.shuffle(pool_t)
             day_s = pool_s.copy()
             day_t = pool_t.copy()
 
             for emp in employees:
-                if random.random() > 0.9: continue # 10% szansy na nieobecność
+                if random.random() > 0.9: continue 
 
-                # Zmiana 7, 8, 9, 10
                 h = random.choice([7, 8, 9, 10])
                 m = random.choice([0, 15, 30])
                 dur = random.randint(5, 12)
@@ -562,7 +539,6 @@ def generate_mock_data(db: Session = Depends(get_db)):
                 br_done = False
 
                 for idx, d in enumerate(durs):
-                    # Pobieramy UNIKALNY sprzęt z puli na TO konkretne zadanie
                     sk_use = day_s.pop() if day_s else ""
                     wz_use = day_t.pop() if day_t else ""
                     
