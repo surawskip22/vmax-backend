@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WorkFlow V-MAX 6.0 - SQL Powered</title>
+  <title>WorkFlow V-MAX 8.0 Pro</title>
   
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <style>
-    /* STYLIZACJA POZOSTAJE BEZ ZMIAN - JEST ŚWIETNA */
     :root { --primary: #0b57d0; --success: #188038; --warning: #f29900; --danger: #b3261e; --bg: #f0f4f9; --card-bg: #ffffff; --text: #1f1f1f; --border: #d1d5db; }
     * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
     body { background: var(--bg); margin: 0; padding: 10px; color: var(--text); }
@@ -20,13 +19,12 @@
     button, select, input { width: 100%; padding: 16px; margin-bottom: 12px; border-radius: 12px; border: 1px solid var(--border); font-size: 16px; outline: none; transition: 0.2s; }
     button { font-weight: bold; cursor: pointer; border: none; }
     button:active { transform: scale(0.97); }
+    button:disabled, input:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; border-color: #e5e7eb; }
     
     .btn-primary { background: var(--primary); color: white; }
     .btn-success { background: var(--success); color: white; height: 65px; font-size: 19px; box-shadow: 0 4px 0 #0d5423; }
     .btn-danger { background: #fff; color: var(--danger); border: 2px solid var(--danger); }
     .btn-warn { background: #fff8e1; color: #b26a00; border: 1px solid var(--warning); font-size: 14px; }
-    .btn-hr { background: #b3261e; color: white; }
-    .btn-sheets { background: #0f9d58; color: white; }
     .btn-admin { background: #333; color: white; }
 
     .swal2-select, .swal2-input { box-sizing: border-box !important; max-width: 100% !important; width: 80% !important; margin: 15px auto !important; }
@@ -78,6 +76,8 @@
     .admin-edit-row { background: #fff; padding: 18px; border: 1px solid #ddd; border-radius: 14px; margin-bottom: 18px; border-left: 6px solid var(--warning); }
     
     .inline-loader { text-align: center; padding: 30px; color: #666; font-weight: bold; font-size: 16px; }
+    .alert-card { background: #fff5f5; border: 1px solid #feb2b2; border-left: 6px solid var(--danger); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; }
+    .live-session-card { background: #e6f4ea; border: 1px solid #ceead6; border-left: 6px solid var(--success); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -110,9 +110,9 @@
     <div class="equipment-block">
         <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">🛠️ Twój Sprzęt</h4>
         <div style="display:flex; gap:10px;">
-           <input type="text" id="eqSkaner" placeholder="Nr Skanera" style="margin:0; padding:10px;">
-           <input type="text" id="eqWozek" placeholder="Nr Wózka" style="margin:0; padding:10px;">
-           <button class="btn-primary" style="width:auto; margin:0;" onclick="updateMyEquipment()">ZAPISZ</button>
+           <input type="text" id="eqSkaner" placeholder="Nr Skanera" style="margin:0; padding:10px;" disabled>
+           <input type="text" id="eqWozek" placeholder="Nr Wózka" style="margin:0; padding:10px;" disabled>
+           <button id="eqBtn" class="btn-primary" style="width:auto; margin:0;" onclick="updateMyEquipment()" disabled>ZAPISZ</button>
         </div>
     </div>
     
@@ -156,15 +156,28 @@
   
   <div class="card">
     <div class="tabs">
-      <div class="tab active" onclick="switchAdminTab('raporty', this)">📊 Raporty</div>
+      <div class="tab active" onclick="switchAdminTab('live', this)">🟢 Aktywne Sesje</div>
+      <div class="tab" onclick="switchAdminTab('alerty', this)">⚠️ Alerty</div>
+      <div class="tab" onclick="switchAdminTab('raporty', this)">📊 Raporty</div>
       <div class="tab" onclick="switchAdminTab('produkcja', this)">📦 Analityka</div>
       <div class="tab" onclick="switchAdminTab('sprzet', this)">🛠️ Sprzęt</div>
       <div class="tab" onclick="switchAdminTab('edycja', this)">✏️ Edycja</div>
       <div class="tab" onclick="switchAdminTab('baza', this)">⚙️ Ustawienia</div>
     </div>
 
-    <!-- ZAWARTOSC ZAKLADEK ADMINA POZOSTAJE BEZ ZMIAN -->
-    <div id="tab-raporty" class="tab-content active">
+    <div id="tab-live" class="tab-content active">
+        <h4 style="color:var(--success);">Pracownicy aktualnie w pracy</h4>
+        <div class="bulk-actions"><button class="btn-primary" onclick="loadActiveSessions()">Odśwież Listę</button></div>
+        <div id="activeSessionsResults" style="margin-top:15px;"></div>
+    </div>
+
+    <div id="tab-alerty" class="tab-content">
+        <h4 style="color:var(--danger);">Powiadomienia i Ostrzeżenia (Dzisiaj)</h4>
+        <div class="bulk-actions"><button class="btn-primary" onclick="loadAdminAlerts()">Odśwież Alerty</button></div>
+        <div id="adminAlertsResults" style="margin-top:15px;"></div>
+    </div>
+
+    <div id="tab-raporty" class="tab-content">
       <div style="display:flex; gap:12px;">
         <div style="flex:1"><label>OD</label><input type="date" id="ad1"></div>
         <div style="flex:1"><label>DO</label><input type="date" id="ad2"></div>
@@ -240,23 +253,12 @@
 </div>
 
 <script>
-  /* ==========================================
-     NOWY SILNIK KOMUNIKACJI Z RENDER.COM
-     ========================================== */
-  
-  // TUTAJ WKLEJ SWÓJ LINK Z RENDERA (bez ukośnika na końcu):
-const API_URL = "https://vmax-api.onrender.com/api";
+  const API_URL = "https://vmax-api.onrender.com/api"; // LUB PUste jeśli to ten sam serwer: ""
 
-
-  // Uniwersalna funkcja do gadania z nowym serwerem w Pythonie
   async function apiCall(endpoint, method = 'GET', body = null) {
     try {
-      let options = { 
-        method: method, 
-        headers: { 'Content-Type': 'application/json' } 
-      };
+      let options = { method: method, headers: { 'Content-Type': 'application/json' } };
       if (body) options.body = JSON.stringify(body);
-      
       const response = await fetch(API_URL + endpoint, options);
       if (!response.ok) {
         const errData = await response.json();
@@ -264,15 +266,9 @@ const API_URL = "https://vmax-api.onrender.com/api";
       }
       return await response.json();
     } catch (err) {
-      console.error("Błąd API:", err);
-      notify.error("Błąd połączenia", err.message);
-      return null;
+      console.error("Błąd API:", err); notify.error("Błąd połączenia", err.message); return null;
     }
   }
-
-  /* ==========================================
-     LOGIKA APLIKACJI
-     ========================================== */
 
   let currentUser = ""; let currentAdminName = ""; let allAktywnosci = []; 
   let prodChartInstance = null; let currentProdData = null; let planningLoaded = false;
@@ -285,7 +281,11 @@ const API_URL = "https://vmax-api.onrender.com/api";
     close: () => Swal.close()
   };
 
-  const parseTime = (s) => { let m = s.match(/(\d+)h\s*(\d+)m/); return m ? (parseInt(m[1])*60 + parseInt(m[2])) : 0; };
+  const parseTime = (s) => { 
+      if(!s || s === "-") return 0;
+      let m = s.match(/(\d+)h\s*(\d+)m/); 
+      return m ? (parseInt(m[1])*60 + parseInt(m[2])) : 0; 
+  };
   const formatMins = (m) => `${Math.floor(m/60)}h ${m%60}m`;
 
   window.onload = () => {
@@ -338,6 +338,7 @@ const API_URL = "https://vmax-api.onrender.com/api";
       if(res && res.role === "ADMIN") { 
         currentAdminName = res.name; document.getElementById('adminNameDisplay').innerText = `(${currentAdminName})`;
         document.getElementById('loginModal').style.display='none'; document.getElementById('adminView').style.display='block'; 
+        loadActiveSessions();
       } else if(res && res.role === "USER") { 
         currentUser = res.name; document.getElementById('userNameDisplay').innerText = currentUser; 
         document.getElementById('userView').style.display='block'; document.getElementById('loginModal').style.display='none'; loadUserData(); 
@@ -357,7 +358,6 @@ const API_URL = "https://vmax-api.onrender.com/api";
     });
   }
 
-  /* --- PLANOWANIE PRACY --- */
   function togglePlanning() {
     const section = document.getElementById('planningSection');
     if (section.style.display === 'none') { section.style.display = 'block'; if (!planningLoaded) loadPlanningData(); } 
@@ -378,16 +378,22 @@ const API_URL = "https://vmax-api.onrender.com/api";
     });
   }
 
-  /* --- WIDOK PRACOWNIKA & OPTIMISTIC UI --- */
   function renderUserHistory(res) {
     const b = document.getElementById('statusBanner');
+    const sInp = document.getElementById('eqSkaner');
+    const wInp = document.getElementById('eqWozek');
+    const btnEq = document.getElementById('eqBtn');
+
     if(res.currentTask) { 
       b.className = "status-box status-on"; b.innerText = `🟢 TRWA: ${res.currentTask.name}`; 
       document.getElementById('taskSection').style.display='block'; document.getElementById('startSection').style.display='none';
-      document.getElementById('eqSkaner').value = res.currentTask.skaner || ""; document.getElementById('eqWozek').value = res.currentTask.wozek || "";
+      sInp.value = res.currentTask.skaner || ""; wInp.value = res.currentTask.wozek || "";
+      sInp.disabled = false; wInp.disabled = false; btnEq.disabled = false;
     } else { 
       b.className = "status-box"; b.innerText = "⚪ Offline"; 
       document.getElementById('startSection').style.display='block'; document.getElementById('taskSection').style.display='none'; 
+      sInp.value = ""; wInp.value = "";
+      sInp.disabled = true; wInp.disabled = true; btnEq.disabled = true;
     }
     
     let hArray = []; let grouped = {}; let totalMins = 0;
@@ -426,8 +432,9 @@ const API_URL = "https://vmax-api.onrender.com/api";
         let fakeRow = `<tr style="opacity:0.5; background:#fffdf2;"><td><b>${taskName}</b>${eq}</td><td class="col-time">${h}-Trwa...</td><td style="text-align:right">Zapis...</td></tr>`;
         tbody.insertAdjacentHTML('afterbegin', fakeRow);
     } else {
-        b.className = "status-box"; b.innerText = "⚪ Zapisywanie..."; document.getElementById('startSection').style.display='block'; document.getElementById('taskSection').style.display='none';
-        let fakeRow = `<tr style="opacity:0.5; background:#fffdf2;"><td><b>Zakończenie pracy</b></td><td class="col-time">${h}-${h}</td><td style="text-align:right">-</td></tr>`; tbody.insertAdjacentHTML('afterbegin', fakeRow);
+        b.className = "status-box"; b.innerText = "⚪ Zapisywanie..."; 
+        document.getElementById('startSection').style.display='block'; document.getElementById('taskSection').style.display='none';
+        document.getElementById('eqSkaner').disabled = true; document.getElementById('eqWozek').disabled = true; document.getElementById('eqBtn').disabled = true;
     }
     notify.toast('Zapisuję...', 'info'); 
     
@@ -478,6 +485,38 @@ const API_URL = "https://vmax-api.onrender.com/api";
         }); 
       } 
     }); 
+  }
+
+  /* --- NOWOŚĆ: SESJE I ALERTY ADMINA --- */
+  function loadActiveSessions() {
+    document.getElementById('activeSessionsResults').innerHTML = "<div class='inline-loader'>⏳ Analiza sesji...</div>";
+    apiCall('/admin/active-sessions', 'GET').then(res => {
+      if(!res) return;
+      let tasks = Object.keys(res);
+      if (tasks.length === 0) { document.getElementById('activeSessionsResults').innerHTML = "<div class='card' style='text-align:center;'>Wszyscy pracownicy są obecnie wylogowani.</div>"; return; }
+      
+      let h = '';
+      tasks.forEach(task => {
+        h += `<div style="margin-bottom:15px;"><div style="background:#e8f0fe; color:var(--primary); padding:10px; border-radius:8px; font-weight:bold; margin-bottom:5px;">${task} (${res[task].length} osób)</div>`;
+        res[task].forEach(emp => {
+            let eqStr = (emp.skaner || emp.wozek) ? ` | Sk: ${emp.skaner||'-'} | Wó: ${emp.wozek||'-'}` : "";
+            h += `<div class="live-session-card">👤 <b>${emp.user}</b> <small style="color:#666;">(Od: ${emp.start}${eqStr})</small></div>`;
+        });
+        h += `</div>`;
+      });
+      document.getElementById('activeSessionsResults').innerHTML = h;
+    });
+  }
+
+  function loadAdminAlerts() {
+    document.getElementById('adminAlertsResults').innerHTML = "<div class='inline-loader'>⏳ Skanowanie logów...</div>";
+    apiCall('/admin/alerts', 'GET').then(res => {
+      if(!res) return;
+      if (res.length === 0) { document.getElementById('adminAlertsResults').innerHTML = "<div class='card' style='text-align:center; color:green; font-weight:bold;'>✅ Brak ostrzeżeń. Wszystko w normie.</div>"; return; }
+      let h = '';
+      res.forEach(a => { h += `<div class="alert-card">${a}</div>`; });
+      document.getElementById('adminAlertsResults').innerHTML = h;
+    });
   }
 
   /* --- RAPORTY ADMINA --- */
@@ -619,7 +658,16 @@ const API_URL = "https://vmax-api.onrender.com/api";
     }); 
   }
 
-  function switchAdminTab(id, el) { document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); el.classList.add('active'); document.getElementById('tab-'+id).classList.add('active'); if(id === 'sprzet') loadEqLog(); }
+  function switchAdminTab(id, el) { 
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
+      el.classList.add('active'); 
+      document.getElementById('tab-'+id).classList.add('active'); 
+      
+      if(id === 'sprzet') loadEqLog(); 
+      if(id === 'live') loadActiveSessions();
+      if(id === 'alerty') loadAdminAlerts();
+  }
 
   function dbDelete(t, n) { 
     Swal.fire({ title: `Usunąć ${n}?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Tak', cancelButtonText: 'Anuluj' }).then(res => { 
