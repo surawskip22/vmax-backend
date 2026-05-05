@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WMS Planner Pro v16 - Enterprise Ultimate</title>
+  <title>WMS Planner Pro v17 - Enterprise Ultimate</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap');
     
@@ -111,7 +111,6 @@
         box-sizing: border-box; 
     }
 
-    /* NAPRAWIONY CSS DLA FORMULARZY LOGOWANIA I KONTENERÓW */
     .landing-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; }
     .landing-box { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; padding: 20px; max-width: 800px; margin: 0 auto; }
     .landing-card { cursor: pointer; width: 280px; }
@@ -212,7 +211,6 @@
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes modalPop { from { opacity: 0; transform: translate(-50%,-45%) scale(0.9); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
     
-    /* FIX CMS GRID */
     .cms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 30px; width: 100%; max-width: 1200px; margin: 0 auto; }
   </style>
 </head>
@@ -274,7 +272,6 @@
         <button class="nav-arrow" onclick="changeEmpMonth(1)">Następny →</button>
       </div>
       
-      <!-- PĘDZEL PRACOWNIKA + PRZYCISK BATCH SUBMIT -->
       <div style="margin-bottom:20px; display:flex; flex-direction:column; align-items:center; gap:15px;">
           <div style="background:rgba(255,255,255,0.8); backdrop-filter:blur(10px); padding:8px 15px; border-radius:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; box-shadow:0 10px 20px rgba(0,0,0,0.03); border:1px solid rgba(0,0,0,0.05);">
             <span style="font-size:20px;">🖌️</span>
@@ -369,7 +366,7 @@
       </div>
     </div>
 
-    <!-- PLANNER DZIENNY Z ZAPOTRZEBOWANIEM I DRAG&DROP -->
+    <!-- PLANNER DZIENNY (DRAG&DROP + ZAPOTRZEBOWANIE + SUGESTIE) -->
     <div id="vDaily" class="admin-view active">
       <div class="tools" style="justify-content:center; box-shadow:0 4px 20px rgba(0,0,0,0.03); gap:20px;">
         <input type="date" id="dailyDate" onchange="renderDaily()" style="font-size:18px; padding:15px 30px; font-weight:800; background:white;">
@@ -390,12 +387,10 @@
       </div>
     </div>
 
-    <!-- GRUPY I KARTOTEKI (NOWE "BAŃKI") -->
+    <!-- GRUPY I KARTOTEKI (BAŃKI) -->
     <div id="vMatrix" class="admin-view" style="flex-direction:column; padding:40px; background:#f2f2f7; overflow-y:auto;">
       <h2 style="font-weight:800; font-size:32px; margin-top:0;">Zarządzanie Grupami</h2>
       <p style="color:var(--text-muted); margin-bottom:20px;">Wybierz grupę, aby dodać lub usunąć pracowników oraz ocenić ich w matrycy kompetencji.</p>
-      
-      <!-- KAFELKI GRUP (BAŃKI) -->
       <div id="groupBubbles" class="group-bubbles-container"></div>
     </div>
 
@@ -417,7 +412,7 @@
         <!-- Dodawanie Grup -->
         <div class="glass-card" style="text-align:left; padding:35px;">
             <h3 style="margin-top:0; font-weight:800; font-size:22px;">🏢 Grupy Pracownicze</h3>
-            <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Twórz i usuwaj grupy. Zaznacz "Elastyczna", aby pracownicy grupy nie podlegali regule 20. dnia.</p>
+            <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Twórz i usuwaj grupy. Zaznacz "Elastyczna", aby omijały regułę 20. dnia.</p>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
                 <input type="text" id="sGroup" placeholder="Nazwa nowej grupy" style="flex:1">
                 <select id="sGroupType" style="flex:0.5; padding:16px; border-radius:14px; outline:none;">
@@ -428,7 +423,7 @@
             <div style="margin-bottom:20px; padding-left:10px;">
                 <label style="font-size:13px; font-weight:600; color:var(--ios-blue); cursor:pointer; display:flex; align-items:center; gap:8px;">
                     <input type="checkbox" id="sGroupFlex" style="width:18px; height:18px; accent-color:var(--ios-blue);">
-                    Grupa elastyczna (Omija regułę 20. dnia w kalendarzu)
+                    Grupa elastyczna (Omija regułę)
                 </label>
             </div>
             <button class="btn-main" style="width:100%; margin-bottom:20px;" onclick="saveGroup()">Utwórz Grupę</button>
@@ -464,7 +459,6 @@
                 <button class="btn-main" onclick="changeAdminPass()">Zmień</button>
             </div>
         </div>
-
       </div>
     </div>
   </div>
@@ -509,29 +503,30 @@
           </div>
           <button class="btn-main" onclick="document.getElementById('matrixModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">Wróć</button>
       </div>
-      <div id="matrixGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px; max-height:50vh; overflow-y:auto; padding-right:10px;">
+      <div id="matrixGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px; max-height:50vh; overflow-y:auto; padding-right:10px;"></div>
+  </div>
+
+  <!-- MODAL: SUGESTIE PRACOWNIKÓW -->
+  <div id="suggestionModal" class="modal" style="width:500px; max-height:80vh;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:15px;">
+          <div>
+              <h3 id="sugTitle" style="margin:0; font-size:24px; font-weight:800; color:var(--ios-blue);">Sugestie</h3>
+              <p style="margin:5px 0 0 0; color:var(--text-muted); font-size:13px;">Wybierz pracownika o najwyższych kompetencjach</p>
+          </div>
+          <button class="btn-main" onclick="document.getElementById('suggestionModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none; padding:8px 16px;">Zamknij</button>
       </div>
+      <div id="sugList" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; max-height:60vh; padding-right:10px;"></div>
   </div>
 
   <!-- MODAL MASOWY -->
   <div id="massModal" class="modal">
     <h3 style="margin-top:0; font-size:24px; font-weight:800; color:var(--ios-blue);">Planowanie Masowe</h3>
-    <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Działa dla osób aktualnie zaznaczonych w tabeli w tle.</p>
-    
     <select id="massAct" style="width:100%; margin-bottom:15px; font-weight:600;"></select>
     <input type="text" id="massHrs" list="dlShifts" placeholder="Godziny..." style="width:100%; margin-bottom:20px; font-weight:600;">
-    
     <div style="display:flex; gap:15px; margin-bottom:25px;">
-        <div style="flex:1">
-            <label style="font-size:13px; font-weight:700;">Od:</label>
-            <input type="date" id="mOd" style="width:100%; margin-top:5px;">
-        </div>
-        <div style="flex:1">
-            <label style="font-size:13px; font-weight:700;">Do:</label>
-            <input type="date" id="mDo" style="width:100%; margin-top:5px;">
-        </div>
+        <div style="flex:1"><label style="font-size:13px; font-weight:700;">Od:</label><input type="date" id="mOd" style="width:100%; margin-top:5px;"></div>
+        <div style="flex:1"><label style="font-size:13px; font-weight:700;">Do:</label><input type="date" id="mDo" style="width:100%; margin-top:5px;"></div>
     </div>
-    
     <button class="btn-main" onclick="applyMass()" style="width:100%; font-size:16px;">Wgraj układ do bazy</button>
   </div>
 
@@ -539,13 +534,10 @@
   <div id="copyDayModal" class="modal">
     <h3 style="margin-top:0; font-size:24px; font-weight:800; color:#FF9500;">Skopiuj układ dnia</h3>
     <p style="font-size:14px; color:var(--text-muted); margin-bottom:25px;">Pobierasz układ z daty: <b id="copySourceDateStr" style="color:var(--text-main);"></b></p>
-    
-    <label style="font-size:13px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:5px;">Gdzie wkleić (zakres dni):</label>
     <div style="display:flex; gap:15px; margin-bottom:25px;">
       <div style="flex:1"><input type="date" id="copyOd" style="width:100%;"></div>
       <div style="flex:1"><input type="date" id="copyDo" style="width:100%;"></div>
     </div>
-    
     <button class="btn-main" style="width:100%; background: linear-gradient(135deg, #FF9500, #FF3B30); font-size:16px;" onclick="applyCopyDay()">🚀 Wklej układ</button>
   </div>
 
@@ -565,14 +557,10 @@
       };
       if (body) opt.body = JSON.stringify(body);
       const res = await fetch(API_URL + endpoint, opt);
-      if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail || "Błąd serwera");
-      }
+      if (!res.ok) throw new Error("Błąd serwera");
       return await res.json();
     } catch(e) {
       showT("❌ " + e.message);
-      console.error("Fetch API Error:", e);
       return null;
     }
   }
@@ -596,23 +584,13 @@
   ];
   
   function getTileColor(str) {
-    if(!str || str==="Brak planu" || str==="Wyczyść") {
-        return {bg:'rgba(0,0,0,0.02)', c:'#8e8e93', shadow:'none'};
-    }
-    if(str.includes("Chory")) {
-        return {bg:'rgba(244, 67, 54, 0.1)', c:'#c62828', shadow:'0 4px 10px rgba(198,40,40,0.1)'};
-    }
-    if(str.includes("Urlop")) {
-        return {bg:'rgba(255, 152, 0, 0.1)', c:'#ef6c00', shadow:'0 4px 10px rgba(239,108,0,0.1)'};
-    }
-    if(str.includes("Wolne")) {
-        return {bg:'rgba(158, 158, 158, 0.1)', c:'#616161', shadow:'0 4px 10px rgba(97,97,97,0.1)'};
-    }
+    if(!str || str==="Brak planu" || str==="Wyczyść") return {bg:'rgba(0,0,0,0.02)', c:'#8e8e93', shadow:'none'};
+    if(str.includes("Chory")) return {bg:'rgba(244, 67, 54, 0.1)', c:'#c62828', shadow:'0 4px 10px rgba(198,40,40,0.1)'};
+    if(str.includes("Urlop")) return {bg:'rgba(255, 152, 0, 0.1)', c:'#ef6c00', shadow:'0 4px 10px rgba(239,108,0,0.1)'};
+    if(str.includes("Wolne")) return {bg:'rgba(158, 158, 158, 0.1)', c:'#616161', shadow:'0 4px 10px rgba(97,97,97,0.1)'};
     
     let hash = 0; 
-    for(let i=0; i<str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash<<5)-hash);
-    }
+    for(let i=0; i<str.length; i++) hash = str.charCodeAt(i) + ((hash<<5)-hash);
     const col = palette[Math.abs(hash) % palette.length];
     return {bg: col.bg, c: col.c, shadow: `0 4px 12px ${col.c}25`};
   }
@@ -644,9 +622,7 @@
   
   function closeM() { 
       document.querySelectorAll('.modal, .overlay').forEach(m => m.classList.remove('active')); 
-      setTimeout(() => { 
-          document.querySelectorAll('.modal, .overlay').forEach(m => m.style.display = 'none'); 
-      }, 300); 
+      setTimeout(() => { document.querySelectorAll('.modal, .overlay').forEach(m => m.style.display = 'none'); }, 300); 
   }
   
   function openM(id) { 
@@ -666,10 +642,7 @@
     
     const res = await apiCall('/auth/login', 'POST', { username: currEmp, pin: pin, role: 'EMPLOYEE' });
     if(res && res.ok) { 
-        empMonthOffset = 0; 
-        empChanges = {}; 
-        openScreen('screen-emp-dash'); 
-        loadEmpDash(); 
+        empMonthOffset = 0; empChanges = {}; openScreen('screen-emp-dash'); loadEmpDash(); 
     } else {
         showT("❌ Niepoprawny PIN!");
     }
@@ -683,10 +656,7 @@
       event.target.classList.add('active'); 
   }
   
-  function changeEmpMonth(dir) { 
-      empMonthOffset += dir; 
-      loadEmpDash(); 
-  }
+  function changeEmpMonth(dir) { empMonthOffset += dir; loadEmpDash(); }
 
   function toggleEmpBrush() { 
       isEmpBrush = !isEmpBrush; 
@@ -703,7 +673,6 @@
       const act = document.getElementById('empBrushAct').value;
       const hrs = document.getElementById('empBrushHrs').value;
       const dObj = new Date(dateIso);
-      
       const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
       
       empChanges[dStr] = { act: act, hrs: hrs };
@@ -726,10 +695,7 @@
       showT("⏳ Wysyłanie zmian...");
       const res = await apiCall('/emp/request-batch', 'POST', { name: currEmp, updates: updates });
       if(res) { 
-          empChanges = {}; 
-          document.getElementById('empSubmitBox').style.display = 'none'; 
-          showT("✅ " + res.msg); 
-          loadEmpDash(); 
+          empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none'; showT("✅ " + res.msg); loadEmpDash(); 
       }
   }
 
@@ -737,8 +703,7 @@
     empChanges = {}; 
     document.getElementById('empSubmitBox').style.display = 'none';
     
-    const d = new Date(); 
-    d.setMonth(d.getMonth() + empMonthOffset);
+    const d = new Date(); d.setMonth(d.getMonth() + empMonthOffset);
     const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
     document.getElementById('empMonthTitle').innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
 
@@ -780,37 +745,21 @@
   }
 
   async function empChangePin() {
-    const o = document.getElementById('pOld').value; 
-    const n = document.getElementById('pNew').value;
-    
+    const o = document.getElementById('pOld').value; const n = document.getElementById('pNew').value;
     if(!o || !n) return showT("⚠️ Wypełnij oba pola");
-    
     const res = await apiCall('/auth/change-pin', 'POST', { name: currEmp, oldPin: o, newPin: n, isAdmin: false });
-    if(res) { 
-        showT(res.msg); 
-        if(res.ok) { 
-            document.getElementById('pOld').value = ''; 
-            document.getElementById('pNew').value = ''; 
-        } 
-    }
+    if(res) { showT(res.msg); if(res.ok) { document.getElementById('pOld').value = ''; document.getElementById('pNew').value = ''; } }
   }
 
   /* ==============================================================
      LOGIKA ADMINA
      ============================================================== */
   async function doAdminLogin() { 
-      const u = document.getElementById('lUser').value;
-      const p = document.getElementById('lPass').value;
-      
+      const u = document.getElementById('lUser').value, p = document.getElementById('lPass').value;
       if(!u || !p) return showT("⚠️ Uzupełnij dane!");
       
       const res = await apiCall('/auth/login', 'POST', { username: u, pin: p, role: 'ADMIN' });
-      if(res && res.ok) { 
-          openScreen('screen-admin'); 
-          loadAdminData(); 
-      } else {
-          showT("❌ Nieautoryzowany dostęp!");
-      }
+      if(res && res.ok) { openScreen('screen-admin'); loadAdminData(); } else { showT("❌ Nieautoryzowany dostęp!"); }
   }
   
   function showAdminView(id) { 
@@ -820,7 +769,7 @@
       event.target.classList.add('active'); 
       
       if(id === 'vDaily') renderDaily(); 
-      if(id === 'vMatrix') renderMatrix();
+      if(id === 'vPlanner') renderPlanner();
   }
 
   async function loadAdminData() {
@@ -834,27 +783,18 @@
     document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">${s}</option>`).join('');
     
     const b = document.getElementById('aBadge');
-    if(data.alerts.length > 0) { 
-        b.innerText = data.alerts.length; 
-        b.style.display = 'inline-block'; 
-    } else {
-        b.style.display = 'none';
-    }
+    if(data.alerts.length > 0) { b.innerText = data.alerts.length; b.style.display = 'inline-block'; } else { b.style.display = 'none'; }
     
     renderAlerts(); 
     renderPlanner(); 
     renderCMS();
-    
+    renderMatrix();
     if(document.getElementById('vDaily').classList.contains('active')) renderDaily();
-    if(document.getElementById('vMatrix').classList.contains('active')) renderMatrix();
   }
 
   function renderAlerts() {
     const list = document.getElementById('alertsList');
-    if(dbAdmin.alerts.length === 0) { 
-        list.innerHTML = '<p style="color:var(--text-muted); font-size:16px; font-weight:500;">Brak nowych wniosków. Wszystko pod kontrolą! 🎉</p>'; 
-        return; 
-    }
+    if(dbAdmin.alerts.length === 0) { list.innerHTML = '<p style="color:var(--text-muted); font-size:16px; font-weight:500;">Brak nowych wniosków. Wszystko pod kontrolą! 🎉</p>'; return; }
     
     list.innerHTML = dbAdmin.alerts.map(a => `
         <div class="alert-card">
@@ -872,14 +812,11 @@
   
   async function resolveAlert(id, stat, n, d, t, h) { 
       const res = await apiCall('/admin/alerts/resolve', 'POST', { id, status: stat, name: n, date: d, type: t, hrs: h });
-      if(res) { 
-          showT(res.msg); 
-          loadAdminData(); 
-      }
+      if(res) { showT(res.msg); loadAdminData(); }
   }
 
   /* ==============================================================
-     ZAKŁADKA GRUPY I KARTOTEKI (NOWE "BAŃKI")
+     ZAKŁADKA GRUPY I KARTOTEKI (BAŃKI)
      ============================================================== */
   let currentGroupManager = "";
 
@@ -943,15 +880,13 @@
       const emp = dbAdmin.employees.find(e => e.name === empName);
       if(emp) {
           emp.group = newGroup;
-          renderGroupManagerLists(); // Optimistic UI
-          renderMatrix(); // Zaktualizuj liczby w bańkach w tle
+          renderGroupManagerLists(); 
+          renderMatrix(); 
           await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
       }
   }
 
-  function filterGm() {
-      renderGroupManagerLists();
-  }
+  function filterGm() { renderGroupManagerLists(); }
 
   function openMatrixModal(empName) {
       const emp = dbAdmin.employees.find(e => e.name === empName);
@@ -980,22 +915,14 @@
   }
   
   async function svR(u, a, v, btn) { 
-      btn.parentElement.querySelectorAll('button').forEach(b => {
-          b.style.background = 'rgba(0,0,0,0.05)';
-          b.style.color = 'var(--text-muted)';
-          b.style.boxShadow = 'none';
-      }); 
-      
-      btn.style.background = 'var(--ios-blue)'; 
-      btn.style.color = 'white'; 
-      btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
-      
+      btn.parentElement.querySelectorAll('button').forEach(b => { b.style.background = 'rgba(0,0,0,0.05)'; b.style.color = 'var(--text-muted)'; b.style.boxShadow = 'none'; }); 
+      btn.style.background = 'var(--ios-blue)'; btn.style.color = 'white'; btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
       await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); 
       dbAdmin.ratingsMap[u+"_"+a] = v; 
   }
 
   /* ==============================================================
-     PLANNER TYGODNIOWY PĘDZEL
+     PLANNER TYGODNIOWY (SYNCHRONIZACJA NAPRAWIONA)
      ============================================================== */
   function toggleBrush() { 
       isBrush = !isBrush; 
@@ -1033,8 +960,9 @@
       for(let d=1; d<=days; d++) {
         let isW = new Date(2026,m,d).getDay() % 6 === 0; 
         
-        // FIX DATY
-        const key = formatDateKey(2026, m, d);
+        // FIX: Używamy jednolitego klucza YYYY-MM-DD
+        const dateStr = formatDateKey(2026, m, d);
+        const key = `${emp}_${dateStr}`;
         const valStr = dbAdmin.planMap[key] || "||"; 
         const [act, hrs] = valStr.split("||"); 
         const col = getTileColor(act);
@@ -1045,7 +973,7 @@
         }
         
         rHtml += `
-            <td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${key}',this)">
+            <td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${dateStr}',this)">
                 <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">
                     ${act === 'Wyczyść' ? '' : act}
                     <div style="font-size:10px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
@@ -1057,7 +985,7 @@
     }).join('');
   }
   
-  async function cClk(n, key, td) {
+  async function cClk(n, dateStr, td) {
     if(!isBrush) return;
     
     const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
@@ -1065,10 +993,9 @@
     
     let act = document.getElementById('brushAct').value; 
     let hrs = document.getElementById('brushHrs').value;
+    const key = `${n}_${dateStr}`;
     
-    if(dbAdmin.availMap[key] && act !== "Wyczyść" && !hrs) {
-        hrs = dbAdmin.availMap[key];
-    }
+    if(dbAdmin.availMap[key] && act !== "Wyczyść" && !hrs) hrs = dbAdmin.availMap[key];
     
     dbAdmin.planMap[key] = act + "||" + hrs + "||1"; 
     
@@ -1081,46 +1008,27 @@
         
     setTimeout(() => td.querySelector('.tile').style.transform = 'scale(1)', 50); 
     
-    await apiCall('/admin/planner/save', 'POST', { names: [n], start: key, end: key, activity: act, hours: hrs });
+    await apiCall('/admin/planner/save', 'POST', { names: [n], start: dateStr, end: dateStr, activity: act, hours: hrs });
   }
 
   /* ==============================================================
-     KANBAN: PLANNER DZIENNY (DRAG & DROP + ZAPOTRZEBOWANIE)
+     KANBAN DZIENNY + INTELIGENTNE SUGESTIE 💡
      ============================================================== */
-  function dragDaily(ev, empName) { 
-      ev.dataTransfer.setData("empName", empName); 
-      ev.target.style.opacity = '0.5'; 
-  }
-  
-  function dragEndDaily(ev) { 
-      ev.target.style.opacity = '1'; 
-      document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('dragover')); 
-  }
-  
-  function allowDropDaily(ev) { 
-      ev.preventDefault(); 
-      ev.currentTarget.classList.add('dragover'); 
-  }
-  
-  function dragLeaveDaily(ev) { 
-      ev.currentTarget.classList.remove('dragover'); 
-  }
+  function dragDaily(ev, empName) { ev.dataTransfer.setData("empName", empName); ev.target.style.opacity = '0.5'; }
+  function dragEndDaily(ev) { ev.target.style.opacity = '1'; document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('dragover')); }
+  function allowDropDaily(ev) { ev.preventDefault(); ev.currentTarget.classList.add('dragover'); }
+  function dragLeaveDaily(ev) { ev.currentTarget.classList.remove('dragover'); }
 
   async function dropDaily(ev, targetAct) {
-      ev.preventDefault(); 
-      ev.currentTarget.classList.remove('dragover');
+      ev.preventDefault(); ev.currentTarget.classList.remove('dragover');
       
       const empName = ev.dataTransfer.getData("empName");
-      const rawDate = document.getElementById('dailyDate').value;
-      const dObj = new Date(rawDate);
+      const dObj = new Date(document.getElementById('dailyDate').value);
       const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
       
-      // Aktualizacja lokalna (Optimistic UI) 
-      dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; // Nadpisane przez Managera (1)
-      
+      dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
       renderDaily(); 
-      
-      await apiCall('/admin/planner/save', 'POST', { names: [empName], start: rawDate, end: rawDate, activity: targetAct, hours: "" });
+      await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
   }
 
   async function saveCapacity(act, inputEl) {
@@ -1130,9 +1038,7 @@
       
       dbAdmin.capacityMap[`${dStr}_${act}`] = val;
       renderDaily(); 
-      
-      let caps = {}; 
-      caps[act] = val;
+      let caps = {}; caps[act] = val;
       await apiCall('/admin/capacity/save', 'POST', { date: dStr, capacities: caps });
   }
 
@@ -1147,34 +1053,25 @@
     dbAdmin.plannerActivities.forEach(a => dailyData[a] = []); 
     let assignedSet = new Set();
     
-    // Zbieranie danych o przypisaniach na dany dzień
     dbAdmin.employees.forEach(empObj => {
       const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
       if(valStr && valStr.split("||")[0] && valStr.split("||")[0] !== "Wyczyść") { 
           const act = valStr.split("||")[0]; 
-          if(dailyData[act]) { 
-              dailyData[act].push(empObj); 
-              assignedSet.add(empObj.name); 
-          } 
+          if(dailyData[act]) { dailyData[act].push(empObj); assignedSet.add(empObj.name); } 
       }
     });
     
-    // Lista dostępnych
     const avail = dbAdmin.employees.filter(e => !assignedSet.has(e.name)); 
     document.getElementById('availCount').innerText = avail.length;
     document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
         const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`];
         return `
             <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)">
-                <span>
-                    <b style="font-size:14px; color:var(--text-main);">${e.name}</b> 
-                    <span style="font-size:10px; color:gray; display:block;">${e.group}</span>
-                </span>
+                <span><b style="font-size:14px; color:var(--text-main);">${e.name}</b> <span style="font-size:10px; color:gray; display:block;">${e.group}</span></span>
                 ${aHrs ? `<span style="background:rgba(52,199,89,0.1); color:#34C759; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">Dost: ${aHrs}</span>` : ''}
             </div>`; 
     }).join('');
     
-    // Generowanie Kolumn Aktywności
     document.getElementById('dailyGrid').innerHTML = dbAdmin.plannerActivities.map(act => {
       const col = getTileColor(act);
       const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
@@ -1182,11 +1079,8 @@
       
       let boxStyle = `border-top: 8px solid ${col.c};`;
       if (reqCap > 0) {
-          if (currCount >= reqCap) { 
-              boxStyle = `border-top: 8px solid #34C759; background:rgba(52,199,89,0.03);`; // ZIELONY
-          } else { 
-              boxStyle = `border-top: 8px solid #FF3B30; background:rgba(255,59,48,0.03);`; // CZERWONY
-          }
+          if (currCount >= reqCap) boxStyle = `border-top: 8px solid #34C759; background:rgba(52,199,89,0.03);`; 
+          else boxStyle = `border-top: 8px solid #FF3B30; background:rgba(255,59,48,0.03);`; 
       }
 
       const list = dailyData[act].map(e => {
@@ -1199,10 +1093,14 @@
               </div>`;
       }).join('');
 
+      // NOWOŚĆ: Przycisk 💡 Sugestie w nagłówku
       return `
         <div class="kanban-col" style="${boxStyle}" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, '${act}')">
             <h3 style="display:flex; justify-content:space-between; align-items:center; margin-top:0; font-size:18px;">
-                <span style="color:${col.c}">${act}</span>
+                <span style="color:${col.c}; display:flex; align-items:center; gap:5px;">
+                    ${act} 
+                    <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:16px; transition:0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Zaproponuj najlepszych pracowników">💡</button>
+                </span>
                 <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:10px; font-size:14px; box-shadow:${col.shadow}">${currCount} os.</span>
             </h3>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:white; padding:10px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
@@ -1214,58 +1112,99 @@
     }).join('');
   }
 
-  /* MODALE ADMINA ZAPISUJĄCE DO BAZY */
-  function openMass() { 
-      openM('massModal'); 
+  // NOWOŚĆ: Logika podpowiadania najlepszych pracowników
+  function openSuggestions(act) {
+      const rawDate = document.getElementById('dailyDate').value;
+      const dObj = new Date(rawDate);
+      const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+
+      let availableEmps = [];
+      dbAdmin.employees.forEach(e => {
+          const valStr = dbAdmin.planMap[`${e.name}_${dStr}`];
+          const currentAct = valStr ? valStr.split("||")[0] : "";
+          
+          if(currentAct !== act) { // Pomiń tych, co już to robią
+              let rating = dbAdmin.ratingsMap[`${e.name}_${act}`] || 2;
+              availableEmps.push({ name: e.name, rating: rating, currentAct: currentAct });
+          }
+      });
+
+      // Sortuj od najlepszego (5) do najgorszego (1)
+      availableEmps.sort((a, b) => b.rating - a.rating);
+
+      let html = availableEmps.map(e => {
+          let statusText = (!e.currentAct || e.currentAct === 'Wyczyść') 
+                           ? `<span style="color:#34C759; font-weight:700;">Wolny</span>` 
+                           : `<span style="color:#FF9500; font-weight:700;">Zajęty: ${e.currentAct}</span>`;
+          
+          let starColor = e.rating === 1 ? '#FF3B30' : (e.rating >= 4 ? '#34C759' : 'var(--ios-blue)');
+
+          return `
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05);">
+              <div>
+                  <b style="font-size:15px; color:var(--text-main);">${e.name}</b><br>
+                  <span style="font-size:11px;">${statusText}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:15px;">
+                  <span style="font-weight:800; color:${starColor}; background:rgba(0,0,0,0.03); padding:4px 8px; border-radius:8px;">⭐ ${e.rating}</span>
+                  <button onclick="assignFromSuggestion('${e.name}', '${act}')" class="btn-main" style="padding:8px 16px; font-size:13px; box-shadow:none;">➕ Przypisz</button>
+              </div>
+          </div>`;
+      }).join('');
+
+      document.getElementById('sugTitle').innerText = `Najlepsi do: ${act}`;
+      document.getElementById('sugList').innerHTML = html;
+      openM('suggestionModal');
   }
-  
+
+  async function assignFromSuggestion(empName, targetAct) {
+      const rawDate = document.getElementById('dailyDate').value;
+      const dObj = new Date(rawDate);
+      const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+
+      dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; // Nadpisz z flagą
+
+      renderDaily(); // Odśwież tło
+      openSuggestions(targetAct); // Odśwież listę sugestii (zniknie z niej przypisana osoba)
+
+      await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
+      showT(`✅ Przypisano: ${empName}`);
+  }
+
+  /* MODALE ADMINA ZAPISUJĄCE DO BAZY */
+  function openMass() { openM('massModal'); }
   async function applyMass() {
     const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
     if(sel.length === 0) return showT("⚠️ Zaznacz pracowników w tabeli w tle!");
     
-    const act = document.getElementById('massAct').value;
-    const hrs = document.getElementById('massHrs').value;
-    const odRaw = document.getElementById('mOd').value;
-    const dooRaw = document.getElementById('mDo').value;
-    
+    const act = document.getElementById('massAct').value, hrs = document.getElementById('massHrs').value;
+    const odRaw = document.getElementById('mOd').value, dooRaw = document.getElementById('mDo').value;
     if(!odRaw || !dooRaw) return showT("⚠️ Wybierz zakres dat!");
     
-    closeM(); 
-    showT("⏳ Zapisywanie..."); 
-    
+    const d1 = new Date(odRaw), d2 = new Date(dooRaw);
+    const od = formatDateKey(d1.getFullYear(), d1.getMonth(), d1.getDate());
+    const doo = formatDateKey(d2.getFullYear(), d2.getMonth(), d2.getDate());
+
+    closeM(); showT("⏳ Zapisywanie..."); 
     const res = await apiCall('/admin/planner/save', 'POST', { names: sel, start: odRaw, end: dooRaw, activity: act, hours: hrs });
-    if(res) { 
-        showT("✅ Gotowe!"); 
-        loadAdminData(); 
-    }
+    if(res) { showT("✅ Gotowe!"); loadAdminData(); }
   }
 
   function openCopyDaily() {
     const src = document.getElementById('dailyDate').value; 
     if(!src) return showT("⚠️ Wybierz dzień z kalendarza!");
-    
     document.getElementById('copySourceDateStr').innerText = src;
-    document.getElementById('copyOd').value = src; 
-    document.getElementById('copyDo').value = src;
-    
+    document.getElementById('copyOd').value = src; document.getElementById('copyDo').value = src;
     openM('copyDayModal');
   }
   
   async function applyCopyDay() {
     const src = document.getElementById('dailyDate').value;
-    const od = document.getElementById('copyOd').value;
-    const doo = document.getElementById('copyDo').value;
-    
+    const od = document.getElementById('copyOd').value, doo = document.getElementById('copyDo').value;
     if(!od || !doo) return showT("⚠️ Podaj daty docelowe!");
-    
-    closeM(); 
-    showT("🚀 Klonowanie...");
-    
+    closeM(); showT("🚀 Klonowanie...");
     const res = await apiCall('/admin/planner/copy-day', 'POST', { sourceDate: src, targetStart: od, targetEnd: doo });
-    if(res) { 
-        showT("✅ Skopiowano pomyślnie!"); 
-        loadAdminData(); 
-    }
+    if(res) { showT("✅ Skopiowano pomyślnie!"); loadAdminData(); }
   }
 
   /* ==============================================================
