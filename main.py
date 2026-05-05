@@ -35,7 +35,7 @@ class UserGroup(Base):
     name = Column(String, unique=True, index=True)
     emp_type = Column(String) 
     allowed_activities = Column(String)
-    is_flexible = Column(Integer, default=0) # NOWOŚĆ: Decyduje czy omija regułę 20. dnia
+    is_flexible = Column(Integer, default=0)
 
 class User(Base):
     __tablename__ = "users"
@@ -147,7 +147,6 @@ class AlertDismiss(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# CHIRURGICZNA MIGRACJA
 with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR")); conn.commit()
     except Exception: conn.rollback()
@@ -165,10 +164,14 @@ with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE user_groups ADD COLUMN is_flexible INTEGER DEFAULT 0")); conn.commit()
     except Exception: conn.rollback()
 
+# KULOODPORNY GENERATOR ID (Naprawa błędu z dodawaniem pracownika)
 def generate_global_id(db: Session):
-    last_user = db.query(User).filter(User.global_id.op('~')('^[0-9]+$')).order_by(desc(User.global_id)).first()
-    if not last_user: return "00001"
-    return f"{int(last_user.global_id) + 1:05d}"
+    users = db.query(User).all()
+    max_id = 0
+    for u in users:
+        if u.global_id and u.global_id.isdigit():
+            max_id = max(max_id, int(u.global_id))
+    return f"{max_id + 1:05d}"
 
 with SessionLocal() as db:
     default_groups = [
@@ -297,7 +300,6 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
     
     for upd in updates:
         d_str, r_type, hrs = upd["date"], upd["act"], upd["hrs"]
-        # d_str przychodzi w formacie ISO 'YYYY-MM-DD'
         curr = datetime.strptime(d_str, "%Y-%m-%d").date()
         
         if curr.month == 1: dl_year, dl_month = curr.year - 1, 12
@@ -315,7 +317,6 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
             sched.hours = hrs if r_type != "Wyczyść" else ""
             sched.is_override = 0 
             
-            # Wyczyść ewentualny oczekujący wniosek, skoro wszedł na twardo
             db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").delete()
         else:
             existing = db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").first()
@@ -490,7 +491,11 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
     elif action == "DELETE":
         if t == "employee": db.query(User).filter(User.name == val).delete()
         elif t == "shift": db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift", GlobalSetting.value == val).delete()
-        elif t == "activity": db.query(Activity).filter(Activity.name == val).delete()
+        elif t == "activity": 
+            # KASKADOWE USUWANIE AKTYWNOŚCI (Naprawa błędu kompetencji)
+            db.query(Activity).filter(Activity.name == val).delete()
+            db.query(Competence).filter(Competence.activity == val).delete()
+            db.query(DailyCapacity).filter(DailyCapacity.activity == val).delete()
         elif t == "group":
             db.query(UserGroup).filter(UserGroup.name == val).delete()
             db.execute(text(f"UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name = '{val}'"))
