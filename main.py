@@ -7,6 +7,7 @@ import os
 import csv
 import uuid
 import json
+import re
 from datetime import datetime, timedelta
 import zoneinfo
 import openpyxl
@@ -25,7 +26,7 @@ def get_now():
     except Exception: return datetime.utcnow() + timedelta(hours=2)
 
 # ==========================================
-# 2. STRUKTURA BAZY DANYCH (MODUŁ 1 & 2)
+# 2. STRUKTURA BAZY DANYCH
 # ==========================================
 
 class UserGroup(Base):
@@ -64,14 +65,14 @@ class Schedule(Base):
     date_str = Column(String, index=True)
     activity = Column(String)
     hours = Column(String)
-    is_override = Column(Integer, default=0) # NOWOŚĆ: Flaga zmiany przez Managera
+    is_override = Column(Integer, default=0)
 
 class DailyCapacity(Base):
     __tablename__ = "daily_capacity"
     id = Column(Integer, primary_key=True, index=True)
     date_str = Column(String, index=True)
     activity = Column(String)
-    required_count = Column(Integer, default=0) # NOWOŚĆ: Zapotrzebowanie ludzkie na dany dzień
+    required_count = Column(Integer, default=0)
 
 class Request(Base):
     __tablename__ = "requests"
@@ -145,7 +146,6 @@ class AlertDismiss(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# CHIRURGICZNA MIGRACJA
 with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR")); conn.commit()
     except Exception: conn.rollback()
@@ -179,10 +179,12 @@ with SessionLocal() as db:
         if not db.query(UserGroup).filter(UserGroup.name == g["name"]).first():
             db.add(UserGroup(name=g["name"], emp_type=g["type"], allowed_activities="[]"))
     
-    bad_users = db.query(User).filter(~User.global_id.op('~')('^[0-9]{5}$')).all()
-    for u in bad_users:
-        u.global_id = generate_global_id(db)
-        db.commit()
+    # NADAWANIE ID (KULOODPORNE PODEJŚCIE)
+    all_users = db.query(User).all()
+    for u in all_users:
+        if not u.global_id or not re.match(r'^[0-9]{5}$', str(u.global_id)):
+            u.global_id = generate_global_id(db)
+            db.commit()
     db.commit()
 
 app = FastAPI(title="WMS Enterprise Platform")
@@ -260,7 +262,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     
     schedule_list = []
     for d in range(1, days_in_month + 1):
-        date_str = f"{year}-{month}-{d}"
+        date_str = f"{year}-{month}-{d}" # FORMAT KLUCZA!
         iso_date = datetime(year, month + 1, d).isoformat()
         
         p = plan_map.get(date_str)
@@ -269,10 +271,11 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
         
         schedule_list.append({
             "date": iso_date,
+            "date_key": date_str, # Przekazujemy klucz
             "act": p.activity if p and p.activity else "Brak planu",
             "hrs": p.hours if p else "",
             "req": req_obj,
-            "override": p.is_override if p else 0 # Przekazujemy info, czy Manager mieszał z palca
+            "override": p.is_override if p else 0 
         })
         
     return {"schedule": schedule_list, "shifts": shifts, "activities": activities}
@@ -290,13 +293,16 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
     
     for upd in updates:
         d_str, r_type, hrs = upd["date"], upd["act"], upd["hrs"]
-        curr = datetime.strptime(d_str, "%Y-%m-%d").date()
+        # d_str przychodzi w formacie '2026-3-5' 
+        parts = d_str.split('-')
+        year, js_month, day = int(parts[0]), int(parts[1]), int(parts[2])
+        real_month = js_month + 1
+        curr = datetime(year, real_month, day).date()
         
-        if curr.month == 1: dl_year, dl_month = curr.year - 1, 12
-        else: dl_year, dl_month = curr.year, curr.month - 1
+        if real_month == 1: dl_year, dl_month = year - 1, 12
+        else: dl_year, dl_month = year, real_month - 1
             
         deadline = datetime(dl_year, dl_month, 20).date()
-        # Wyjątek dla Hydr / Grup Dodatkowych - wpisują się bez akceptu Admina omijając 20-ty
         is_auto = is_flexible_employee or (today <= deadline)
         
         if is_auto:
@@ -306,7 +312,7 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
                 db.add(sched)
             sched.activity = r_type if r_type != "Wyczyść" else ""
             sched.hours = hrs if r_type != "Wyczyść" else ""
-            sched.is_override = 0 # Pracownik modyfikuje - zdejmujemy flagę override
+            sched.is_override = 0 
         else:
             existing = db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").first()
             if existing:
@@ -359,7 +365,7 @@ def get_admin_data(db: Session = Depends(get_db)):
 @app.post("/api/admin/capacity/save")
 def save_capacity(req: dict, db: Session = Depends(get_db)):
     d_str = req.get("date")
-    capacities = req.get("capacities", {}) # Słownik: {"Pakowanie Paczek": 5, "Przepak": 12}
+    capacities = req.get("capacities", {}) 
     for act, count in capacities.items():
         cap = db.query(DailyCapacity).filter(DailyCapacity.date_str == d_str, DailyCapacity.activity == act).first()
         if not cap:
@@ -390,7 +396,7 @@ def resolve_alert(req: dict, db: Session = Depends(get_db)):
                 db.add(sched)
             sched.activity = a_type if a_type != "Wyczyść" else ""
             sched.hours = hrs if a_type != "Wyczyść" else ""
-            sched.is_override = 1 # Admin zatwierdza wniosek poślizgowy - uważa się za interwencję Managera
+            sched.is_override = 1 
         db.commit()
     return {"ok": True, "msg": "Wniosek rozpatrzony!"}
 
@@ -422,7 +428,7 @@ def save_planner(req: dict, db: Session = Depends(get_db)):
                 db.add(sched)
             sched.activity = act
             sched.hours = hrs
-            sched.is_override = 1 # Manager narzuca zadanie ręcznie - ustawia flagę
+            sched.is_override = 1 
         else:
             curr = start_dt
             while curr <= end_dt:
@@ -433,7 +439,7 @@ def save_planner(req: dict, db: Session = Depends(get_db)):
                     db.add(sched)
                 sched.activity = act
                 sched.hours = hrs
-                sched.is_override = 1 # Manager narzuca zadanie ręcznie
+                sched.is_override = 1 
                 curr += timedelta(days=1)
     db.commit()
     return {"ok": True}
@@ -461,7 +467,7 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
                     db.add(target_s)
                 target_s.activity = s.activity
                 target_s.hours = s.hours
-                target_s.is_override = 1 # Kopiowanie przez Managera to też flaga override
+                target_s.is_override = 1
         curr += timedelta(days=1)
     db.commit()
     return {"ok": True}
@@ -469,18 +475,21 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/admin/settings")
 def cms_settings(req: dict, db: Session = Depends(get_db)):
     action, t, val = req.get("action"), req.get("type"), req.get("value")
-    group = req.get("group", "Magazyn osoby stałe")
     
     if action == "ADD":
         if t == "employee": 
             new_id = generate_global_id(db)
-            db.add(User(global_id=new_id, name=val, pin="1111", role="EMPLOYEE", group_name=group))
+            db.add(User(global_id=new_id, name=val, pin="1111", role="EMPLOYEE", group_name=req.get("group", "Magazyn osoby stałe")))
         elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
         elif t == "activity": db.add(Activity(name=val))
+        elif t == "group": db.add(UserGroup(name=val, emp_type=req.get("emp_type", "STALY"), allowed_activities="[]"))
     elif action == "DELETE":
         if t == "employee": db.query(User).filter(User.name == val).delete()
         elif t == "shift": db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift", GlobalSetting.value == val).delete()
         elif t == "activity": db.query(Activity).filter(Activity.name == val).delete()
+        elif t == "group":
+            db.query(UserGroup).filter(UserGroup.name == val).delete()
+            db.execute(text(f"UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name = '{val}'"))
     elif action == "EDIT_ADMIN_PASS":
         p = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
         if not p: db.add(GlobalSetting(setting_type="admin_pass", value=val))
