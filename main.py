@@ -25,7 +25,7 @@ def get_now():
     except Exception: return datetime.utcnow() + timedelta(hours=2)
 
 # ==========================================
-# 2. STRUKTURA BAZY DANYCH (MODUŁ 1 & 2)
+# 2. STRUKTURA BAZY DANYCH
 # ==========================================
 
 class UserGroup(Base):
@@ -64,6 +64,14 @@ class Schedule(Base):
     date_str = Column(String, index=True)
     activity = Column(String)
     hours = Column(String)
+    is_manager_modified = Column(Integer, default=0) # NOWOŚĆ: Śledzenie zmian Managera
+
+class DailyCapacity(Base):
+    __tablename__ = "daily_capacity"
+    id = Column(Integer, primary_key=True, index=True)
+    date_str = Column(String, index=True)
+    activity = Column(String, index=True)
+    required_count = Column(Integer, default=0) # NOWOŚĆ: Zapotrzebowanie
 
 class Request(Base):
     __tablename__ = "requests"
@@ -141,16 +149,19 @@ with engine.connect() as conn:
     try: 
         conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR"))
         conn.commit()
-    except Exception: 
-        conn.rollback()
+    except Exception: conn.rollback()
         
     try: 
         conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR"))
         conn.commit()
         conn.execute(text("UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name IS NULL"))
         conn.commit()
-    except Exception: 
-        conn.rollback()
+    except Exception: conn.rollback()
+    
+    try:
+        conn.execute(text("ALTER TABLE schedules ADD COLUMN is_manager_modified INTEGER DEFAULT 0"))
+        conn.commit()
+    except Exception: conn.rollback()
 
 def generate_global_id(db: Session):
     last_user = db.query(User).filter(User.global_id.op('~')('^[0-9]+$')).order_by(desc(User.global_id)).first()
@@ -204,7 +215,7 @@ def serve_planner():
 
 @app.get("/api/public")
 def get_public_data(db: Session = Depends(get_db)):
-    employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
+    employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").order_by(User.name).all()]
     return {"employees": employees}
 
 @app.post("/api/auth/login")
@@ -263,6 +274,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
             "date": iso_date,
             "act": p.activity if p and p.activity else "Brak planu",
             "hrs": p.hours if p else "",
+            "is_mod": p.is_manager_modified if p else 0, # Przekazujemy info o nadpisaniu
             "req": req_obj
         })
         
@@ -274,6 +286,11 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
     updates = req.get("updates", [])
     today = get_now().date()
     
+    # NOWOŚĆ: Sprawdzamy czy to HYDRA / DODATKOWY
+    user = db.query(User).filter(User.name == name).first()
+    group = db.query(UserGroup).filter(UserGroup.name == user.group_name).first() if user else None
+    is_dodatkowy = group and group.emp_type == "DODATKOWY"
+    
     for upd in updates:
         d_str, r_type, hrs = upd["date"], upd["act"], upd["hrs"]
         curr = datetime.strptime(d_str, "%Y-%m-%d").date()
@@ -282,7 +299,8 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
         else: dl_year, dl_month = curr.year, curr.month - 1
             
         deadline = datetime(dl_year, dl_month, 20).date()
-        is_auto = today <= deadline
+        # Omijamy regułę dla dodatkowych!
+        is_auto = is_dodatkowy or (today <= deadline)
         
         if is_auto:
             sched = db.query(Schedule).filter(Schedule.username == name, Schedule.date_str == d_str).first()
@@ -291,6 +309,7 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
                 db.add(sched)
             sched.activity = r_type if r_type != "Wyczyść" else ""
             sched.hours = hrs if r_type != "Wyczyść" else ""
+            sched.is_manager_modified = 0 # Skoro sam zmienił, resetujemy flagę Managera
         else:
             existing = db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").first()
             if existing:
@@ -336,6 +355,24 @@ def get_admin_data(db: Session = Depends(get_db)):
         "alerts": alerts, "availMap": avail_map
     }
 
+# NOWOŚĆ: Zarządzanie Zapotrzebowaniem (Capacity)
+@app.post("/api/admin/capacity/get")
+def get_capacity(req: dict, db: Session = Depends(get_db)):
+    date_str = req.get("date")
+    caps = db.query(DailyCapacity).filter(DailyCapacity.date_str == date_str).all()
+    return {c.activity: c.required_count for c in caps}
+
+@app.post("/api/admin/capacity/save")
+def save_capacity(req: dict, db: Session = Depends(get_db)):
+    date_str, act, req_count = req.get("date"), req.get("activity"), req.get("count")
+    cap = db.query(DailyCapacity).filter(DailyCapacity.date_str == date_str, DailyCapacity.activity == act).first()
+    if not cap:
+        cap = DailyCapacity(date_str=date_str, activity=act)
+        db.add(cap)
+    cap.required_count = int(req_count)
+    db.commit()
+    return {"ok": True}
+
 @app.post("/api/admin/employee/group")
 def change_emp_group(req: dict, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.name == req.get("name")).first()
@@ -357,6 +394,7 @@ def resolve_alert(req: dict, db: Session = Depends(get_db)):
                 db.add(sched)
             sched.activity = a_type if a_type != "Wyczyść" else ""
             sched.hours = hrs if a_type != "Wyczyść" else ""
+            sched.is_manager_modified = 1 # Admin zaakceptował - to od teraz twardy plan
         db.commit()
     return {"ok": True, "msg": "Wniosek rozpatrzony!"}
 
@@ -388,6 +426,7 @@ def save_planner(req: dict, db: Session = Depends(get_db)):
                 db.add(sched)
             sched.activity = act
             sched.hours = hrs
+            sched.is_manager_modified = 1 # Flaga zmiany przez Managera!
         else:
             curr = start_dt
             while curr <= end_dt:
@@ -398,6 +437,7 @@ def save_planner(req: dict, db: Session = Depends(get_db)):
                     db.add(sched)
                 sched.activity = act
                 sched.hours = hrs
+                sched.is_manager_modified = 1 # Flaga zmiany przez Managera!
                 curr += timedelta(days=1)
     db.commit()
     return {"ok": True}
@@ -425,6 +465,7 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
                     db.add(target_s)
                 target_s.activity = s.activity
                 target_s.hours = s.hours
+                target_s.is_manager_modified = 1
         curr += timedelta(days=1)
     db.commit()
     return {"ok": True}
@@ -453,7 +494,7 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
 
 
 # ==========================================
-# 7. V-MAX (MODUŁ 2) - CZYSTY, NIEBLOKOWANY V-MAX
+# 7. V-MAX (MODUŁ 2) - NIE ZMIENIANE, SYNC PÓŹNIEJ
 # ==========================================
 
 @app.get("/api/config")
