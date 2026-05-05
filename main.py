@@ -35,6 +35,7 @@ class UserGroup(Base):
     name = Column(String, unique=True, index=True)
     emp_type = Column(String) 
     allowed_activities = Column(String)
+    is_flexible = Column(Integer, default=0) # NOWOŚĆ: Decyduje czy omija regułę 20. dnia
 
 class User(Base):
     __tablename__ = "users"
@@ -146,6 +147,7 @@ class AlertDismiss(Base):
 
 Base.metadata.create_all(bind=engine)
 
+# CHIRURGICZNA MIGRACJA
 with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR")); conn.commit()
     except Exception: conn.rollback()
@@ -159,6 +161,9 @@ with engine.connect() as conn:
     
     try: conn.execute(text("ALTER TABLE schedules ADD COLUMN is_override INTEGER DEFAULT 0")); conn.commit()
     except Exception: conn.rollback()
+    
+    try: conn.execute(text("ALTER TABLE user_groups ADD COLUMN is_flexible INTEGER DEFAULT 0")); conn.commit()
+    except Exception: conn.rollback()
 
 def generate_global_id(db: Session):
     last_user = db.query(User).filter(User.global_id.op('~')('^[0-9]+$')).order_by(desc(User.global_id)).first()
@@ -167,19 +172,18 @@ def generate_global_id(db: Session):
 
 with SessionLocal() as db:
     default_groups = [
-        {"name": "Magazyn osoby stałe", "type": "STALY"},
-        {"name": "Magazyn osoby dodatkowe", "type": "DODATKOWY"},
-        {"name": "Nowi Magazyn stali", "type": "STALY"},
-        {"name": "Nowi Magazyn dodatkowi", "type": "DODATKOWY"},
-        {"name": "Hydry", "type": "DODATKOWY"},
-        {"name": "Zwroty", "type": "STALY"},
-        {"name": "Obsługa", "type": "STALY"}
+        {"name": "Magazyn osoby stałe", "type": "Stały", "flex": 0},
+        {"name": "Magazyn osoby dodatkowe", "type": "Dodatkowy", "flex": 1},
+        {"name": "Nowi Magazyn stali", "type": "Stały", "flex": 0},
+        {"name": "Nowi Magazyn dodatkowi", "type": "Dodatkowy", "flex": 1},
+        {"name": "Hydry", "type": "Dodatkowy", "flex": 1},
+        {"name": "Zwroty", "type": "Stały", "flex": 0},
+        {"name": "Obsługa", "type": "Stały", "flex": 0}
     ]
     for g in default_groups:
         if not db.query(UserGroup).filter(UserGroup.name == g["name"]).first():
-            db.add(UserGroup(name=g["name"], emp_type=g["type"], allowed_activities="[]"))
+            db.add(UserGroup(name=g["name"], emp_type=g["type"], allowed_activities="[]", is_flexible=g["flex"]))
     
-    # NADAWANIE ID (KULOODPORNE PODEJŚCIE)
     all_users = db.query(User).all()
     for u in all_users:
         if not u.global_id or not re.match(r'^[0-9]{5}$', str(u.global_id)):
@@ -262,7 +266,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     
     schedule_list = []
     for d in range(1, days_in_month + 1):
-        date_str = f"{year}-{month}-{d}" # FORMAT KLUCZA!
+        date_str = f"{year}-{month+1:02d}-{d:02d}" # PEŁNY FORMAT ISO
         iso_date = datetime(year, month + 1, d).isoformat()
         
         p = plan_map.get(date_str)
@@ -271,7 +275,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
         
         schedule_list.append({
             "date": iso_date,
-            "date_key": date_str, # Przekazujemy klucz
+            "date_key": date_str,
             "act": p.activity if p and p.activity else "Brak planu",
             "hrs": p.hours if p else "",
             "req": req_obj,
@@ -289,18 +293,15 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
     user_db = db.query(User).filter(User.name == name).first()
     if not user_db: return {"ok": False, "msg": "Błąd użytkownika"}
     group = db.query(UserGroup).filter(UserGroup.name == user_db.group_name).first()
-    is_flexible_employee = group and group.emp_type == "DODATKOWY"
+    is_flexible_employee = group and group.is_flexible == 1
     
     for upd in updates:
         d_str, r_type, hrs = upd["date"], upd["act"], upd["hrs"]
-        # d_str przychodzi w formacie '2026-3-5' 
-        parts = d_str.split('-')
-        year, js_month, day = int(parts[0]), int(parts[1]), int(parts[2])
-        real_month = js_month + 1
-        curr = datetime(year, real_month, day).date()
+        # d_str przychodzi w formacie ISO 'YYYY-MM-DD'
+        curr = datetime.strptime(d_str, "%Y-%m-%d").date()
         
-        if real_month == 1: dl_year, dl_month = year - 1, 12
-        else: dl_year, dl_month = year, real_month - 1
+        if curr.month == 1: dl_year, dl_month = curr.year - 1, 12
+        else: dl_year, dl_month = curr.year, curr.month - 1
             
         deadline = datetime(dl_year, dl_month, 20).date()
         is_auto = is_flexible_employee or (today <= deadline)
@@ -313,6 +314,9 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
             sched.activity = r_type if r_type != "Wyczyść" else ""
             sched.hours = hrs if r_type != "Wyczyść" else ""
             sched.is_override = 0 
+            
+            # Wyczyść ewentualny oczekujący wniosek, skoro wszedł na twardo
+            db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").delete()
         else:
             existing = db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").first()
             if existing:
@@ -320,7 +324,7 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
             else:
                 db.add(Request(id=str(uuid.uuid4())[:8], username=name, date_str=d_str, req_type=r_type, hours=hrs, status="Oczekuje"))
     db.commit()
-    msg_suffix = " (Omijanie reguły dla grup dodatkowych)" if is_flexible_employee else ""
+    msg_suffix = " (Omijanie 20-go - Grupa Elastyczna)" if is_flexible_employee else ""
     return {"ok": True, "msg": "Grafik zaktualizowany!" + msg_suffix}
 
 @app.get("/api/admin/data")
@@ -328,7 +332,7 @@ def get_admin_data(db: Session = Depends(get_db)):
     db_users = db.query(User).filter(User.role == "EMPLOYEE").order_by(User.global_id).all()
     employees = [{"id": u.global_id, "name": u.name, "group": u.group_name} for u in db_users]
     
-    groups = [{"name": g.name, "type": g.emp_type, "activities": json.loads(g.allowed_activities) if g.allowed_activities else []} for g in db.query(UserGroup).all()]
+    groups = [{"name": g.name, "type": g.emp_type, "is_flexible": g.is_flexible, "activities": json.loads(g.allowed_activities) if g.allowed_activities else []} for g in db.query(UserGroup).all()]
     
     activities = [a.name for a in db.query(Activity).all()]
     planner_activities = list(set(activities + ["Chory 🤒", "Urlop 🌴", "Wolne 🏠"]))
@@ -416,8 +420,8 @@ def save_planner(req: dict, db: Session = Depends(get_db)):
     names, start, end = req.get("names", []), req.get("start"), req.get("end")
     act, hrs = req.get("activity"), req.get("hours", "")
     
-    start_dt = datetime.strptime(start, "%Y-%m-%d") if "-" in start and len(start.split("-"))==3 else None
-    end_dt = datetime.strptime(end, "%Y-%m-%d") if "-" in end and len(end.split("-"))==3 else None
+    start_dt = datetime.strptime(start, "%Y-%m-%d") if start else None
+    end_dt = datetime.strptime(end, "%Y-%m-%d") if end else None
     
     for n in names:
         if not start_dt:
@@ -432,7 +436,7 @@ def save_planner(req: dict, db: Session = Depends(get_db)):
         else:
             curr = start_dt
             while curr <= end_dt:
-                date_query = f"{curr.year}-{curr.month - 1}-{curr.day}"
+                date_query = curr.strftime("%Y-%m-%d")
                 sched = db.query(Schedule).filter(Schedule.username == n, Schedule.date_str == date_query).first()
                 if not sched:
                     sched = Schedule(username=n, date_str=date_query)
@@ -448,7 +452,7 @@ def save_planner(req: dict, db: Session = Depends(get_db)):
 def copy_daily(req: dict, db: Session = Depends(get_db)):
     src_date, t_start, t_end = req.get("sourceDate"), req.get("targetStart"), req.get("targetEnd")
     d_obj = datetime.strptime(src_date, "%Y-%m-%d")
-    src_query = f"{d_obj.year}-{d_obj.month - 1}-{d_obj.day}"
+    src_query = d_obj.strftime("%Y-%m-%d")
     
     source_schedules = db.query(Schedule).filter(Schedule.date_str == src_query).all()
     if not source_schedules: return {"ok": True}
@@ -458,7 +462,7 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
     
     curr = start_dt
     while curr <= end_dt:
-        t_query = f"{curr.year}-{curr.month - 1}-{curr.day}"
+        t_query = curr.strftime("%Y-%m-%d")
         for s in source_schedules:
             if s.activity and s.activity != "Wyczyść":
                 target_s = db.query(Schedule).filter(Schedule.username == s.username, Schedule.date_str == t_query).first()
@@ -482,7 +486,7 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
             db.add(User(global_id=new_id, name=val, pin="1111", role="EMPLOYEE", group_name=req.get("group", "Magazyn osoby stałe")))
         elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
         elif t == "activity": db.add(Activity(name=val))
-        elif t == "group": db.add(UserGroup(name=val, emp_type=req.get("emp_type", "STALY"), allowed_activities="[]"))
+        elif t == "group": db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
     elif action == "DELETE":
         if t == "employee": db.query(User).filter(User.name == val).delete()
         elif t == "shift": db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift", GlobalSetting.value == val).delete()
