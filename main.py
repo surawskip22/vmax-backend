@@ -715,5 +715,9 @@ def generate_mock_data(db: Session = Depends(get_db)):
         return f"<h1>❌ Błąd Generatora: {str(e)}</h1>"
 
 @app.get("/")
-def serve_frontend():
+def serve_vmax():
     return FileResponse("index.html")
+
+@app.get("/planner")
+def serve_planner():
+    return FileResponse("planner.html")
