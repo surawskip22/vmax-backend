@@ -28,12 +28,19 @@ def get_now():
 # 2. STRUKTURA BAZY DANYCH (MODUŁ 1 & 2)
 # ==========================================
 
+class UserGroup(Base):
+    __tablename__ = "user_groups"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    emp_type = Column(String) # STALY / DODATKOWY (do reguł dostępności z PDF)
+    allowed_activities = Column(String) # Zapiszemy tu JSON z listą dozwolonych zadań
+
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    global_id = Column(String, default=lambda: str(uuid.uuid4()))
+    global_id = Column(String, unique=True, index=True) # Nowe 5-cyfrowe ID
     role = Column(String, default="EMPLOYEE")
-    emp_type = Column(String, default="STALY") # STALY / DODATKOWY
+    group_name = Column(String, default="Magazyn osoby stałe") # Przypisanie do grupy
     name = Column(String, unique=True, index=True)
     pin = Column(String)
 
@@ -133,26 +140,47 @@ class AlertDismiss(Base):
 # Automatyczne tworzenie brakujących tabel
 Base.metadata.create_all(bind=engine)
 
-# CHIRURGICZNA MIGRACJA: Bezpieczne dodanie nowych kolumn do starej tabeli User bez usuwania danych
+# CHIRURGICZNA MIGRACJA: Dodanie grup, nowych kolumn i nadanie 5-cyfrowych ID starym pracownikom
 with engine.connect() as conn:
-    try:
-        conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR"))
-        conn.commit()
-    except Exception:
-        conn.rollback() # Kolumna już istnieje
-        
-    try:
-        conn.execute(text("ALTER TABLE users ADD COLUMN emp_type VARCHAR DEFAULT 'STALY'"))
-        conn.commit()
-    except Exception:
-        conn.rollback()
+    try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR"))
+    except Exception: pass
+    try: conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR DEFAULT 'Magazyn osoby stałe'"))
+    except Exception: pass
+    conn.commit()
 
-os.makedirs("exports", exist_ok=True)
+with SessionLocal() as db:
+    # 1. Tworzenie domyślnych grup
+    default_groups = [
+        {"name": "Magazyn osoby stałe", "type": "STALY"},
+        {"name": "Magazyn osoby dodatkowe", "type": "DODATKOWY"},
+        {"name": "Nowi Magazyn stali", "type": "STALY"},
+        {"name": "Nowi Magazyn dodatkowi", "type": "DODATKOWY"},
+        {"name": "Hydry", "type": "DODATKOWY"},
+        {"name": "Zwroty", "type": "STALY"},
+        {"name": "Obsługa", "type": "STALY"}
+    ]
+    for g in default_groups:
+        if not db.query(UserGroup).filter(UserGroup.name == g["name"]).first():
+            db.add(UserGroup(name=g["name"], emp_type=g["type"], allowed_activities="[]"))
+    
+    # 2. Nadanie 5-cyfrowego ID starym pracownikom (którzy mieli np. UUID)
+    bad_users = db.query(User).filter(~User.global_id.op('~')('^[0-9]{5}$')).all()
+    for u in bad_users:
+        u.global_id = generate_global_id(db)
+        db.commit() # Commit w pętli by generator widział poprzednie ID
+    db.commit()
 
 # 3. INICJALIZACJA APLIKACJI
 app = FastAPI(title="WMS Enterprise Platform")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
+def generate_global_id(db: Session):
+    # Znajdź najwyższe dotychczasowe ID w formacie cyfrowym
+    last_user = db.query(User).filter(User.global_id.op('~')('^[0-9]+$')).order_by(desc(User.global_id)).first()
+    if not last_user:
+        return "00001"
+    return f"{int(last_user.global_id) + 1:05d}"
+    
 def get_db():
     db = SessionLocal()
     try: yield db
@@ -293,7 +321,11 @@ def submit_request(req: dict, db: Session = Depends(get_db)):
 
 @app.get("/api/admin/data")
 def get_admin_data(db: Session = Depends(get_db)):
-    employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
+    db_users = db.query(User).filter(User.role == "EMPLOYEE").order_by(User.global_id).all()
+    employees = [{"id": u.global_id, "name": u.name, "group": u.group_name} for u in db_users]
+    
+    groups = [{"name": g.name, "type": g.emp_type, "activities": json.loads(g.allowed_activities) if g.allowed_activities else []} for g in db.query(UserGroup).all()]
+    
     activities = [a.name for a in db.query(Activity).all()]
     planner_activities = list(set(activities + ["Chory 🤒", "Urlop 🌴", "Wolne 🏠"]))
     shifts = [s.value for s in db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift").all()]
@@ -318,7 +350,7 @@ def get_admin_data(db: Session = Depends(get_db)):
             avail_map[f"{r.username}_{r.date_str}"] = r.hours
 
     return {
-        "employees": employees, "activityNames": activities, "plannerActivities": planner_activities,
+        "employees": employees, "groups": groups, "activityNames": activities, "plannerActivities": planner_activities,
         "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, 
         "alerts": alerts, "availMap": avail_map
     }
@@ -412,8 +444,12 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/admin/settings")
 def cms_settings(req: dict, db: Session = Depends(get_db)):
     action, t, val = req.get("action"), req.get("type"), req.get("value")
+    group = req.get("group", "Magazyn osoby stałe") # Odbieramy grupę z frontendu
+    
     if action == "ADD":
-        if t == "employee": db.add(User(name=val, pin="1111", role="EMPLOYEE"))
+        if t == "employee": 
+            new_id = generate_global_id(db)
+            db.add(User(global_id=new_id, name=val, pin="1111", role="EMPLOYEE", group_name=group))
         elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
         elif t == "activity": db.add(Activity(name=val))
     elif action == "DELETE":
@@ -443,7 +479,9 @@ def get_vmax_config(db: Session = Depends(get_db)):
     db.commit()
 
     admins = {u.name: u.pin for u in db.query(User).filter(User.role == "ADMIN").all()}
+    
     employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
+    
     activities = [a.name for a in db.query(Activity).all()]
     scanners = [s.name for s in db.query(Scanner).all()]
     trolleys = [t.name for t in db.query(Trolley).all()]
