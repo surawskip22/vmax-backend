@@ -32,13 +32,13 @@ class UserGroup(Base):
     __tablename__ = "user_groups"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    emp_type = Column(String) # STALY / DODATKOWY
+    emp_type = Column(String) 
     allowed_activities = Column(String)
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
-    global_id = Column(String, unique=True, index=True) # Nowe 5-cyfrowe ID
+    global_id = Column(String, unique=True, index=True) 
     role = Column(String, default="EMPLOYEE")
     group_name = Column(String, default="Magazyn osoby stałe")
     name = Column(String, unique=True, index=True)
@@ -50,7 +50,6 @@ class GlobalSetting(Base):
     setting_type = Column(String, index=True) 
     value = Column(String)
 
-# --- TABELE MODUŁU 1 (PLANNER) ---
 class Competence(Base):
     __tablename__ = "competences"
     id = Column(Integer, primary_key=True, index=True)
@@ -76,7 +75,6 @@ class Request(Base):
     status = Column(String, default="Oczekuje") 
     timestamp = Column(DateTime, default=get_now)
 
-# --- TABELE MODUŁU 2 (V-MAX) ---
 class Activity(Base):
     __tablename__ = "activities"
     id = Column(Integer, primary_key=True, index=True)
@@ -139,7 +137,6 @@ class AlertDismiss(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# CHIRURGICZNA MIGRACJA: Dodanie grup, nowych kolumn i nadanie 5-cyfrowych ID
 with engine.connect() as conn:
     try: 
         conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR"))
@@ -180,7 +177,6 @@ with SessionLocal() as db:
         db.commit()
     db.commit()
 
-# 3. INICJALIZACJA APLIKACJI
 app = FastAPI(title="WMS Enterprise Platform")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
     
@@ -197,9 +193,6 @@ def format_dur(mins: int):
     if mins < 0: mins = 0
     return f"{mins//60}h {mins%60}m"
 
-# ==========================================
-# 4. ROUTING HTML
-# ==========================================
 @app.get("/")
 def serve_vmax():
     return FileResponse("index.html")
@@ -209,9 +202,6 @@ def serve_planner():
     if os.path.exists("planner.html"): return FileResponse("planner.html")
     return HTMLResponse("<h1>Brak pliku planner.html</h1>", status_code=404)
 
-# ==========================================
-# 5. INTEGRACJA: LOGOWANIE
-# ==========================================
 @app.get("/api/public")
 def get_public_data(db: Session = Depends(get_db)):
     employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
@@ -220,7 +210,6 @@ def get_public_data(db: Session = Depends(get_db)):
 @app.post("/api/auth/login")
 def login(req: dict, db: Session = Depends(get_db)):
     u, p, r = str(req.get("username", "")).strip(), str(req.get("pin", "")).strip(), req.get("role", "EMPLOYEE")
-    
     if u == "ADMIN" and p == "admin": return {"ok": True, "name": "ADMIN", "role": "ADMIN"}
     
     if r == "ADMIN":
@@ -232,7 +221,6 @@ def login(req: dict, db: Session = Depends(get_db)):
     if user: 
         return_role = "USER" if user.role == "EMPLOYEE" else user.role
         return {"ok": True, "name": user.name, "role": return_role}
-        
     raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
 
 @app.post("/api/auth/change-pin")
@@ -245,10 +233,6 @@ def change_pin(req: dict, db: Session = Depends(get_db)):
     db.commit()
     return {"ok": True, "msg": "PIN został zmieniony!"}
 
-
-# ==========================================
-# 6. WMS PLANNER (MODUŁ 1) - ENDPOINTY
-# ==========================================
 @app.post("/api/emp/dashboard")
 def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     name, year, month = req.get("name"), int(req.get("year")), int(req.get("month"))
@@ -259,7 +243,6 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     if not shifts: shifts = ["07:00-15:00", "08:00-16:00"]
     
     activities = [a.name for a in db.query(Activity).all()]
-    
     plan_map = {s.date_str: s for s in schedules}
     req_map = {r.date_str: r for r in requests}
     
@@ -285,50 +268,37 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
         
     return {"schedule": schedule_list, "shifts": shifts, "activities": activities}
 
-@app.post("/api/emp/request")
-def submit_request(req: dict, db: Session = Depends(get_db)):
-    name, start_str, end_str = req.get("name"), req.get("start"), req.get("end")
-    r_type, hrs = req.get("type"), req.get("hrs")
-    
-    start_dt = datetime.strptime(start_str, "%Y-%m-%d")
-    end_dt = datetime.strptime(end_str, "%Y-%m-%d")
+@app.post("/api/emp/request-batch")
+def submit_request_batch(req: dict, db: Session = Depends(get_db)):
+    name = req.get("name")
+    updates = req.get("updates", [])
     today = get_now().date()
     
-    curr = start_dt
-    while curr <= end_dt:
-        date_query = f"{curr.year}-{curr.month - 1}-{curr.day}"
+    for upd in updates:
+        d_str, r_type, hrs = upd["date"], upd["act"], upd["hrs"]
+        curr = datetime.strptime(d_str, "%Y-%m-%d").date()
         
-        # REGUŁA 20. DNIA: Obliczamy deadline (20. dzień poprzedniego miesiąca dla malowanego dnia)
-        if curr.month == 1:
-            dl_year, dl_month = curr.year - 1, 12
-        else:
-            dl_year, dl_month = curr.year, curr.month - 1
+        if curr.month == 1: dl_year, dl_month = curr.year - 1, 12
+        else: dl_year, dl_month = curr.year, curr.month - 1
             
         deadline = datetime(dl_year, dl_month, 20).date()
         is_auto = today <= deadline
         
         if is_auto:
-            # Zapisuje się bezpośrednio na twardo w głównej tabeli Grafiku
-            sched = db.query(Schedule).filter(Schedule.username == name, Schedule.date_str == date_query).first()
+            sched = db.query(Schedule).filter(Schedule.username == name, Schedule.date_str == d_str).first()
             if not sched:
-                sched = Schedule(username=name, date_str=date_query)
+                sched = Schedule(username=name, date_str=d_str)
                 db.add(sched)
             sched.activity = r_type if r_type != "Wyczyść" else ""
             sched.hours = hrs if r_type != "Wyczyść" else ""
         else:
-            # Tworzy wniosek do Managera
-            existing = db.query(Request).filter(Request.username == name, Request.date_str == date_query, Request.status == "Oczekuje").first()
+            existing = db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").first()
             if existing:
                 existing.req_type, existing.hours = r_type, hrs
             else:
-                new_req = Request(id=str(uuid.uuid4())[:8], username=name, date_str=date_query, req_type=r_type, hours=hrs, status="Oczekuje")
-                db.add(new_req)
-                
-        curr += timedelta(days=1)
-        
+                db.add(Request(id=str(uuid.uuid4())[:8], username=name, date_str=d_str, req_type=r_type, hours=hrs, status="Oczekuje"))
     db.commit()
-    msg = "Grafik zapisany automatycznie!" if is_auto else "Zgłoszono zmianę do akceptacji Managera."
-    return {"ok": True, "msg": msg}
+    return {"ok": True, "msg": "Grafik zaktualizowany i wysłany do centrali!"}
 
 @app.get("/api/admin/data")
 def get_admin_data(db: Session = Depends(get_db)):
@@ -365,6 +335,14 @@ def get_admin_data(db: Session = Depends(get_db)):
         "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, 
         "alerts": alerts, "availMap": avail_map
     }
+
+@app.post("/api/admin/employee/group")
+def change_emp_group(req: dict, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.name == req.get("name")).first()
+    if user:
+        user.group_name = req.get("group")
+        db.commit()
+    return {"ok": True}
 
 @app.post("/api/admin/alerts/resolve")
 def resolve_alert(req: dict, db: Session = Depends(get_db)):
@@ -851,31 +829,3 @@ def export_general(req: dict, db: Session = Depends(get_db)):
             rows = [["ID", "Pracownik", "Zadanie", "Data", "Start", "Koniec", "Skaner", "Wozek", "Auto_Zamknieto"]]
             for l in logs: rows.append([l.id, l.username, l.task_name, l.date_str, l.start_time.strftime("%Y-%m-%d %H:%M:%S") if l.start_time else "", l.end_time.strftime("%Y-%m-%d %H:%M:%S") if l.end_time else "", l.skaner, l.wozek, l.is_autoclosed])
             return {"url": create_export_file(f"DB_BACKUP_{d1}_{uid}", rows, fmt)}
-
-@app.post("/api/admin/db")
-def manage_db_vmax(req: dict, db: Session = Depends(get_db)):
-    action, db_type, name, val = req.get("action"), req.get("type"), str(req.get("name", "")).strip(), str(req.get("val", "")).strip()
-    if action == "ADD":
-        if db_type == "EMPLOYEE": db.add(User(name=name, pin=val, role="EMPLOYEE"))
-        elif db_type == "ADMIN": db.add(User(name=name, pin=val, role="ADMIN"))
-        elif db_type == "ACTIVITY": db.add(Activity(name=name))
-        elif db_type == "SCANNER": db.add(Scanner(name=name))
-        elif db_type == "TROLLEY": db.add(Trolley(name=name))
-    elif action == "DELETE":
-        if db_type in ["EMPLOYEE", "ADMIN"]: db.query(User).filter(User.name == name).delete()
-        elif db_type == "ACTIVITY": db.query(Activity).filter(Activity.name == name).delete()
-        elif db_type == "SCANNER": db.query(Scanner).filter(Scanner.name == name).delete()
-        elif db_type == "TROLLEY": db.query(Trolley).filter(Trolley.name == name).delete()
-    elif action == "EDIT_PIN":
-        user = db.query(User).filter(User.name == name, User.role == db_type).first()
-        if user: user.pin = val
-    db.commit()
-    return {"status": "success"}
-
-@app.get("/api/download/{filename}")
-def download_file(filename: str):
-    file_path = os.path.join("exports", filename)
-    if os.path.exists(file_path): 
-        media = "application/json" if filename.endswith('.json') else ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if filename.endswith('.xlsx') else "text/csv")
-        return FileResponse(file_path, filename=filename, media_type=media)
-    raise HTTPException(status_code=404, detail="Plik nie istnieje.")
