@@ -192,16 +192,27 @@ def get_public_data(db: Session = Depends(get_db)):
 def login(req: dict, db: Session = Depends(get_db)):
     u, p, r = str(req.get("username", "")).strip(), str(req.get("pin", "")).strip(), req.get("role", "EMPLOYEE")
     
-    if u == "ADMIN" and p == "admin": return {"ok": True, "name": "ADMIN", "role": "ADMIN"}
+    # 1. Awaryjny Super-Admin (Działa dla obu systemów)
+    if u == "ADMIN" and p == "admin": 
+        return {"ok": True, "name": "ADMIN", "role": "ADMIN"}
     
+    # 2. Logowanie Managera (Tylko Planner)
     if r == "ADMIN":
         custom_admin_pass = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
         actual_pass = custom_admin_pass.value if custom_admin_pass else "Biore123"
-        if u == "Admin" and p == actual_pass: return {"ok": True, "name": "Admin", "role": "ADMIN"}
-        
+        # Ignorujemy wielkość liter w loginie dla wygody
+        if u.lower() == "admin" and p == actual_pass: 
+            return {"ok": True, "name": "Admin", "role": "ADMIN"}
+            
+    # 3. Logowanie Pracownika (V-MAX i Planner)
     user = db.query(User).filter(User.name == u, User.pin == p).first()
-    if user: return {"ok": True, "name": user.name, "role": user.role}
-    return {"ok": False, "msg": "Błędne dane"}
+    if user: 
+        # TŁUMACZ DLA STAREGO V-MAXA: V-MAX musi dostać "USER", Planner poradzi sobie z wszystkim
+        return_role = "USER" if user.role == "EMPLOYEE" else user.role
+        return {"ok": True, "name": user.name, "role": return_role}
+        
+    # Jeśli żaden warunek nie został spełniony, rzucamy twardy błąd 401 (tego oczekuje stary V-MAX)
+    raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
 
 @app.post("/api/auth/change-pin")
 def change_pin(req: dict, db: Session = Depends(get_db)):
