@@ -32,15 +32,15 @@ class UserGroup(Base):
     __tablename__ = "user_groups"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
-    emp_type = Column(String) # STALY / DODATKOWY (do reguł dostępności z PDF)
-    allowed_activities = Column(String) # Zapiszemy tu JSON z listą dozwolonych zadań
+    emp_type = Column(String) # STALY / DODATKOWY
+    allowed_activities = Column(String)
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     global_id = Column(String, unique=True, index=True) # Nowe 5-cyfrowe ID
     role = Column(String, default="EMPLOYEE")
-    group_name = Column(String, default="Magazyn osoby stałe") # Przypisanie do grupy
+    group_name = Column(String, default="Magazyn osoby stałe")
     name = Column(String, unique=True, index=True)
     pin = Column(String)
 
@@ -137,28 +137,30 @@ class AlertDismiss(Base):
     id = Column(Integer, primary_key=True, index=True)
     alert_key = Column(String, unique=True, index=True)
 
-# Automatyczne tworzenie brakujących tabel
 Base.metadata.create_all(bind=engine)
 
-# CHIRURGICZNA MIGRACJA: Dodanie grup, nowych kolumn i nadanie 5-cyfrowych ID starym pracownikom
-# CHIRURGICZNA MIGRACJA: Dodanie grup, nowych kolumn i nadanie 5-cyfrowych ID starym pracownikom
+# CHIRURGICZNA MIGRACJA: Dodanie grup, nowych kolumn i nadanie 5-cyfrowych ID
 with engine.connect() as conn:
-    # Krok 1: Bezpieczne dodanie global_id
     try: 
         conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR"))
         conn.commit()
     except Exception: 
-        conn.rollback() # Resetujemy błąd, jeśli kolumna już istnieje!
+        conn.rollback()
         
-    # Krok 2: Bezpieczne dodanie group_name
     try: 
-        conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR DEFAULT 'Magazyn osoby stałe'"))
+        conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR"))
+        conn.commit()
+        conn.execute(text("UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name IS NULL"))
         conn.commit()
     except Exception: 
-        conn.rollback() # Resetujemy błąd, jeśli kolumna już istnieje!
+        conn.rollback()
+
+def generate_global_id(db: Session):
+    last_user = db.query(User).filter(User.global_id.op('~')('^[0-9]+$')).order_by(desc(User.global_id)).first()
+    if not last_user: return "00001"
+    return f"{int(last_user.global_id) + 1:05d}"
 
 with SessionLocal() as db:
-    # 1. Tworzenie domyślnych grup
     default_groups = [
         {"name": "Magazyn osoby stałe", "type": "STALY"},
         {"name": "Magazyn osoby dodatkowe", "type": "DODATKOWY"},
@@ -172,23 +174,15 @@ with SessionLocal() as db:
         if not db.query(UserGroup).filter(UserGroup.name == g["name"]).first():
             db.add(UserGroup(name=g["name"], emp_type=g["type"], allowed_activities="[]"))
     
-    # 2. Nadanie 5-cyfrowego ID starym pracownikom (którzy mieli np. UUID)
     bad_users = db.query(User).filter(~User.global_id.op('~')('^[0-9]{5}$')).all()
     for u in bad_users:
         u.global_id = generate_global_id(db)
-        db.commit() # Commit w pętli by generator widział poprzednie ID
+        db.commit()
     db.commit()
 
 # 3. INICJALIZACJA APLIKACJI
 app = FastAPI(title="WMS Enterprise Platform")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
-
-def generate_global_id(db: Session):
-    # Znajdź najwyższe dotychczasowe ID w formacie cyfrowym
-    last_user = db.query(User).filter(User.global_id.op('~')('^[0-9]+$')).order_by(desc(User.global_id)).first()
-    if not last_user:
-        return "00001"
-    return f"{int(last_user.global_id) + 1:05d}"
     
 def get_db():
     db = SessionLocal()
@@ -204,7 +198,7 @@ def format_dur(mins: int):
     return f"{mins//60}h {mins%60}m"
 
 # ==========================================
-# 4. ROUTING HTML (Serwowanie Frontendu)
+# 4. ROUTING HTML
 # ==========================================
 @app.get("/")
 def serve_vmax():
@@ -212,13 +206,11 @@ def serve_vmax():
 
 @app.get("/planner")
 def serve_planner():
-    if os.path.exists("planner.html"):
-        return FileResponse("planner.html")
+    if os.path.exists("planner.html"): return FileResponse("planner.html")
     return HTMLResponse("<h1>Brak pliku planner.html</h1>", status_code=404)
 
-
 # ==========================================
-# 5. INTEGRACJA: LOGOWANIE I WSPÓLNE DANE
+# 5. INTEGRACJA: LOGOWANIE
 # ==========================================
 @app.get("/api/public")
 def get_public_data(db: Session = Depends(get_db)):
@@ -229,26 +221,18 @@ def get_public_data(db: Session = Depends(get_db)):
 def login(req: dict, db: Session = Depends(get_db)):
     u, p, r = str(req.get("username", "")).strip(), str(req.get("pin", "")).strip(), req.get("role", "EMPLOYEE")
     
-    # 1. Awaryjny Super-Admin (Działa dla obu systemów)
-    if u == "ADMIN" and p == "admin": 
-        return {"ok": True, "name": "ADMIN", "role": "ADMIN"}
+    if u == "ADMIN" and p == "admin": return {"ok": True, "name": "ADMIN", "role": "ADMIN"}
     
-    # 2. Logowanie Managera (Tylko Planner)
     if r == "ADMIN":
         custom_admin_pass = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
         actual_pass = custom_admin_pass.value if custom_admin_pass else "Biore123"
-        # Ignorujemy wielkość liter w loginie dla wygody
-        if u.lower() == "admin" and p == actual_pass: 
-            return {"ok": True, "name": "Admin", "role": "ADMIN"}
+        if u.lower() == "admin" and p == actual_pass: return {"ok": True, "name": "Admin", "role": "ADMIN"}
             
-    # 3. Logowanie Pracownika (V-MAX i Planner)
     user = db.query(User).filter(User.name == u, User.pin == p).first()
     if user: 
-        # TŁUMACZ DLA STAREGO V-MAXA: V-MAX musi dostać "USER", Planner poradzi sobie z wszystkim
         return_role = "USER" if user.role == "EMPLOYEE" else user.role
         return {"ok": True, "name": user.name, "role": return_role}
         
-    # Jeśli żaden warunek nie został spełniony, rzucamy twardy błąd 401 (tego oczekuje stary V-MAX)
     raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
 
 @app.post("/api/auth/change-pin")
@@ -274,6 +258,8 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     shifts = [s.value for s in db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift").all()]
     if not shifts: shifts = ["07:00-15:00", "08:00-16:00"]
     
+    activities = [a.name for a in db.query(Activity).all()]
+    
     plan_map = {s.date_str: s for s in schedules}
     req_map = {r.date_str: r for r in requests}
     
@@ -288,7 +274,6 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
         
         p = plan_map.get(date_str)
         r = req_map.get(date_str)
-        
         req_obj = {"type": r.req_type, "hrs": r.hours, "status": r.status} if r else None
         
         schedule_list.append({
@@ -298,7 +283,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
             "req": req_obj
         })
         
-    return {"schedule": schedule_list, "shifts": shifts}
+    return {"schedule": schedule_list, "shifts": shifts, "activities": activities}
 
 @app.post("/api/emp/request")
 def submit_request(req: dict, db: Session = Depends(get_db)):
@@ -307,26 +292,43 @@ def submit_request(req: dict, db: Session = Depends(get_db)):
     
     start_dt = datetime.strptime(start_str, "%Y-%m-%d")
     end_dt = datetime.strptime(end_str, "%Y-%m-%d")
-    today = get_now()
+    today = get_now().date()
     
     curr = start_dt
     while curr <= end_dt:
         date_query = f"{curr.year}-{curr.month - 1}-{curr.day}"
-        status = "Oczekuje"
         
-        is_next_month = (curr.month - 1) == ((today.month) % 12)
-        if r_type == "Dostępny" and is_next_month and today.day <= 26:
-            status = "Zatwierdzono"
+        # REGUŁA 20. DNIA: Obliczamy deadline (20. dzień poprzedniego miesiąca dla malowanego dnia)
+        if curr.month == 1:
+            dl_year, dl_month = curr.year - 1, 12
+        else:
+            dl_year, dl_month = curr.year, curr.month - 1
             
-        new_req = Request(
-            id=str(uuid.uuid4())[:8], username=name, date_str=date_query,
-            req_type=r_type, hours=hrs, status=status
-        )
-        db.add(new_req)
+        deadline = datetime(dl_year, dl_month, 20).date()
+        is_auto = today <= deadline
+        
+        if is_auto:
+            # Zapisuje się bezpośrednio na twardo w głównej tabeli Grafiku
+            sched = db.query(Schedule).filter(Schedule.username == name, Schedule.date_str == date_query).first()
+            if not sched:
+                sched = Schedule(username=name, date_str=date_query)
+                db.add(sched)
+            sched.activity = r_type if r_type != "Wyczyść" else ""
+            sched.hours = hrs if r_type != "Wyczyść" else ""
+        else:
+            # Tworzy wniosek do Managera
+            existing = db.query(Request).filter(Request.username == name, Request.date_str == date_query, Request.status == "Oczekuje").first()
+            if existing:
+                existing.req_type, existing.hours = r_type, hrs
+            else:
+                new_req = Request(id=str(uuid.uuid4())[:8], username=name, date_str=date_query, req_type=r_type, hours=hrs, status="Oczekuje")
+                db.add(new_req)
+                
         curr += timedelta(days=1)
         
     db.commit()
-    return {"ok": True, "msg": "Wnioski wysłane pomyślnie!"}
+    msg = "Grafik zapisany automatycznie!" if is_auto else "Zgłoszono zmianę do akceptacji Managera."
+    return {"ok": True, "msg": msg}
 
 @app.get("/api/admin/data")
 def get_admin_data(db: Session = Depends(get_db)):
@@ -370,14 +372,13 @@ def resolve_alert(req: dict, db: Session = Depends(get_db)):
     db_req = db.query(Request).filter(Request.id == a_id).first()
     if db_req:
         db_req.status = stat
-        if stat == "Zatwierdzono" and a_type in ["Chory", "Urlop", "Wolne"]:
-            icon = " 🤒" if a_type == "Chory" else (" 🌴" if a_type == "Urlop" else " 🏠")
+        if stat == "Zatwierdzono":
             sched = db.query(Schedule).filter(Schedule.username == name, Schedule.date_str == date_str).first()
             if not sched:
                 sched = Schedule(username=name, date_str=date_str)
                 db.add(sched)
-            sched.activity = a_type + icon
-            sched.hours = "Cały dzień"
+            sched.activity = a_type if a_type != "Wyczyść" else ""
+            sched.hours = hrs if a_type != "Wyczyść" else ""
         db.commit()
     return {"ok": True, "msg": "Wniosek rozpatrzony!"}
 
@@ -453,7 +454,7 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/admin/settings")
 def cms_settings(req: dict, db: Session = Depends(get_db)):
     action, t, val = req.get("action"), req.get("type"), req.get("value")
-    group = req.get("group", "Magazyn osoby stałe") # Odbieramy grupę z frontendu
+    group = req.get("group", "Magazyn osoby stałe")
     
     if action == "ADD":
         if t == "employee": 
@@ -488,9 +489,7 @@ def get_vmax_config(db: Session = Depends(get_db)):
     db.commit()
 
     admins = {u.name: u.pin for u in db.query(User).filter(User.role == "ADMIN").all()}
-    
     employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
-    
     activities = [a.name for a in db.query(Activity).all()]
     scanners = [s.name for s in db.query(Scanner).all()]
     trolleys = [t.name for t in db.query(Trolley).all()]
@@ -528,12 +527,6 @@ def user_action(req: dict, db: Session = Depends(get_db)):
     now = get_now()
     date_str = now.strftime("%Y-%m-%d")
     
-    # ---------------------------------------------------------
-    # BLOKADY GRAFIKU I KOMPETENCJI SĄ USUNIĘTE / ZAKOMENTOWANE.
-    # V-MAX DZIAŁA W 100% NIEZALEŻNIE.
-    # ---------------------------------------------------------
-
-    # Pozostaje tylko zabezpieczenie sprzętowe:
     if act_type in ["START", "TASK"]:
         if skaner:
             if db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first():
