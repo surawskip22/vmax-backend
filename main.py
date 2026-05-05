@@ -141,12 +141,21 @@ class AlertDismiss(Base):
 Base.metadata.create_all(bind=engine)
 
 # CHIRURGICZNA MIGRACJA: Dodanie grup, nowych kolumn i nadanie 5-cyfrowych ID starym pracownikom
+# CHIRURGICZNA MIGRACJA: Dodanie grup, nowych kolumn i nadanie 5-cyfrowych ID starym pracownikom
 with engine.connect() as conn:
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR"))
-    except Exception: pass
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR DEFAULT 'Magazyn osoby stałe'"))
-    except Exception: pass
-    conn.commit()
+    # Krok 1: Bezpieczne dodanie global_id
+    try: 
+        conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR"))
+        conn.commit()
+    except Exception: 
+        conn.rollback() # Resetujemy błąd, jeśli kolumna już istnieje!
+        
+    # Krok 2: Bezpieczne dodanie group_name
+    try: 
+        conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR DEFAULT 'Magazyn osoby stałe'"))
+        conn.commit()
+    except Exception: 
+        conn.rollback() # Resetujemy błąd, jeśli kolumna już istnieje!
 
 with SessionLocal() as db:
     # 1. Tworzenie domyślnych grup
