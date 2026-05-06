@@ -89,7 +89,7 @@ class Activity(Base):
     __tablename__ = "activities"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
-    color = Column(String, default="#0A84FF")
+    color = Column(String, default="#0A84FF") 
 
 class Scanner(Base):
     __tablename__ = "scanners"
@@ -262,15 +262,14 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     shifts = [s.value for s in db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift").all()]
     if not shifts: shifts = ["07:00-15:00", "08:00-16:00"]
     
-    # Przekazanie kolorów również na ekran pracownika
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
-    activityColors["Chory 🤒"] = "#D32F2F"
-    activityColors["Urlop 🌴"] = "#F57F17"
-    activityColors["Wolne 🏠"] = "#757575"
+    activityColors["Chory 🤒"] = "#FF3B30"
+    activityColors["Urlop 🌴"] = "#FFCC00"
+    activityColors["Wolne 🏠"] = "#8E8E93"
     activityColors["No Show ❌"] = "#8B0000"
-    
     activities = [a.name for a in db_acts]
+
     plan_map = {s.date_str: s for s in schedules}
     req_map = {r.date_str: r for r in requests}
     
@@ -335,7 +334,7 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
             else:
                 db.add(Request(id=str(uuid.uuid4())[:8], username=name, date_str=d_str, req_type=r_type, hours=hrs, status="Oczekuje"))
     db.commit()
-    msg_suffix = " (Grupa Elastyczna)" if is_flexible_employee else ""
+    msg_suffix = " (Omijanie 20-go - Grupa Elastyczna)" if is_flexible_employee else ""
     return {"ok": True, "msg": "Grafik zaktualizowany!" + msg_suffix}
 
 @app.get("/api/admin/data")
@@ -348,9 +347,9 @@ def get_admin_data(db: Session = Depends(get_db)):
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
     
-    activityColors["Chory 🤒"] = "#D32F2F"
-    activityColors["Urlop 🌴"] = "#F57F17"
-    activityColors["Wolne 🏠"] = "#757575"
+    activityColors["Chory 🤒"] = "#FF3B30"
+    activityColors["Urlop 🌴"] = "#FFCC00"
+    activityColors["Wolne 🏠"] = "#8E8E93"
     activityColors["No Show ❌"] = "#8B0000"
 
     activities = [a.name for a in db_acts]
