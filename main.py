@@ -13,7 +13,7 @@ import zoneinfo
 import openpyxl
 
 # ==========================================
-# 1. KONFIGURACJA BAZY DANYCH
+# 1. KONFIGURACJA BAZY DANYCH 
 # ==========================================
 db_url = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 if db_url.startswith("postgres://"):
