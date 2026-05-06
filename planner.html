@@ -826,7 +826,7 @@
     // ==========================================
     // 1. KONFIGURACJA API I NARZĘDZIA POMOCNICZE
     // ==========================================
-    const API_URL = "https://vmax-api.onrender.com/api"; 
+    const API_URL = "/api"; // Automatyczne dopasowanie do serwera (Localhost / Render)
     
     async function apiCall(endpoint, method = 'GET', body = null) {
         try {
@@ -916,19 +916,17 @@
     };
 
     // ==========================================
-    // 2. LOGIKA PRACOWNIKA
+    // 2. LOGIKA PRACOWNIKA (TYLKO ERP - GRAFIK)
     // ==========================================
     async function doEmpLogin() {
         currEmp = document.getElementById('elName').value; 
         const pin = document.getElementById('elPin').value;
-        
         if(!currEmp || !pin) return showT("⚠️ Uzupełnij dane!");
         
         const res = await apiCall('/auth/login', 'POST', { username: currEmp, pin: pin, role: 'EMPLOYEE' });
         
         if(res && res.ok) { 
-            empMonthOffset = 0; 
-            empChanges = {}; 
+            empMonthOffset = 0; empChanges = {}; 
             let welcomePrefix = (res.role === "ADMIN" || res.role === "SUPER_ADMIN" || res.role === "MANAGER") ? "👑 Witaj, " : "Witaj, ";
             document.getElementById('empWelcomeTitle').innerText = `${welcomePrefix}${currEmp}! 👋`;
             openScreen('screen-emp-dash'); 
@@ -946,16 +944,13 @@
         event.target.classList.add('active'); 
     }
     
-    function changeEmpMonth(dir) { 
-        empMonthOffset += dir; 
-        loadEmpDash(); 
-    }
+    function changeEmpMonth(dir) { empMonthOffset += dir; loadEmpDash(); }
 
     function toggleEmpBrush() { 
         isEmpBrush = !isEmpBrush; 
         const b = document.getElementById('eBtn'); 
         b.innerText = isEmpBrush ? "PĘDZEL: WŁ" : "PĘDZEL: WYŁ"; 
-        b.style.background = isEmpBrush ? "linear-gradient(135deg, var(--ios-blue), #005ecb)" : "transparent"; 
+        b.style.background = isEmpBrush ? "var(--ios-blue)" : "transparent"; 
         b.style.color = isEmpBrush ? "white" : "var(--ios-blue)"; 
         b.style.borderStyle = isEmpBrush ? "solid" : "dashed"; 
     }
@@ -972,37 +967,22 @@
         
         const col = getTileColor(act);
         el.style.border = "3px dashed var(--ios-blue)";
-        el.innerHTML = `
-            <div style="font-weight:800; font-size:18px; margin-bottom:8px;">${dObj.getDate()}</div>
-            <div style="font-size:12px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${act==='Wyczyść'?'Pusto':act}</div>
-            ${hrs && act!=='Wyczyść' ? `<div style="font-size:11px; font-weight:800; margin-top:6px;">⌚ ${hrs}</div>` : ''}
-            <div style="background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:9px; font-weight:800; margin-top:6px; padding:4px; border-radius:6px;">ZMIENIONE</div>
-        `;
+        el.innerHTML = `<div style="font-weight:800; font-size:18px; margin-bottom:8px;">${dObj.getDate()}</div><div style="font-size:12px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${act==='Wyczyść'?'Pusto':act}</div>${hrs && act!=='Wyczyść' ? `<div style="font-size:11px; font-weight:800; margin-top:6px;">⌚ ${hrs}</div>` : ''}<div style="background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:9px; font-weight:800; margin-top:6px; padding:4px; border-radius:6px;">ZMIENIONE</div>`;
     }
 
     async function submitEmpChanges() {
         const updates = Object.keys(empChanges).map(d => ({ date: d, act: empChanges[d].act, hrs: empChanges[d].hrs }));
         if(updates.length === 0) return;
-        
         showT("⏳ Wysyłanie zmian...");
         const res = await apiCall('/emp/request-batch', 'POST', { name: currEmp, updates: updates });
-        if(res) { 
-            empChanges = {}; 
-            document.getElementById('empSubmitBox').style.display = 'none'; 
-            showT("✅ " + res.msg); 
-            loadEmpDash(); 
-        }
+        if(res) { empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none'; showT("✅ " + res.msg); loadEmpDash(); }
     }
 
     async function loadEmpDash() {
-        empChanges = {}; 
-        document.getElementById('empSubmitBox').style.display = 'none';
-        
-        const d = new Date(); 
-        d.setMonth(d.getMonth() + empMonthOffset);
+        empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none';
+        const d = new Date(); d.setMonth(d.getMonth() + empMonthOffset);
         const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
         document.getElementById('empMonthTitle').innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-
         document.getElementById('empGrid').innerHTML = '<p style="font-weight:600; color:gray; text-align:center; width:100%; grid-column:1/-1;">Ładowanie kalendarza...</p>';
 
         const data = await apiCall('/emp/dashboard', 'POST', { name: currEmp, year: d.getFullYear(), month: d.getMonth() });
@@ -1013,74 +993,42 @@
         document.getElementById('empBrushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">`).join('');
 
-        let calHtml = `
-            <div class="cal-header">Wk</div>
-            <div class="cal-header">PN</div><div class="cal-header">WT</div><div class="cal-header">ŚR</div>
-            <div class="cal-header">CZ</div><div class="cal-header">PT</div><div class="cal-header">SB</div><div class="cal-header">ND</div>
-        `;
-
+        let calHtml = `<div class="cal-header" style="font-weight:800; font-size:12px; color:gray; text-align:center;">Wk</div><div class="cal-header" style="font-weight:800; font-size:12px; color:gray; text-align:center;">PN</div><div class="cal-header" style="font-weight:800; font-size:12px; color:gray; text-align:center;">WT</div><div class="cal-header" style="font-weight:800; font-size:12px; color:gray; text-align:center;">ŚR</div><div class="cal-header" style="font-weight:800; font-size:12px; color:gray; text-align:center;">CZ</div><div class="cal-header" style="font-weight:800; font-size:12px; color:gray; text-align:center;">PT</div><div class="cal-header" style="font-weight:800; font-size:12px; color:gray; text-align:center;">SB</div><div class="cal-header" style="font-weight:800; font-size:12px; color:gray; text-align:center;">ND</div>`;
         const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
         let startDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); 
-        
         let currentWeekNum = getWeekNumber(firstDay);
-        calHtml += `<div class="week-num">T. ${currentWeekNum}</div>`;
-
-        for(let i = 1; i < startDayOfWeek; i++) {
-            calHtml += `<div class="day-row empty-day"></div>`;
-        }
+        calHtml += `<div class="week-num" style="writing-mode: vertical-lr; transform: rotate(180deg); display:flex; align-items:center; justify-content:center; background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:11px; font-weight:800; border-radius:10px;">T. ${currentWeekNum}</div>`;
+        for(let i = 1; i < startDayOfWeek; i++) calHtml += `<div class="day-row empty-day"></div>`;
 
         data.schedule.forEach(s => {
-            const dt = new Date(s.date); 
-            const col = getTileColor(s.act);
-            
-            if (dt.getDate() !== 1 && dt.getDay() === 1) {
-                currentWeekNum = getWeekNumber(dt);
-                calHtml += `<div class="week-num">T. ${currentWeekNum}</div>`;
+            const dt = new Date(s.date); const col = getTileColor(s.act);
+            if (dt.getDate() !== 1 && dt.getDay() === 1) { 
+                currentWeekNum = getWeekNumber(dt); 
+                calHtml += `<div class="week-num" style="writing-mode: vertical-lr; transform: rotate(180deg); display:flex; align-items:center; justify-content:center; background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:11px; font-weight:800; border-radius:10px;">T. ${currentWeekNum}</div>`; 
             }
-
             let reqBox = "";
-            if(s.req && s.req.status === "Oczekuje") {
-                reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">⏳ Oczekuje</div>`;
-            } else if (s.req && s.req.status === "Odrzucono") {
-                reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">❌ Odrzucono</div>`;
-            }
-            
+            if(s.req && s.req.status === "Oczekuje") reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">⏳</div>`;
+            else if (s.req && s.req.status === "Odrzucono") reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">❌</div>`;
             let overrideBadge = "";
-            if (s.override === 1 && s.act !== "Brak planu") {
-                overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px;">⚠️ MGR</div>`;
-            }
+            if (s.override === 1 && s.act !== "Brak planu") overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px;">⚠️ MGR</div>`;
 
-            calHtml += `
-                <div class="day-row ${s.act==='Brak planu'?'no-plan':''}" style="border-top:6px solid ${col.c};" onclick="empClickDay('${s.date}', this)">
-                    <div style="font-weight:800; font-size:16px; margin-bottom:8px;">${dt.getDate()}</div>
-                    <div style="font-size:11px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${s.act}</div>
-                    ${s.hrs ? `<div style="color:var(--text-muted); font-size:10px; font-weight:800; margin-top:6px;">⌚ ${s.hrs}</div>` : ''}
-                    ${overrideBadge} ${reqBox}
-                </div>`;
+            calHtml += `<div class="day-row ${s.act==='Brak planu'?'no-plan':''}" style="background:white; border-radius:16px; padding:10px; border-top:6px solid ${col.c}; text-align:center; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.02);" onclick="empClickDay('${s.date}', this)"><div style="font-weight:800; font-size:16px; margin-bottom:8px;">${dt.getDate()}</div><div style="font-size:11px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${s.act}</div>${s.hrs ? `<div style="color:var(--text-muted); font-size:10px; font-weight:800; margin-top:6px;">⌚ ${s.hrs}</div>` : ''}${overrideBadge} ${reqBox}</div>`;
         });
-
         document.getElementById('empGrid').innerHTML = calHtml;
     }
 
     async function empChangePin() {
-        const o = document.getElementById('pOld').value; 
-        const n = document.getElementById('pNew').value;
+        const o = document.getElementById('pOld').value, n = document.getElementById('pNew').value;
         if(!o || !n) return showT("⚠️ Wypełnij oba pola");
-        
         const res = await apiCall('/auth/change-pin', 'POST', { name: currEmp, oldPin: o, newPin: n, isAdmin: false });
-        if(res) { 
-            showT(res.msg); 
-            if(res.ok) { document.getElementById('pOld').value = ''; document.getElementById('pNew').value = ''; } 
-        }
+        if(res) { showT(res.msg); if(res.ok) { document.getElementById('pOld').value = ''; document.getElementById('pNew').value = ''; } }
     }
-
 
     // ==========================================
     // 3. LOGIKA ADMINA & NAWIGACJA
     // ==========================================
     async function doAdminLogin() { 
-        const u = document.getElementById('lUser').value;
-        const p = document.getElementById('lPass').value;
+        const u = document.getElementById('lUser').value, p = document.getElementById('lPass').value;
         if(!u || !p) return showT("⚠️ Uzupełnij dane!");
         
         const res = await apiCall('/auth/login', 'POST', { username: u, pin: p, role: 'ADMIN' });
@@ -1163,12 +1111,9 @@
 
 
     // ==========================================
-    // 4. WNIOSKI Z GRAFIKU & TABELE HR
+    // 4. WNIOSKI Z GRAFIKU (URLOPY)
     // ==========================================
-    function getEmpGroup(empName) {
-        const emp = dbAdmin.employees.find(e => e.name === empName);
-        return emp ? emp.group : "Nieprzypisani";
-    }
+    function getEmpGroup(empName) { const emp = dbAdmin.employees.find(e => e.name === empName); return emp ? emp.group : "Nieprzypisani"; }
 
     function renderAlertsGroupView() {
         document.getElementById('alertBackBtn').style.display = 'none';
@@ -1177,27 +1122,18 @@
         document.getElementById('alertsDetailView').style.display = 'none';
         
         if(dbAdmin.alerts.length === 0) {
-            document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column: 1 / -1;">Brak nowych wniosków o wolne. Operujesz na 100%! 🎉</p>'; 
-            return;
+            document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column: 1 / -1;">Brak nowych wniosków o wolne. Operujesz na 100%! 🎉</p>'; return;
         }
 
         let groupedAlerts = {};
-        dbAdmin.alerts.forEach(a => {
-            let g = getEmpGroup(a.name);
-            if(!groupedAlerts[g]) groupedAlerts[g] = 0;
-            groupedAlerts[g]++;
-        });
+        dbAdmin.alerts.forEach(a => { let g = getEmpGroup(a.name); if(!groupedAlerts[g]) groupedAlerts[g] = 0; groupedAlerts[g]++; });
 
-        let html = "";
-        for (const [gName, count] of Object.entries(groupedAlerts)) {
-            html += `
+        document.getElementById('alertsGroupView').innerHTML = Object.keys(groupedAlerts).map(gName => `
             <div class="group-bubble" onclick="renderAlertsEmpView('${gName}')">
                 <h3 style="margin-top:0; font-size:20px; color:var(--text-main);">${gName}</h3>
-                <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:10px 0;">${count} <span style="font-size:16px; color:var(--text-muted);">wniosków</span></div>
+                <div style="font-size:36px; font-weight:800; color:var(--ios-orange); margin:10px 0;">${groupedAlerts[gName]} <span style="font-size:16px; color:gray;">wniosków</span></div>
                 <span style="color:var(--ios-blue); font-size:13px; font-weight:700;">Zobacz szczegóły →</span>
-            </div>`;
-        }
-        document.getElementById('alertsGroupView').innerHTML = html;
+            </div>`).join('');
     }
 
     function renderAlertsEmpView(groupName) {
@@ -1208,33 +1144,20 @@
         document.getElementById('alertsEmpView').style.display = 'block';
         document.getElementById('alertsDetailView').style.display = 'none';
 
-        let empsInGroup = {};
-        let alertIdsToResolve = [];
-
+        let empsInGroup = {}; let alertIdsToResolve = [];
         dbAdmin.alerts.forEach(a => {
             if(getEmpGroup(a.name) === groupName) {
                 if(!empsInGroup[a.name]) empsInGroup[a.name] = 0;
-                empsInGroup[a.name]++;
-                alertIdsToResolve.push(a.id);
+                empsInGroup[a.name]++; alertIdsToResolve.push(a.id);
             }
         });
 
-        let html = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-            <h3 style="margin:0; font-size:22px;">Grupa: ${groupName}</h3>
-            <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">✅ Zaakceptuj masowo grupę</button>
-        </div>
-        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">`;
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;"><h3 style="margin:0; font-size:22px;">Grupa: ${groupName}</h3><button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">✅ Zaakceptuj masowo grupę</button></div><div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">`;
 
         for (const [eName, count] of Object.entries(empsInGroup)) {
-            html += `
-            <div style="background:white; padding:20px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03); cursor:pointer; transition:0.3s; border:1px solid rgba(0,0,0,0.05);" onclick="renderAlertsDetailView('${eName}')" onmouseover="this.style.borderColor='var(--ios-blue)'" onmouseout="this.style.borderColor='rgba(0,0,0,0.05)'">
-                <h4 style="margin:0 0 10px 0; font-size:18px;">${eName}</h4>
-                <div style="color:var(--ios-orange); font-weight:800;">${count} oczekujących wniosków</div>
-            </div>`;
+            html += `<div style="background:white; padding:20px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03); cursor:pointer; transition:0.3s; border:1px solid rgba(0,0,0,0.05);" onclick="renderAlertsDetailView('${eName}')" onmouseover="this.style.borderColor='var(--ios-blue)'" onmouseout="this.style.borderColor='rgba(0,0,0,0.05)'"><h4 style="margin:0 0 10px 0; font-size:18px;">${eName}</h4><div style="color:var(--ios-orange); font-weight:800;">${count} oczekujących wniosków</div></div>`;
         }
-        html += `</div>`;
-        document.getElementById('alertsEmpView').innerHTML = html;
+        document.getElementById('alertsEmpView').innerHTML = html + `</div>`;
     }
 
     function renderAlertsDetailView(empName) {
@@ -1247,34 +1170,45 @@
         let empAlerts = dbAdmin.alerts.filter(a => a.name === empName);
         let alertIdsToResolve = empAlerts.map(a => a.id);
 
-        let html = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-            <h3 style="margin:0; font-size:22px;">Wnioski: ${empName}</h3>
-            <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">✅ Zaakceptuj wszystko pracownika</button>
-        </div>`;
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;"><h3 style="margin:0; font-size:22px;">Wnioski: ${empName}</h3><button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">✅ Zaakceptuj wszystko pracownika</button></div>`;
 
         html += empAlerts.map(a => {
             const col = getTileColor(a.type);
             return `
-            <div class="alert-card" style="padding:20px; border-radius:16px; border-left:6px solid ${col.c}; background:white; margin-bottom:15px; box-shadow:0 4px 15px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="color:var(--text-muted); font-size:12px; margin-bottom:5px; font-weight:600;">Data w grafiku: <b style="color:var(--text-main); font-size:14px;">${a.date}</b></div>
-                    <div style="font-size:16px; font-weight:800; color:${col.c}; background:${col.bg}; display:inline-block; padding:6px 12px; border-radius:10px;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-green); padding:10px 20px; font-size:13px; box-shadow:none;">Zaakceptuj</button>
-                    <button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-red); padding:10px 20px; font-size:13px; box-shadow:none;">Odrzuć</button>
-                </div>
+            <div class="alert-card" style="border-left-color:${col.c}; display:flex; justify-content:space-between; align-items:center;">
+                <div><div style="color:gray; font-size:12px; margin-bottom:5px;">Data: <b style="color:var(--text-main); font-size:14px;">${a.date}</b></div><div style="font-size:16px; font-weight:800; color:${col.c}; background:${col.bg}; padding:6px 12px; border-radius:10px; display:inline-block;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div></div>
+                <div style="display:flex; gap:10px;"><button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-green); padding:10px 20px; font-size:13px; box-shadow:none;">Zaakceptuj</button><button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-red); padding:10px 20px; font-size:13px; box-shadow:none;">Odrzuć</button></div>
             </div>`;
         }).join('');
         document.getElementById('alertsDetailView').innerHTML = html;
     }
 
-    // TABELA EXCEL DLA HR
+    async function resolveAlert(id, stat, n, d, t, h) { 
+        const res = await apiCall('/admin/alerts/resolve', 'POST', { id, status: stat, name: n, date: d, type: t, hrs: h });
+        if(res) { 
+            if(res.ok) showT(res.msg); else return showT("⚠️ " + res.msg);
+            await loadAdminData();
+            if(dbAdmin.alerts.filter(a => a.name === n).length > 0) renderAlertsDetailView(n);
+            else if(dbAdmin.alerts.filter(a => getEmpGroup(a.name) === currentAlertGroup).length > 0) renderAlertsEmpView(currentAlertGroup);
+            else renderAlertsGroupView();
+        }
+    }
+
+    async function resolveMassAlerts(idsString, stat) {
+        if(!idsString) return;
+        const ids = idsString.split(',');
+        if(!confirm(`Czy na pewno chcesz zatwierdzić masowo te zmiany grafiku? (Alerty HR i tak zostaną pominięte)`)) return;
+        showT("⏳ Przetwarzanie...");
+        const res = await apiCall('/admin/alerts/resolve-mass', 'POST', { ids: ids, status: stat });
+        if(res) { showT("✅ " + res.msg); await loadAdminData(); renderAlertsGroupView(); }
+    }
+
+    // ==========================================
+    // 5. TABELA ALERTÓW HR (EXCEL STYLE)
+    // ==========================================
     function renderHrAlertsTable() {
         const gFilt = document.getElementById('hrAlertGroupFilt').value;
         const sort = document.getElementById('hrAlertSort').value;
-        
         let alerts = [...(dbAdmin.hrAlerts || [])];
         
         if(gFilt !== "ALL") {
@@ -1299,36 +1233,9 @@
                 <td><span style="color:var(--ios-purple); font-weight:800; background:rgba(94,92,230,0.1); padding:4px 10px; border-radius:8px;">${a.type}</span></td>
                 <td>${a.date}</td>
                 <td style="text-align:right;">
-                    <button class="btn-main" style="background:var(--ios-purple); padding:6px 12px; font-size:11px; display:inline-block;">📝 Otwórz Dossier</button>
+                    <button class="btn-main" style="background:var(--ios-purple); padding:6px 12px; font-size:11px;">📝 Otwórz Dossier</button>
                 </td>
             </tr>`).join('');
-    }
-
-    async function resolveAlert(id, stat, n, d, t, h) { 
-        const res = await apiCall('/admin/alerts/resolve', 'POST', { id, status: stat, name: n, date: d, type: t, hrs: h });
-        if(res) { 
-            if(res.ok) showT(res.msg); 
-            else return showT("⚠️ " + res.msg);
-            
-            await loadAdminData();
-            if(dbAdmin.alerts.filter(a => a.name === n).length > 0) renderAlertsDetailView(n);
-            else if(dbAdmin.alerts.filter(a => getEmpGroup(a.name) === currentAlertGroup).length > 0) renderAlertsEmpView(currentAlertGroup);
-            else renderAlertsGroupView();
-        }
-    }
-
-    async function resolveMassAlerts(idsString, stat) {
-        if(!idsString) return;
-        const ids = idsString.split(',');
-        if(!confirm(`Czy na pewno chcesz zatwierdzić masowo te zmiany grafiku? (Alerty HR i tak zostaną pominięte)`)) return;
-        
-        showT("⏳ Przetwarzanie...");
-        const res = await apiCall('/admin/alerts/resolve-mass', 'POST', { ids: ids, status: stat });
-        if(res) { 
-            showT("✅ " + res.msg); 
-            await loadAdminData(); 
-            renderAlertsGroupView(); 
-        }
     }
 
     function openHrDossierFromAlert(empName) {
@@ -1336,15 +1243,13 @@
         openHrDossier(empName);
     }
 
-
     // ==========================================
-    // 5. PLANNER DZIENNY LIVE (SZACHOWNICA)
+    // 6. PLANNER DZIENNY LIVE (SZACHOWNICA)
     // ==========================================
     function changeDailyDate(days) {
         const input = document.getElementById('dailyDate');
         if(!input.value) return;
-        const d = new Date(input.value);
-        d.setDate(d.getDate() + days);
+        const d = new Date(input.value); d.setDate(d.getDate() + days);
         input.value = formatDateKey(d.getFullYear(), d.getMonth(), d.getDate());
         renderDaily();
     }
@@ -1355,8 +1260,7 @@
     function dragLeaveDaily(ev) { ev.currentTarget.classList.remove('dragover'); }
 
     async function dropDaily(ev, targetAct) {
-        ev.preventDefault(); 
-        ev.currentTarget.classList.remove('dragover');
+        ev.preventDefault(); ev.currentTarget.classList.remove('dragover');
         const empName = ev.dataTransfer.getData("empName");
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
@@ -1405,56 +1309,41 @@
         const val = parseInt(inputEl.value) || 0;
         dbAdmin.capacityMap[`${dStr}_${act}`] = val;
         renderDaily(); 
-        
-        let caps = {}; 
-        caps[act] = val;
+        let caps = {}; caps[act] = val;
         await apiCall('/admin/capacity/save', 'POST', { date: dStr, capacities: caps });
     }
 
     function renderDaily() {
         const rawDate = document.getElementById('dailyDate').value; 
         if(!rawDate) return;
-        
         const dObj = new Date(rawDate);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        
         const selectedGroup = document.getElementById('dailyGroupFilter').value;
         const gridContainer = document.getElementById('dailyGrid');
         
         if (!selectedGroup) {
-            gridContainer.innerHTML = `
-                <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:18px;">
-                    👆 Najpierw wybierz grupę z menu u góry, aby załadować kolumny planowania.
-                </div>`;
+            gridContainer.innerHTML = `<div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:18px;">👆 Najpierw wybierz grupę z menu u góry, aby załadować kolumny planowania.</div>`;
             return; 
         }
 
-        let dailyData = {}; 
-        let assignedSet = new Set();
-        
+        let dailyData = {}; let assignedSet = new Set();
         let colsToRender = dbAdmin.plannerActivities;
         const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
-        
         if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
             colsToRender = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
         }
-        
         colsToRender.forEach(a => dailyData[a] = []); 
         
         dbAdmin.employees.forEach(empObj => {
             if(empObj.name === dbAdmin.rootAdmin) return;
-
             const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
             if(valStr && valStr.split("||")[0] && valStr.split("||")[0] !== "Wyczyść") { 
                 const act = valStr.split("||")[0]; 
-                if(dailyData[act] !== undefined) { 
-                    dailyData[act].push(empObj); 
-                }
+                if(dailyData[act] !== undefined) dailyData[act].push(empObj); 
                 assignedSet.add(empObj.name); 
             }
         });
         
-        // Zabezpieczenie przed błędem u pracowników bez przypisanej grupy
         const avail = dbAdmin.employees.filter(e => !assignedSet.has(e.name) && e.name !== dbAdmin.rootAdmin); 
         document.getElementById('availCount').innerText = avail.length;
         document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
@@ -1462,10 +1351,7 @@
             const safeGroup = e.group || "Nieprzypisani";
             return `
                 <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
-                    <span>
-                        <b style="font-size:14px; color:var(--text-main);">${e.name}</b> 
-                        <span style="font-size:10px; color:gray; display:block;">${safeGroup}</span>
-                    </span>
+                    <span><b style="font-size:14px; color:var(--text-main);">${e.name}</b> <span style="font-size:10px; color:gray; display:block;">${safeGroup}</span></span>
                     ${aHrs ? `<span style="background:rgba(52,199,89,0.1); color:var(--ios-green); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">Dost: ${aHrs}</span>` : ''}
                 </div>`; 
         }).join('');
@@ -1474,7 +1360,6 @@
             const col = getTileColor(act);
             const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
             const currCount = dailyData[act].length;
-            
             let boxStyle = `border-top: 5px solid ${col.c};`;
             if (reqCap > 0) {
                 if (currCount >= reqCap) boxStyle = `border-top: 5px solid var(--ios-green); background:rgba(52,199,89,0.03);`; 
@@ -1494,10 +1379,7 @@
             return `
             <div class="kanban-col" style="${boxStyle}" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, '${act}')">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <div style="color:${col.c}; font-weight:800; font-size:15px; display:flex; align-items:center; gap:5px;">
-                        ${act} 
-                        <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:14px;" title="Podpowiedz pracowników">💡</button>
-                    </div>
+                    <div style="color:${col.c}; font-weight:800; font-size:15px; display:flex; align-items:center; gap:5px;">${act} <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:14px;" title="Podpowiedz pracowników">💡</button></div>
                     <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:800;">${currCount} os.</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:white; padding:8px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
@@ -1509,19 +1391,14 @@
         }).join('');
     }
 
-    // ==========================================
-    // 6. SUGESTIE, MASOWE PLANOWANIE I KOPIOWANIE
-    // ==========================================
     function openSuggestions(act) {
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        
         let availableEmps = [];
         dbAdmin.employees.forEach(e => {
             if(e.name === dbAdmin.rootAdmin) return;
             const valStr = dbAdmin.planMap[`${e.name}_${dStr}`];
             const currentAct = valStr ? valStr.split("||")[0] : "";
-            
             if(currentAct !== act) { 
                 let rating = dbAdmin.ratingsMap[`${e.name}_${act}`] || 2;
                 availableEmps.push({ name: e.name, rating: rating, currentAct: currentAct });
@@ -1530,11 +1407,8 @@
         availableEmps.sort((a, b) => b.rating - a.rating);
 
         let html = availableEmps.map(e => {
-            let statusText = (!e.currentAct || e.currentAct === 'Wyczyść') 
-                             ? `<span style="color:var(--ios-green); font-weight:700;">Wolny</span>` 
-                             : `<span style="color:var(--ios-orange); font-weight:700;">Robi: ${e.currentAct}</span>`;
+            let statusText = (!e.currentAct || e.currentAct === 'Wyczyść') ? `<span style="color:var(--ios-green); font-weight:700;">Wolny</span>` : `<span style="color:var(--ios-orange); font-weight:700;">Robi: ${e.currentAct}</span>`;
             let starColor = e.rating === 1 ? 'var(--ios-red)' : (e.rating >= 4 ? 'var(--ios-green)' : 'var(--ios-blue)');
-
             return `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid var(--border);">
                 <div><b style="font-size:15px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px;">${statusText}</span></div>
@@ -1554,12 +1428,14 @@
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
         dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
-        renderDaily(); 
-        openSuggestions(targetAct); 
+        renderDaily(); openSuggestions(targetAct); 
         await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
         showT(`✅ Przypisano: ${empName}`);
     }
 
+    // ==========================================
+    // 7. PLANNER TYGODNIOWY
+    // ==========================================
     function toggleBrush() { 
         isBrush = !isBrush; 
         const b = document.getElementById('bBtn'); 
@@ -1595,8 +1471,6 @@
                 let isW = new Date(2026,m,d).getDay() % 6 === 0; 
                 const dateStr = formatDateKey(2026, m, d);
                 const key = `${emp}_${dateStr}`;
-                
-                // Zabezpieczenie przed błędem, gdy pracownik nie ma wpisu
                 const valStr = dbAdmin.planMap[key] || "||"; 
                 const parts = valStr.split("||");
                 const act = parts[0] || "Wyczyść";
@@ -1687,11 +1561,10 @@
     }
 
     // ==========================================
-    // 7. ZESPÓŁ I KARTOTEKI HR (DOSSIER)
+    // 8. ZESPÓŁ I KARTOTEKI HR (DOSSIER)
     // ==========================================
     function renderMatrix() { 
-        const container = document.getElementById('groupBubbles');
-        container.innerHTML = dbAdmin.groups.map(g => {
+        document.getElementById('groupBubbles').innerHTML = dbAdmin.groups.map(g => {
             const emps = dbAdmin.employees.filter(e => e.group === g.name && e.name !== dbAdmin.rootAdmin);
             const isFlex = g.is_flexible === 1 ? `<span style="color:var(--ios-orange); font-size:12px; font-weight:800; background:rgba(255,149,0,0.1); padding:4px 8px; border-radius:8px;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:8px;">🔒 Sztywna</span>`;
             return `
@@ -1768,7 +1641,7 @@
         }
 
         container.innerHTML = filteredEmps.map(e => `
-            <div class="hr-card-mini" onclick="openHrDossier('${e.name}')">
+            <div class="glass-card" style="padding:20px; min-width:unset; cursor:pointer;" onclick="openHrDossier('${e.name}')">
                 <h4 style="margin:0 0 5px 0; font-size:18px;">${e.name}</h4>
                 <span style="font-size:12px; color:gray; font-weight:600; background:rgba(0,0,0,0.04); padding:4px 10px; border-radius:10px;">${e.group || 'Nieprzypisani'}</span>
                 <div style="margin-top:15px; width:100%; border-top:1px solid var(--border); padding-top:10px;">
@@ -1785,7 +1658,6 @@
         document.getElementById('matrixTitle').innerText = `Dossier: ${empName}`;
         document.getElementById('matrixSubtitle').innerText = `ID: ${emp.id} | Grupa: ${emp.group || 'Nieprzypisani'}`;
         
-        // Ustawienie domyślnych dat filtra absencji (ostatnie 30 dni)
         const dzis = new Date();
         const przed30 = new Date();
         przed30.setDate(dzis.getDate() - 30);
@@ -1820,7 +1692,6 @@
             
             document.getElementById('hrNotes').value = res.notes;
 
-            // Renderowanie Historii z klikalnymi elementami
             if (res.history && res.history.length > 0) {
                 document.getElementById('hrHistoryList').innerHTML = res.history.map(h => `
                     <div style="background:rgba(0,0,0,0.02); padding:12px; border-radius:12px; border:1px solid var(--border); cursor:pointer; transition:0.2s;" onclick="openEvalDetails(${h.id})" onmouseover="this.style.background='rgba(10,132,255,0.05)'" onmouseout="this.style.background='rgba(0,0,0,0.02)'">
@@ -1878,7 +1749,8 @@
             document.getElementById('edRating').innerText = "Ocena: " + res.rating + " ⭐";
             document.getElementById('edNotes').innerText = res.notes ? `"${res.notes}"` : "Brak notatki.";
             
-            openM('evalDetailsModal');
+            document.getElementById('evalDetailsModal').style.display = 'block';
+            setTimeout(() => document.getElementById('evalDetailsModal').classList.add('active'), 10);
         }
     }
 
@@ -1923,7 +1795,7 @@
     }
 
     // ==========================================
-    // 8. USTAWIENIA CMS & ADMIN & SYMULATOR
+    // 9. USTAWIENIA CMS & ADMIN & SYMULATOR
     // ==========================================
     function renderCMS() {
         try {
@@ -2144,6 +2016,28 @@
                 location.reload(); 
             }
         }
+    }
+
+    function importFromExcel() {
+        Swal.fire({
+            title: 'Import z Excela',
+            text: "Ta operacja usunie starych pracowników i załaduje nowych z 'imiona i nazwiska.xlsx'. Kontynuować?",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Tak, importuj'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                showT("⏳ Trwa import...");
+                apiCall('/admin/import-excel', 'POST').then(res => {
+                    if(res && res.ok) { 
+                        Swal.fire('Sukces', res.msg, 'success').then(() => location.reload()); 
+                    } else { 
+                        Swal.fire('Błąd', res ? res.msg : 'Nieznany błąd', 'error'); 
+                    }
+                });
+            }
+        });
     }
 </script>
 </body>
