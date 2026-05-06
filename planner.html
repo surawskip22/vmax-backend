@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WMS Planner Pro v17 - Enterprise Ultimate</title>
+  <title>WMS Planner Pro v18 - Enterprise Ultimate Mobile</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap');
     
@@ -47,16 +47,15 @@
         box-shadow: 0 20px 50px rgba(0,0,0,0.05), inset 0 0 0 1px rgba(255,255,255,0.8); transition: all 0.4s; width: 100%; box-sizing: border-box; 
     }
 
-    /* CENTROWANIE EKRANÓW STARTOWYCH */
     .landing-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 20px; }
     .landing-box { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 800px; margin: 0 auto; }
     .landing-card { cursor: pointer; width: 280px; max-width: 100%; }
-    .landing-card:hover { transform: translateY(-10px) scale(1.02); box-shadow: 0 30px 60px rgba(0,132,255,0.12), inset 0 0 0 1px rgba(255,255,255,0.9); }
+    .landing-card:hover { transform: translateY(-10px) scale(1.02); box-shadow: 0 30px 60px rgba(0,132,255,0.12); }
     
     .login-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 20px; }
     .login-card { max-width: 380px; width: 100%; margin: 0 auto; }
 
-    /* NAWIGACJA (SCROLLOWALNA NA MOBILE) */
+    /* NAWIGACJA */
     .nav { 
         display: flex; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.05); 
         padding: 15px; gap: 10px; z-index: 100; position: sticky; top: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.03);
@@ -76,34 +75,45 @@
     .planner-scroll { flex: 1; overflow: auto; position: relative; -webkit-overflow-scrolling: touch; }
     table { border-collapse: separate; border-spacing: 0; background: transparent; }
     th, td { border: 0.5px solid rgba(0,0,0,0.03); min-width: var(--cell-w); height: 85px; text-align: center; position: relative; transition: background 0.2s; }
-    .sticky-col { position: sticky; left: 0; z-index: 10; min-width: 200px; background: rgba(255,255,255,0.98); backdrop-filter: blur(10px); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 15px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 13px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); }
+    
+    /* FIX: Zwężona kolumna nazwisk (ucinanie kropeczkami) */
+    .sticky-col { 
+        position: sticky; left: 0; z-index: 10; min-width: 140px; max-width: 180px; background: rgba(255,255,255,0.98); 
+        backdrop-filter: blur(10px); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 10px; display: flex; 
+        align-items: center; gap: 10px; font-weight: 600; font-size: 13px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); 
+    }
+    .emp-name-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: left; }
+
     .sticky-row { position: sticky; top: 0; z-index: 20; background: rgba(250,250,252,0.95); backdrop-filter: blur(10px); font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.05); color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
     .weekend-col { background: rgba(0,0,0,0.02) !important; }
     .tile { width: 90%; height: 80%; border-radius: 12px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; padding: 6px; box-sizing: border-box; line-height: 1.2; }
     .tile:hover { transform: scale(1.05) translateY(-2px); filter: brightness(1.05); }
 
     /* DASHBOARD PRACOWNIKA */
-    .emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; padding: 15px 0; }
-    .day-row { background: rgba(255,255,255,0.8); backdrop-filter: blur(15px); border-radius: 20px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid rgba(255,255,255,0.5); display: flex; flex-direction: column; text-align: center; position: relative; transition: 0.3s; }
+    .emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; padding: 15px 0; }
+    .day-row { background: rgba(255,255,255,0.8); backdrop-filter: blur(15px); border-radius: 20px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid rgba(255,255,255,0.5); display: flex; flex-direction: column; text-align: center; position: relative; transition: 0.3s; cursor: pointer;}
     .day-row:hover { transform: translateY(-5px); box-shadow: 0 15px 35px rgba(0,0,0,0.06); }
     .day-row.no-plan { background: rgba(250,250,252,0.6); border: 2px dashed rgba(0,0,0,0.1); box-shadow: none; }
     .month-nav { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); padding: 15px 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.5); flex-wrap: wrap; gap: 10px;}
     .nav-arrow { background: rgba(0,0,0,0.04); border: none; padding: 12px 20px; border-radius: 12px; font-weight: 700; cursor: pointer; color: var(--ios-blue); transition: 0.2s; }
     .nav-arrow:hover { background: rgba(10,132,255,0.1); }
 
+    /* ALERTY */
+    .alert-card { background: rgba(255,255,255,0.9); border-radius: 20px; padding: 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border-left: 6px solid #FF9500; transition: 0.3s; flex-wrap: wrap; gap: 15px;}
+    .alert-card:hover { transform: translateX(5px); }
+
     /* DZIENNY PLANNER - KANBAN */
     .kanban-col { min-width: 300px; background: rgba(255,255,255,0.7); border-radius: 16px; padding: 15px; display: flex; flex-direction: column; transition: 0.2s; box-shadow: 0 5px 20px rgba(0,0,0,0.03); flex: 1;}
-    .kanban-col.dragover { background: rgba(10,132,255,0.1); border: 2px dashed var(--ios-blue); }
+    .kanban-col.dragover { background: rgba(10,132,255,0.1); border: 2px dashed var(--ios-blue) !important; }
     .emp-card { background: white; padding: 12px 15px; border-radius: 12px; cursor: grab; box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; transition: 0.2s; margin-bottom: 10px;}
     .emp-card:hover { border-color: var(--ios-blue); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(10,132,255,0.15);}
     .emp-card:active { cursor: grabbing; }
 
     /* ZARZĄDZANIE GRUPAMI - BAŃKI */
-    .group-bubbles-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 0; }
+    .group-bubbles-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px; padding: 20px 0; }
     .group-bubble { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); border-radius: 24px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.04); cursor: pointer; border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
     .group-bubble:hover { border-color: var(--ios-blue); transform: translateY(-5px) scale(1.02); box-shadow: 0 20px 40px rgba(10,132,255,0.15); }
     
-    /* MODALE I TOAST */
     .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(29, 29, 31, 0.9); backdrop-filter: blur(10px); color: white; padding: 16px 40px; border-radius: 30px; display: none; z-index: 9999; font-weight: 600; box-shadow: 0 15px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes slideUp { from { transform: translate(-50%, 20px); opacity:0; } to { transform: translate(-50%, 0); opacity:1; } }
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); z-index: 900; display: none; animation: fadeIn 0.3s; }
@@ -113,7 +123,7 @@
     .cms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; margin: 0 auto; }
 
     /* ========================================================
-       MEDIA QUERIES (RESPONSYWNOŚĆ DLA ZEBRA / TELEFONÓW)
+       POTĘŻNE MEDIA QUERIES (RWD dla Zebr i Smartfonów)
        ======================================================== */
     @media (max-width: 768px) {
         .nav { justify-content: flex-start; padding: 10px; }
@@ -124,22 +134,26 @@
         
         .tools { flex-direction: column; align-items: stretch; padding: 15px; }
         .tools > * { width: 100% !important; margin-bottom: 5px; }
-        .tools .nav-arrow { width: auto !important; } /* Strzałki kalendarza nie na pełną szerokość */
+        .tools .nav-arrow { width: auto !important; } 
         
-        /* Dzienny Planner układ kolumn */
-        #vDaily > div:nth-child(2) { flex-direction: column; overflow-y: auto; }
-        .kanban-col { min-width: 100%; border-right: none; border-bottom: 2px solid rgba(0,0,0,0.05); margin-bottom: 15px; }
+        /* Dzienny Planner układ kolumn na telefonach - jedna pod drugą */
+        #dailyContainer { flex-direction: column; overflow-y: auto; }
+        .kanban-col { min-width: 100%; border-right: none; border-bottom: 2px solid rgba(0,0,0,0.05); margin-bottom: 15px; border-top: 4px solid var(--ios-blue) !important; }
         
-        /* Modal Grup */
+        /* Modal Grup układ kolumn */
         #groupManagerModal { width: 95vw !important; padding: 20px !important; }
-        #groupManagerModal > div:nth-child(2) { flex-direction: column; gap: 15px; }
-        #groupManagerModal h3 { font-size: 22px !important; }
+        .gm-columns-wrapper { flex-direction: column; gap: 15px; }
+        
+        /* Modal Alertów */
+        .alert-card > div { width: 100%; text-align: center; }
+        .alert-card > div:nth-child(2) { flex-direction: row; justify-content: center; }
         
         .month-nav h2 { font-size: 18px !important; }
-        .emp-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
         
-        /* Sticky pierwsza kolumna w tygodniowym może zasłaniać za dużo na mobile */
-        .sticky-col { min-width: 120px; font-size: 11px; padding: 0 5px; }
+        /* Jeszcze mocniejsze skracanie na małym ekranie */
+        .sticky-col { min-width: 90px; max-width: 110px; font-size: 10px; padding: 0 5px; }
+        .tile { font-size: 9px; padding: 4px; }
+        th, td { min-width: 90px; height: 60px; }
     }
   </style>
 </head>
@@ -176,9 +190,9 @@
     <div class="login-wrapper">
         <div class="glass-card login-card">
           <h2 style="margin-top:0; font-weight:800; font-size:24px;">Panel Pracownika</h2>
-          <p style="color:var(--text-muted); font-size:13px; margin-bottom:25px;">Zaloguj się, aby podać dyspozycję.</p>
+          <p style="color:var(--text-muted); font-size:13px; margin-bottom:25px;">Wybierz nazwisko z listy.</p>
           <select id="elName" style="width:100%; margin-bottom:15px;">
-              <option value="">Wybierz nazwisko</option>
+              <option value="">Ładowanie bazy...</option>
           </select>
           <input type="password" id="elPin" placeholder="KOD PIN" pattern="[0-9]*" inputmode="numeric" style="width:100%; margin-bottom:25px; text-align:center; font-size:24px; letter-spacing:10px; font-weight:800;">
           <button class="btn-main" onclick="doEmpLogin()">Wejdź do systemu</button>
@@ -201,7 +215,7 @@
         <button class="nav-arrow" onclick="changeEmpMonth(1)">Nast. →</button>
       </div>
       
-      <!-- PĘDZEL PRACOWNIKA + PRZYCISK BATCH SUBMIT -->
+      <!-- PĘDZEL PRACOWNIKA -->
       <div style="margin-bottom:20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
           <div style="background:rgba(255,255,255,0.9); backdrop-filter:blur(10px); padding:10px; border-radius:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; box-shadow:0 10px 20px rgba(0,0,0,0.03); width: 100%; max-width: 600px;">
             <span style="font-size:18px;">🖌️</span>
@@ -256,10 +270,28 @@
       <div class="nav-btn" onclick="openScreen('screen-landing')" style="color:#ff3b30;">Wyloguj</div>
     </div>
 
-    <!-- WNIOSKI -->
+    <!-- WNIOSKI (ZAAWANSOWANE) -->
     <div id="vAlerts" class="admin-view" style="padding:20px; max-width:900px; margin:0 auto; width:100%; overflow-y:auto;">
-      <h2 style="margin-top:0; font-weight:800; font-size:26px;">Wnioski od pracowników</h2>
-      <p style="color:var(--text-muted); margin-bottom:20px; font-size:13px;">Zgłoszenia wykraczające poza regulaminowy czas lub grupy nieelastyczne.</p>
+      <h2 style="margin-top:0; font-weight:800; font-size:26px;">Centrum Wniosków</h2>
+      
+      <!-- Pasek filtrów -->
+      <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; background:white; padding:15px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03);">
+          <select id="alertFilterMonth" onchange="renderAlerts()" style="flex:1; min-width:120px; padding:10px; font-size:13px;">
+              <option value="ALL">Wszystkie miesiące</option>
+              <option value="01">Styczeń</option><option value="02">Luty</option><option value="03">Marzec</option>
+              <option value="04">Kwiecień</option><option value="05">Maj</option><option value="06">Czerwiec</option>
+              <option value="07">Lipiec</option><option value="08">Sierpień</option><option value="09">Wrzesień</option>
+              <option value="10">Październik</option><option value="11">Listopad</option><option value="12">Grudzień</option>
+          </select>
+          <select id="alertFilterType" onchange="renderAlerts()" style="flex:1; min-width:120px; padding:10px; font-size:13px;">
+              <option value="ALL">Wszystkie typy</option>
+              <option value="Urlop 🌴">Urlopy 🌴</option>
+              <option value="Chory 🤒">Chorobowe 🤒</option>
+              <option value="Wolne 🏠">Wolne 🏠</option>
+          </select>
+          <button onclick="resolveMassAlerts('Zatwierdzono')" class="btn-main" style="background:#34C759; font-size:13px; padding:10px 15px;">✅ Akceptuj widoczne</button>
+      </div>
+
       <div id="alertsList">
           <p style="color:gray; font-weight:500;">Brak nowych wniosków. Wszystko pod kontrolą! 🎉</p>
       </div>
@@ -268,7 +300,7 @@
     <!-- PLANNER TYGODNIOWY -->
     <div id="vPlanner" class="admin-view">
       <div class="tools">
-        <input type="text" id="searchPlan" placeholder="🔍 Szukaj pracownika..." onkeyup="renderPlanner()">
+        <input type="text" id="searchPlan" placeholder="🔍 Szukaj..." onkeyup="renderPlanner()">
         <select id="aMonth" style="font-weight:600;" onchange="renderPlanner()">
           <option value="2">Marzec 2026</option>
           <option value="3" selected>Kwiecień 2026</option>
@@ -294,21 +326,20 @@
     <!-- PLANNER DZIENNY (LIVE) -->
     <div id="vDaily" class="admin-view active">
       <div class="tools" style="justify-content:center; box-shadow:0 4px 20px rgba(0,0,0,0.03); gap:15px; flex-wrap:nowrap;">
-        
+        <!-- STRZAŁKI DATY -->
         <div style="display:flex; align-items:center; gap:5px; background:white; border-radius:16px; padding:4px; border:1px solid rgba(0,0,0,0.1);">
             <button class="nav-arrow" onclick="changeDailyDate(-1)" style="padding:10px 15px;">←</button>
             <input type="date" id="dailyDate" onchange="renderDaily()" style="font-size:16px; padding:10px; font-weight:800; border:none; background:transparent;">
             <button class="nav-arrow" onclick="changeDailyDate(1)" style="padding:10px 15px;">→</button>
         </div>
-
-        <button class="btn-main" style="background: linear-gradient(135deg, #FF9500, #FF3B30); white-space:nowrap;" onclick="openCopyDaily()">📋 Kopiuj Dzień</button>
+        <button class="btn-main" style="background: linear-gradient(135deg, #FF9500, #FF3B30); white-space:nowrap;" onclick="openCopyDaily()">📋 Kopiuj</button>
       </div>
       
       <div style="display:flex; flex:1; overflow:hidden; background:#f2f2f7;" id="dailyContainer">
         <!-- PULA DOSTĘPNYCH (Wyczyść) -->
         <div class="kanban-col" style="border-right:1px solid var(--border); border-radius:0; background:rgba(255,255,255,0.8);" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, 'Wyczyść')">
           <div style="padding:10px; font-weight:800; color:var(--text-main); font-size:16px; border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:10px; display:flex; justify-content:space-between;">
-            Wolni pracownicy <span id="availCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
+            Wolni <span id="availCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
           </div>
           <div id="dailyAvailableList" style="flex:1; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:8px;"></div>
         </div>
@@ -320,8 +351,8 @@
 
     <!-- GRUPY I KARTOTEKI -->
     <div id="vMatrix" class="admin-view" style="flex-direction:column; padding:20px; background:#f2f2f7; overflow-y:auto;">
-      <h2 style="font-weight:800; font-size:26px; margin-top:0;">Zarządzanie Grupami</h2>
-      <p style="color:var(--text-muted); margin-bottom:15px; font-size:13px;">Wybierz grupę (bańkę), aby przypisać pracowników i ustalić ich oceny kompetencji.</p>
+      <h2 style="font-weight:800; font-size:26px; margin-top:0;">Zarządzanie Grupami i HR</h2>
+      <p style="color:var(--text-muted); margin-bottom:15px; font-size:13px;">Wybierz grupę, aby przypisać pracowników, ustalić ich oceny kompetencji lub sprawdzić statystyki HR (nieobecności).</p>
       <div id="groupBubbles" class="group-bubbles-container"></div>
     </div>
 
@@ -352,17 +383,18 @@
             <div style="margin-bottom:15px; padding-left:5px;">
                 <label style="font-size:12px; font-weight:600; color:var(--ios-blue); cursor:pointer; display:flex; align-items:center; gap:6px;">
                     <input type="checkbox" id="sGroupFlex" style="width:16px; height:16px; accent-color:var(--ios-blue);">
-                    Grupa elastyczna (Omija regułę 20. dnia)
+                    Grupa elastyczna (Omija regułę 20-go)
                 </label>
             </div>
             <button class="btn-main" style="width:100%; margin-bottom:15px;" onclick="saveGroup()">Utwórz Grupę</button>
             <div id="cmsGroupList" style="max-height:200px; overflow-y:auto; padding-right:5px;"></div>
         </div>
 
-        <!-- Aktywności -->
+        <!-- Aktywności z Wyborem Koloru -->
         <div class="glass-card" style="text-align:left; padding:25px;">
-            <h3 style="margin-top:0; font-weight:800; font-size:18px;">📋 Aktywności (Kafelki)</h3>
-            <div style="display:flex; gap:8px; margin-bottom:15px;">
+            <h3 style="margin-top:0; font-weight:800; font-size:18px;">📋 Aktywności (Kolory)</h3>
+            <div style="display:flex; gap:8px; margin-bottom:15px; align-items:center;">
+                <input type="color" id="sActColor" value="#0A84FF" style="width:40px; height:40px; padding:0; border:none; border-radius:8px; cursor:pointer;">
                 <input type="text" id="sAct" placeholder="Nazwa zadania" style="flex:1">
                 <button class="btn-main" onclick="saveSet('activity', 'sAct')">Dodaj</button>
             </div>
@@ -379,15 +411,6 @@
             <div id="cmsShiftList" style="max-height:150px; overflow-y:auto; padding-right:5px;"></div>
         </div>
 
-        <!-- Hasło -->
-        <div class="glass-card" style="text-align:left; padding:25px; height:fit-content;">
-            <h3 style="margin-top:0; font-weight:800; font-size:18px;">🔐 Hasło Managera</h3>
-            <div style="display:flex; gap:8px;">
-                <input type="password" id="sAdP" placeholder="Nowe hasło" style="flex:1">
-                <button class="btn-main" onclick="changeAdminPass()">Zmień</button>
-            </div>
-        </div>
-
       </div>
     </div>
   </div>
@@ -402,7 +425,7 @@
               <h3 id="gmTitle" style="margin:0; font-size:22px; font-weight:800;">Zarządzaj Grupą</h3>
               <p id="gmSubtitle" style="margin:4px 0 0 0; color:var(--text-muted); font-size:12px; font-weight:600;"></p>
           </div>
-          <button class="btn-main" onclick="closeM()" style="background:#f2f2f7; color:var(--text-main); box-shadow:none; padding:8px 16px; font-size:13px;">✕ Zamknij</button>
+          <button class="btn-main" onclick="closeM()" style="background:#f2f2f7; color:var(--text-main); box-shadow:none; padding:8px 16px; font-size:13px;">✕</button>
       </div>
       
       <div style="display:flex; gap:15px;" class="gm-columns-wrapper">
@@ -421,16 +444,39 @@
       </div>
   </div>
 
-  <!-- MODAL: MATRYCA KOMPETENCJI 1-5 -->
-  <div id="matrixModal" class="modal" style="width:600px; z-index:1001; padding:25px;">
-      <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:15px;">
+  <!-- MODAL: KARTOTEKA PRACOWNIKA (Matryca + HR Stats) -->
+  <div id="matrixModal" class="modal" style="width:650px; z-index:1001; padding:25px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:15px; align-items:flex-start;">
           <div>
-              <h2 id="matrixTitle" style="font-size:22px; margin:0; font-weight:800;">Kompetencje</h2>
+              <h2 id="matrixTitle" style="font-size:22px; margin:0; font-weight:800;">Kartoteka Pracownika</h2>
               <div id="matrixSubtitle" style="color:var(--text-muted); font-weight:700; font-size:12px; margin-top:4px;"></div>
           </div>
           <button class="btn-main" onclick="document.getElementById('matrixModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none; padding:8px 16px; font-size:13px;">Wróć</button>
       </div>
-      <div id="matrixGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:10px; max-height:50vh; overflow-y:auto; padding-right:5px;"></div>
+
+      <!-- ZAKŁADKI KARTOTEKI -->
+      <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <button id="tabMatrixBtn" class="btn-main" style="flex:1; background:var(--ios-blue); box-shadow:none;" onclick="switchKartoteka('matrix')">⭐ Kompetencje</button>
+          <button id="tabHrBtn" class="btn-main" style="flex:1; background:rgba(0,0,0,0.05); color:var(--text-main); box-shadow:none;" onclick="switchKartoteka('hr')">📊 Statystyki HR</button>
+      </div>
+
+      <!-- TREŚĆ: MATRYCA -->
+      <div id="kartotekaMatrix">
+          <div id="matrixGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px; max-height:40vh; overflow-y:auto; padding-right:5px;"></div>
+      </div>
+
+      <!-- TREŚĆ: STATYSTYKI HR -->
+      <div id="kartotekaHr" style="display:none; max-height:40vh; overflow-y:auto;">
+          <div id="hrStatsContent" style="display:flex; flex-direction:column; gap:15px;">Ładowanie...</div>
+      </div>
+  </div>
+
+  <!-- MODAL: TAP-TO-MOVE (Tylko Mobile) -->
+  <div id="tapMoveModal" class="modal" style="width:300px; padding:20px; z-index:1005;">
+      <h3 style="margin-top:0; font-size:18px; text-align:center;">Gdzie przypisać?</h3>
+      <div style="text-align:center; margin-bottom:15px; font-weight:700; color:var(--ios-blue);" id="tapMoveName"></div>
+      <div id="tapMoveOptions" style="display:flex; flex-direction:column; gap:8px; max-height:300px; overflow-y:auto;"></div>
+      <button class="btn-main" onclick="document.getElementById('tapMoveModal').style.display='none'" style="width:100%; margin-top:15px; background:#f2f2f7; color:#1d1d1f; box-shadow:none;">Anuluj</button>
   </div>
 
   <!-- MODAL: SUGESTIE AI 💡 -->
@@ -470,40 +516,70 @@
 
   <div id="toast" class="toast">Akcja zakończona!</div>
 
-<script>
+  <!-- PONIŻEJ WKLEJ CZĘŚĆ 2 (SKRYPTY JS) -->
+  <script>
   // ==========================================
-  // KONFIGURACJA API I FUNKCJE BAZOWE
+  // 1. KONFIGURACJA API I FUNKCJE BAZOWE
   // ==========================================
   const API_URL = "https://vmax-api.onrender.com/api"; 
   
   async function apiCall(endpoint, method = 'GET', body = null) {
     try {
-      const opt = { method, headers: { 'Content-Type': 'application/json' } };
+      const opt = { 
+          method, 
+          headers: { 'Content-Type': 'application/json' } 
+      };
       if (body) opt.body = JSON.stringify(body);
       const res = await fetch(API_URL + endpoint, opt);
-      if (!res.ok) throw new Error("Błąd serwera");
+      if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || "Błąd serwera");
+      }
       return await res.json();
     } catch(e) {
-      showT("❌ " + e.message); return null;
+      showT("❌ " + e.message);
+      console.error("Fetch API Error:", e);
+      return null;
     }
   }
 
-  let dbAdmin = {}; let currEmp = ""; let isBrush = false; let empMonthOffset = 0; let isEmpBrush = false; let empChanges = {}; 
+  let dbAdmin = {}; 
+  let currEmp = ""; 
+  let isBrush = false; 
+  let empMonthOffset = 0; 
+  let isEmpBrush = false; 
+  let empChanges = {}; 
 
   const palette = [ 
-      {bg:'rgba(33, 150, 243, 0.1)',c:'#1565c0'}, {bg:'rgba(76, 175, 80, 0.1)',c:'#2e7d32'}, 
-      {bg:'rgba(255, 152, 0, 0.1)',c:'#ef6c00'}, {bg:'rgba(233, 30, 99, 0.1)',c:'#c2185b'}, 
-      {bg:'rgba(156, 39, 176, 0.1)',c:'#6a1b9a'}, {bg:'rgba(0, 188, 212, 0.1)',c:'#006064'}, 
-      {bg:'rgba(255, 193, 7, 0.1)',c:'#f57f17'}, {bg:'rgba(103, 58, 183, 0.1)',c:'#4527a0'} 
+      {bg:'rgba(33, 150, 243, 0.1)',c:'#1565c0'}, 
+      {bg:'rgba(76, 175, 80, 0.1)',c:'#2e7d32'}, 
+      {bg:'rgba(156, 39, 176, 0.1)',c:'#6a1b9a'}, 
+      {bg:'rgba(0, 188, 212, 0.1)',c:'#006064'}, 
+      {bg:'rgba(103, 58, 183, 0.1)',c:'#4527a0'} 
   ];
   
   function getTileColor(str) {
-    if(!str || str==="Brak planu" || str==="Wyczyść") return {bg:'rgba(0,0,0,0.02)', c:'#8e8e93', shadow:'none'};
-    if(str.includes("Chory")) return {bg:'rgba(244, 67, 54, 0.1)', c:'#c62828', shadow:'0 4px 10px rgba(198,40,40,0.1)'};
-    if(str.includes("Urlop")) return {bg:'rgba(255, 152, 0, 0.1)', c:'#ef6c00', shadow:'0 4px 10px rgba(239,108,0,0.1)'};
-    if(str.includes("Wolne")) return {bg:'rgba(158, 158, 158, 0.1)', c:'#616161', shadow:'0 4px 10px rgba(97,97,97,0.1)'};
+    if(!str || str==="Brak planu" || str==="Wyczyść") {
+        return {bg:'rgba(0,0,0,0.02)', c:'#8e8e93', shadow:'none'};
+    }
     
-    let hash = 0; for(let i=0; i<str.length; i++) hash = str.charCodeAt(i) + ((hash<<5)-hash);
+    // Twarde kolory systemowe (Nieobecności)
+    if(str.includes("Chory")) return {bg:'rgba(211, 47, 47, 0.1)', c:'#D32F2F', shadow:'0 4px 10px rgba(211,47,47,0.1)'};
+    if(str.includes("Urlop")) return {bg:'rgba(245, 127, 23, 0.1)', c:'#F57F17', shadow:'0 4px 10px rgba(245,127,23,0.1)'};
+    if(str.includes("Wolne")) return {bg:'rgba(117, 117, 117, 0.1)', c:'#757575', shadow:'0 4px 10px rgba(117,117,117,0.1)'};
+    if(str.includes("No Show")) return {bg:'rgba(139, 0, 0, 0.1)', c:'#8B0000', shadow:'0 4px 10px rgba(139,0,0,0.1)'};
+    
+    // Pobieranie kolorów dynamicznych z CMS
+    if (dbAdmin.activityColors && dbAdmin.activityColors[str]) {
+        let hex = dbAdmin.activityColors[str];
+        return { bg: hex + '20', c: hex, shadow: `0 4px 10px ${hex}30` }; // Dodajemy przezroczystość '20' do HEX
+    }
+
+    // Fallback dla starych danych
+    let hash = 0; 
+    for(let i=0; i<str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash<<5)-hash);
+    }
     const col = palette[Math.abs(hash) % palette.length];
     return {bg: col.bg, c: col.c, shadow: `0 4px 12px ${col.c}25`};
   }
@@ -516,34 +592,72 @@
   window.onload = async () => {
     document.getElementById('dailyDate').valueAsDate = new Date();
     const data = await apiCall('/public');
-    if(data && data.employees) document.getElementById('elName').innerHTML = `<option value="">Wybierz nazwisko</option>` + data.employees.map(e => `<option value="${e}">${e}</option>`).join('');
+    if(data && data.employees) {
+        document.getElementById('elName').innerHTML = `<option value="">Wybierz nazwisko</option>` + data.employees.map(e => `<option value="${e}">${e}</option>`).join('');
+    }
   };
 
-  function openScreen(id) { document.querySelectorAll('.app-screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
-  function showT(m) { const t = document.getElementById('toast'); t.innerText = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
-  function closeM() { document.querySelectorAll('.modal, .overlay').forEach(m => m.classList.remove('active')); setTimeout(() => { document.querySelectorAll('.modal, .overlay').forEach(m => m.style.display = 'none'); }, 300); }
-  function openM(id) { document.getElementById('overlay').style.display = 'block'; document.getElementById(id).style.display = 'block'; setTimeout(() => document.getElementById(id).classList.add('active'), 10); }
+  function openScreen(id) { 
+      document.querySelectorAll('.app-screen').forEach(s => s.classList.remove('active')); 
+      document.getElementById(id).classList.add('active'); 
+  }
+  
+  function showT(m) { 
+      const t = document.getElementById('toast'); 
+      t.innerText = m; 
+      t.style.display = 'block'; 
+      setTimeout(() => t.style.display = 'none', 3000); 
+  }
+  
+  function closeM() { 
+      document.querySelectorAll('.modal, .overlay').forEach(m => m.classList.remove('active')); 
+      setTimeout(() => { 
+          document.querySelectorAll('.modal, .overlay').forEach(m => m.style.display = 'none'); 
+      }, 300); 
+  }
+  
+  function openM(id) { 
+      document.getElementById('overlay').style.display = 'block'; 
+      document.getElementById(id).style.display = 'block'; 
+      setTimeout(() => document.getElementById(id).classList.add('active'), 10); 
+  }
 
   /* ==============================================================
-     LOGIKA PRACOWNIKA
+     2. LOGIKA PRACOWNIKA
      ============================================================== */
   async function doEmpLogin() {
-    currEmp = document.getElementById('elName').value; const pin = document.getElementById('elPin').value;
+    currEmp = document.getElementById('elName').value; 
+    const pin = document.getElementById('elPin').value;
+    
     if(!currEmp || !pin) return showT("⚠️ Uzupełnij dane!");
+    
     const res = await apiCall('/auth/login', 'POST', { username: currEmp, pin: pin, role: 'EMPLOYEE' });
-    if(res && res.ok) { empMonthOffset = 0; empChanges = {}; openScreen('screen-emp-dash'); loadEmpDash(); } else { showT("❌ Błąd PINu!"); }
+    if(res && res.ok) { 
+        empMonthOffset = 0; 
+        empChanges = {}; 
+        openScreen('screen-emp-dash'); 
+        loadEmpDash(); 
+    } else {
+        showT("❌ Niepoprawny PIN!");
+    }
   }
   
   function switchEmpTab(id) { 
-      document.getElementById('eGrafik').style.display = 'none'; document.getElementById('eUstawienia').style.display = 'none'; 
-      document.getElementById(id).style.display = 'block'; document.querySelectorAll('#screen-emp-dash .nav-btn').forEach(b => b.classList.remove('active')); 
+      document.getElementById('eGrafik').style.display = 'none'; 
+      document.getElementById('eUstawienia').style.display = 'none'; 
+      document.getElementById(id).style.display = 'block'; 
+      document.querySelectorAll('#screen-emp-dash .nav-btn').forEach(b => b.classList.remove('active')); 
       event.target.classList.add('active'); 
   }
   
-  function changeEmpMonth(dir) { empMonthOffset += dir; loadEmpDash(); }
+  function changeEmpMonth(dir) { 
+      empMonthOffset += dir; 
+      loadEmpDash(); 
+  }
 
   function toggleEmpBrush() { 
-      isEmpBrush = !isEmpBrush; const b = document.getElementById('eBtn'); 
+      isEmpBrush = !isEmpBrush; 
+      const b = document.getElementById('eBtn'); 
       b.innerText = isEmpBrush ? "PĘDZEL: WŁ" : "PĘDZEL: WYŁ"; 
       b.style.background = isEmpBrush ? "linear-gradient(135deg, var(--ios-blue), #005ecb)" : "transparent"; 
       b.style.color = isEmpBrush ? "white" : "var(--ios-blue)"; 
@@ -552,13 +666,18 @@
 
   function empClickDay(dateIso, el) {
       if(!isEmpBrush) return;
-      const act = document.getElementById('empBrushAct').value, hrs = document.getElementById('empBrushHrs').value;
-      const dObj = new Date(dateIso), dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+      
+      const act = document.getElementById('empBrushAct').value;
+      const hrs = document.getElementById('empBrushHrs').value;
+      const dObj = new Date(dateIso);
+      
+      const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
       
       empChanges[dStr] = { act: act, hrs: hrs };
       document.getElementById('empSubmitBox').style.display = 'flex';
       
-      const col = getTileColor(act); el.style.border = "3px dashed var(--ios-blue)";
+      const col = getTileColor(act);
+      el.style.border = `3px dashed ${col.c}`;
       el.innerHTML = `
           <div style="font-weight:800; font-size:16px; margin-bottom:10px;">${dObj.getDate()}.${dObj.getMonth()+1}</div>
           <div style="font-size:13px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px 10px; border-radius:8px;">${act==='Wyczyść'?'Do wyczyszczenia':act}</div>
@@ -570,120 +689,213 @@
   async function submitEmpChanges() {
       const updates = Object.keys(empChanges).map(d => ({ date: d, act: empChanges[d].act, hrs: empChanges[d].hrs }));
       if(updates.length === 0) return;
-      showT("⏳ Wysyłanie...");
+      
+      showT("⏳ Wysyłanie zmian...");
       const res = await apiCall('/emp/request-batch', 'POST', { name: currEmp, updates: updates });
-      if(res) { empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none'; showT("✅ " + res.msg); loadEmpDash(); }
+      if(res) { 
+          empChanges = {}; 
+          document.getElementById('empSubmitBox').style.display = 'none'; 
+          showT("✅ " + res.msg); 
+          loadEmpDash(); 
+      }
   }
 
   async function loadEmpDash() {
-    empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none';
-    const d = new Date(); d.setMonth(d.getMonth() + empMonthOffset);
+    empChanges = {}; 
+    document.getElementById('empSubmitBox').style.display = 'none';
+    
+    const d = new Date(); 
+    d.setMonth(d.getMonth() + empMonthOffset);
     const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
     document.getElementById('empMonthTitle').innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-    document.getElementById('empGrid').innerHTML = '<p style="text-align:center; width:100%;">Ładowanie...</p>';
+
+    document.getElementById('empGrid').innerHTML = '<p style="font-weight:600; color:gray; text-align:center; width:100%;">Ładowanie kalendarza...</p>';
 
     const data = await apiCall('/emp/dashboard', 'POST', { name: currEmp, year: d.getFullYear(), month: d.getMonth() });
     if(!data) return;
+
+    // Pobranie zaktualizowanej listy aktywności z serwera (z backendu)
+    dbAdmin.activityColors = data.activityColors || {}; // Na wypadek, gdyby pracownik nie pobrał pełnych danych dbAdmin
 
     const acts = ["Wyczyść", ...data.activities, "Urlop 🌴", "Chory 🤒", "Wolne 🏠"];
     document.getElementById('empBrushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
     document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">`).join('');
 
     document.getElementById('empGrid').innerHTML = data.schedule.map(s => {
-      const dt = new Date(s.date), dNames = ["ND", "PN", "WT", "ŚR", "CZ", "PT", "SB"], col = getTileColor(s.act);
+      const dt = new Date(s.date); 
+      const dNames = ["ND", "PN", "WT", "ŚR", "CZ", "PT", "SB"];
+      const col = getTileColor(s.act);
+      
       let reqBox = "";
-      if(s.req && s.req.status === "Oczekuje") reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">⏳ Oczekuje</div>`;
-      else if (s.req && s.req.status === "Odrzucono") reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">❌ Odrzucono</div>`;
+      if(s.req && s.req.status === "Oczekuje") {
+          reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">⏳ Oczekuje</div>`;
+      } else if (s.req && s.req.status === "Odrzucono") {
+          reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">❌ Odrzucono</div>`;
+      }
       
       let overrideBadge = "";
-      if (s.override === 1 && s.act !== "Brak planu") overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px 6px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px; display:inline-block; animation:pulse 2s infinite;">⚠️ ZMIENIONE PRZEZ MANAGERA</div>`;
+      if (s.override === 1 && s.act !== "Brak planu") {
+          overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px 6px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px; display:inline-block; animation:pulse 2s infinite;">⚠️ ZMIENIONE PRZEZ MANAGERA</div>`;
+      }
 
       return `
-        <div class="day-row ${s.act==='Brak planu'?'no-plan':''}" style="border-top:6px solid ${col.c}; cursor:pointer;" onclick="empClickDay('${s.date}', this)">
+        <div class="day-row ${s.act==='Brak planu'?'no-plan':''}" style="border-top:6px solid ${col.c};" onclick="empClickDay('${s.date}', this)">
           <div style="font-weight:800; font-size:16px; margin-bottom:10px;">${dt.getDate()}.${dt.getMonth()+1} <span style="color:var(--text-muted); font-size:11px;">${dNames[dt.getDay()]}</span></div>
           <div style="font-size:13px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px 10px; border-radius:8px;">${s.act}</div>
           ${s.hrs ? `<div style="color:var(--text-muted); font-size:11px; font-weight:800; margin-top:6px;">⌚ ${s.hrs}</div>` : ''}
-          ${overrideBadge} ${reqBox}
+          ${overrideBadge} 
+          ${reqBox}
         </div>`;
     }).join('');
   }
 
   async function empChangePin() {
-    const o = document.getElementById('pOld').value, n = document.getElementById('pNew').value;
+    const o = document.getElementById('pOld').value; 
+    const n = document.getElementById('pNew').value;
+    
     if(!o || !n) return showT("⚠️ Wypełnij oba pola");
+    
     const res = await apiCall('/auth/change-pin', 'POST', { name: currEmp, oldPin: o, newPin: n, isAdmin: false });
-    if(res) { showT(res.msg); if(res.ok) { document.getElementById('pOld').value = ''; document.getElementById('pNew').value = ''; } }
+    if(res) { 
+        showT(res.msg); 
+        if(res.ok) { 
+            document.getElementById('pOld').value = ''; 
+            document.getElementById('pNew').value = ''; 
+        } 
+    }
   }
 
   /* ==============================================================
-     LOGIKA ADMINA
+     3. LOGIKA ADMINA I ALERTY
      ============================================================== */
   async function doAdminLogin() { 
-      const u = document.getElementById('lUser').value, p = document.getElementById('lPass').value;
+      const u = document.getElementById('lUser').value;
+      const p = document.getElementById('lPass').value;
+      
       if(!u || !p) return showT("⚠️ Uzupełnij dane!");
+      
       const res = await apiCall('/auth/login', 'POST', { username: u, pin: p, role: 'ADMIN' });
-      if(res && res.ok) { openScreen('screen-admin'); loadAdminData(); } else { showT("❌ Błąd autoryzacji!"); }
+      if(res && res.ok) { 
+          openScreen('screen-admin'); 
+          loadAdminData(); 
+      } else {
+          showT("❌ Nieautoryzowany dostęp!");
+      }
   }
   
   function showAdminView(id) { 
       document.querySelectorAll('.admin-view').forEach(v => v.classList.remove('active')); 
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); 
-      document.getElementById(id).classList.add('active'); event.target.classList.add('active'); 
-      if(id === 'vDaily') renderDaily(); if(id === 'vPlanner') renderPlanner();
+      document.getElementById(id).classList.add('active'); 
+      event.target.classList.add('active'); 
+      
+      if(id === 'vDaily') renderDaily(); 
+      if(id === 'vPlanner') renderPlanner();
   }
 
   async function loadAdminData() {
-    const data = await apiCall('/admin/data'); if(!data) return; dbAdmin = data;
+    const data = await apiCall('/admin/data');
+    if(!data) return; 
+    dbAdmin = data;
     
     const acts = ["Wyczyść", ...data.plannerActivities];
     document.getElementById('brushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
     document.getElementById('massAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
     document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">${s}</option>`).join('');
     
-    const b = document.getElementById('aBadge');
-    if(data.alerts.length > 0) { b.innerText = data.alerts.length; b.style.display = 'inline-block'; } else { b.style.display = 'none'; }
-    
-    renderAlerts(); renderPlanner(); renderCMS(); renderMatrix();
+    renderAlerts(); 
+    renderPlanner(); 
+    renderCMS();
+    renderMatrix();
     if(document.getElementById('vDaily').classList.contains('active')) renderDaily();
   }
 
+  // ZAAWANSOWANE ALERTY
+  let visibleAlertIds = [];
+
   function renderAlerts() {
     const list = document.getElementById('alertsList');
-    if(dbAdmin.alerts.length === 0) { list.innerHTML = '<p style="color:var(--text-muted); font-size:14px;">Brak wniosków.</p>'; return; }
+    const fMonth = document.getElementById('alertFilterMonth').value;
+    const fType = document.getElementById('alertFilterType').value;
     
-    list.innerHTML = dbAdmin.alerts.map(a => `
-        <div class="alert-card" style="padding:15px; border-radius:16px;">
+    let filteredAlerts = dbAdmin.alerts;
+    
+    // Sortowanie od najstarszego zgłoszenia (wymagającego pilnej uwagi)
+    filteredAlerts.sort((a, b) => new Date(a.ts) - new Date(b.ts));
+
+    if(fMonth !== "ALL") {
+        filteredAlerts = filteredAlerts.filter(a => {
+            const m = a.date.split('-')[1];
+            return m === fMonth;
+        });
+    }
+
+    if(fType !== "ALL") {
+        filteredAlerts = filteredAlerts.filter(a => a.type === fType);
+    }
+
+    const b = document.getElementById('aBadge');
+    if(dbAdmin.alerts.length > 0) { 
+        b.innerText = dbAdmin.alerts.length; 
+        b.style.display = 'inline-block'; 
+    } else {
+        b.style.display = 'none';
+    }
+
+    visibleAlertIds = filteredAlerts.map(a => a.id);
+
+    if(filteredAlerts.length === 0) { 
+        list.innerHTML = '<p style="color:var(--text-muted); font-size:16px; font-weight:500;">Brak wniosków spełniających kryteria. 🎉</p>'; 
+        return; 
+    }
+    
+    list.innerHTML = filteredAlerts.map(a => `
+        <div class="alert-card">
             <div>
-                <div style="font-size:16px; font-weight:800;">${a.name}</div>
-                <div style="color:var(--text-muted); font-size:11px; margin:4px 0;">Data: <b style="color:var(--text-main);">${a.date}</b></div>
-                <div style="font-size:13px; font-weight:800; color:var(--ios-blue); background:rgba(10,132,255,0.1); display:inline-block; padding:4px 8px; border-radius:8px;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div>
+                <div style="font-size:20px; font-weight:800; color:var(--text-main);">${a.name}</div>
+                <div style="color:var(--text-muted); font-size:13px; margin:5px 0; font-weight:600;">Data w grafiku: <b style="color:var(--text-main);">${a.date}</b></div>
+                <div style="color:var(--text-muted); font-size:11px; margin-bottom:8px;">Zgłoszono: ${a.ts}</div>
+                <div style="font-size:16px; font-weight:800; color:var(--ios-blue); background:rgba(10,132,255,0.1); display:inline-block; padding:6px 12px; border-radius:10px;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div>
             </div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
-                <button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:linear-gradient(135deg, #34C759, #28a745); padding:8px 16px; font-size:12px;">✅</button>
-                <button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:linear-gradient(135deg, #FF3B30, #d32f2f); padding:8px 16px; font-size:12px;">❌</button>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:linear-gradient(135deg, #34C759, #28a745); box-shadow: 0 4px 12px rgba(52,199,89,0.3);">✅ Zatwierdź</button>
+                <button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:linear-gradient(135deg, #FF3B30, #d32f2f); box-shadow: 0 4px 12px rgba(255,59,48,0.3);">❌ Odrzuć</button>
             </div>
         </div>`).join('');
   }
   
   async function resolveAlert(id, stat, n, d, t, h) { 
       const res = await apiCall('/admin/alerts/resolve', 'POST', { id, status: stat, name: n, date: d, type: t, hrs: h });
-      if(res) { showT(res.msg); loadAdminData(); }
+      if(res) { 
+          showT(res.msg); 
+          loadAdminData(); 
+      }
+  }
+
+  async function resolveMassAlerts(stat) {
+      if(visibleAlertIds.length === 0) return showT("Brak wniosków do zatwierdzenia.");
+      if(confirm(`Czy na pewno chcesz MASOWO rozwiązać widoczne wnioski (${visibleAlertIds.length} szt.)?`)) {
+          showT("⏳ Przetwarzanie...");
+          const res = await apiCall('/admin/alerts/resolve-mass', 'POST', { ids: visibleAlertIds, status: stat });
+          if(res) {
+              showT(`✅ ${res.msg}`);
+              loadAdminData();
+          }
+      }
   }
 
   /* ==============================================================
-     ZAKŁADKA GRUPY I KARTOTEKI (BAŃKI)
+     4. KARTOTEKA PRACOWNIKA (MATRYCA I STATYSTYKI HR)
      ============================================================== */
-  let currentGroupManager = "";
-
   function renderMatrix() { 
       const container = document.getElementById('groupBubbles');
       container.innerHTML = dbAdmin.groups.map(g => {
           const emps = dbAdmin.employees.filter(e => e.group === g.name);
-          const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:11px; font-weight:800;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:11px; font-weight:700;">🔒 Sztywna</span>`;
+          const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:12px; font-weight:800;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700;">🔒 Sztywna</span>`;
           return `
           <div class="group-bubble" onclick="openGroupManager('${g.name}')">
-              <h3 style="margin-top:0; font-size:18px; color:var(--text-main);">${g.name}</h3>
-              <div style="font-size:32px; font-weight:800; color:var(--ios-blue); margin:8px 0;">${emps.length} <span style="font-size:14px; color:var(--text-muted);">os.</span></div>
+              <h3 style="margin-top:0; font-size:20px; color:var(--text-main);">${g.name}</h3>
+              <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:10px 0;">${emps.length} <span style="font-size:16px; color:var(--text-muted);">os.</span></div>
               ${isFlex}
           </div>`;
       }).join('');
@@ -693,7 +905,7 @@
       currentGroupManager = gName;
       const groupInfo = dbAdmin.groups.find(g => g.name === gName);
       document.getElementById('gmTitle').innerText = gName;
-      document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type} | 20-ty dzień: ${groupInfo.is_flexible === 1 ? 'OMIJANY' : 'WŁĄCZONY'}`;
+      document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type} | Reguła 20-go dnia: ${groupInfo.is_flexible === 1 ? 'WYŁĄCZONA' : 'WŁĄCZONA'}`;
       document.getElementById('gmSearch').value = '';
       
       renderGroupManagerLists();
@@ -708,88 +920,177 @@
       document.getElementById('gmInCount').innerText = inGroup.length;
 
       document.getElementById('gmInGroup').innerHTML = inGroup.map(e => `
-          <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
-              <div><b style="font-size:13px;">${e.name}</b><br><span style="font-size:10px; color:gray;">ID: ${e.id}</span></div>
-              <div style="display:flex; gap:6px;">
-                  <button onclick="openMatrixModal('${e.name}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:800; font-size:11px;">⭐ Oceny</button>
-                  ${currentGroupManager !== 'Magazyn osoby stałe' ? `<button onclick="moveEmpGroup('${e.name}', 'Magazyn osoby stałe')" style="background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:800; font-size:11px;">Wyrzuć</button>` : ''}
+          <div style="background:white; padding:15px; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                  <b style="font-size:15px; color:var(--text-main);">${e.name}</b><br>
+                  <span style="font-size:11px; color:gray; font-weight:700;">ID: ${e.id}</span>
               </div>
-          </div>`).join('');
+              <div style="display:flex; gap:8px;">
+                  <button onclick="openKartoteka('${e.name}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">🗂️ Karta HR</button>
+                  ${currentGroupManager !== 'Magazyn osoby stałe' ? `<button onclick="moveEmpGroup('${e.name}', 'Magazyn osoby stałe')" style="background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuć</button>` : ''}
+              </div>
+          </div>
+      `).join('');
 
       document.getElementById('gmOutGroup').innerHTML = outGroup.map(e => `
-          <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
-              <div><b style="font-size:13px;">${e.name}</b><br><span style="font-size:10px; color:gray;">Z: ${e.group}</span></div>
-              <button onclick="moveEmpGroup('${e.name}', '${currentGroupManager}')" style="background:linear-gradient(135deg, #34C759, #28a745); color:white; border:none; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:800; font-size:11px;">➕ Dodaj</button>
-          </div>`).join('');
+          <div style="background:white; padding:15px; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                  <b style="font-size:14px; color:var(--text-main);">${e.name}</b><br>
+                  <span style="font-size:11px; color:gray; font-weight:600;">Z: ${e.group}</span>
+              </div>
+              <button onclick="moveEmpGroup('${e.name}', '${currentGroupManager}')" style="background:linear-gradient(135deg, #34C759, #28a745); color:white; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s; box-shadow:0 4px 10px rgba(52,199,89,0.2);">➕ Dodaj</button>
+          </div>
+      `).join('');
   }
 
   async function moveEmpGroup(empName, newGroup) {
       const emp = dbAdmin.employees.find(e => e.name === empName);
-      if(emp) { emp.group = newGroup; renderGroupManagerLists(); renderMatrix(); await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup }); }
+      if(emp) {
+          emp.group = newGroup;
+          renderGroupManagerLists(); 
+          renderMatrix(); 
+          await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
+      }
   }
 
-  function filterGm() { renderGroupManagerLists(); }
+  function filterGm() {
+      renderGroupManagerLists();
+  }
 
-  function openMatrixModal(empName) {
+  // NOWOŚĆ: Pełna Kartoteka Pracownika
+  async function openKartoteka(empName) {
       const emp = dbAdmin.employees.find(e => e.name === empName);
       document.getElementById('matrixTitle').innerText = empName;
       document.getElementById('matrixSubtitle').innerText = `ID: ${emp.id} | Grupa: ${emp.group}`;
       
+      // Reset widoku do Matrycy
+      switchKartoteka('matrix');
+      
+      // Renderowanie Matrycy Ocen
       document.getElementById('matrixGrid').innerHTML = dbAdmin.activityNames.map(act => {
           const v = dbAdmin.ratingsMap[empName+"_"+act] || 2; 
           return `
-          <div style="background:rgba(0,0,0,0.02); padding:15px; border-radius:14px; border:1px solid rgba(0,0,0,0.05);">
-              <strong style="font-size:13px; display:block; margin-bottom:10px;">${act}</strong>
+          <div style="background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
+              <strong style="font-size:14px; display:block; margin-bottom:12px; color:var(--text-main);">${act}</strong>
               <div style="display:flex; gap:4px;">
                   ${[1,2,3,4,5].map(x => `
                       <button onclick="svR('${empName}','${act}',${x},this)" 
-                              style="flex:1; padding:8px 0; border:none; border-radius:8px; font-size:12px; font-weight:800; cursor:pointer; transition:0.2s; 
+                              style="flex:1; padding:8px 0; border:none; border-radius:8px; font-size:13px; font-weight:800; cursor:pointer; transition:0.2s; 
                                      background:${v==x ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)'}; 
-                                     color:${v==x ? 'white' : 'var(--text-muted)'};">${x}</button>
+                                     color:${v==x ? 'white' : 'var(--text-muted)'};
+                                     box-shadow:${v==x ? '0 4px 10px rgba(10,132,255,0.3)' : 'none'};">${x}</button>
                   `).join('')}
               </div>
           </div>`;
       }).join('');
       
+      // Renderowanie HR (Fetch danych z serwera)
+      document.getElementById('hrStatsContent').innerHTML = `<p style="text-align:center; padding:20px; color:gray;">Pobieranie danych HR z bazy...</p>`;
+      
+      const hrData = await apiCall('/admin/employee/stats', 'POST', { username: empName });
+      
+      if(hrData && hrData.ok && hrData.stats) {
+          const st = hrData.stats;
+          
+          let renderHrBlock = (title, dataObj) => `
+            <div style="background:white; padding:20px; border-radius:16px; border:1px solid rgba(0,0,0,0.05); box-shadow:0 5px 15px rgba(0,0,0,0.02);">
+                <h4 style="margin:0 0 15px 0; font-size:16px; color:var(--ios-blue); border-bottom:1px solid rgba(0,0,0,0.05); padding-bottom:10px;">${title}</h4>
+                <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+                    <div style="text-align:center; flex:1;"><div style="font-size:24px; font-weight:800; color:#F57F17;">${dataObj["Urlop 🌴"] || 0}</div><div style="font-size:11px; color:gray; font-weight:700;">Urlopy 🌴</div></div>
+                    <div style="text-align:center; flex:1;"><div style="font-size:24px; font-weight:800; color:#D32F2F;">${dataObj["Chory 🤒"] || 0}</div><div style="font-size:11px; color:gray; font-weight:700;">Choroby 🤒</div></div>
+                    <div style="text-align:center; flex:1;"><div style="font-size:24px; font-weight:800; color:#757575;">${dataObj["Wolne 🏠"] || 0}</div><div style="font-size:11px; color:gray; font-weight:700;">Wolne 🏠</div></div>
+                    <div style="text-align:center; flex:1;"><div style="font-size:24px; font-weight:800; color:#8B0000;">${dataObj["No Show ❌"] || 0}</div><div style="font-size:11px; color:gray; font-weight:700;">No Show ❌</div></div>
+                </div>
+            </div>
+          `;
+          
+          document.getElementById('hrStatsContent').innerHTML = `
+              ${renderHrBlock("Bieżący Miesiąc", st.miesiac)}
+              ${renderHrBlock("Bieżący Kwartał", st.kwartal)}
+              ${renderHrBlock("Bieżący Rok", st.rok)}
+          `;
+      } else {
+          document.getElementById('hrStatsContent').innerHTML = `<p style="text-align:center; color:red;">Błąd pobierania danych z bazy.</p>`;
+      }
+
       openM('matrixModal');
+  }
+
+  function switchKartoteka(tab) {
+      document.getElementById('kartotekaMatrix').style.display = tab === 'matrix' ? 'block' : 'none';
+      document.getElementById('kartotekaHr').style.display = tab === 'hr' ? 'block' : 'none';
+      
+      document.getElementById('tabMatrixBtn').style.background = tab === 'matrix' ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)';
+      document.getElementById('tabMatrixBtn').style.color = tab === 'matrix' ? 'white' : 'var(--text-main)';
+      
+      document.getElementById('tabHrBtn').style.background = tab === 'hr' ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)';
+      document.getElementById('tabHrBtn').style.color = tab === 'hr' ? 'white' : 'var(--text-main)';
   }
   
   async function svR(u, a, v, btn) { 
-      btn.parentElement.querySelectorAll('button').forEach(b => { b.style.background = 'rgba(0,0,0,0.05)'; b.style.color = 'var(--text-muted)'; }); 
-      btn.style.background = 'var(--ios-blue)'; btn.style.color = 'white'; 
-      await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); dbAdmin.ratingsMap[u+"_"+a] = v; 
+      btn.parentElement.querySelectorAll('button').forEach(b => {
+          b.style.background = 'rgba(0,0,0,0.05)';
+          b.style.color = 'var(--text-muted)';
+          b.style.boxShadow = 'none';
+      }); 
+      
+      btn.style.background = 'var(--ios-blue)'; 
+      btn.style.color = 'white'; 
+      btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
+      
+      await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); 
+      dbAdmin.ratingsMap[u+"_"+a] = v; 
   }
 
   /* ==============================================================
-     PLANNER TYGODNIOWY PĘDZEL
+     5. PLANNER TYGODNIOWY PĘDZEL
      ============================================================== */
   function toggleBrush() { 
-      isBrush = !isBrush; const b = document.getElementById('bBtn'); 
-      b.innerText = isBrush ? "MALOWANIE: WŁ" : "MALOWANIE: WYŁ"; 
-      b.style.background = isBrush ? "var(--ios-blue)" : "white"; b.style.color = isBrush ? "white" : "var(--text-main)"; 
+      isBrush = !isBrush; 
+      const b = document.getElementById('bBtn'); 
+      b.innerText = isBrush ? "TRYB MALOWANIA: WŁ" : "TRYB MALOWANIA: WYŁ"; 
+      b.style.background = isBrush ? "var(--ios-blue)" : "white"; 
+      b.style.color = isBrush ? "white" : "var(--text-main)"; 
   }
   
   function renderPlanner() {
     const q = document.getElementById('searchPlan').value.toLowerCase(); 
     const m = parseInt(document.getElementById('aMonth').value);
-    const head = document.getElementById('pHead'), body = document.getElementById('pBody');
+    const head = document.getElementById('pHead'); 
+    const body = document.getElementById('pBody');
     const days = new Date(2026, m+1, 0).getDate();
     
     let hHtml = '<th class="sticky-col sticky-row" style="z-index:30;">Pracownik</th>';
-    for(let d=1; d<=days; d++) { let isW = new Date(2026,m,d).getDay() % 6 === 0; hHtml += `<th class="sticky-row ${isW ? 'weekend-col' : ''}">${d}.${m+1}</th>`; }
+    for(let d=1; d<=days; d++) { 
+        let isW = new Date(2026,m,d).getDay() % 6 === 0; 
+        hHtml += `<th class="sticky-row ${isW ? 'weekend-col' : ''}">${d}.${m+1}</th>`; 
+    }
     head.innerHTML = hHtml;
     
     body.innerHTML = dbAdmin.employees.filter(e => e.name.toLowerCase().includes(q)).map(empObj => {
       const emp = empObj.name;
-      let rHtml = `<td class="sticky-col"><input type="checkbox" class="chk" data-n="${emp}" style="width:16px;height:16px;accent-color:var(--ios-blue); cursor:pointer;"> <div style="margin-left:8px; text-align:left;"><span style="font-size:9px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span><span>${emp}</span></div></td>`;
+      let rHtml = `
+        <td class="sticky-col">
+            <input type="checkbox" class="chk" data-n="${emp}" style="width:18px;height:18px;accent-color:var(--ios-blue); margin:0; cursor:pointer;"> 
+            <div style="margin-left:8px; text-align:left; width:100%; overflow:hidden;">
+                <span style="font-size:9px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span>
+                <div class="emp-name-cell" title="${emp}">${emp}</div>
+            </div>
+        </td>`;
         
       for(let d=1; d<=days; d++) {
         let isW = new Date(2026,m,d).getDay() % 6 === 0; 
-        const dateStr = formatDateKey(2026, m, d), key = `${emp}_${dateStr}`;
-        const valStr = dbAdmin.planMap[key] || "||"; const [act, hrs] = valStr.split("||"); const col = getTileColor(act);
+        
+        const dateStr = formatDateKey(2026, m, d);
+        const key = `${emp}_${dateStr}`;
+        const valStr = dbAdmin.planMap[key] || "||"; 
+        const [act, hrs] = valStr.split("||"); 
+        const col = getTileColor(act);
         
         let availHint = ""; 
-        if(dbAdmin.availMap[key] && !act) availHint = `<div style="font-size:9px; color:#34C759; margin-top:2px; font-weight:800; background:rgba(52,199,89,0.1); padding:2px 4px; border-radius:4px;">Dost: ${dbAdmin.availMap[key]}</div>`;
+        if(dbAdmin.availMap[key] && !act) {
+            availHint = `<div style="font-size:9px; color:#34C759; margin-top:4px; font-weight:800; background:rgba(52,199,89,0.1); padding:2px 6px; border-radius:6px;">Dostępny: ${dbAdmin.availMap[key]}</div>`;
+        }
         
         rHtml += `
             <td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${dateStr}',this)">
@@ -806,23 +1107,34 @@
   
   async function cClk(n, dateStr, td) {
     if(!isBrush) return;
-    const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); if(sel.length > 0 && !sel.includes(n)) return;
     
-    let act = document.getElementById('brushAct').value, hrs = document.getElementById('brushHrs').value;
+    const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
+    if(sel.length > 0 && !sel.includes(n)) return;
+    
+    let act = document.getElementById('brushAct').value; 
+    let hrs = document.getElementById('brushHrs').value;
     const key = `${n}_${dateStr}`;
     
-    if(dbAdmin.availMap[key] && act !== "Wyczyść" && !hrs) hrs = dbAdmin.availMap[key];
+    if(dbAdmin.availMap[key] && act !== "Wyczyść" && !hrs) {
+        hrs = dbAdmin.availMap[key];
+    }
     
     dbAdmin.planMap[key] = act + "||" + hrs + "||1"; 
+    
     const col = getTileColor(act); 
-    td.innerHTML = `<div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow}; transform:scale(0.9);">${act === 'Wyczyść' ? '' : act}<div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div></div>`;
+    td.innerHTML = `
+        <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow}; transform:scale(0.9);">
+            ${act === 'Wyczyść' ? '' : act}
+            <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
+        </div>`;
+        
     setTimeout(() => td.querySelector('.tile').style.transform = 'scale(1)', 50); 
     
     await apiCall('/admin/planner/save', 'POST', { names: [n], start: dateStr, end: dateStr, activity: act, hours: hrs });
   }
 
   /* ==============================================================
-     KANBAN DZIENNY + INTELIGENTNE SUGESTIE 💡 + STRZAŁKI
+     6. PLANNER DZIENNY (DRAG & DROP, TAP-TO-MOVE, ZAPOTRZEBOWANIE)
      ============================================================== */
   function changeDailyDate(days) {
       const input = document.getElementById('dailyDate');
@@ -833,20 +1145,70 @@
       renderDaily();
   }
 
-  function dragDaily(ev, empName) { ev.dataTransfer.setData("empName", empName); ev.target.style.opacity = '0.5'; }
-  function dragEndDaily(ev) { ev.target.style.opacity = '1'; document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('dragover')); }
-  function allowDropDaily(ev) { ev.preventDefault(); ev.currentTarget.classList.add('dragover'); }
-  function dragLeaveDaily(ev) { ev.currentTarget.classList.remove('dragover'); }
+  // DESKTOP: Drag and Drop
+  function dragDaily(ev, empName) { 
+      ev.dataTransfer.setData("empName", empName); 
+      ev.target.style.opacity = '0.5'; 
+  }
+  
+  function dragEndDaily(ev) { 
+      ev.target.style.opacity = '1'; 
+      document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('dragover')); 
+  }
+  
+  function allowDropDaily(ev) { 
+      ev.preventDefault(); 
+      ev.currentTarget.classList.add('dragover'); 
+  }
+  
+  function dragLeaveDaily(ev) { 
+      ev.currentTarget.classList.remove('dragover'); 
+  }
 
   async function dropDaily(ev, targetAct) {
-      ev.preventDefault(); ev.currentTarget.classList.remove('dragover');
-      
+      ev.preventDefault(); 
+      ev.currentTarget.classList.remove('dragover');
       const empName = ev.dataTransfer.getData("empName");
-      const dObj = new Date(document.getElementById('dailyDate').value);
+      
+      await handleAssignment(empName, targetAct);
+  }
+
+  // MOBILE: Tap to move
+  function handleEmpClick(empName, currentAct) {
+      if (window.innerWidth > 768) return; // Jeśli PC, nie przeszkadzaj w Drag&Drop
+      
+      document.getElementById('tapMoveName').innerText = empName;
+      
+      let opts = dbAdmin.plannerActivities.map(act => {
+          if(act === currentAct) return '';
+          const col = getTileColor(act);
+          return `<button onclick="assignFromTap('${empName}', '${act}')" style="background:${col.bg}; color:${col.c}; padding:15px; border:none; border-radius:12px; font-weight:800; font-size:15px; margin-bottom:5px; width:100%; box-shadow:${col.shadow}; text-align:left;">👉 Przenieś na: ${act}</button>`;
+      }).join('');
+      
+      if(currentAct !== "Wyczyść") {
+          opts += `<button onclick="assignFromTap('${empName}', 'Wyczyść')" style="background:rgba(0,0,0,0.05); color:var(--text-main); padding:15px; border:none; border-radius:12px; font-weight:800; font-size:15px; margin-top:10px; width:100%; text-align:left;">🧹 Zdejmij z planu</button>`;
+      }
+      
+      document.getElementById('tapMoveOptions').innerHTML = opts;
+      openM('tapMoveModal');
+  }
+
+  async function assignFromTap(empName, targetAct) {
+      closeM();
+      await handleAssignment(empName, targetAct);
+  }
+
+  async function handleAssignment(empName, targetAct) {
+      const rawDate = document.getElementById('dailyDate').value;
+      const dObj = new Date(rawDate);
       const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
       
+      // Aktualizacja lokalna
       dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
+      
       renderDaily(); 
+      
+      // Zapis do API
       await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
   }
 
@@ -857,23 +1219,31 @@
       
       dbAdmin.capacityMap[`${dStr}_${act}`] = val;
       renderDaily(); 
-      let caps = {}; caps[act] = val;
+      
+      let caps = {}; 
+      caps[act] = val;
       await apiCall('/admin/capacity/save', 'POST', { date: dStr, capacities: caps });
   }
 
   function renderDaily() {
-    const rawDate = document.getElementById('dailyDate').value; if(!rawDate) return;
+    const rawDate = document.getElementById('dailyDate').value; 
+    if(!rawDate) return;
     
     const dObj = new Date(rawDate);
     const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
     
-    let dailyData = {}; dbAdmin.plannerActivities.forEach(a => dailyData[a] = []); let assignedSet = new Set();
+    let dailyData = {}; 
+    dbAdmin.plannerActivities.forEach(a => dailyData[a] = []); 
+    let assignedSet = new Set();
     
     dbAdmin.employees.forEach(empObj => {
       const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
       if(valStr && valStr.split("||")[0] && valStr.split("||")[0] !== "Wyczyść") { 
           const act = valStr.split("||")[0]; 
-          if(dailyData[act]) { dailyData[act].push(empObj); assignedSet.add(empObj.name); } 
+          if(dailyData[act]) { 
+              dailyData[act].push(empObj); 
+              assignedSet.add(empObj.name); 
+          } 
       }
     });
     
@@ -882,9 +1252,12 @@
     document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
         const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`];
         return `
-            <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)">
-                <span><b style="font-size:13px; color:var(--text-main);">${e.name}</b> <span style="font-size:9px; color:gray; display:block;">${e.group}</span></span>
-                ${aHrs ? `<span style="background:rgba(52,199,89,0.1); color:#34C759; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:800;">Dost: ${aHrs}</span>` : ''}
+            <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="handleEmpClick('${e.name}', 'Wyczyść')">
+                <span>
+                    <b style="font-size:14px; color:var(--text-main);">${e.name}</b> 
+                    <span style="font-size:10px; color:gray; display:block;">${e.group}</span>
+                </span>
+                ${aHrs ? `<span style="background:rgba(52,199,89,0.1); color:#34C759; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">Dost: ${aHrs}</span>` : ''}
             </div>`; 
     }).join('');
     
@@ -893,36 +1266,39 @@
       const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
       const currCount = dailyData[act].length;
       
-      let boxStyle = `border-top: 6px solid ${col.c};`;
+      let boxStyle = `border-top: 8px solid ${col.c};`;
       if (reqCap > 0) {
-          if (currCount >= reqCap) boxStyle = `border-top: 6px solid #34C759; background:rgba(52,199,89,0.03);`; 
-          else boxStyle = `border-top: 6px solid #FF3B30; background:rgba(255,59,48,0.03);`; 
+          if (currCount >= reqCap) { 
+              boxStyle = `border-top: 8px solid #34C759; background:rgba(52,199,89,0.03);`; 
+          } else { 
+              boxStyle = `border-top: 8px solid #FF3B30; background:rgba(255,59,48,0.03);`; 
+          }
       }
 
       const list = dailyData[act].map(e => {
           const rating = dbAdmin.ratingsMap[`${e.name}_${act}`] || 2;
           let starColor = rating === 1 ? '#FF3B30' : (rating >= 4 ? '#34C759' : 'var(--ios-blue)');
           return `
-              <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)">
-                  <span style="font-size:13px; font-weight:600; color:var(--text-main);">${e.name}</span>
-                  <span style="background:rgba(0,0,0,0.04); color:${starColor}; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:800;">⭐ ${rating}</span>
+              <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="handleEmpClick('${e.name}', '${act}')">
+                  <span style="font-size:14px; font-weight:600; color:var(--text-main);">${e.name}</span>
+                  <span style="background:rgba(0,0,0,0.04); color:${starColor}; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">⭐ ${rating}</span>
               </div>`;
       }).join('');
 
       return `
         <div class="kanban-col" style="${boxStyle}" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, '${act}')">
-            <h3 style="display:flex; justify-content:space-between; align-items:center; margin-top:0; font-size:16px;">
+            <h3 style="display:flex; justify-content:space-between; align-items:center; margin-top:0; font-size:18px;">
                 <span style="color:${col.c}; display:flex; align-items:center; gap:5px;">
                     ${act} 
                     <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:16px; transition:0.2s; padding:0;" title="Zaproponuj najlepszych pracowników">💡</button>
                 </span>
-                <span style="background:${col.bg}; color:${col.c}; padding:4px 8px; border-radius:8px; font-size:12px; box-shadow:${col.shadow}">${currCount} os.</span>
+                <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:10px; font-size:14px; box-shadow:${col.shadow}">${currCount} os.</span>
             </h3>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:white; padding:8px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
-                <span style="font-size:11px; font-weight:700; color:gray;">Zapotrzebowanie:</span>
-                <input type="number" min="0" value="${reqCap}" onchange="saveCapacity('${act}', this)" style="width:50px; padding:4px; text-align:center; font-weight:800; border-radius:6px; border:1px solid rgba(0,0,0,0.1); font-size:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:white; padding:10px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
+                <span style="font-size:12px; font-weight:700; color:gray;">Zapotrzebowanie:</span>
+                <input type="number" min="0" value="${reqCap}" onchange="saveCapacity('${act}', this)" style="width:60px; padding:6px; text-align:center; font-weight:800; border-radius:8px; border:1px solid rgba(0,0,0,0.1);">
             </div>
-            <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">${list}</div>
+            <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">${list}</div>
         </div>`;
     }).join('');
   }
@@ -954,14 +1330,14 @@
           let starColor = e.rating === 1 ? '#FF3B30' : (e.rating >= 4 ? '#34C759' : 'var(--ios-blue)');
 
           return `
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid rgba(0,0,0,0.05);">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05);">
               <div>
-                  <b style="font-size:13px; color:var(--text-main);">${e.name}</b><br>
-                  <span style="font-size:10px;">${statusText}</span>
+                  <b style="font-size:15px; color:var(--text-main);">${e.name}</b><br>
+                  <span style="font-size:11px;">${statusText}</span>
               </div>
               <div style="display:flex; align-items:center; gap:10px;">
-                  <span style="font-weight:800; color:${starColor}; background:rgba(0,0,0,0.03); padding:4px 6px; border-radius:6px; font-size:11px;">⭐ ${e.rating}</span>
-                  <button onclick="assignFromSuggestion('${e.name}', '${act}')" class="btn-main" style="padding:6px 12px; font-size:11px; box-shadow:none;">➕</button>
+                  <span style="font-weight:800; color:${starColor}; background:rgba(0,0,0,0.03); padding:4px 8px; border-radius:8px; font-size:12px;">⭐ ${e.rating}</span>
+                  <button onclick="assignFromSuggestion('${e.name}', '${act}')" class="btn-main" style="padding:8px 16px; font-size:12px; box-shadow:none;">➕ Przypisz</button>
               </div>
           </div>`;
       }).join('');
@@ -972,92 +1348,190 @@
   }
 
   async function assignFromSuggestion(empName, targetAct) {
-      const rawDate = document.getElementById('dailyDate').value;
-      const dObj = new Date(rawDate);
-      const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-
-      dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
-
-      renderDaily(); 
-      openSuggestions(targetAct); 
-
-      await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
+      await handleAssignment(empName, targetAct);
+      openSuggestions(targetAct); // Odśwież listę sugestii (zniknie z niej przypisana osoba)
       showT(`✅ Przypisano: ${empName}`);
   }
 
   /* MODALE ADMINA ZAPISUJĄCE DO BAZY */
-  function openMass() { openM('massModal'); }
+  function openMass() { 
+      openM('massModal'); 
+  }
+  
   async function applyMass() {
     const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
     if(sel.length === 0) return showT("⚠️ Zaznacz pracowników w tabeli w tle!");
     
-    const act = document.getElementById('massAct').value, hrs = document.getElementById('massHrs').value;
-    const odRaw = document.getElementById('mOd').value, dooRaw = document.getElementById('mDo').value;
+    const act = document.getElementById('massAct').value;
+    const hrs = document.getElementById('massHrs').value;
+    const odRaw = document.getElementById('mOd').value;
+    const dooRaw = document.getElementById('mDo').value;
+    
     if(!odRaw || !dooRaw) return showT("⚠️ Wybierz zakres dat!");
     
-    const d1 = new Date(odRaw), d2 = new Date(dooRaw);
+    // Konwersja dat na stabilny format API
+    const d1 = new Date(odRaw);
+    const d2 = new Date(dooRaw);
     const od = formatDateKey(d1.getFullYear(), d1.getMonth(), d1.getDate());
     const doo = formatDateKey(d2.getFullYear(), d2.getMonth(), d2.getDate());
 
-    closeM(); showT("⏳ Zapisywanie..."); 
+    closeM(); 
+    showT("⏳ Zapisywanie..."); 
+    
     const res = await apiCall('/admin/planner/save', 'POST', { names: sel, start: odRaw, end: dooRaw, activity: act, hours: hrs });
-    if(res) { showT("✅ Gotowe!"); loadAdminData(); }
+    if(res) { 
+        showT("✅ Gotowe!"); 
+        loadAdminData(); 
+    }
   }
 
   function openCopyDaily() {
     const src = document.getElementById('dailyDate').value; 
     if(!src) return showT("⚠️ Wybierz dzień z kalendarza!");
+    
     document.getElementById('copySourceDateStr').innerText = src;
-    document.getElementById('copyOd').value = src; document.getElementById('copyDo').value = src;
+    document.getElementById('copyOd').value = src; 
+    document.getElementById('copyDo').value = src;
+    
     openM('copyDayModal');
   }
   
   async function applyCopyDay() {
     const src = document.getElementById('dailyDate').value;
-    const od = document.getElementById('copyOd').value, doo = document.getElementById('copyDo').value;
+    const od = document.getElementById('copyOd').value;
+    const doo = document.getElementById('copyDo').value;
+    
     if(!od || !doo) return showT("⚠️ Podaj daty docelowe!");
-    closeM(); showT("🚀 Klonowanie...");
+    
+    closeM(); 
+    showT("🚀 Klonowanie...");
+    
     const res = await apiCall('/admin/planner/copy-day', 'POST', { sourceDate: src, targetStart: od, targetEnd: doo });
-    if(res) { showT("✅ Skopiowano pomyślnie!"); loadAdminData(); }
+    if(res) { 
+        showT("✅ Skopiowano pomyślnie!"); 
+        loadAdminData(); 
+    }
   }
 
   /* ==============================================================
-     USTAWIENIA CMS
+     7. USTAWIENIA CMS
      ============================================================== */
   function renderCMS() {
-    const bS = "background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:6px 12px; border-radius:8px; font-weight:700; cursor:pointer; transition:0.2s; font-size:11px;";
+    const bS = "background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 16px; border-radius:10px; font-weight:700; cursor:pointer; transition:0.2s; font-size:12px;";
     
     document.getElementById('cmsEmpList').innerHTML = dbAdmin.employees.map(e => `
-        <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
-            <div><b style="font-size:13px;">${e.name}</b><br><span style="font-size:10px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group}</span></div> 
-            <div style="display:flex; gap:5px;">
-                <button onclick="rstPin('${e.name}')" style="background:rgba(255,149,0,0.1); color:#FF9500; border:none; padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:700; font-size:11px;">Reset</button>
+        <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
+            <div>
+                <b style="font-size:14px; color:var(--text-main);">${e.name}</b><br>
+                <span style="font-size:11px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group}</span>
+            </div> 
+            <div style="display:flex; gap:8px;">
+                <button onclick="rstPin('${e.name}')" style="background:rgba(255,149,0,0.1); color:#FF9500; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:700; font-size:12px;">Reset PIN</button>
                 <button onclick="delSet('employee','${e.name}')" style="${bS}">Usuń</button>
             </div>
         </div>`).join('');
         
     document.getElementById('cmsGroupList').innerHTML = dbAdmin.groups.map(g => {
-        const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:10px; font-weight:800;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:10px; font-weight:700;">🔒 Sztywna</span>`;
+        const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:11px; font-weight:800;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:11px; font-weight:700;">🔒 Sztywna</span>`;
         return `
-        <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
-            <div><b style="font-size:13px;">${g.name}</b><br><span style="font-size:10px; color:var(--ios-blue); font-weight:800; margin-right:8px;">${g.type}</span>${isFlex}</div> 
+        <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
+            <div>
+                <b style="font-size:14px; color:var(--text-main);">${g.name}</b><br>
+                <span style="font-size:11px; color:var(--ios-blue); font-weight:800; margin-right:10px;">${g.type}</span>
+                ${isFlex}
+            </div> 
             <button onclick="delSet('group','${g.name}')" style="${bS}">Usuń</button>
         </div>`
     }).join('');
 
-    document.getElementById('cmsActList').innerHTML = dbAdmin.activityNames.map(a => `<div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;"><b style="font-size:13px;">${a}</b> <button onclick="delSet('activity','${a}')" style="${bS}">Usuń</button></div>`).join('');
-    document.getElementById('cmsShiftList').innerHTML = dbAdmin.shifts.map(s => `<div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;"><b style="font-size:13px;">${s}</b> <button onclick="delSet('shift','${s}')" style="${bS}">Usuń</button></div>`).join('');
+    document.getElementById('cmsActList').innerHTML = dbAdmin.activityNames.map(a => {
+        const col = getTileColor(a);
+        return `
+        <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:20px; height:20px; border-radius:6px; background:${col.c};"></div>
+                <b style="font-size:14px; color:var(--text-main);">${a}</b> 
+            </div>
+            <button onclick="delSet('activity','${a}')" style="${bS}">Usuń</button>
+        </div>`
+    }).join('');
+        
+    document.getElementById('cmsShiftList').innerHTML = dbAdmin.shifts.map(s => `
+        <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
+            <b style="font-size:14px; color:var(--text-main);">${s}</b> 
+            <button onclick="delSet('shift','${s}')" style="${bS}">Usuń</button>
+        </div>`).join('');
   }
   
-  async function saveSet(t, id) { const v = document.getElementById(id).value; if(v) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: t, value: v }); document.getElementById(id).value = ''; loadAdminData(); } }
-  async function saveGroup() {
-      const n = document.getElementById('sGroup').value, t = document.getElementById('sGroupType').value, f = document.getElementById('sGroupFlex').checked ? 1 : 0;
-      if(n) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'group', value: n, emp_type: t, is_flexible: f }); document.getElementById('sGroup').value = ''; document.getElementById('sGroupFlex').checked = false; loadAdminData(); }
+  async function saveSet(t, id) { 
+      const v = document.getElementById(id).value; 
+      
+      let reqBody = { action: 'ADD', type: t, value: v };
+      
+      if (t === 'activity') {
+          reqBody.color = document.getElementById('sActColor').value;
+      }
+      
+      if(v) { 
+          const res = await apiCall('/admin/settings', 'POST', reqBody); 
+          if(res && res.ok) {
+              document.getElementById(id).value = ''; 
+              loadAdminData(); 
+          } else if(res) {
+              showT(`❌ ${res.msg}`);
+          }
+      } 
   }
-  async function saveEmp() { const n = document.getElementById('sEmp').value, g = document.getElementById('sEmpGroup').value; if(n) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'employee', value: n, group: g }); document.getElementById('sEmp').value = ''; loadAdminData(); } }
-  async function delSet(t, v) { if(confirm("Usunąć trwale rekord: " + v + "?")) { await apiCall('/admin/settings', 'POST', { action: 'DELETE', type: t, value: v }); loadAdminData(); } }
-  async function rstPin(n) { if(confirm("Zresetować PIN pracownika na 1111?")) { await apiCall('/auth/change-pin', 'POST', { name: n, oldPin: "", newPin: "1111", isAdmin: true }); showT("PIN zresetowany do 1111"); } }
-  async function changeAdminPass() { const p = document.getElementById('sAdP').value; if(p) { await apiCall('/admin/settings', 'POST', { action: 'EDIT_ADMIN_PASS', value: p }); document.getElementById('sAdP').value = ''; showT("✅ Hasło Managera zaktualizowane!"); } }
+  
+  async function saveGroup() {
+      const n = document.getElementById('sGroup').value;
+      const t = document.getElementById('sGroupType').value;
+      const f = document.getElementById('sGroupFlex').checked ? 1 : 0;
+      
+      if(n) {
+          await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'group', value: n, emp_type: t, is_flexible: f }); 
+          document.getElementById('sGroup').value = ''; 
+          document.getElementById('sGroupFlex').checked = false;
+          loadAdminData(); 
+      }
+  }
+
+  async function saveEmp() { 
+      const n = document.getElementById('sEmp').value;
+      
+      if(n) { 
+          const res = await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'employee', value: n, group: "Magazyn osoby stałe" }); 
+          if(res && res.ok) {
+              document.getElementById('sEmp').value = ''; 
+              loadAdminData(); 
+          } else if (res) {
+              showT(`❌ ${res.msg}`);
+          }
+      } 
+  }
+  
+  async function delSet(t, v) { 
+      if(confirm("Usunąć trwale rekord: " + v + "? To zadziałanie jest nieodwracalne i usunie powiązane dane (np. harmonogram tej czynności).")) { 
+          await apiCall('/admin/settings', 'POST', { action: 'DELETE', type: t, value: v }); 
+          loadAdminData(); 
+      } 
+  }
+  
+  async function rstPin(n) { 
+      if(confirm("Zresetować PIN pracownika na 1111?")) { 
+          await apiCall('/auth/change-pin', 'POST', { name: n, oldPin: "", newPin: "1111", isAdmin: true }); 
+          showT("PIN zresetowany do 1111"); 
+      } 
+  }
+  
+  async function changeAdminPass() {
+      const p = document.getElementById('sAdP').value; 
+      if(p) {
+          await apiCall('/admin/settings', 'POST', { action: 'EDIT_ADMIN_PASS', value: p });
+          document.getElementById('sAdP').value = '';
+          showT("✅ Hasło Managera zaktualizowane!");
+      }
+  }
 </script>
 </body>
 </html>
