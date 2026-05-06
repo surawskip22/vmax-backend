@@ -8,6 +8,7 @@ import json
 import uuid
 import random
 import io
+import re  # <--- TUTAJ JEST ZGUBIONY IMPORT!
 from datetime import datetime, timedelta
 import zoneinfo
 import openpyxl
