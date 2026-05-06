@@ -28,7 +28,6 @@ def get_now():
 # ==========================================
 # 2. STRUKTURA BAZY DANYCH
 # ==========================================
-
 class UserGroup(Base):
     __tablename__ = "user_groups"
     id = Column(Integer, primary_key=True, index=True)
@@ -148,26 +147,6 @@ class AlertDismiss(Base):
 
 Base.metadata.create_all(bind=engine)
 
-with engine.connect() as conn:
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR")); conn.commit()
-    except: conn.rollback()
-        
-    try: 
-        conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR"))
-        conn.commit()
-        conn.execute(text("UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name IS NULL"))
-        conn.commit()
-    except: conn.rollback()
-    
-    try: conn.execute(text("ALTER TABLE schedules ADD COLUMN is_override INTEGER DEFAULT 0")); conn.commit()
-    except: conn.rollback()
-    
-    try: conn.execute(text("ALTER TABLE user_groups ADD COLUMN is_flexible INTEGER DEFAULT 0")); conn.commit()
-    except: conn.rollback()
-    
-    try: conn.execute(text("ALTER TABLE activities ADD COLUMN color VARCHAR DEFAULT '#0A84FF'")); conn.commit()
-    except: conn.rollback()
-
 def generate_global_id(db: Session):
     users = db.query(User).all()
     max_id = 0
@@ -180,21 +159,11 @@ with SessionLocal() as db:
     default_groups = [
         {"name": "Magazyn osoby stałe", "type": "Stały", "flex": 0},
         {"name": "Magazyn osoby dodatkowe", "type": "Dodatkowy", "flex": 1},
-        {"name": "Nowi Magazyn stali", "type": "Stały", "flex": 0},
-        {"name": "Nowi Magazyn dodatkowi", "type": "Dodatkowy", "flex": 1},
-        {"name": "Hydry", "type": "Dodatkowy", "flex": 1},
-        {"name": "Zwroty", "type": "Stały", "flex": 0},
-        {"name": "Obsługa", "type": "Stały", "flex": 0}
+        {"name": "Hydry", "type": "Dodatkowy", "flex": 1}
     ]
     for g in default_groups:
         if not db.query(UserGroup).filter(UserGroup.name == g["name"]).first():
             db.add(UserGroup(name=g["name"], emp_type=g["type"], allowed_activities="[]", is_flexible=g["flex"]))
-    
-    all_users = db.query(User).all()
-    for u in all_users:
-        if not u.global_id or not re.match(r'^[0-9]{5}$', str(u.global_id)):
-            u.global_id = generate_global_id(db)
-            db.commit()
     db.commit()
 
 app = FastAPI(title="WMS Enterprise Platform")
@@ -269,7 +238,6 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     activityColors["Wolne 🏠"] = "#8E8E93"
     activityColors["No Show ❌"] = "#8B0000"
     
-    # FIX: Odczytujemy dozwolone aktywności dla grupy pracownika!
     user_db = db.query(User).filter(User.name == name).first()
     allowed_acts = []
     if user_db:
@@ -277,11 +245,8 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
         if group_db and group_db.allowed_activities:
             allowed_acts = json.loads(group_db.allowed_activities)
             
-    # Jeśli grupa ma zdefiniowane aktywności, pokazujemy tylko je. W przeciwnym razie wszystkie (dla starych grup)
-    if allowed_acts:
-        activities = [a.name for a in db_acts if a.name in allowed_acts]
-    else:
-        activities = [a.name for a in db_acts]
+    if allowed_acts: activities = [a.name for a in db_acts if a.name in allowed_acts]
+    else: activities = [a.name for a in db_acts]
 
     plan_map = {s.date_str: s for s in schedules}
     req_map = {r.date_str: r for r in requests}
@@ -359,7 +324,6 @@ def get_admin_data(db: Session = Depends(get_db)):
     
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
-    
     activityColors["Chory 🤒"] = "#FF3B30"
     activityColors["Urlop 🌴"] = "#FFCC00"
     activityColors["Wolne 🏠"] = "#8E8E93"
@@ -403,41 +367,30 @@ def get_admin_data(db: Session = Depends(get_db)):
 def get_emp_stats(req: dict, db: Session = Depends(get_db)):
     username = req.get("username")
     if not username: return {"ok": False}
-    
     now = get_now()
     curr_y, curr_m = now.year, now.month
     curr_q = (curr_m - 1) // 3 + 1
-    
     tracked_acts = ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"]
     
-    schedules = db.query(Schedule).filter(
-        Schedule.username == username,
-        Schedule.activity.in_(tracked_acts)
-    ).all()
-    
+    schedules = db.query(Schedule).filter(Schedule.username == username, Schedule.activity.in_(tracked_acts)).all()
     stats = {"miesiac": {}, "kwartal": {}, "rok": {}}
     for a in tracked_acts:
-        stats["miesiac"][a] = 0
-        stats["kwartal"][a] = 0
-        stats["rok"][a] = 0
+        stats["miesiac"][a] = 0; stats["kwartal"][a] = 0; stats["rok"][a] = 0
         
     for s in schedules:
         try:
             d = datetime.strptime(s.date_str, "%Y-%m-%d")
             if d.year == curr_y:
                 stats["rok"][s.activity] += 1
-                s_q = (d.month - 1) // 3 + 1
-                if s_q == curr_q: stats["kwartal"][s.activity] += 1
+                if ((d.month - 1) // 3 + 1) == curr_q: stats["kwartal"][s.activity] += 1
                 if d.month == curr_m: stats["miesiac"][s.activity] += 1
         except: pass
-        
     return {"ok": True, "stats": stats}
 
 @app.post("/api/admin/capacity/save")
 def save_capacity(req: dict, db: Session = Depends(get_db)):
     d_str = req.get("date")
-    capacities = req.get("capacities", {}) 
-    for act, count in capacities.items():
+    for act, count in req.get("capacities", {}).items():
         cap = db.query(DailyCapacity).filter(DailyCapacity.date_str == d_str, DailyCapacity.activity == act).first()
         if not cap:
             cap = DailyCapacity(date_str=d_str, activity=act)
@@ -473,10 +426,8 @@ def resolve_alert(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/admin/alerts/resolve-mass")
 def resolve_mass_alerts(req: dict, db: Session = Depends(get_db)):
-    alert_ids = req.get("ids", [])
     stat = req.get("status", "Zatwierdzono")
-    
-    reqs = db.query(Request).filter(Request.id.in_(alert_ids)).all()
+    reqs = db.query(Request).filter(Request.id.in_(req.get("ids", []))).all()
     for db_req in reqs:
         db_req.status = stat
         if stat == "Zatwierdzono":
@@ -565,32 +516,32 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/admin/settings")
 def cms_settings(req: dict, db: Session = Depends(get_db)):
     action, t, val = req.get("action"), req.get("type"), req.get("value")
-    
     try:
         if action == "ADD":
             if t == "employee": 
-                existing = db.query(User).filter(User.name == val).first()
-                if existing: return {"ok": False, "msg": "Pracownik o tym nazwisku już istnieje!"}
+                if db.query(User).filter(User.name == val).first(): return {"ok": False, "msg": "Pracownik już istnieje!"}
                 new_id = generate_global_id(db)
                 db.add(User(global_id=new_id, name=val, pin="1111", role="EMPLOYEE", group_name=req.get("group", "Magazyn osoby stałe")))
-            
             elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
-            
             elif t == "activity": 
                 act = db.query(Activity).filter(Activity.name == val).first()
-                color = req.get("color", "#0A84FF")
-                if act: act.color = color
-                else: db.add(Activity(name=val, color=color))
-                
+                if act: act.color = req.get("color", "#0A84FF")
+                else: db.add(Activity(name=val, color=req.get("color", "#0A84FF")))
             elif t == "group": 
-                grp = db.query(UserGroup).filter(UserGroup.name == val).first()
-                if not grp:
+                if not db.query(UserGroup).filter(UserGroup.name == val).first():
                     db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
         
+        elif action == "EDIT_ACTIVITY_COLOR":
+            act = db.query(Activity).filter(Activity.name == val).first()
+            if act: act.color = req.get("color", "#0A84FF")
+            
+        elif action == "EDIT_GROUP_FLEX":
+            grp = db.query(UserGroup).filter(UserGroup.name == val).first()
+            if grp: grp.is_flexible = req.get("is_flexible", 0)
+
         elif action == "UPDATE_GROUP_ACTS":
             grp = db.query(UserGroup).filter(UserGroup.name == val).first()
-            if grp:
-                grp.allowed_activities = json.dumps(req.get("activities", []))
+            if grp: grp.allowed_activities = json.dumps(req.get("activities", []))
 
         elif action == "DELETE":
             if t == "employee": db.query(User).filter(User.name == val).delete()
@@ -599,14 +550,11 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 db.query(Activity).filter(Activity.name == val).delete()
                 db.query(Competence).filter(Competence.activity == val).delete()
                 db.query(DailyCapacity).filter(DailyCapacity.activity == val).delete()
-                
-                # FIX: Kaskadowe usuwanie aktywności z JSON-ów w Grupach!
                 for g in db.query(UserGroup).all():
                     acts = json.loads(g.allowed_activities) if g.allowed_activities else []
                     if val in acts:
                         acts.remove(val)
                         g.allowed_activities = json.dumps(acts)
-
             elif t == "group":
                 db.query(UserGroup).filter(UserGroup.name == val).delete()
                 db.execute(text(f"UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name = '{val}'"))
@@ -625,7 +573,6 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
 # ==========================================
 # 7. V-MAX (MODUŁ 2) - CZYSTY, NIEBLOKOWANY V-MAX
 # ==========================================
-
 @app.get("/api/config")
 def get_vmax_config(db: Session = Depends(get_db)):
     now = get_now()
@@ -635,17 +582,14 @@ def get_vmax_config(db: Session = Depends(get_db)):
             log.end_time = log.start_time + timedelta(hours=15)
             log.is_autoclosed = 1
     db.commit()
-
     admins = {u.name: u.pin for u in db.query(User).filter(User.role == "ADMIN").all()}
     employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
     activities = [a.name for a in db.query(Activity).all()]
     scanners = [s.name for s in db.query(Scanner).all()]
     trolleys = [t.name for t in db.query(Trolley).all()]
     active_logs = db.query(WorkLog).filter(WorkLog.end_time == None).all()
-    
     return {
-        "admins": admins, "pracownicy": employees, "aktywnosci": activities,
-        "skanery": scanners, "wozki": trolleys,
+        "admins": admins, "pracownicy": employees, "aktywnosci": activities, "skanery": scanners, "wozki": trolleys,
         "zajete_skanery": [log.skaner for log in active_logs if log.skaner], 
         "zajete_wozki": [log.wozek for log in active_logs if log.wozek]
     }
@@ -659,11 +603,7 @@ def get_user_history(req: dict, db: Session = Depends(get_db)):
     for log in logs:
         if not month or log.date_str.startswith(month):
             czas_str = format_dur(calc_mins(log.start_time, log.end_time)) if log.end_time else "-"
-            hist_data.append({
-                "data": log.date_str, "zadanie": log.task_name, 
-                "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa...", 
-                "czas": czas_str, "skaner": log.skaner, "wozek": log.wozek
-            })
+            hist_data.append({"data": log.date_str, "zadanie": log.task_name, "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa...", "czas": czas_str, "skaner": log.skaner, "wozek": log.wozek})
         if not log.end_time and not current_task and log.task_name != "Zakończenie pracy":
             current_task = {"name": log.task_name, "skaner": log.skaner, "wozek": log.wozek, "start_time": log.start_time.strftime("%H:%M")}
     return {"hist": hist_data, "currentTask": current_task}
@@ -676,12 +616,8 @@ def user_action(req: dict, db: Session = Depends(get_db)):
     date_str = now.strftime("%Y-%m-%d")
     
     if act_type in ["START", "TASK"]:
-        if skaner:
-            if db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first():
-                raise HTTPException(status_code=400, detail="Skaner zajęty przez kogoś innego!")
-        if wozek:
-            if db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first():
-                raise HTTPException(status_code=400, detail="Wózek zajęty przez kogoś innego!")
+        if skaner and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Skaner zajęty przez kogoś innego!")
+        if wozek and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Wózek zajęty przez kogoś innego!")
 
     active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
     if active_log and act_type == "TASK":
@@ -692,22 +628,16 @@ def user_action(req: dict, db: Session = Depends(get_db)):
         active_log.end_time = now
         db.commit()
         
-    if act_type in ["START", "TASK"]:
-        db.add(WorkLog(username=user, task_name=task, start_time=now, date_str=date_str, skaner=skaner, wozek=wozek))
-    elif act_type == "STOP":
-        db.add(WorkLog(username=user, task_name="Zakończenie pracy", start_time=now, end_time=now, date_str=date_str))
+    if act_type in ["START", "TASK"]: db.add(WorkLog(username=user, task_name=task, start_time=now, date_str=date_str, skaner=skaner, wozek=wozek))
+    elif act_type == "STOP": db.add(WorkLog(username=user, task_name="Zakończenie pracy", start_time=now, end_time=now, date_str=date_str))
     db.commit()
-    
     return get_user_history({"username": user}, db)
 
 @app.post("/api/user/equipment")
 def update_equipment(req: dict, db: Session = Depends(get_db)):
     user, skaner, wozek = str(req.get("username", "")).strip(), str(req.get("skaner", "")).strip(), str(req.get("wozek", "")).strip()
-    if skaner and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first():
-        raise HTTPException(status_code=400, detail="Skaner jest już w użyciu!")
-    if wozek and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first():
-        raise HTTPException(status_code=400, detail="Wózek jest już w użyciu!")
-
+    if skaner and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Skaner jest już w użyciu!")
+    if wozek and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Wózek jest już w użyciu!")
     active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
     if active_log:
         active_log.skaner, active_log.wozek = skaner, wozek
@@ -754,9 +684,7 @@ def get_active_sessions(db: Session = Depends(get_db)):
     for log in active_logs:
         task = log.task_name
         if task not in sessions: sessions[task] = []
-        sessions[task].append({
-            "user": log.username, "skaner": log.skaner, "wozek": log.wozek, "start": log.start_time.strftime("%H:%M")
-        })
+        sessions[task].append({"user": log.username, "skaner": log.skaner, "wozek": log.wozek, "start": log.start_time.strftime("%H:%M")})
     return sessions
 
 @app.post("/api/admin/messages/send")
@@ -801,23 +729,18 @@ def get_vmax_alerts(db: Session = Depends(get_db)):
     today = get_now().strftime("%Y-%m-%d")
     logs = db.query(WorkLog).filter(WorkLog.date_str == today).all()
     alerts = []
-    
     replies = db.query(Message).filter(Message.is_read == 1, Message.reply != None, Message.is_archived == 0).all()
     for r in replies: alerts.append({"type": "msg", "id": r.id, "date": r.timestamp.strftime("%Y-%m-%d"), "text": f"✉️ <b>{r.receiver}</b> odpisał: <i>{r.reply}</i>"})
-
     probs = db.query(Problem).filter(Problem.is_resolved == 0).all()
     for p in probs: alerts.append({"type": "prob", "id": p.id, "date": p.timestamp.strftime("%Y-%m-%d"), "text": f"⚠️ PROBLEM ({p.username}): {p.description}"})
-
     dismissed = [d.alert_key for d in db.query(AlertDismiss).all()]
     for u in set([l.username for l in logs if l.is_autoclosed == 1]):
         key = f"sys_auto_{u}_{today}"
         if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"🔴 {u}: System zamknął sesję (brak aktywności >15h)."})
-    
     for u in set([l.username for l in logs]):
         u_logs = [l for l in logs if l.username == u]
         break_mins = sum([calc_mins(l.start_time, l.end_time) for l in u_logs if "Przerwa" in l.task_name and l.end_time])
         has_finished = any([l.end_time and l.task_name == "Zakończenie pracy" for l in u_logs])
-        
         if break_mins == 0 and has_finished: 
             key = f"sys_nobreak_{u}_{today}"
             if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"⚠️ {u}: Zakończył pracę bez przerwy."})
@@ -847,18 +770,13 @@ def get_admin_reports_json(req: dict, db: Session = Depends(get_db)):
     d1, d2, u_filter = req.get("d1"), req.get("d2"), req.get("user")
     query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
     if u_filter and u_filter != "Wszyscy": query = query.filter(WorkLog.username == u_filter)
-    
     raport = {}
     for log in query.order_by(desc(WorkLog.start_time)).all():
         u = log.username
         if u not in raport: raport[u] = {"totalMins": 0, "logi": []}
         mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
         raport[u]["totalMins"] += mins
-        raport[u]["logi"].append({
-            "zadanie": log.task_name, "data": log.date_str,
-            "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
-            "czas": format_dur(mins) if log.end_time else "-", "skaner": log.skaner, "wozek": log.wozek
-        })
+        raport[u]["logi"].append({"zadanie": log.task_name, "data": log.date_str, "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa", "czas": format_dur(mins) if log.end_time else "-", "skaner": log.skaner, "wozek": log.wozek})
     for u in raport: raport[u]["totalStr"] = format_dur(raport[u]["totalMins"])
     return raport
 
@@ -876,13 +794,11 @@ def get_productivity_json(req: dict, db: Session = Depends(get_db)):
             if u not in headcount[act]: headcount[act].append(u)
             if u not in workerDetails: workerDetails[u] = {}
             workerDetails[u][act] = workerDetails[u].get(act, 0) + mins
-            
     for p in db.query(Productivity).filter(Productivity.date_str >= d1, Productivity.date_str <= d2).all():
         u = p.username
         if u not in packingStats: packingStats[u] = {"paczki": 0, "produkty": 0}
         packingStats[u]["paczki"] += p.paczki
         packingStats[u]["produkty"] += p.produkty
-        
     for act in headcount: headcount[act] = len(headcount[act])
     return {"chartData": chartData, "headcount": headcount, "workerDetails": workerDetails, "packingStats": packingStats}
 
@@ -892,15 +808,9 @@ def get_eq_log_json(req: dict, db: Session = Depends(get_db)):
     query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
     if s_filt: query = query.filter(WorkLog.skaner == s_filt)
     if w_filt: query = query.filter(WorkLog.wozek == w_filt)
-    
     results = []
     for log in query.order_by(desc(WorkLog.start_time)).all():
-        if log.skaner or log.wozek:
-            results.append({
-                "worker": log.username, "task": log.task_name, "data": log.date_str,
-                "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
-                "skaner": log.skaner, "wozek": log.wozek
-            })
+        if log.skaner or log.wozek: results.append({"worker": log.username, "task": log.task_name, "data": log.date_str, "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa", "skaner": log.skaner, "wozek": log.wozek})
     return results
 
 def create_export_file(filename_base: str, rows: list, fmt: str):
