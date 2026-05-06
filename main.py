@@ -12,7 +12,9 @@ from datetime import datetime, timedelta
 import zoneinfo
 import openpyxl
 
+# ==========================================
 # 1. KONFIGURACJA BAZY DANYCH
+# ==========================================
 db_url = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
@@ -40,7 +42,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     global_id = Column(String, unique=True, index=True) 
-    role = Column(String, default="EMPLOYEE")
+    role = Column(String, default="EMPLOYEE") # EMPLOYEE, ADMIN, SUPER_ADMIN
     group_name = Column(String, default="Magazyn osoby stałe")
     name = Column(String, unique=True, index=True)
     pin = Column(String)
@@ -155,7 +157,14 @@ def generate_global_id(db: Session):
             max_id = max(max_id, int(u.global_id))
     return f"{max_id + 1:05d}"
 
+# MIGRACJE I DANE STARTOWE (Zabezpieczenie Root Admina)
 with SessionLocal() as db:
+    # Upewnienie się, że mamy konto główne (Root Admin)
+    if not db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_login").first():
+        db.add(GlobalSetting(setting_type="admin_login", value="ADMIN"))
+    if not db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first():
+        db.add(GlobalSetting(setting_type="admin_pass", value="admin"))
+
     default_groups = [
         {"name": "Magazyn osoby stałe", "type": "Stały", "flex": 0},
         {"name": "Magazyn osoby dodatkowe", "type": "Dodatkowy", "flex": 1},
@@ -164,6 +173,11 @@ with SessionLocal() as db:
     for g in default_groups:
         if not db.query(UserGroup).filter(UserGroup.name == g["name"]).first():
             db.add(UserGroup(name=g["name"], emp_type=g["type"], allowed_activities="[]", is_flexible=g["flex"]))
+    
+    all_users = db.query(User).all()
+    for u in all_users:
+        if not u.global_id or not re.match(r'^[0-9]{5}$', str(u.global_id)):
+            u.global_id = generate_global_id(db)
     db.commit()
 
 app = FastAPI(title="WMS Enterprise Platform")
@@ -174,6 +188,11 @@ def get_db():
     try: yield db
     finally: db.close()
 
+def get_root_admin(db: Session):
+    l = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_login").first()
+    p = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
+    return l.value if l else "ADMIN", p.value if p else "admin"
+
 def calc_mins(start: datetime, end: datetime):
     if not start or not end: return 0
     return int((end - start).total_seconds() / 60)
@@ -182,6 +201,9 @@ def format_dur(mins: int):
     if mins < 0: mins = 0
     return f"{mins//60}h {mins%60}m"
 
+# ==========================================
+# 3. ENDPOINTY API
+# ==========================================
 @app.get("/")
 def serve_vmax():
     return FileResponse("index.html")
@@ -193,34 +215,59 @@ def serve_planner():
 
 @app.get("/api/public")
 def get_public_data(db: Session = Depends(get_db)):
-    employees = [u.name for u in db.query(User).filter(User.role == "EMPLOYEE").all()]
+    # Zwracamy WSZYSTKICH z bazy, aby Admin też mógł zalogować się w panelu pracownika
+    employees = [u.name for u in db.query(User).all()]
+    root_login, _ = get_root_admin(db)
+    employees.append(root_login) # Dodajemy Root Admina na listę
     return {"employees": employees}
 
 @app.post("/api/auth/login")
 def login(req: dict, db: Session = Depends(get_db)):
-    u, p, r = str(req.get("username", "")).strip(), str(req.get("pin", "")).strip(), req.get("role", "EMPLOYEE")
-    if u == "ADMIN" and p == "admin": return {"ok": True, "name": "ADMIN", "role": "ADMIN"}
+    u = str(req.get("username", "")).strip()
+    p = str(req.get("pin", "")).strip()
+    r = req.get("role", "EMPLOYEE")
+    
+    root_login, root_pass = get_root_admin(db)
     
     if r == "ADMIN":
-        custom_admin_pass = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
-        actual_pass = custom_admin_pass.value if custom_admin_pass else "Biore123"
-        if u.lower() == "admin" and p == actual_pass: return {"ok": True, "name": "Admin", "role": "ADMIN"}
+        # Logowanie do Panelu Managera
+        if u == root_login and p == root_pass: 
+            return {"ok": True, "name": root_login, "role": "SUPER_ADMIN"}
             
-    user = db.query(User).filter(User.name == u, User.pin == p).first()
-    if user: 
-        return_role = "USER" if user.role == "EMPLOYEE" else user.role
-        return {"ok": True, "name": user.name, "role": return_role}
-    raise HTTPException(status_code=401, detail="Błędny PIN lub Hasło")
+        user = db.query(User).filter(User.name == u, User.pin == p).first()
+        if user and user.role in ["ADMIN", "SUPER_ADMIN"]: 
+            return {"ok": True, "name": user.name, "role": user.role}
+            
+        raise HTTPException(status_code=401, detail="Błędny Login/PIN lub brak uprawnień administracyjnych!")
+    else:
+        # Logowanie do Panelu Pracownika
+        if u == root_login and p == root_pass:
+            return {"ok": True, "name": root_login, "role": "SUPER_ADMIN"}
+            
+        user = db.query(User).filter(User.name == u, User.pin == p).first()
+        if user: 
+            return {"ok": True, "name": user.name, "role": user.role}
+            
+        raise HTTPException(status_code=401, detail="Błędny PIN!")
 
 @app.post("/api/auth/change-pin")
 def change_pin(req: dict, db: Session = Depends(get_db)):
     name, oldP, newP, is_admin = req.get("name"), req.get("oldPin"), req.get("newPin"), req.get("isAdmin")
+    
+    root_login, root_pass = get_root_admin(db)
+    if name == root_login:
+        if not is_admin and oldP != root_pass: return {"ok": False, "msg": "Stare hasło jest błędne"}
+        p_setting = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
+        if p_setting: p_setting.value = newP
+        db.commit()
+        return {"ok": True, "msg": "Hasło Głównego Admina zostało zmienione!"}
+
     user = db.query(User).filter(User.name == name).first()
     if not user: return {"ok": False, "msg": "Nie znaleziono użytkownika"}
     if not is_admin and user.pin != oldP: return {"ok": False, "msg": "Stary PIN jest błędny"}
     user.pin = newP
     db.commit()
-    return {"ok": True, "msg": "PIN został zmieniony!"}
+    return {"ok": True, "msg": "Hasło/PIN zostało zmienione!"}
 
 @app.post("/api/emp/dashboard")
 def get_emp_dash(req: dict, db: Session = Depends(get_db)):
@@ -281,10 +328,14 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
     updates = req.get("updates", [])
     today = get_now().date()
     
-    user_db = db.query(User).filter(User.name == name).first()
-    if not user_db: return {"ok": False, "msg": "Błąd użytkownika"}
-    group = db.query(UserGroup).filter(UserGroup.name == user_db.group_name).first()
-    is_flexible_employee = group and group.is_flexible == 1
+    root_login, _ = get_root_admin(db)
+    if name == root_login:
+        is_flexible_employee = True
+    else:
+        user_db = db.query(User).filter(User.name == name).first()
+        if not user_db: return {"ok": False, "msg": "Błąd użytkownika"}
+        group = db.query(UserGroup).filter(UserGroup.name == user_db.group_name).first()
+        is_flexible_employee = group and group.is_flexible == 1
     
     for upd in updates:
         d_str, r_type, hrs = upd["date"], upd["act"], upd["hrs"]
@@ -312,13 +363,13 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
             else:
                 db.add(Request(id=str(uuid.uuid4())[:8], username=name, date_str=d_str, req_type=r_type, hours=hrs, status="Oczekuje"))
     db.commit()
-    msg_suffix = " (Omijanie 20-go - Grupa Elastyczna)" if is_flexible_employee else ""
+    msg_suffix = " (Omijanie 20-go - Grupa Elastyczna/Admin)" if is_flexible_employee else ""
     return {"ok": True, "msg": "Grafik zaktualizowany!" + msg_suffix}
 
 @app.get("/api/admin/data")
 def get_admin_data(db: Session = Depends(get_db)):
-    db_users = db.query(User).filter(User.role == "EMPLOYEE").order_by(User.global_id).all()
-    employees = [{"id": u.global_id, "name": u.name, "group": u.group_name} for u in db_users]
+    db_users = db.query(User).order_by(User.global_id).all()
+    employees = [{"id": u.global_id, "name": u.name, "group": u.group_name, "role": u.role} for u in db_users]
     
     groups = [{"name": g.name, "type": g.emp_type, "is_flexible": g.is_flexible, "activities": json.loads(g.allowed_activities) if g.allowed_activities else []} for g in db.query(UserGroup).all()]
     
@@ -356,11 +407,12 @@ def get_admin_data(db: Session = Depends(get_db)):
         elif r.status == "Zatwierdzono" and r.req_type == "Dostępny":
             avail_map[f"{r.username}_{r.date_str}"] = r.hours
 
+    root_login, _ = get_root_admin(db)
+
     return {
         "employees": employees, "groups": groups, "activityNames": activities, "plannerActivities": planner_activities,
-        "activityColors": activityColors, 
-        "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, 
-        "alerts": alerts, "availMap": avail_map, "capacityMap": capacity_map
+        "activityColors": activityColors, "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, 
+        "alerts": alerts, "availMap": avail_map, "capacityMap": capacity_map, "rootAdmin": root_login
     }
 
 @app.post("/api/admin/employee/stats")
@@ -519,7 +571,7 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
     try:
         if action == "ADD":
             if t == "employee": 
-                if db.query(User).filter(User.name == val).first(): return {"ok": False, "msg": "Pracownik już istnieje!"}
+                if db.query(User).filter(User.name == val).first(): return {"ok": False, "msg": "Użytkownik już istnieje!"}
                 new_id = generate_global_id(db)
                 db.add(User(global_id=new_id, name=val, pin="1111", role="EMPLOYEE", group_name=req.get("group", "Magazyn osoby stałe")))
             elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
@@ -531,6 +583,10 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 if not db.query(UserGroup).filter(UserGroup.name == val).first():
                     db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
         
+        elif action == "EDIT_USER_ROLE":
+            user = db.query(User).filter(User.name == val).first()
+            if user: user.role = req.get("role", "EMPLOYEE")
+
         elif action == "EDIT_ACTIVITY_COLOR":
             act = db.query(Activity).filter(Activity.name == val).first()
             if act: act.color = req.get("color", "#0A84FF")
@@ -559,10 +615,12 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 db.query(UserGroup).filter(UserGroup.name == val).delete()
                 db.execute(text(f"UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name = '{val}'"))
         
-        elif action == "EDIT_ADMIN_PASS":
+        elif action == "EDIT_ROOT_ADMIN":
+            l = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_login").first()
             p = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
-            if not p: db.add(GlobalSetting(setting_type="admin_pass", value=val))
-            else: p.value = val
+            new_login, new_pass = req.get("login"), req.get("pass")
+            if l and new_login: l.value = new_login
+            if p and new_pass: p.value = new_pass
             
         db.commit()
         return {"ok": True}
