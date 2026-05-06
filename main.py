@@ -34,7 +34,7 @@ class UserGroup(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     emp_type = Column(String) 
-    allowed_activities = Column(String)
+    allowed_activities = Column(String, default="[]") # JSON z listą dozwolonych aktywności
     is_flexible = Column(Integer, default=0)
 
 class User(Base):
@@ -89,6 +89,7 @@ class Activity(Base):
     __tablename__ = "activities"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
+    color = Column(String, default="#0A84FF") # NOWOŚĆ: Edytowalne kolory
 
 class Scanner(Base):
     __tablename__ = "scanners"
@@ -147,29 +148,32 @@ class AlertDismiss(Base):
 
 Base.metadata.create_all(bind=engine)
 
+# CHIRURGICZNA MIGRACJA
 with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR")); conn.commit()
-    except Exception: conn.rollback()
+    except: conn.rollback()
         
     try: 
         conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR"))
         conn.commit()
         conn.execute(text("UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name IS NULL"))
         conn.commit()
-    except Exception: conn.rollback()
+    except: conn.rollback()
     
     try: conn.execute(text("ALTER TABLE schedules ADD COLUMN is_override INTEGER DEFAULT 0")); conn.commit()
-    except Exception: conn.rollback()
+    except: conn.rollback()
     
     try: conn.execute(text("ALTER TABLE user_groups ADD COLUMN is_flexible INTEGER DEFAULT 0")); conn.commit()
-    except Exception: conn.rollback()
+    except: conn.rollback()
+    
+    try: conn.execute(text("ALTER TABLE activities ADD COLUMN color VARCHAR DEFAULT '#0A84FF'")); conn.commit()
+    except: conn.rollback()
 
-# KULOODPORNY GENERATOR ID (Naprawa błędu z dodawaniem pracownika)
 def generate_global_id(db: Session):
     users = db.query(User).all()
     max_id = 0
     for u in users:
-        if u.global_id and u.global_id.isdigit():
+        if u.global_id and str(u.global_id).isdigit():
             max_id = max(max_id, int(u.global_id))
     return f"{max_id + 1:05d}"
 
@@ -269,7 +273,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     
     schedule_list = []
     for d in range(1, days_in_month + 1):
-        date_str = f"{year}-{month+1:02d}-{d:02d}" # PEŁNY FORMAT ISO
+        date_str = f"{year}-{month+1:02d}-{d:02d}"
         iso_date = datetime(year, month + 1, d).isoformat()
         
         p = plan_map.get(date_str)
@@ -316,7 +320,6 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
             sched.activity = r_type if r_type != "Wyczyść" else ""
             sched.hours = hrs if r_type != "Wyczyść" else ""
             sched.is_override = 0 
-            
             db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").delete()
         else:
             existing = db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").first()
@@ -325,7 +328,7 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
             else:
                 db.add(Request(id=str(uuid.uuid4())[:8], username=name, date_str=d_str, req_type=r_type, hours=hrs, status="Oczekuje"))
     db.commit()
-    msg_suffix = " (Omijanie 20-go - Grupa Elastyczna)" if is_flexible_employee else ""
+    msg_suffix = " (Grupa Elastyczna)" if is_flexible_employee else ""
     return {"ok": True, "msg": "Grafik zaktualizowany!" + msg_suffix}
 
 @app.get("/api/admin/data")
@@ -335,8 +338,19 @@ def get_admin_data(db: Session = Depends(get_db)):
     
     groups = [{"name": g.name, "type": g.emp_type, "is_flexible": g.is_flexible, "activities": json.loads(g.allowed_activities) if g.allowed_activities else []} for g in db.query(UserGroup).all()]
     
-    activities = [a.name for a in db.query(Activity).all()]
-    planner_activities = list(set(activities + ["Chory 🤒", "Urlop 🌴", "Wolne 🏠"]))
+    # NOWOŚĆ: Słownik kolorów dla aktywności
+    db_acts = db.query(Activity).all()
+    activityColors = {a.name: a.color for a in db_acts}
+    
+    # Dodajemy domyślne kolory dla funkcji systemowych
+    activityColors["Chory 🤒"] = "#D32F2F"
+    activityColors["Urlop 🌴"] = "#F57F17"
+    activityColors["Wolne 🏠"] = "#757575"
+    activityColors["No Show ❌"] = "#8B0000"
+
+    activities = [a.name for a in db_acts]
+    planner_activities = list(set(activities + ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"]))
+    
     shifts = [s.value for s in db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift").all()]
     if not shifts: shifts = ["07:00-15:00", "08:00-16:00"]
     
@@ -363,9 +377,45 @@ def get_admin_data(db: Session = Depends(get_db)):
 
     return {
         "employees": employees, "groups": groups, "activityNames": activities, "plannerActivities": planner_activities,
+        "activityColors": activityColors, # Słownik przekazywany na front
         "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, 
         "alerts": alerts, "availMap": avail_map, "capacityMap": capacity_map
     }
+
+# NOWOŚĆ: Statystyki pracownika dla HR
+@app.post("/api/admin/employee/stats")
+def get_emp_stats(req: dict, db: Session = Depends(get_db)):
+    username = req.get("username")
+    if not username: return {"ok": False}
+    
+    now = get_now()
+    curr_y, curr_m = now.year, now.month
+    curr_q = (curr_m - 1) // 3 + 1
+    
+    tracked_acts = ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"]
+    
+    schedules = db.query(Schedule).filter(
+        Schedule.username == username,
+        Schedule.activity.in_(tracked_acts)
+    ).all()
+    
+    stats = {"miesiac": {}, "kwartal": {}, "rok": {}}
+    for a in tracked_acts:
+        stats["miesiac"][a] = 0
+        stats["kwartal"][a] = 0
+        stats["rok"][a] = 0
+        
+    for s in schedules:
+        try:
+            d = datetime.strptime(s.date_str, "%Y-%m-%d")
+            if d.year == curr_y:
+                stats["rok"][s.activity] += 1
+                s_q = (d.month - 1) // 3 + 1
+                if s_q == curr_q: stats["kwartal"][s.activity] += 1
+                if d.month == curr_m: stats["miesiac"][s.activity] += 1
+        except: pass
+        
+    return {"ok": True, "stats": stats}
 
 @app.post("/api/admin/capacity/save")
 def save_capacity(req: dict, db: Session = Depends(get_db)):
@@ -404,6 +454,26 @@ def resolve_alert(req: dict, db: Session = Depends(get_db)):
             sched.is_override = 1 
         db.commit()
     return {"ok": True, "msg": "Wniosek rozpatrzony!"}
+
+# NOWOŚĆ: Masowe rozwiązywanie alertów
+@app.post("/api/admin/alerts/resolve-mass")
+def resolve_mass_alerts(req: dict, db: Session = Depends(get_db)):
+    alert_ids = req.get("ids", [])
+    stat = req.get("status", "Zatwierdzono")
+    
+    reqs = db.query(Request).filter(Request.id.in_(alert_ids)).all()
+    for db_req in reqs:
+        db_req.status = stat
+        if stat == "Zatwierdzono":
+            sched = db.query(Schedule).filter(Schedule.username == db_req.username, Schedule.date_str == db_req.date_str).first()
+            if not sched:
+                sched = Schedule(username=db_req.username, date_str=db_req.date_str)
+                db.add(sched)
+            sched.activity = db_req.req_type if db_req.req_type != "Wyczyść" else ""
+            sched.hours = db_req.hours if db_req.req_type != "Wyczyść" else ""
+            sched.is_override = 1
+    db.commit()
+    return {"ok": True, "msg": f"Przetworzono {len(reqs)} wniosków!"}
 
 @app.post("/api/admin/matrix/update")
 def update_matrix(req: dict, db: Session = Depends(get_db)):
@@ -481,31 +551,53 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
 def cms_settings(req: dict, db: Session = Depends(get_db)):
     action, t, val = req.get("action"), req.get("type"), req.get("value")
     
-    if action == "ADD":
-        if t == "employee": 
-            new_id = generate_global_id(db)
-            db.add(User(global_id=new_id, name=val, pin="1111", role="EMPLOYEE", group_name=req.get("group", "Magazyn osoby stałe")))
-        elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
-        elif t == "activity": db.add(Activity(name=val))
-        elif t == "group": db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
-    elif action == "DELETE":
-        if t == "employee": db.query(User).filter(User.name == val).delete()
-        elif t == "shift": db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift", GlobalSetting.value == val).delete()
-        elif t == "activity": 
-            # KASKADOWE USUWANIE AKTYWNOŚCI (Naprawa błędu kompetencji)
-            db.query(Activity).filter(Activity.name == val).delete()
-            db.query(Competence).filter(Competence.activity == val).delete()
-            db.query(DailyCapacity).filter(DailyCapacity.activity == val).delete()
-        elif t == "group":
-            db.query(UserGroup).filter(UserGroup.name == val).delete()
-            db.execute(text(f"UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name = '{val}'"))
-    elif action == "EDIT_ADMIN_PASS":
-        p = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
-        if not p: db.add(GlobalSetting(setting_type="admin_pass", value=val))
-        else: p.value = val
-    db.commit()
-    return {"ok": True}
+    try:
+        if action == "ADD":
+            if t == "employee": 
+                existing = db.query(User).filter(User.name == val).first()
+                if existing: return {"ok": False, "msg": "Pracownik o tym nazwisku już istnieje!"}
+                new_id = generate_global_id(db)
+                db.add(User(global_id=new_id, name=val, pin="1111", role="EMPLOYEE", group_name=req.get("group", "Magazyn osoby stałe")))
+            
+            elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
+            
+            elif t == "activity": 
+                act = db.query(Activity).filter(Activity.name == val).first()
+                color = req.get("color", "#0A84FF")
+                if act: act.color = color
+                else: db.add(Activity(name=val, color=color))
+                
+            elif t == "group": 
+                grp = db.query(UserGroup).filter(UserGroup.name == val).first()
+                if not grp:
+                    db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
+        
+        elif action == "UPDATE_GROUP_ACTS":
+            grp = db.query(UserGroup).filter(UserGroup.name == val).first()
+            if grp:
+                grp.allowed_activities = json.dumps(req.get("activities", []))
 
+        elif action == "DELETE":
+            if t == "employee": db.query(User).filter(User.name == val).delete()
+            elif t == "shift": db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift", GlobalSetting.value == val).delete()
+            elif t == "activity": 
+                db.query(Activity).filter(Activity.name == val).delete()
+                db.query(Competence).filter(Competence.activity == val).delete()
+                db.query(DailyCapacity).filter(DailyCapacity.activity == val).delete()
+            elif t == "group":
+                db.query(UserGroup).filter(UserGroup.name == val).delete()
+                db.execute(text(f"UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name = '{val}'"))
+        
+        elif action == "EDIT_ADMIN_PASS":
+            p = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
+            if not p: db.add(GlobalSetting(setting_type="admin_pass", value=val))
+            else: p.value = val
+            
+        db.commit()
+        return {"ok": True}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "msg": str(e)}
 
 # ==========================================
 # 7. V-MAX (MODUŁ 2) - CZYSTY, NIEBLOKOWANY V-MAX
@@ -788,23 +880,6 @@ def get_eq_log_json(req: dict, db: Session = Depends(get_db)):
             })
     return results
 
-@app.post("/api/admin/edit-logs")
-def get_edit_logs_json(req: dict, db: Session = Depends(get_db)):
-    logs = db.query(WorkLog).filter(WorkLog.username == req.get("username"), WorkLog.date_str == req.get("date")).order_by(desc(WorkLog.id)).all()
-    return [{"id": l.id, "zadanie": l.task_name, "start": l.start_time.strftime("%H:%M") if l.start_time else "", "koniec": l.end_time.strftime("%H:%M") if l.end_time else ""} for l in logs]
-
-@app.post("/api/admin/update-batch")
-def update_batch_vmax(req: dict, db: Session = Depends(get_db)):
-    date_str = req.get("date")
-    for u in req.get("updates", []):
-        log = db.query(WorkLog).filter(WorkLog.id == int(u.get("id"))).first()
-        if log:
-            log.task_name = u.get("task")
-            if u.get("start"): log.start_time = datetime.strptime(f"{date_str} {u.get('start')}", "%Y-%m-%d %H:%M")
-            if u.get("end"): log.end_time = datetime.strptime(f"{date_str} {u.get('end')}", "%Y-%m-%d %H:%M")
-    db.commit()
-    return True
-
 def create_export_file(filename_base: str, rows: list, fmt: str):
     os.makedirs("exports", exist_ok=True)
     if fmt == "xls":
@@ -820,67 +895,3 @@ def create_export_file(filename_base: str, rows: list, fmt: str):
             writer = csv.writer(f, delimiter=';')
             writer.writerows(rows)
         return f"/api/download/{filename_base}.csv"
-
-@app.post("/api/admin/export")
-def export_general(req: dict, db: Session = Depends(get_db)):
-    export_type, fmt, d1, d2, u_filt = req.get("export_type"), req.get("format", "csv"), req.get("d1"), req.get("d2"), req.get("user")
-    uid = uuid.uuid4().hex[:4]
-    
-    if export_type == "HR":
-        stats = {}
-        for log in db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2).all():
-            if not log.end_time: continue
-            if log.username not in stats: stats[log.username] = {"wd": 0, "we": 0}
-            mins = calc_mins(log.start_time, log.end_time)
-            if log.start_time.weekday() >= 5: stats[log.username]["we"] += mins
-            else: stats[log.username]["wd"] += mins
-        rows = [["Pracownik", "Godziny Pn-Pt", "Godziny Weekend", "Suma Godzin"]]
-        for u, v in stats.items(): rows.append([u, format_dur(v["wd"]), format_dur(v["we"]), format_dur(v["wd"] + v["we"])])
-        return {"url": create_export_file(f"Raport_HR_{d1}_{uid}", rows, fmt)}
-        
-    elif export_type == "FULL":
-        query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
-        if u_filt and u_filt != "Wszyscy": query = query.filter(WorkLog.username == u_filt)
-        rows = [["Pracownik", "Zadanie", "Data", "Start", "Koniec", "Czas trwania", "Skaner", "Wozek"]]
-        for log in query.order_by(WorkLog.start_time).all():
-            mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
-            rows.append([log.username, log.task_name, log.date_str, log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa", format_dur(mins) if log.end_time else "-", log.skaner, log.wozek])
-        return {"url": create_export_file(f"Raport_Pelny_{d1}_{uid}", rows, fmt)}
-        
-    elif export_type == "PROD":
-        stats = {}
-        for log in db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2, WorkLog.task_name == "Pakowanie Paczek").all():
-            if log.username not in stats: stats[log.username] = {"mins": 0, "paczki": 0, "produkty": 0}
-            stats[log.username]["mins"] += calc_mins(log.start_time, log.end_time) if log.end_time else 0
-        for p in db.query(Productivity).filter(Productivity.date_str >= d1, Productivity.date_str <= d2).all():
-            if p.username not in stats: stats[p.username] = {"mins": 0, "paczki": 0, "produkty": 0}
-            stats[p.username]["paczki"] += p.paczki
-            stats[p.username]["produkty"] += p.produkty
-        rows = [["Pracownik", "Suma Godzin", "Spakowane Paczki", "Spakowane Produkty", "Paczki/h", "Produkty/h"]]
-        for u, v in stats.items():
-            if v["mins"] == 0 and v["paczki"] == 0: continue
-            h = v["mins"] / 60
-            rows.append([u, format_dur(v["mins"]), v["paczki"], v["produkty"], round(v["paczki"]/h, 2) if h > 0 else 0, round(v["produkty"]/h, 2) if h > 0 else 0])
-        return {"url": create_export_file(f"Wydajnosc_{d1}_{uid}", rows, fmt)}
-        
-    elif export_type == "EQ":
-        s_filt, w_filt = req.get("skaner"), req.get("wozek")
-        query = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2)
-        if s_filt: query = query.filter(WorkLog.skaner == s_filt)
-        if w_filt: query = query.filter(WorkLog.wozek == w_filt)
-        rows = [["Pracownik", "Zadanie", "Data", "Start", "Koniec", "Skaner", "Wozek"]]
-        for log in query.order_by(WorkLog.start_time).all():
-            if log.skaner or log.wozek: rows.append([log.username, log.task_name, log.date_str, log.start_time.strftime("%H:%M"), log.end_time.strftime("%H:%M") if log.end_time else "Trwa", log.skaner, log.wozek])
-        return {"url": create_export_file(f"Sprzet_{d1}_{uid}", rows, fmt)}
-
-    elif export_type == "BACKUP":
-        logs = db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2).order_by(WorkLog.id).all()
-        if fmt == "json":
-            data = [{"id": l.id, "worker": l.username, "task": l.task_name, "date": l.date_str, "start": l.start_time.isoformat() if l.start_time else None, "end": l.end_time.isoformat() if l.end_time else None, "scanner": l.skaner, "trolley": l.wozek} for l in logs]
-            filepath = os.path.join("exports", f"DB_SNAPSHOT_{d1}_{uid}.json")
-            with open(filepath, 'w', encoding='utf-8') as f: json.dump(data, f, ensure_ascii=False, indent=2)
-            return {"url": f"/api/download/DB_SNAPSHOT_{d1}_{uid}.json"}
-        else:
-            rows = [["ID", "Pracownik", "Zadanie", "Data", "Start", "Koniec", "Skaner", "Wozek", "Auto_Zamknieto"]]
-            for l in logs: rows.append([l.id, l.username, l.task_name, l.date_str, l.start_time.strftime("%Y-%m-%d %H:%M:%S") if l.start_time else "", l.end_time.strftime("%Y-%m-%d %H:%M:%S") if l.end_time else "", l.skaner, l.wozek, l.is_autoclosed])
-            return {"url": create_export_file(f"DB_BACKUP_{d1}_{uid}", rows, fmt)}
