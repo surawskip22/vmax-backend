@@ -76,8 +76,10 @@
     table { border-collapse: separate; border-spacing: 0; background: transparent; }
     th, td { border: 0.5px solid rgba(0,0,0,0.03); min-width: var(--cell-w); height: 85px; text-align: center; position: relative; transition: background 0.2s; }
     
-    .sticky-col { position: sticky; left: 0; z-index: 10; min-width: 150px; max-width: 200px; background: rgba(255,255,255,0.98); backdrop-filter: blur(10px); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 15px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 13px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); overflow: hidden; }
+    /* FIX: Obcięcie długich imion na PC i telefonach */
+    .sticky-col { position: sticky; left: 0; z-index: 10; min-width: 150px; max-width: 220px; background: rgba(255,255,255,0.98); backdrop-filter: blur(10px); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 15px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 13px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); overflow: hidden; }
     .sticky-col span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
+    
     .sticky-row { position: sticky; top: 0; z-index: 20; background: rgba(250,250,252,0.95); backdrop-filter: blur(10px); font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.05); color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
     .weekend-col { background: rgba(0,0,0,0.02) !important; }
     .tile { width: 90%; height: 80%; border-radius: 12px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; padding: 6px; box-sizing: border-box; line-height: 1.2; overflow: hidden; }
@@ -234,7 +236,8 @@
         <div class="glass-card login-card" style="min-width: unset;">
           <h2 style="margin-top:0; font-weight:800; font-size:24px;">Panel Pracownika</h2>
           <p style="color:var(--text-muted); font-size:13px; margin-bottom:25px;">Zaloguj się, aby podać dyspozycję.</p>
-          <select id="elName" style="width:100%; margin-bottom:15px;"></select>
+          <input list="dlEmployees" id="elName" placeholder="Wpisz lub wybierz nazwisko" style="width:100%; margin-bottom:15px;">
+          <datalist id="dlEmployees"></datalist>
           <input type="password" id="elPin" placeholder="KOD PIN" pattern="[0-9]*" inputmode="numeric" style="width:100%; margin-bottom:25px; text-align:center; font-size:24px; letter-spacing:10px; font-weight:800;">
           <button class="btn-main" onclick="doEmpLogin()" style="width:100%;">Wejdź do systemu</button>
         </div>
@@ -401,6 +404,10 @@
             <h3 style="margin-top:0; font-weight:800; font-size:18px;">👥 Pracownicy i PINy</h3>
             <div style="display:flex; gap:8px; margin-bottom:15px;">
                 <input type="text" id="sEmp" placeholder="Imię Nazwisko" style="flex:1">
+                <select id="sEmpRole" style="padding:14px; border-radius:12px; outline:none; font-size:13px;">
+                    <option value="EMPLOYEE">Pracownik</option>
+                    <option value="ADMIN">Admin</option>
+                </select>
                 <button class="btn-main" onclick="saveEmp()">Dodaj</button>
             </div>
             <div id="cmsEmpList" style="max-height:300px; overflow-y:auto; padding-right:5px;"></div>
@@ -442,6 +449,16 @@
                 <button class="btn-main" onclick="saveSet('shift', 'sShift')">Dodaj</button>
             </div>
             <div id="cmsShiftList" style="max-height:200px; overflow-y:auto; padding-right:5px;"></div>
+        </div>
+
+        <div class="glass-card" style="text-align:left; height:fit-content;">
+            <h3 style="margin-top:0; font-weight:800; font-size:18px; color:#FF3B30;">👑 Root Admin (Konto Główne)</h3>
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Zmień login i hasło dla głównego dostępu menedżerskiego.</p>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <input type="text" id="sRootLogin" placeholder="Nowy login" style="width:100%;">
+                <input type="password" id="sRootPass" placeholder="Nowe hasło" style="width:100%;">
+                <button class="btn-main" style="background:linear-gradient(135deg, #FF3B30, #d32f2f);" onclick="changeRootAdmin()">Zapisz Root Admina</button>
+            </div>
         </div>
 
       </div>
@@ -556,7 +573,6 @@
 
 <!-- JS DO WEJŚCIA PONIŻEJ -->
 
-
   <script>
   // ==========================================
   // 1. KONFIGURACJA API I NARZĘDZIA POMOCNICZE
@@ -617,7 +633,7 @@
       return `${year}-${(jsMonth + 1).toString().padStart(2, '0')}-${date.toString().padStart(2, '0')}`;
   }
 
-  // Helper: Obliczanie numeru tygodnia (ISO)
+  // Helper: Obliczanie numeru tygodnia (ISO 8601)
   function getWeekNumber(d) {
       const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
@@ -651,26 +667,31 @@
 
   window.onload = async () => {
     document.getElementById('dailyDate').valueAsDate = new Date();
+    // Pobranie danych publicznych (wypełnienie DataList dla inputu logowania)
     const data = await apiCall('/public');
     if(data && data.employees) {
-        document.getElementById('elName').innerHTML = `<option value="">Wybierz nazwisko</option>` + 
-            data.employees.map(e => `<option value="${e}">${e}</option>`).join('');
+        document.getElementById('dlEmployees').innerHTML = data.employees.map(e => `<option value="${e}">`).join('');
     }
   };
 
   /* ==============================================================
-     2. LOGIKA PRACOWNIKA (PRAWDZIWY KALENDARZ!)
+     2. LOGIKA PRACOWNIKA I ADMINA LOGUJĄCEGO SIĘ JAKO PRACOWNIK
      ============================================================== */
   async function doEmpLogin() {
     currEmp = document.getElementById('elName').value; 
     const pin = document.getElementById('elPin').value;
     if(!currEmp || !pin) return showT("⚠️ Uzupełnij dane!");
     
+    // Backend teraz obsłuży to poprawnie, jeśli jesteś adminem, też wpuści!
     const res = await apiCall('/auth/login', 'POST', { username: currEmp, pin: pin, role: 'EMPLOYEE' });
     if(res && res.ok) { 
         empMonthOffset = 0; 
         empChanges = {}; 
-        document.getElementById('empWelcomeTitle').innerText = `Witaj, ${currEmp}! 👋`;
+        
+        // Specjalne powitanie dla Admina logującego się w panelu pracownika
+        let welcomePrefix = (res.role === "ADMIN" || res.role === "SUPER_ADMIN") ? "👑 Witaj, " : "Witaj, ";
+        document.getElementById('empWelcomeTitle').innerText = `${welcomePrefix}${currEmp}! 👋`;
+        
         openScreen('screen-emp-dash'); 
         loadEmpDash(); 
     } else {
@@ -711,7 +732,7 @@
       el.style.border = "3px dashed var(--ios-blue)";
       el.innerHTML = `
           <div style="font-weight:800; font-size:18px; margin-bottom:8px;">${dObj.getDate()}</div>
-          <div style="font-size:12px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px;">${act==='Wyczyść'?'Pusto':act}</div>
+          <div style="font-size:12px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${act==='Wyczyść'?'Pusto':act}</div>
           ${hrs && act!=='Wyczyść' ? `<div style="font-size:11px; font-weight:800; margin-top:6px;">⌚ ${hrs}</div>` : ''}
           <div style="background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:9px; font-weight:800; margin-top:6px; padding:4px; border-radius:6px;">ZMIENIONE</div>
       `;
@@ -749,7 +770,9 @@
     document.getElementById('empBrushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
     document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">`).join('');
 
-    // Rysowanie prawdziwego kalendarza (Tygodnie + Puste dni)
+    // ===============================================
+    // RYSOWANIE PRAWDZIWEGO KALENDARZA Z TYGODNIAMI
+    // ===============================================
     let calHtml = `
         <div class="cal-header">Wk</div>
         <div class="cal-header">PN</div><div class="cal-header">WT</div><div class="cal-header">ŚR</div>
@@ -757,26 +780,24 @@
     `;
 
     const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
-    let startDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); // 1 = PN, 7 = ND
+    let startDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); // Konwersja niedzieli z 0 na 7
     
-    // Zmienna trzymająca obecny numer tygodnia
     let currentWeekNum = getWeekNumber(firstDay);
-    calHtml += `<div class="week-num">Tydz. ${currentWeekNum}</div>`;
+    calHtml += `<div class="week-num">T. ${currentWeekNum}</div>`;
 
-    // Puste kafelki na początek miesiąca
+    // Uzupełnianie pustych dni na początku miesiąca
     for(let i = 1; i < startDayOfWeek; i++) {
         calHtml += `<div class="day-row empty-day"></div>`;
     }
 
-    // Kafelki dni
     data.schedule.forEach(s => {
         const dt = new Date(s.date); 
         const col = getTileColor(s.act);
         
-        // Jeśli poniedziałek, to nowy wiersz i nowy tydzień!
+        // Jeśli poniedziałek, a nie jest to pierwszy dzień miesiąca (bo już go dodaliśmy wyżej), stwórz nowy numer tygodnia
         if (dt.getDate() !== 1 && dt.getDay() === 1) {
             currentWeekNum = getWeekNumber(dt);
-            calHtml += `<div class="week-num">Tydz. ${currentWeekNum}</div>`;
+            calHtml += `<div class="week-num">T. ${currentWeekNum}</div>`;
         }
 
         let reqBox = "";
@@ -815,8 +836,12 @@
       if(!u || !p) return showT("⚠️ Uzupełnij dane!");
       
       const res = await apiCall('/auth/login', 'POST', { username: u, pin: p, role: 'ADMIN' });
-      if(res && res.ok) { openScreen('screen-admin'); loadAdminData(); } 
-      else { showT("❌ Nieautoryzowany dostęp!"); }
+      if(res && res.ok) { 
+          openScreen('screen-admin'); 
+          loadAdminData(); 
+      } else { 
+          showT("❌ Nieautoryzowany dostęp!"); 
+      }
   }
   
   function showAdminView(id) { 
@@ -842,11 +867,13 @@
     document.getElementById('massAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
     document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">${s}</option>`).join('');
     
-    // Ładowanie dropdownu z filtrem grup w Dziennym Plannerze
+    // Załadowanie Dropdownu dla Dziennego Live'a
     const dailyFilter = document.getElementById('dailyGroupFilter');
     if (dailyFilter) {
-        dailyFilter.innerHTML = '<option value="ALL">Wszystkie Grupy</option>' + 
+        let currentFilterValue = dailyFilter.value;
+        dailyFilter.innerHTML = '<option value="ALL">Cały Magazyn (Wszystkie grupy)</option>' + 
             dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+        dailyFilter.value = currentFilterValue || "ALL"; // Utrzymaj zaznaczenie przy odświeżaniu
     }
 
     const b = document.getElementById('aBadge');
@@ -861,7 +888,7 @@
   }
 
   /* ==============================================================
-     4. SYSTEM ALERTÓW (3-POZIOMOWY: Grupy -> Pracownicy -> Detale)
+     4. SYSTEM ALERTÓW (3-POZIOMOWY)
      ============================================================== */
   function getEmpGroup(empName) {
       const emp = dbAdmin.employees.find(e => e.name === empName);
@@ -989,120 +1016,7 @@
   }
 
   /* ==============================================================
-     ZAKŁADKA GRUPY, KARTOTEKI I STATYSTYKI HR
-     ============================================================== */
-  function renderMatrix() { 
-      const container = document.getElementById('groupBubbles');
-      container.innerHTML = dbAdmin.groups.map(g => {
-          const emps = dbAdmin.employees.filter(e => e.group === g.name);
-          const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:12px; font-weight:800; background:rgba(255,149,0,0.1); padding:4px 8px; border-radius:8px;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:8px;">🔒 Sztywna</span>`;
-          return `
-          <div class="group-bubble" onclick="openGroupManager('${g.name}')">
-              <h3 style="margin-top:0; font-size:18px; color:var(--text-main);">${g.name}</h3>
-              <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:15px 0;">${emps.length} <span style="font-size:14px; color:var(--text-muted);">os.</span></div>
-              ${isFlex}
-          </div>`;
-      }).join('');
-  }
-
-  function openGroupManager(gName) {
-      currentGroupManager = gName;
-      const groupInfo = dbAdmin.groups.find(g => g.name === gName);
-      document.getElementById('gmTitle').innerText = gName;
-      document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type} | Reguła 20-go dnia: ${groupInfo.is_flexible === 1 ? 'WYŁĄCZONA' : 'WŁĄCZONA'}`;
-      document.getElementById('gmSearch').value = '';
-      renderGroupManagerLists();
-      openM('groupManagerModal');
-  }
-
-  function renderGroupManagerLists() {
-      const q = document.getElementById('gmSearch').value.toLowerCase();
-      const inGroup = dbAdmin.employees.filter(e => e.group === currentGroupManager);
-      const outGroup = dbAdmin.employees.filter(e => e.group !== currentGroupManager && e.name.toLowerCase().includes(q));
-
-      document.getElementById('gmInCount').innerText = inGroup.length;
-      document.getElementById('gmInGroup').innerHTML = inGroup.map(e => `
-          <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
-              <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:700;">ID: ${e.id}</span></div>
-              <div style="display:flex; gap:8px;">
-                  <button onclick="openMatrixModal('${e.name}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">📋 Karta HR</button>
-                  ${currentGroupManager !== 'Magazyn osoby stałe' ? `<button onclick="moveEmpGroup('${e.name}', 'Magazyn osoby stałe')" style="background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuć</button>` : ''}
-              </div>
-          </div>
-      `).join('');
-
-      document.getElementById('gmOutGroup').innerHTML = outGroup.map(e => `
-          <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
-              <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:600;">Z: ${e.group}</span></div>
-              <button onclick="moveEmpGroup('${e.name}', '${currentGroupManager}')" style="background:linear-gradient(135deg, #34C759, #28a745); color:white; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s; box-shadow:0 4px 10px rgba(52,199,89,0.2);">➕ Dodaj</button>
-          </div>
-      `).join('');
-  }
-
-  async function moveEmpGroup(empName, newGroup) {
-      const emp = dbAdmin.employees.find(e => e.name === empName);
-      if(emp) {
-          emp.group = newGroup;
-          renderGroupManagerLists(); renderMatrix(); 
-          await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
-      }
-  }
-
-  function filterGm() { renderGroupManagerLists(); }
-
-  // KARTOTEKA HR
-  async function openMatrixModal(empName) {
-      const emp = dbAdmin.employees.find(e => e.name === empName);
-      document.getElementById('matrixTitle').innerText = empName;
-      document.getElementById('matrixSubtitle').innerText = `ID: ${emp.id} | Grupa: ${emp.group}`;
-      
-      document.getElementById('hrStatM').innerText = '...';
-      document.getElementById('hrStatQ').innerText = '...';
-      document.getElementById('hrStatY').innerText = '...';
-      document.getElementById('hrStatNoShow').innerText = '...';
-      
-      document.getElementById('matrixGrid').innerHTML = dbAdmin.activityNames.map(act => {
-          const v = dbAdmin.ratingsMap[empName+"_"+act] || 2; 
-          return `
-          <div style="background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
-              <strong style="font-size:14px; display:block; margin-bottom:12px; color:var(--text-main);">${act}</strong>
-              <div style="display:flex; gap:6px;">
-                  ${[1,2,3,4,5].map(x => `
-                      <button onclick="svR('${empName}','${act}',${x},this)" 
-                              style="flex:1; padding:8px 0; border:none; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; transition:0.2s; 
-                                     background:${v===x ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)'}; 
-                                     color:${v===x ? 'white' : 'var(--text-muted)'};
-                                     box-shadow:${v===x ? '0 4px 10px rgba(10,132,255,0.3)' : 'none'};">${x}</button>
-                  `).join('')}
-              </div>
-          </div>`;
-      }).join('');
-      
-      openM('matrixModal');
-      
-      const res = await apiCall('/admin/employee/stats', 'POST', { username: empName });
-      if(res && res.ok) {
-          const sumM = (res.stats.miesiac['Chory 🤒'] || 0) + (res.stats.miesiac['Urlop 🌴'] || 0) + (res.stats.miesiac['Wolne 🏠'] || 0);
-          const sumQ = (res.stats.kwartal['Chory 🤒'] || 0) + (res.stats.kwartal['Urlop 🌴'] || 0) + (res.stats.kwartal['Wolne 🏠'] || 0);
-          const sumY = (res.stats.rok['Chory 🤒'] || 0) + (res.stats.rok['Urlop 🌴'] || 0) + (res.stats.rok['Wolne 🏠'] || 0);
-          const noShowY = res.stats.rok['No Show ❌'] || 0;
-          
-          document.getElementById('hrStatM').innerText = sumM;
-          document.getElementById('hrStatQ').innerText = sumQ;
-          document.getElementById('hrStatY').innerText = sumY;
-          document.getElementById('hrStatNoShow').innerText = noShowY;
-      }
-  }
-  
-  async function svR(u, a, v, btn) { 
-      btn.parentElement.querySelectorAll('button').forEach(b => { b.style.background = 'rgba(0,0,0,0.05)'; b.style.color = 'var(--text-muted)'; b.style.boxShadow = 'none'; }); 
-      btn.style.background = 'var(--ios-blue)'; btn.style.color = 'white'; btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
-      await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); 
-      dbAdmin.ratingsMap[u+"_"+a] = v; 
-  }
-
-  /* ==============================================================
-     PLANNER TYGODNIOWY (PĘDZEL I TABELA)
+     5. PLANNER TYGODNIOWY (PĘDZEL I TABELA)
      ============================================================== */
   function toggleBrush() { 
       isBrush = !isBrush; 
@@ -1215,7 +1129,6 @@
       if (window.innerWidth > 768) return; 
       document.getElementById('mobileAssignName').innerText = empName;
       
-      // Zabezpieczenie filtrów - pokazuj tylko akcje z aktywnego widoku
       const selectedGroup = document.getElementById('dailyGroupFilter').value;
       let allowedActs = dbAdmin.plannerActivities;
       
@@ -1261,45 +1174,37 @@
     const dObj = new Date(rawDate);
     const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
     
-    // FILTROWANIE Z DROPDOWNU!
+    // FILTROWANIE GRUP!
     const selectedGroup = document.getElementById('dailyGroupFilter').value;
     
     let dailyData = {}; 
     let assignedSet = new Set();
     
-    // Filtrowanie aktywności - pokaż wszystkie lub tylko z przypisanej grupy
     let colsToRender = dbAdmin.plannerActivities;
     if (selectedGroup !== "ALL") {
         const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
         if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
-            // Skrzyżuj dozwolone z grupy z listą dozwolonych w plenerze
             colsToRender = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
-            // Zawsze upewnijmy się, że wolne/urlopy są widoczne jeśli chcemy, albo zostawiamy tylko czystą pracę.
         }
     }
     
     colsToRender.forEach(a => dailyData[a] = []); 
     
     dbAdmin.employees.forEach(empObj => {
-      // Filtr pracowników - czy należą do wybranej grupy?
-      if (selectedGroup !== "ALL" && empObj.group !== selectedGroup) return;
-
+      // Wyświetl całą resztę zespołu, ale pomiń jeśli filtr wyklucza
+      // Jeśli pracownik MA ZADANIE, które nie jest z jego grupy, i tak dodaj do asignedSet!
       const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
       if(valStr && valStr.split("||")[0] && valStr.split("||")[0] !== "Wyczyść") { 
           const act = valStr.split("||")[0]; 
-          // Jeśli pracownik z tej grupy ma wpisane zadanie, które akurat jest widoczne w kolumnach
           if(dailyData[act] !== undefined) { 
               dailyData[act].push(empObj); 
-              assignedSet.add(empObj.name); 
-          } else {
-              // Jeśli ma zadanie Z INNEJ grupy (nie renderowane), też musimy go oznaczyć jako zajęty
-              assignedSet.add(empObj.name);
           }
+          assignedSet.add(empObj.name); 
       }
     });
     
-    // Lista dostępnych - tylko z wybranej grupy!
-    const avail = dbAdmin.employees.filter(e => !assignedSet.has(e.name) && (selectedGroup === "ALL" || e.group === selectedGroup)); 
+    // Lista dostępnych (Pokazuje cały magazyn, Admin może wziąć każdego do Hydr)
+    const avail = dbAdmin.employees.filter(e => !assignedSet.has(e.name)); 
     document.getElementById('availCount').innerText = avail.length;
     document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
         const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`];
@@ -1313,7 +1218,7 @@
             </div>`; 
     }).join('');
     
-    // Generowanie Kolumn Aktywności
+    // Kolumny
     document.getElementById('dailyGrid').innerHTML = colsToRender.map(act => {
       const col = getTileColor(act);
       const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
@@ -1353,16 +1258,12 @@
     }).join('');
   }
 
-  // SUGESTIE AI
   function openSuggestions(act) {
       const dObj = new Date(document.getElementById('dailyDate').value);
       const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-      const selectedGroup = document.getElementById('dailyGroupFilter').value;
-
+      
       let availableEmps = [];
       dbAdmin.employees.forEach(e => {
-          if (selectedGroup !== "ALL" && e.group !== selectedGroup) return; // Filtr
-          
           const valStr = dbAdmin.planMap[`${e.name}_${dStr}`];
           const currentAct = valStr ? valStr.split("||")[0] : "";
           
@@ -1371,7 +1272,6 @@
               availableEmps.push({ name: e.name, rating: rating, currentAct: currentAct });
           }
       });
-
       availableEmps.sort((a, b) => b.rating - a.rating);
 
       let html = availableEmps.map(e => {
@@ -1389,7 +1289,6 @@
               </div>
           </div>`;
       }).join('');
-
       document.getElementById('sugTitle').innerText = `Najlepsi do: ${act}`;
       document.getElementById('sugList').innerHTML = html;
       openM('suggestionModal');
@@ -1438,21 +1337,153 @@
   }
 
   /* ==============================================================
-     7. USTAWIENIA CMS (LIVE UPDATE)
+     7. ZAKŁADKA GRUPY I KARTOTEKI (Z MATRYCĄ 1-5)
+     ============================================================== */
+  function renderMatrix() { 
+      const container = document.getElementById('groupBubbles');
+      container.innerHTML = dbAdmin.groups.map(g => {
+          const emps = dbAdmin.employees.filter(e => e.group === g.name);
+          const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:12px; font-weight:800; background:rgba(255,149,0,0.1); padding:4px 8px; border-radius:8px;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:8px;">🔒 Sztywna</span>`;
+          return `
+          <div class="group-bubble" onclick="openGroupManager('${g.name}')">
+              <h3 style="margin-top:0; font-size:18px; color:var(--text-main);">${g.name}</h3>
+              <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:15px 0;">${emps.length} <span style="font-size:14px; color:var(--text-muted);">os.</span></div>
+              ${isFlex}
+          </div>`;
+      }).join('');
+  }
+
+  function openGroupManager(gName) {
+      currentGroupManager = gName;
+      const groupInfo = dbAdmin.groups.find(g => g.name === gName);
+      document.getElementById('gmTitle').innerText = gName;
+      document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type} | Reguła 20-go dnia: ${groupInfo.is_flexible === 1 ? 'WYŁĄCZONA' : 'WŁĄCZONA'}`;
+      document.getElementById('gmSearch').value = '';
+      renderGroupManagerLists();
+      openM('groupManagerModal');
+  }
+
+  function renderGroupManagerLists() {
+      const q = document.getElementById('gmSearch').value.toLowerCase();
+      const inGroup = dbAdmin.employees.filter(e => e.group === currentGroupManager);
+      const outGroup = dbAdmin.employees.filter(e => e.group !== currentGroupManager && e.name.toLowerCase().includes(q));
+
+      document.getElementById('gmInCount').innerText = inGroup.length;
+      document.getElementById('gmInGroup').innerHTML = inGroup.map(e => `
+          <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
+              <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:700;">ID: ${e.id}</span></div>
+              <div style="display:flex; gap:8px;">
+                  <button onclick="openMatrixModal('${e.name}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">📋 Karta HR</button>
+                  ${currentGroupManager !== 'Magazyn osoby stałe' ? `<button onclick="moveEmpGroup('${e.name}', 'Magazyn osoby stałe')" style="background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuć</button>` : ''}
+              </div>
+          </div>
+      `).join('');
+
+      document.getElementById('gmOutGroup').innerHTML = outGroup.map(e => `
+          <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
+              <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:600;">Z: ${e.group}</span></div>
+              <button onclick="moveEmpGroup('${e.name}', '${currentGroupManager}')" style="background:linear-gradient(135deg, #34C759, #28a745); color:white; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s; box-shadow:0 4px 10px rgba(52,199,89,0.2);">➕ Dodaj</button>
+          </div>
+      `).join('');
+  }
+
+  async function moveEmpGroup(empName, newGroup) {
+      const emp = dbAdmin.employees.find(e => e.name === empName);
+      if(emp) {
+          emp.group = newGroup;
+          renderGroupManagerLists(); renderMatrix(); 
+          await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
+      }
+  }
+
+  function filterGm() { renderGroupManagerLists(); }
+
+  // KARTOTEKA HR
+  async function openMatrixModal(empName) {
+      const emp = dbAdmin.employees.find(e => e.name === empName);
+      document.getElementById('matrixTitle').innerText = empName;
+      document.getElementById('matrixSubtitle').innerText = `ID: ${emp.id} | Grupa: ${emp.group}`;
+      
+      document.getElementById('hrStatM').innerText = '...';
+      document.getElementById('hrStatQ').innerText = '...';
+      document.getElementById('hrStatY').innerText = '...';
+      document.getElementById('hrStatNoShow').innerText = '...';
+      
+      document.getElementById('matrixGrid').innerHTML = dbAdmin.activityNames.map(act => {
+          const v = dbAdmin.ratingsMap[empName+"_"+act] || 2; 
+          return `
+          <div style="background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
+              <strong style="font-size:14px; display:block; margin-bottom:12px; color:var(--text-main);">${act}</strong>
+              <div style="display:flex; gap:6px;">
+                  ${[1,2,3,4,5].map(x => `
+                      <button onclick="svR('${empName}','${act}',${x},this)" 
+                              style="flex:1; padding:8px 0; border:none; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; transition:0.2s; 
+                                     background:${v===x ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)'}; 
+                                     color:${v===x ? 'white' : 'var(--text-muted)'};
+                                     box-shadow:${v===x ? '0 4px 10px rgba(10,132,255,0.3)' : 'none'};">${x}</button>
+                  `).join('')}
+              </div>
+          </div>`;
+      }).join('');
+      
+      openM('matrixModal');
+      
+      const res = await apiCall('/admin/employee/stats', 'POST', { username: empName });
+      if(res && res.ok) {
+          const sumM = (res.stats.miesiac['Chory 🤒'] || 0) + (res.stats.miesiac['Urlop 🌴'] || 0) + (res.stats.miesiac['Wolne 🏠'] || 0);
+          const sumQ = (res.stats.kwartal['Chory 🤒'] || 0) + (res.stats.kwartal['Urlop 🌴'] || 0) + (res.stats.kwartal['Wolne 🏠'] || 0);
+          const sumY = (res.stats.rok['Chory 🤒'] || 0) + (res.stats.rok['Urlop 🌴'] || 0) + (res.stats.rok['Wolne 🏠'] || 0);
+          const noShowY = res.stats.rok['No Show ❌'] || 0;
+          
+          document.getElementById('hrStatM').innerText = sumM;
+          document.getElementById('hrStatQ').innerText = sumQ;
+          document.getElementById('hrStatY').innerText = sumY;
+          document.getElementById('hrStatNoShow').innerText = noShowY;
+      }
+  }
+  
+  async function svR(u, a, v, btn) { 
+      btn.parentElement.querySelectorAll('button').forEach(b => { b.style.background = 'rgba(0,0,0,0.05)'; b.style.color = 'var(--text-muted)'; b.style.boxShadow = 'none'; }); 
+      btn.style.background = 'var(--ios-blue)'; btn.style.color = 'white'; btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
+      await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); 
+      dbAdmin.ratingsMap[u+"_"+a] = v; 
+  }
+
+  /* ==============================================================
+     8. USTAWIENIA CMS (Z KULODPORNYM RENDEROWANIEM TRY-CATCH)
      ============================================================== */
   function renderCMS() {
     try {
         const bS = "background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 16px; border-radius:10px; font-weight:700; cursor:pointer; transition:0.2s; font-size:12px;";
         
         // PRACOWNICY
-        document.getElementById('cmsEmpList').innerHTML = dbAdmin.employees.map(e => `
+        document.getElementById('cmsEmpList').innerHTML = dbAdmin.employees.map(e => {
+            const isSuper = e.name === dbAdmin.rootAdmin;
+            let roleSelect = '';
+            
+            if (isSuper) {
+                roleSelect = `<span style="font-size:10px; font-weight:800; color:#FF3B30; background:rgba(255,59,48,0.1); padding:4px 8px; border-radius:6px;">SUPER ADMIN (KONTO GŁÓWNE)</span>`;
+            } else {
+                roleSelect = `
+                <select onchange="liveEditUserRole('${e.name}', this.value)" style="padding:6px; font-size:11px; font-weight:700; border-radius:8px; border:1px solid rgba(0,0,0,0.1); outline:none;">
+                    <option value="EMPLOYEE" ${e.role==='EMPLOYEE'?'selected':''}>Pracownik</option>
+                    <option value="ADMIN" ${e.role==='ADMIN'?'selected':''}>Administrator</option>
+                </select>`;
+            }
+
+            return `
             <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
-                <div><b style="font-size:15px;">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group}</span></div> 
+                <div>
+                    <b style="font-size:15px;">${e.name}</b><br>
+                    <span style="font-size:11px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group}</span>
+                    <div style="margin-top:6px;">${roleSelect}</div>
+                </div> 
                 <div style="display:flex; gap:8px;">
                     <button onclick="rstPin('${e.name}')" style="background:rgba(255,149,0,0.1); color:#FF9500; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; font-size:12px;">Reset PIN</button>
-                    <button onclick="delSet('employee','${e.name}')" style="${bS}">Usuń</button>
+                    ${!isSuper ? `<button onclick="delSet('employee','${e.name}')" style="${bS}">Usuń</button>` : ''}
                 </div>
-            </div>`).join('');
+            </div>`;
+        }).join('');
             
         // GRUPY (LIVE EDYCJA FLEX + ZAPIS ZADAŃ)
         document.getElementById('cmsGroupList').innerHTML = dbAdmin.groups.map(g => {
@@ -1511,6 +1542,12 @@
             
     } catch (err) { console.error("Błąd CMS:", err); }
   }
+
+  // LIVE EDYCJA ROLI PRACOWNIKA
+  async function liveEditUserRole(empName, newRole) {
+      await apiCall('/admin/settings', 'POST', { action: 'EDIT_USER_ROLE', value: empName, role: newRole });
+      showT("✅ Zmieniono uprawnienia!");
+  }
   
   // LIVE UPDATE: Zmiana koloru istniejącej aktywności
   async function liveEditActivityColor(actName, newColor) {
@@ -1524,6 +1561,20 @@
       const flexVal = isChecked ? 1 : 0;
       await apiCall('/admin/settings', 'POST', { action: 'EDIT_GROUP_FLEX', value: grpName, is_flexible: flexVal });
       showT("✅ Zmieniono regułę grupy!");
+  }
+
+  async function changeRootAdmin() {
+      const login = document.getElementById('sRootLogin').value;
+      const pass = document.getElementById('sRootPass').value;
+      if(!login && !pass) return showT("⚠️ Wypełnij chociaż jedno pole!");
+      
+      const res = await apiCall('/admin/settings', 'POST', { action: 'EDIT_ROOT_ADMIN', login: login, pass: pass });
+      if(res && res.ok) {
+          showT("✅ Konto Główne zaktualizowane!");
+          document.getElementById('sRootLogin').value = '';
+          document.getElementById('sRootPass').value = '';
+          loadAdminData();
+      }
   }
 
   async function saveSet(t, id) { 
@@ -1563,9 +1614,17 @@
 
   async function saveEmp() { 
       const n = document.getElementById('sEmp').value;
+      const r = document.getElementById('sEmpRole').value;
       if(n) { 
           const res = await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'employee', value: n, group: "Magazyn osoby stałe" }); 
-          if(res && res.ok) { document.getElementById('sEmp').value = ''; showT("✅ Dodano pracownika!"); loadAdminData(); } 
+          if(res && res.ok) { 
+              if(r === 'ADMIN') {
+                  await apiCall('/admin/settings', 'POST', { action: 'EDIT_USER_ROLE', value: n, role: 'ADMIN' });
+              }
+              document.getElementById('sEmp').value = ''; 
+              showT("✅ Dodano pracownika!"); 
+              loadAdminData(); 
+          } 
           else { showT("❌ " + res.msg); }
       } 
   }
@@ -1582,13 +1641,5 @@
           await apiCall('/auth/change-pin', 'POST', { name: n, oldPin: "", newPin: "1111", isAdmin: true }); 
           showT("PIN zresetowany do 1111"); 
       } 
-  }
-  
-  async function changeAdminPass() {
-      const p = document.getElementById('sAdP').value; 
-      if(p) {
-          await apiCall('/admin/settings', 'POST', { action: 'EDIT_ADMIN_PASS', value: p });
-          document.getElementById('sAdP').value = ''; showT("✅ Hasło Managera zaktualizowane!");
-      }
   }
 </script>
