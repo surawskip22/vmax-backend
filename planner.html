@@ -709,12 +709,12 @@
     d.setMonth(d.getMonth() + empMonthOffset);
     const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
     document.getElementById('empMonthTitle').innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+
     document.getElementById('empGrid').innerHTML = '<p style="font-weight:600; color:gray; text-align:center; width:100%;">Ładowanie kalendarza...</p>';
 
     const data = await apiCall('/emp/dashboard', 'POST', { name: currEmp, year: d.getFullYear(), month: d.getMonth() });
     if(!data) return;
     
-    // Zapisujemy kolory do obiektu globalnego dla funkcji pracowniczej
     dbAdmin.activityColors = data.activityColors || {};
 
     const acts = ["Wyczyść", ...data.activities, "Urlop 🌴", "Chory 🤒", "Wolne 🏠"];
@@ -783,6 +783,7 @@
       }
   }
   
+  // TĄ FUNKCJĘ NAPRAWIŁEM!
   function showAdminView(id) { 
       document.querySelectorAll('.admin-view').forEach(v => v.classList.remove('active')); 
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); 
@@ -796,6 +797,7 @@
       if(id === 'vPlanner') renderPlanner();
       if(id === 'vMatrix') renderMatrix();
       if(id === 'vAlerts') renderAlertsGroupView();
+      if(id === 'vSettings') renderCMS(); // <--- TU BYŁ BŁĄD, TERAZ RENDERUJE SIĘ POPRAWNIE!
   }
 
   async function loadAdminData() {
@@ -1143,7 +1145,6 @@
       for(let d=1; d<=days; d++) {
         let isW = new Date(2026,m,d).getDay() % 6 === 0; 
         
-        // PANCERNY KLUCZ
         const dateStr = formatDateKey(2026, m, d);
         const key = `${emp}_${dateStr}`;
         const valStr = dbAdmin.planMap[key] || "||"; 
@@ -1512,10 +1513,8 @@
                 ? `<span style="color:#FF9500; font-size:11px; font-weight:800; background:rgba(255,149,0,0.1); padding:2px 6px; border-radius:6px;">⚡ Elastyczna</span>` 
                 : `<span style="color:gray; font-size:11px; font-weight:700; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:6px;">🔒 Sztywna</span>`;
             
-            // Zabezpieczenie spacji w klasie CSS
             const safeName = g.name.replace(/\s+/g, '-');
             
-            // Renderowanie checkboxów dla dozwolonych aktywności
             let actsHtml = dbAdmin.activityNames.map(a => {
                 let isChecked = (g.activities && g.activities.includes(a)) ? 'checked' : '';
                 return `
@@ -1625,7 +1624,7 @@
               showT("✅ Dodano pracownika!");
               loadAdminData(); 
           } else {
-              showT("❌ " + res.msg); // np. "Pracownik już istnieje"
+              showT("❌ " + res.msg); 
           }
       } 
   }
@@ -1653,5 +1652,3 @@
       }
   }
 </script>
-</body>
-</html>
