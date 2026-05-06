@@ -268,7 +268,20 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     activityColors["Urlop 🌴"] = "#FFCC00"
     activityColors["Wolne 🏠"] = "#8E8E93"
     activityColors["No Show ❌"] = "#8B0000"
-    activities = [a.name for a in db_acts]
+    
+    # FIX: Odczytujemy dozwolone aktywności dla grupy pracownika!
+    user_db = db.query(User).filter(User.name == name).first()
+    allowed_acts = []
+    if user_db:
+        group_db = db.query(UserGroup).filter(UserGroup.name == user_db.group_name).first()
+        if group_db and group_db.allowed_activities:
+            allowed_acts = json.loads(group_db.allowed_activities)
+            
+    # Jeśli grupa ma zdefiniowane aktywności, pokazujemy tylko je. W przeciwnym razie wszystkie (dla starych grup)
+    if allowed_acts:
+        activities = [a.name for a in db_acts if a.name in allowed_acts]
+    else:
+        activities = [a.name for a in db_acts]
 
     plan_map = {s.date_str: s for s in schedules}
     req_map = {r.date_str: r for r in requests}
@@ -574,17 +587,10 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 if not grp:
                     db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
         
-        # NOWOŚĆ: Edycja samej reguły (TOGGLE)
-        elif action == "TOGGLE_GROUP_FLEX":
+        elif action == "UPDATE_GROUP_ACTS":
             grp = db.query(UserGroup).filter(UserGroup.name == val).first()
             if grp:
-                grp.is_flexible = 1 if grp.is_flexible == 0 else 0
-
-        # NOWOŚĆ: Edycja koloru (UPDATE)
-        elif action == "UPDATE_ACT_COLOR":
-            act = db.query(Activity).filter(Activity.name == val).first()
-            if act:
-                act.color = req.get("color", "#0A84FF")
+                grp.allowed_activities = json.dumps(req.get("activities", []))
 
         elif action == "DELETE":
             if t == "employee": db.query(User).filter(User.name == val).delete()
@@ -593,6 +599,14 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 db.query(Activity).filter(Activity.name == val).delete()
                 db.query(Competence).filter(Competence.activity == val).delete()
                 db.query(DailyCapacity).filter(DailyCapacity.activity == val).delete()
+                
+                # FIX: Kaskadowe usuwanie aktywności z JSON-ów w Grupach!
+                for g in db.query(UserGroup).all():
+                    acts = json.loads(g.allowed_activities) if g.allowed_activities else []
+                    if val in acts:
+                        acts.remove(val)
+                        g.allowed_activities = json.dumps(acts)
+
             elif t == "group":
                 db.query(UserGroup).filter(UserGroup.name == val).delete()
                 db.execute(text(f"UPDATE users SET group_name = 'Magazyn osoby stałe' WHERE group_name = '{val}'"))
