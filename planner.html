@@ -521,8 +521,7 @@
   </div>
 
   <div id="toast" class="toast">Akcja zakończona!</div>
-
-  <script>
+<script>
   // ==========================================
   // 1. KONFIGURACJA API I NARZĘDZIA POMOCNICZE
   // ==========================================
@@ -710,12 +709,12 @@
     d.setMonth(d.getMonth() + empMonthOffset);
     const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
     document.getElementById('empMonthTitle').innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-
     document.getElementById('empGrid').innerHTML = '<p style="font-weight:600; color:gray; text-align:center; width:100%;">Ładowanie kalendarza...</p>';
 
     const data = await apiCall('/emp/dashboard', 'POST', { name: currEmp, year: d.getFullYear(), month: d.getMonth() });
     if(!data) return;
     
+    // Zapisujemy kolory do obiektu globalnego dla funkcji pracowniczej
     dbAdmin.activityColors = data.activityColors || {};
 
     const acts = ["Wyczyść", ...data.activities, "Urlop 🌴", "Chory 🤒", "Wolne 🏠"];
@@ -844,7 +843,6 @@
           return;
       }
 
-      // Grupowanie alertów po grupach pracowniczych
       let groupedAlerts = {};
       dbAdmin.alerts.forEach(a => {
           let g = getEmpGroup(a.name);
@@ -1513,14 +1511,37 @@
             const isFlex = g.is_flexible === 1 
                 ? `<span style="color:#FF9500; font-size:11px; font-weight:800; background:rgba(255,149,0,0.1); padding:2px 6px; border-radius:6px;">⚡ Elastyczna</span>` 
                 : `<span style="color:gray; font-size:11px; font-weight:700; background:rgba(0,0,0,0.05); padding:2px 6px; border-radius:6px;">🔒 Sztywna</span>`;
+            
+            // Zabezpieczenie spacji w klasie CSS
+            const safeName = g.name.replace(/\s+/g, '-');
+            
+            // Renderowanie checkboxów dla dozwolonych aktywności
+            let actsHtml = dbAdmin.activityNames.map(a => {
+                let isChecked = (g.activities && g.activities.includes(a)) ? 'checked' : '';
+                return `
+                <label style="font-size:11px; display:inline-flex; align-items:center; gap:4px; background:rgba(0,0,0,0.03); padding:4px 8px; border-radius:6px; cursor:pointer; border:1px solid rgba(0,0,0,0.05);">
+                    <input type="checkbox" class="act-chk-${safeName}" value="${a}" ${isChecked} style="width:14px; height:14px; margin:0; cursor:pointer;"> ${a}
+                </label>`;
+            }).join('');
+
             return `
-            <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
-                <div>
-                    <b style="font-size:15px;">${g.name}</b><br>
-                    <span style="font-size:11px; color:var(--ios-blue); font-weight:800; margin-right:10px;">${g.type}</span>
-                    ${isFlex}
-                </div> 
-                <button onclick="delSet('group','${g.name}')" style="${bS}">Usuń</button>
+            <div style="padding:15px; border-bottom:1px solid rgba(0,0,0,0.05);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div>
+                        <b style="font-size:15px;">${g.name}</b><br>
+                        <span style="font-size:11px; color:var(--ios-blue); font-weight:800; margin-right:10px;">${g.type}</span>
+                        ${isFlex}
+                    </div> 
+                    <button onclick="delSet('group','${g.name}')" style="${bS}">Usuń</button>
+                </div>
+                
+                <div style="background:rgba(0,0,0,0.02); padding:10px; border-radius:12px; margin-top:10px;">
+                    <div style="font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:8px; text-transform:uppercase;">Dozwolone aktywności:</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;">
+                        ${actsHtml || '<span style="font-size:11px; color:gray;">Brak aktywności w systemie</span>'}
+                    </div>
+                    <button onclick="saveGroupActs('${g.name}', '${safeName}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:8px 16px; border-radius:10px; font-weight:800; cursor:pointer; font-size:12px; transition:0.2s;">💾 Zapisz uprawnienia</button>
+                </div>
             </div>`
         }).join('');
 
@@ -1579,6 +1600,19 @@
           document.getElementById('sGroup').value = ''; 
           document.getElementById('sGroupFlex').checked = false;
           loadAdminData(); 
+      }
+  }
+
+  // Zapis dozwolonych aktywności dla danej grupy
+  async function saveGroupActs(gName, safeName) {
+      const chks = document.querySelectorAll(`.act-chk-${safeName}:checked`);
+      const selectedActs = Array.from(chks).map(c => c.value);
+      
+      showT("⏳ Zapisywanie uprawnień...");
+      const res = await apiCall('/admin/settings', 'POST', { action: 'UPDATE_GROUP_ACTS', type: 'group', value: gName, activities: selectedActs });
+      if(res && res.ok) {
+          showT("✅ Zapisano uprawnienia dla: " + gName);
+          loadAdminData();
       }
   }
 
