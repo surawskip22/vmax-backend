@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>WMS Planner Pro v21 - Enterprise Ultimate</title>
+  <title>WMS Planner Pro v22 - Enterprise Tier 1</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap');
     
@@ -26,12 +26,12 @@
     .app-screen.active { display: flex; animation: fadeUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
-    input, select { 
+    input, select, textarea { 
         background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0,0,0,0.1); padding: 14px 16px; 
         border-radius: 14px; font-size: 15px; outline: none; font-family: 'Inter', sans-serif; 
         transition: all 0.3s; box-sizing: border-box; backdrop-filter: blur(10px);
     }
-    input:focus, select:focus { border-color: var(--ios-blue); background: #fff; box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.2); transform: translateY(-1px); }
+    input:focus, select:focus, textarea:focus { border-color: var(--ios-blue); background: #fff; box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.2); transform: translateY(-1px); }
     
     .btn-main { 
         background: linear-gradient(135deg, var(--ios-blue), #005ecb); color: white; border: none; 
@@ -40,12 +40,11 @@
     }
     .btn-main:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(10, 132, 255, 0.4); }
     
-    /* ZWIĘKSZONE KARTY W CMS */
     .glass-card { 
         background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
         border-radius: 32px; padding: 30px; text-align: center; 
         box-shadow: 0 20px 50px rgba(0,0,0,0.05), inset 0 0 0 1px rgba(255,255,255,0.8); transition: all 0.4s; width: 100%; box-sizing: border-box; 
-        min-width: 400px; /* <--- ODDYCHANIE KART CMS */
+        min-width: 400px;
     }
 
     .landing-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 20px; }
@@ -70,22 +69,18 @@
     .admin-view { flex: 1; display: none; flex-direction: column; overflow: hidden; }
     .admin-view.active { display: flex; animation: fadeUp 0.4s ease; }
 
-    /* PLANNER TYGODNIOWY CSS */
     .tools { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); padding: 15px 25px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; border-bottom: 1px solid var(--border); z-index: 50; justify-content: center; }
     .planner-scroll { flex: 1; overflow: auto; position: relative; -webkit-overflow-scrolling: touch; }
     table { border-collapse: separate; border-spacing: 0; background: transparent; }
     th, td { border: 0.5px solid rgba(0,0,0,0.03); min-width: var(--cell-w); height: 85px; text-align: center; position: relative; transition: background 0.2s; }
     
-    /* FIX: Obcięcie długich imion na PC i telefonach */
     .sticky-col { position: sticky; left: 0; z-index: 10; min-width: 150px; max-width: 220px; background: rgba(255,255,255,0.98); backdrop-filter: blur(10px); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 15px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 13px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); overflow: hidden; }
     .sticky-col span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 100%; }
-    
     .sticky-row { position: sticky; top: 0; z-index: 20; background: rgba(250,250,252,0.95); backdrop-filter: blur(10px); font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.05); color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
     .weekend-col { background: rgba(0,0,0,0.02) !important; }
     .tile { width: 90%; height: 80%; border-radius: 12px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; padding: 6px; box-sizing: border-box; line-height: 1.2; overflow: hidden; }
     .tile:hover { transform: scale(1.05) translateY(-2px); filter: brightness(1.05); }
 
-    /* DASHBOARD PRACOWNIKA - PRAWDZIWY KALENDARZ CSS */
     .month-nav { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); padding: 15px 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.5); flex-wrap: wrap; gap: 10px;}
     .nav-arrow { background: rgba(0,0,0,0.04); border: none; padding: 12px 20px; border-radius: 12px; font-weight: 700; cursor: pointer; color: var(--ios-blue); transition: 0.2s; }
     .nav-arrow:hover { background: rgba(10,132,255,0.1); }
@@ -101,19 +96,25 @@
 
     .alert-card { background: rgba(255,255,255,0.9); border-radius: 20px; padding: 20px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border-left: 6px solid #FF9500; transition: 0.3s; }
 
-    /* DZIENNY PLANNER - KANBAN (FIX PC STRETCHING) */
+    /* DZIENNY PLANNER - ZMIANA NA WRAP (Obok siebie i pod sobą) */
     .kanban-col { min-width: 280px; max-width: 320px; flex: 0 0 auto; background: rgba(255,255,255,0.7); border-radius: 16px; padding: 15px; display: flex; flex-direction: column; transition: 0.2s; box-shadow: 0 5px 20px rgba(0,0,0,0.03); }
     .kanban-col.dragover { background: rgba(10,132,255,0.1); border: 2px dashed var(--ios-blue); }
+    
+    /* Pula pracowników z lewej */
     #dailyContainer > .kanban-col:first-child { max-width: 300px; border-right: 1px solid var(--border); border-radius: 0; background: rgba(255,255,255,0.8); }
 
     .emp-card { background: white; padding: 12px 15px; border-radius: 12px; cursor: grab; box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; transition: 0.2s; margin-bottom: 10px;}
     .emp-card:hover { border-color: var(--ios-blue); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(10,132,255,0.15);}
 
-    /* ZARZĄDZANIE GRUPAMI - BAŃKI */
+    /* ZESPÓŁ / HR - BAŃKI I KARTY */
     .group-bubbles-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 0; }
     .group-bubble { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); border-radius: 24px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.04); cursor: pointer; border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
     .group-bubble:hover { border-color: var(--ios-blue); transform: translateY(-5px) scale(1.02); box-shadow: 0 20px 40px rgba(10,132,255,0.15); }
     
+    /* Kafelki Pracowników (Karty HR) */
+    .hr-card-mini { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); cursor: pointer; transition: 0.3s; border: 1px solid rgba(0,0,0,0.05); text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .hr-card-mini:hover { border-color: var(--ios-blue); transform: translateY(-5px); box-shadow: 0 10px 25px rgba(10,132,255,0.15); }
+
     /* MODALE I TOAST */
     .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(29, 29, 31, 0.9); backdrop-filter: blur(10px); color: white; padding: 16px 40px; border-radius: 30px; display: none; z-index: 9999; font-weight: 600; box-shadow: 0 15px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes slideUp { from { transform: translate(-50%, 20px); opacity:0; } to { transform: translate(-50%, 0); opacity:1; } }
@@ -126,7 +127,7 @@
     
     .cms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 25px; width: 100%; max-width: 1400px; margin: 0 auto; }
 
-    /* NOWA KARTA HR PREMIUM */
+    /* KARTA HR PREMIUM */
     .hr-stat-box { display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; padding: 20px 10px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); position: relative; overflow: hidden; }
     .hr-stat-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; }
     .hr-stat-box.box-m::before { background: #FF3B30; }
@@ -136,56 +137,42 @@
     .hr-stat-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px; }
     .hr-stat-num { font-size: 32px; font-weight: 800; display: block; margin-top: 5px; }
 
-    /* ========================================================
-       POTĘŻNE RWD (RESPONSYWNOŚĆ DLA ZEBRA I TELEFONÓW)
-       ======================================================== */
+    /* RESPONSIVE DLA ZEBRA / TELEFONÓW */
     @media (max-width: 768px) {
         .nav { justify-content: flex-start; padding: 10px; }
         .nav-btn { font-size: 13px; padding: 10px 16px; }
-        .glass-card { padding: 25px 20px; border-radius: 20px; min-width: 100%; } /* Odblokowanie szerokości na mobile */
+        .glass-card { padding: 25px 20px; border-radius: 20px; min-width: 100%; }
         .btn-main { padding: 14px 20px; font-size: 14px; width: 100%; }
         
         .tools { flex-direction: column; align-items: stretch; padding: 15px; gap: 8px; }
         .tools > * { width: 100% !important; margin-bottom: 0; }
         .tools .nav-arrow { width: auto !important; }
         
-        /* Dzienny Planner (Live) - REWOLUCJA PRZESTRZENI NA MOBILE */
         #dailyContainer { flex-direction: column !important; overflow-y: auto !important; }
-        
-        /* Wolni pracownicy - jako kompaktowy GRID */
         #dailyContainer > .kanban-col:first-child { 
             max-width: 100%; max-height: 25vh; border-right: none; border-bottom: 2px solid rgba(0,0,0,0.05); 
             margin-bottom: 10px; padding: 10px; overflow-y: auto; 
         }
-        #dailyAvailableList { 
-            display: grid !important; 
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important; 
-            gap: 8px !important; 
-        }
+        #dailyAvailableList { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important; gap: 8px !important; }
         #dailyGrid { flex-direction: column; padding: 10px; gap: 15px; }
         .kanban-col { max-width: 100%; min-width: 100%; padding: 10px; }
         
-        /* Zmniejszenie kafelków pracowników dla Zebry */
         .emp-card { padding: 8px 10px; border-radius: 8px; margin-bottom: 0 !important; display: flex; flex-direction: column; gap: 5px; text-align: center; }
         .emp-card b { font-size: 12px !important; }
         .emp-card span { font-size: 10px !important; display: block; }
-        .emp-card div { display: flex; flex-direction: column; align-items: center; width: 100%; }
 
-        /* Modale na telefonie */
         #groupManagerModal { width: 95vw !important; padding: 20px !important; }
         .gm-columns-wrapper { flex-direction: column; gap: 15px; }
         #groupManagerModal h3 { font-size: 20px !important; }
         
         .month-nav h2 { font-size: 18px !important; }
         
-        /* Kalendarz pracownika na mobile */
         .real-calendar { grid-template-columns: 20px repeat(7, 1fr); gap: 4px; }
         .day-row { height: 70px; padding: 4px; border-radius: 10px; }
         .day-row div { font-size: 10px !important; margin-bottom: 2px !important; padding: 2px !important; }
         .week-num { font-size: 9px; }
         .cal-header { font-size: 9px; }
         
-        /* Planner tygodniowy - Ultra mały na Zebra */
         .sticky-col { min-width: 90px; max-width: 100px; font-size: 10px; padding: 0 5px; gap: 4px; }
         .sticky-col span { white-space: normal; line-height: 1.1; }
         th, td { min-width: 50px; height: 50px; }
@@ -195,15 +182,14 @@
         .alert-card > div:last-child { width: 100%; display: flex; flex-direction: row; gap: 10px; }
         .alert-card button { flex: 1; }
         
-        /* Karta HR */
         #hrStatsGrid { grid-template-columns: repeat(2, 1fr) !important; }
-        
         .cms-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
   <datalist id="dlShifts"></datalist>
+  <datalist id="dlEmployees"></datalist>
 
   <!-- EKRAN STARTOWY -->
   <div id="screen-landing" class="app-screen active">
@@ -216,7 +202,7 @@
           <div class="glass-card landing-card" onclick="openScreen('screen-emp-login')">
             <div style="font-size: 60px; margin-bottom:15px;">🧑‍💻</div>
             <h2 style="margin:0; font-weight:800; color:#1d1d1f; font-size:22px;">Pracownik</h2>
-            <p style="color:var(--text-muted); font-size:13px; margin-top:5px;">Dostępność i grafik</p>
+            <p style="color:var(--text-muted); font-size:13px; margin-top:5px;">Dostępność i grafik (Admin & Pracownik)</p>
           </div>
           <div class="glass-card landing-card" onclick="openScreen('screen-admin-login')">
             <div style="font-size: 60px; margin-bottom:15px;">🛠️</div>
@@ -227,18 +213,17 @@
     </div>
   </div>
 
-  <!-- LOGOWANIE PRACOWNIK -->
+  <!-- LOGOWANIE PRACOWNIK / ADMIN WIDOK SWÓJ -->
   <div id="screen-emp-login" class="app-screen">
     <div style="padding: 15px 20px;">
         <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
     </div>
     <div class="login-wrapper">
         <div class="glass-card login-card" style="min-width: unset;">
-          <h2 style="margin-top:0; font-weight:800; font-size:24px;">Panel Pracownika</h2>
+          <h2 style="margin-top:0; font-weight:800; font-size:24px;">Twój Panel</h2>
           <p style="color:var(--text-muted); font-size:13px; margin-bottom:25px;">Zaloguj się, aby podać dyspozycję.</p>
-          <input list="dlEmployees" id="elName" placeholder="Wpisz lub wybierz nazwisko" style="width:100%; margin-bottom:15px;">
-          <datalist id="dlEmployees"></datalist>
-          <input type="password" id="elPin" placeholder="KOD PIN" pattern="[0-9]*" inputmode="numeric" style="width:100%; margin-bottom:25px; text-align:center; font-size:24px; letter-spacing:10px; font-weight:800;">
+          <input list="dlEmployees" id="elName" placeholder="Zacznij wpisywać nazwisko..." style="width:100%; margin-bottom:15px; font-weight:600;">
+          <input type="password" id="elPin" placeholder="KOD PIN / Hasło" style="width:100%; margin-bottom:25px; text-align:center; font-size:20px; letter-spacing:8px; font-weight:800;">
           <button class="btn-main" onclick="doEmpLogin()" style="width:100%;">Wejdź do systemu</button>
         </div>
     </div>
@@ -251,18 +236,13 @@
       <div class="nav-btn" onclick="switchEmpTab('eUstawienia')">⚙️ Ustawienia</div>
       <div class="nav-btn" onclick="openScreen('screen-landing')" style="color:#ff3b30;">Wyloguj</div>
     </div>
-    
     <div id="eGrafik" style="flex:1; overflow-y:auto; padding:20px; max-width:1200px; margin:0 auto; width:100%; box-sizing:border-box;">
-      
       <h2 id="empWelcomeTitle" style="font-weight:800; font-size:28px; margin-top:0; margin-bottom:20px; color:var(--text-main);">Witaj!</h2>
-
       <div class="month-nav">
         <button class="nav-arrow" onclick="changeEmpMonth(-1)">← Poprz.</button>
         <h2 style="margin:0; font-weight:800; font-size:20px;" id="empMonthTitle">Obecny Miesiąc</h2>
         <button class="nav-arrow" onclick="changeEmpMonth(1)">Nast. →</button>
       </div>
-      
-      <!-- PĘDZEL PRACOWNIKA -->
       <div style="margin-bottom:20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
           <div style="background:rgba(255,255,255,0.9); backdrop-filter:blur(10px); padding:10px; border-radius:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; box-shadow:0 10px 20px rgba(0,0,0,0.03); width: 100%; max-width: 600px;">
             <span style="font-size:18px;">🖌️</span>
@@ -274,22 +254,18 @@
              <button class="btn-main" style="background:linear-gradient(135deg, #34C759, #28a745); width: 100%; font-size:16px;" onclick="submitEmpChanges()">Zapisz i wyślij do grafiku 🚀</button>
           </div>
       </div>
-
       <!-- PRAWDZIWY KALENDARZ -->
-      <div class="real-calendar" id="empGrid">
-          <!-- Nagłówki dni tygodnia i grid ładowane z JS -->
-          <p style="font-weight:600; color:gray; text-align:center; width:100%; grid-column: 1/-1;">Ładowanie kalendarza...</p>
-      </div>
+      <div class="real-calendar" id="empGrid"><p style="font-weight:600; color:gray; text-align:center; width:100%; grid-column: 1/-1;">Ładowanie kalendarza...</p></div>
     </div>
 
     <div id="eUstawienia" style="display:none; flex:1; padding:20px; max-width:600px; margin:0 auto; width:100%;">
       <h2 style="font-weight:800; font-size:24px;">Bezpieczeństwo</h2>
       <div class="glass-card" style="text-align:left; padding:25px; min-width: unset;">
-        <label style="font-weight:600; color:var(--text-muted); font-size:13px; margin-bottom:8px; display:block;">Stary PIN</label>
+        <label style="font-weight:600; color:var(--text-muted); font-size:13px; margin-bottom:8px; display:block;">Stary PIN / Hasło</label>
         <input type="password" id="pOld" placeholder="****" style="width:100%; margin-bottom:15px; letter-spacing:5px;">
-        <label style="font-weight:600; color:var(--text-muted); font-size:13px; margin-bottom:8px; display:block;">Nowy PIN</label>
+        <label style="font-weight:600; color:var(--text-muted); font-size:13px; margin-bottom:8px; display:block;">Nowy PIN / Hasło</label>
         <input type="password" id="pNew" placeholder="****" style="width:100%; margin-bottom:25px; letter-spacing:5px;">
-        <button class="btn-main" style="width:100%;" onclick="empChangePin()">Zmień PIN</button>
+        <button class="btn-main" style="width:100%;" onclick="empChangePin()">Zmień hasło logowania</button>
       </div>
     </div>
   </div>
@@ -303,8 +279,8 @@
         <div class="glass-card login-card" style="min-width: unset;">
           <h2 style="margin-top:0; font-weight:800; font-size:24px;">Panel Managera</h2>
           <p style="color:var(--text-muted); font-size:13px; margin-bottom:25px;">Wymagana autoryzacja.</p>
-          <input type="text" id="lUser" placeholder="Login" style="width:100%; margin-bottom:15px; font-weight:600;">
-          <input type="password" id="lPass" placeholder="Hasło" style="width:100%; margin-bottom:25px;">
+          <input type="text" id="lUser" placeholder="Login / Nazwisko" style="width:100%; margin-bottom:15px; font-weight:600;">
+          <input type="password" id="lPass" placeholder="Hasło / PIN" style="width:100%; margin-bottom:25px;">
           <button class="btn-main" style="width:100%;" onclick="doAdminLogin()">Autoryzuj</button>
         </div>
     </div>
@@ -316,12 +292,12 @@
       <div class="nav-btn" onclick="showAdminView('vAlerts')">🔔 Wnioski <span class="badge" id="aBadge">0</span></div>
       <div class="nav-btn" onclick="showAdminView('vPlanner')">📅 Tygodniowy</div>
       <div class="nav-btn active" onclick="showAdminView('vDaily')">☀️ Dzienny (Live)</div>
-      <div class="nav-btn" onclick="showAdminView('vMatrix')">👥 Zespół</div>
+      <div class="nav-btn" onclick="showAdminView('vMatrix')">👥 Zespół / HR</div>
       <div class="nav-btn" onclick="showAdminView('vSettings')">⚙️ CMS</div>
       <div class="nav-btn" onclick="openScreen('screen-landing')" style="color:#ff3b30;">Wyloguj</div>
     </div>
 
-    <!-- ZARZĄDZANIE WNIOSKAMI (3-POZIOMOWE) -->
+    <!-- ZARZĄDZANIE WNIOSKAMI (3-POZIOMOWE + HR) -->
     <div id="vAlerts" class="admin-view" style="padding:20px; max-width:900px; margin:0 auto; width:100%; overflow-y:auto;">
       <h2 style="margin-top:0; font-weight:800; font-size:26px; display:flex; justify-content:space-between; align-items:center;">
           Wnioski i Zarządzanie
@@ -335,7 +311,7 @@
     <!-- PLANNER TYGODNIOWY -->
     <div id="vPlanner" class="admin-view">
       <div class="tools">
-        <input type="text" id="searchPlan" placeholder="🔍 Szukaj..." onkeyup="renderPlanner()">
+        <input type="text" id="searchPlan" placeholder="🔍 Szukaj pracownika..." onkeyup="renderPlanner()">
         <select id="aMonth" style="font-weight:600;" onchange="renderPlanner()">
           <option value="2">Marzec 2026</option>
           <option value="3" selected>Kwiecień 2026</option>
@@ -358,14 +334,12 @@
       </div>
     </div>
 
-    <!-- PLANNER DZIENNY (LIVE) -->
+    <!-- PLANNER DZIENNY (LIVE) Z GRIDEM -->
     <div id="vDaily" class="admin-view active">
       <div class="tools" style="justify-content:center; box-shadow:0 4px 20px rgba(0,0,0,0.03); gap:15px; flex-wrap:nowrap;">
         
-        <!-- NOWY FILTR GRUPY -->
-        <select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:700; color:var(--ios-blue); padding:10px 15px; border-radius:16px;">
-            <option value="ALL">Wszystkie Grupy</option>
-            <!-- Opcje ładowane z JS -->
+        <select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); padding:10px 15px; border-radius:16px;">
+            <option value="">Wybierz grupę do zaplanowania...</option>
         </select>
 
         <div style="display:flex; align-items:center; gap:5px; background:white; border-radius:16px; padding:4px; border:1px solid rgba(0,0,0,0.1);">
@@ -377,23 +351,45 @@
       </div>
       
       <div style="display:flex; flex:1; overflow:hidden; background:#f2f2f7;" id="dailyContainer">
-        <!-- PULA DOSTĘPNYCH (Wyczyść) -->
+        <!-- PULA DOSTĘPNYCH (Wyczyść) - CAŁY MAGAZYN -->
         <div class="kanban-col" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, 'Wyczyść')">
           <div style="padding:10px; font-weight:800; color:var(--text-main); font-size:16px; border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:10px; display:flex; justify-content:space-between;">
-            Wolni pracownicy <span id="availCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
+            Cały Magazyn (Wolni) <span id="availCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
           </div>
           <div id="dailyAvailableList" style="flex:1; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:8px;"></div>
         </div>
-        <!-- KOLUMNY AKTYWNOŚCI -->
-        <div style="flex:1; display:flex; gap:15px; padding:15px; overflow-x:auto; align-items:flex-start;" id="dailyGrid"></div>
+        <!-- KOLUMNY AKTYWNOŚCI (GRID WRAPUJĄCY) -->
+        <div style="flex:1; display:flex; flex-wrap:wrap; gap:15px; padding:15px; overflow-y:auto; align-content:flex-start;" id="dailyGrid">
+            <!-- Puste do momentu wybrania grupy -->
+            <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:18px;">
+                👆 Najpierw wybierz grupę z menu u góry, aby załadować kolumny planowania.
+            </div>
+        </div>
       </div>
     </div>
 
-    <!-- GRUPY I KARTOTEKI -->
+    <!-- GRUPY I KARTOTEKI (DOSSIER) -->
     <div id="vMatrix" class="admin-view" style="flex-direction:column; padding:20px; background:#f2f2f7; overflow-y:auto;">
-      <h2 style="font-weight:800; font-size:26px; margin-top:0;">Zarządzanie Grupami i HR</h2>
-      <p style="color:var(--text-muted); margin-bottom:15px; font-size:13px;">Wybierz grupę (bańkę), aby przypisać pracowników i ustalić ich oceny kompetencji.</p>
+      
+      <!-- SEKCJA 1: Struktura -->
+      <h2 style="font-weight:800; font-size:26px; margin-top:0;">Struktura Zespołu</h2>
+      <p style="color:var(--text-muted); margin-bottom:15px; font-size:13px;">Wybierz bańkę grupy, aby przypisać pracowników (zarządzanie składem).</p>
       <div id="groupBubbles" class="group-bubbles-container"></div>
+      
+      <hr style="margin:40px 0; border:none; border-top:1px dashed rgba(0,0,0,0.1);">
+
+      <!-- SEKCJA 2: Karty HR -->
+      <h2 style="font-weight:800; font-size:26px; margin-top:0;">Karty HR (Dossier i Ewaluacje)</h2>
+      <p style="color:var(--text-muted); margin-bottom:15px; font-size:13px;">Odszukaj pracownika, aby wpisać mu oceny, notatki i przejrzeć historię zatrudnienia.</p>
+      
+      <div style="display:flex; gap:15px; margin-bottom:20px; flex-wrap:wrap;">
+          <input type="text" id="hrSearchInput" placeholder="🔍 Szukaj pracownika..." onkeyup="renderHrCards()" style="flex:1; min-width:250px;">
+          <select id="hrGroupSelect" onchange="renderHrCards()" style="flex:1; min-width:250px; font-weight:600;">
+              <option value="ALL">Wszystkie Grupy</option>
+          </select>
+      </div>
+
+      <div id="hrCardsContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:15px;"></div>
     </div>
 
     <!-- USTAWIENIA CMS -->
@@ -401,10 +397,10 @@
       <div class="cms-grid">
         
         <div class="glass-card" style="text-align:left;">
-            <h3 style="margin-top:0; font-weight:800; font-size:18px;">👥 Pracownicy i PINy</h3>
+            <h3 style="margin-top:0; font-weight:800; font-size:18px;">👥 Pracownicy i Role</h3>
             <div style="display:flex; gap:8px; margin-bottom:15px;">
                 <input type="text" id="sEmp" placeholder="Imię Nazwisko" style="flex:1">
-                <select id="sEmpRole" style="padding:14px; border-radius:12px; outline:none; font-size:13px;">
+                <select id="sEmpRole" style="padding:14px; border-radius:12px; outline:none; font-size:13px; font-weight:700;">
                     <option value="EMPLOYEE">Pracownik</option>
                     <option value="ADMIN">Admin</option>
                 </select>
@@ -442,20 +438,11 @@
             <div id="cmsActList" style="max-height:300px; overflow-y:auto; padding-right:5px;"></div>
         </div>
 
-        <div class="glass-card" style="text-align:left;">
-            <h3 style="margin-top:0; font-weight:800; font-size:18px;">⏰ Zmiany Pracy</h3>
-            <div style="display:flex; gap:8px; margin-bottom:15px;">
-                <input type="text" id="sShift" placeholder="np. 07:00-15:00" style="flex:1">
-                <button class="btn-main" onclick="saveSet('shift', 'sShift')">Dodaj</button>
-            </div>
-            <div id="cmsShiftList" style="max-height:200px; overflow-y:auto; padding-right:5px;"></div>
-        </div>
-
         <div class="glass-card" style="text-align:left; height:fit-content;">
             <h3 style="margin-top:0; font-weight:800; font-size:18px; color:#FF3B30;">👑 Root Admin (Konto Główne)</h3>
             <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Zmień login i hasło dla głównego dostępu menedżerskiego.</p>
             <div style="display:flex; flex-direction:column; gap:8px;">
-                <input type="text" id="sRootLogin" placeholder="Nowy login" style="width:100%;">
+                <input type="text" id="sRootLogin" placeholder="Nowy login (zastąpi ADMIN)" style="width:100%;">
                 <input type="password" id="sRootPass" placeholder="Nowe hasło" style="width:100%;">
                 <button class="btn-main" style="background:linear-gradient(135deg, #FF3B30, #d32f2f);" onclick="changeRootAdmin()">Zapisz Root Admina</button>
             </div>
@@ -467,11 +454,11 @@
 
   <div class="overlay" id="overlay" onclick="closeM()"></div>
   
-  <!-- MODAL: ZARZĄDZANIE GRUPĄ -->
+  <!-- MODAL: ZARZĄDZANIE GRUPĄ (TYLKO SKŁAD) -->
   <div id="groupManagerModal" class="modal" style="width:850px; padding:25px; max-width:95vw;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:10px;">
           <div>
-              <h3 id="gmTitle" style="margin:0; font-size:22px; font-weight:800;">Zarządzaj Grupą</h3>
+              <h3 id="gmTitle" style="margin:0; font-size:22px; font-weight:800;">Skład Grupy</h3>
               <p id="gmSubtitle" style="margin:4px 0 0 0; color:var(--text-muted); font-size:12px; font-weight:600;"></p>
           </div>
           <button class="btn-main" onclick="closeM()" style="background:#f2f2f7; color:var(--text-main); box-shadow:none; padding:8px 16px; font-size:13px;">✕ Zamknij</button>
@@ -479,66 +466,71 @@
       <div class="gm-columns-wrapper" style="display:flex; gap:15px;">
           <div style="flex:1; background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
               <h4 style="margin-top:0; font-size:15px; color:var(--text-main); display:flex; justify-content:space-between;">
-                  W grupie <span id="gmInCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:8px; font-size:12px;">0</span>
+                  Obecny skład <span id="gmInCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:8px; font-size:12px;">0</span>
               </h4>
               <div id="gmInGroup" style="max-height:300px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:6px;"></div>
           </div>
           <div style="flex:1; background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
-              <h4 style="margin-top:0; font-size:15px; color:var(--text-main);">Pozostali</h4>
+              <h4 style="margin-top:0; font-size:15px; color:var(--text-main);">Pozostali pracownicy</h4>
               <input type="text" id="gmSearch" placeholder="🔍 Szukaj..." onkeyup="filterGm()" style="width:100%; margin-bottom:10px; padding:10px; border-radius:10px; font-size:13px;">
               <div id="gmOutGroup" style="max-height:260px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:6px;"></div>
           </div>
       </div>
   </div>
 
-  <!-- MODAL: KARTOTEKA HR I MATRYCA 1-5 -->
-  <div id="matrixModal" class="modal" style="width:700px; z-index:1001; padding:25px;">
+  <!-- MODAL: KARTOTEKA HR I DOSSIER -->
+  <div id="matrixModal" class="modal" style="width:800px; z-index:1001; padding:30px;">
       <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:15px;">
           <div>
-              <h2 id="matrixTitle" style="font-size:22px; margin:0; font-weight:800;">Kartoteka HR</h2>
-              <div id="matrixSubtitle" style="color:var(--text-muted); font-weight:700; font-size:12px; margin-top:4px;"></div>
+              <h2 id="matrixTitle" style="font-size:26px; margin:0; font-weight:800; color:var(--ios-blue);">Dossier HR</h2>
+              <div id="matrixSubtitle" style="color:var(--text-main); font-weight:700; font-size:14px; margin-top:6px;"></div>
           </div>
-          <button class="btn-main" onclick="document.getElementById('matrixModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none; padding:8px 16px; font-size:13px;">Wróć</button>
+          <button class="btn-main" onclick="document.getElementById('matrixModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none; padding:8px 16px; font-size:13px; height:fit-content;">Wróć</button>
       </div>
 
       <!-- STATYSTYKI NIEOBECNOŚCI (PREMIUM UI) -->
-      <h3 style="font-size:16px; margin-bottom:10px; color:var(--text-main);">📊 Analiza Absencji</h3>
-      <div id="hrStatsGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:20px;">
-          <div class="hr-stat-box box-m">
-              <span class="hr-stat-title">Miesiąc</span>
-              <span class="hr-stat-num" id="hrStatM" style="color:#FF3B30;">0</span>
+      <h3 style="font-size:16px; margin-bottom:10px; color:var(--text-main);">📊 Podsumowanie Absencji</h3>
+      <div id="hrStatsGrid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:25px;">
+          <div class="hr-stat-box box-m"><span class="hr-stat-title">Miesiąc</span><span class="hr-stat-num" id="hrStatM" style="color:#FF3B30;">0</span></div>
+          <div class="hr-stat-box box-q"><span class="hr-stat-title">Kwartał</span><span class="hr-stat-num" id="hrStatQ" style="color:#FF9500;">0</span></div>
+          <div class="hr-stat-box box-y"><span class="hr-stat-title">Rok</span><span class="hr-stat-num" id="hrStatY" style="color:#34C759;">0</span></div>
+          <div class="hr-stat-box box-ns" style="background:rgba(139,0,0,0.03);"><span class="hr-stat-title">No Show ❌</span><span class="hr-stat-num" id="hrStatNoShow" style="color:#8B0000;">0</span></div>
+      </div>
+
+      <div style="display:flex; gap:20px; flex-wrap:wrap;">
+          <!-- MATRYCA (FILTROWANA DO GRUPY) -->
+          <div style="flex:1; min-width:300px;">
+              <h3 style="font-size:16px; margin-top:0; margin-bottom:10px; color:var(--text-main);">⭐ Kompetencje Grupy</h3>
+              <div id="matrixGrid" style="display:flex; flex-direction:column; gap:10px; max-height:250px; overflow-y:auto; padding-right:5px;"></div>
           </div>
-          <div class="hr-stat-box box-q">
-              <span class="hr-stat-title">Kwartał</span>
-              <span class="hr-stat-num" id="hrStatQ" style="color:#FF9500;">0</span>
-          </div>
-          <div class="hr-stat-box box-y">
-              <span class="hr-stat-title">Rok</span>
-              <span class="hr-stat-num" id="hrStatY" style="color:#34C759;">0</span>
-          </div>
-          <div class="hr-stat-box box-ns" style="background:rgba(139,0,0,0.03);">
-              <span class="hr-stat-title">No Show ❌</span>
-              <span class="hr-stat-num" id="hrStatNoShow" style="color:#8B0000;">0</span>
+          
+          <!-- NOTATKI I OCENA -->
+          <div style="flex:1; min-width:300px; display:flex; flex-direction:column;">
+              <h3 style="font-size:16px; margin-top:0; margin-bottom:10px; color:var(--text-main);">📝 Notatki Managerskie</h3>
+              <textarea id="hrNotes" placeholder="Wpisz uwagi o pracowniku, plany, ostrzeżenia..." style="width:100%; height:120px; resize:none; margin-bottom:10px;"></textarea>
+              <label style="font-size:13px; font-weight:700; color:#FF9500; display:flex; align-items:center; gap:6px; margin-bottom:10px; cursor:pointer;">
+                  <input type="checkbox" id="hrIsEval" style="width:18px; height:18px; accent-color:#FF9500;">
+                  Zatwierdź jako Oficjalną Ocenę Okresową
+              </label>
+              <button class="btn-main" onclick="saveHrNotes()" style="width:100%; background:linear-gradient(135deg, #34C759, #28a745);">💾 Zapisz Dossier</button>
           </div>
       </div>
 
-      <h3 style="font-size:16px; margin-bottom:10px; color:var(--text-main);">⭐ Matryca Kompetencji</h3>
-      <div id="matrixGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:10px; max-height:40vh; overflow-y:auto; padding-right:5px;"></div>
+      <hr style="margin:25px 0; border:none; border-top:1px solid rgba(0,0,0,0.05);">
+      
+      <h3 style="font-size:16px; margin-top:0; margin-bottom:10px; color:var(--text-main);">🕰️ Historia Ocen Okresowych</h3>
+      <div id="hrHistoryList" style="max-height:150px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:8px;"></div>
   </div>
 
-  <!-- MODAL: SUGESTIE AI 💡 -->
+  <!-- INNE MODALE -->
   <div id="suggestionModal" class="modal" style="width:500px; padding:25px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:10px;">
-          <div>
-              <h3 id="sugTitle" style="margin:0; font-size:20px; font-weight:800; color:var(--ios-blue);">Sugestie</h3>
-              <p style="margin:2px 0 0 0; color:var(--text-muted); font-size:12px;">Posortowani wg. kompetencji</p>
-          </div>
+          <div><h3 id="sugTitle" style="margin:0; font-size:20px; font-weight:800; color:var(--ios-blue);">Sugestie</h3><p style="margin:2px 0 0 0; color:var(--text-muted); font-size:12px;">Posortowani wg. kompetencji</p></div>
           <button class="btn-main" onclick="document.getElementById('suggestionModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none; padding:6px 12px; font-size:12px;">Zamknij</button>
       </div>
       <div id="sugList" style="display:flex; flex-direction:column; gap:6px; overflow-y:auto; max-height:50vh; padding-right:5px;"></div>
   </div>
 
-  <!-- MODAL: TAP-TO-MOVE DLA MOBILE -->
   <div id="mobileAssignModal" class="modal" style="width:350px; padding:20px; text-align:center;">
       <h3 style="margin-top:0; font-size:18px; font-weight:800;">Przypisz pracownika</h3>
       <p id="mobileAssignName" style="font-size:16px; color:var(--ios-blue); font-weight:800; margin-bottom:20px;"></p>
@@ -546,7 +538,6 @@
       <button class="btn-main" onclick="document.getElementById('mobileAssignModal').style.display='none'" style="width:100%; margin-top:20px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">Anuluj</button>
   </div>
 
-  <!-- MODAL MASOWY -->
   <div id="massModal" class="modal" style="padding:25px;">
     <h3 style="margin-top:0; font-size:20px; font-weight:800; color:var(--ios-blue);">Planowanie Masowe</h3>
     <select id="massAct" style="width:100%; margin-bottom:10px; font-weight:600;"></select>
@@ -558,7 +549,6 @@
     <button class="btn-main" onclick="applyMass()" style="width:100%;">Zapisz do grafiku</button>
   </div>
 
-  <!-- MODAL KOPIOWANIA -->
   <div id="copyDayModal" class="modal" style="padding:25px;">
     <h3 style="margin-top:0; font-size:20px; font-weight:800; color:#FF9500;">Skopiuj układ dnia</h3>
     <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">Źródło: <b id="copySourceDateStr" style="color:var(--text-main);"></b></p>
@@ -571,9 +561,10 @@
 
   <div id="toast" class="toast">Akcja zakończona!</div>
 
-<!-- JS DO WEJŚCIA PONIŻEJ -->
+<!-- JS -->
+</body></html>
 
-  <script>
+<script>
   // ==========================================
   // 1. KONFIGURACJA API I NARZĘDZIA POMOCNICZE
   // ==========================================
@@ -609,6 +600,7 @@
   let currentAlertGroup = "";
   let currentAlertEmp = "";
   let currentGroupManager = "";
+  let currentHrEmp = ""; // Zmienna dla Dossier HR
 
   // Helper: Hex do RGBA
   function hexToRgba(hex, alpha) {
@@ -695,7 +687,7 @@
         openScreen('screen-emp-dash'); 
         loadEmpDash(); 
     } else {
-        showT("❌ Niepoprawny PIN!");
+        showT("❌ Niepoprawny PIN/Hasło!");
     }
   }
   
@@ -794,7 +786,7 @@
         const dt = new Date(s.date); 
         const col = getTileColor(s.act);
         
-        // Jeśli poniedziałek, a nie jest to pierwszy dzień miesiąca (bo już go dodaliśmy wyżej), stwórz nowy numer tygodnia
+        // Jeśli poniedziałek, a nie jest to pierwszy dzień miesiąca
         if (dt.getDate() !== 1 && dt.getDay() === 1) {
             currentWeekNum = getWeekNumber(dt);
             calHtml += `<div class="week-num">T. ${currentWeekNum}</div>`;
@@ -852,7 +844,7 @@
       
       if(id === 'vDaily') renderDaily(); 
       if(id === 'vPlanner') renderPlanner();
-      if(id === 'vMatrix') renderMatrix();
+      if(id === 'vMatrix') { renderMatrix(); renderHrCards(); }
       if(id === 'vAlerts') renderAlertsGroupView();
       if(id === 'vSettings') renderCMS(); 
   }
@@ -871,9 +863,18 @@
     const dailyFilter = document.getElementById('dailyGroupFilter');
     if (dailyFilter) {
         let currentFilterValue = dailyFilter.value;
-        dailyFilter.innerHTML = '<option value="ALL">Cały Magazyn (Wszystkie grupy)</option>' + 
+        dailyFilter.innerHTML = '<option value="">Wybierz grupę do zaplanowania...</option>' + 
             dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
-        dailyFilter.value = currentFilterValue || "ALL"; // Utrzymaj zaznaczenie przy odświeżaniu
+        dailyFilter.value = currentFilterValue || ""; 
+    }
+
+    // Załadowanie Dropdownu w Karcie HR
+    const hrFilter = document.getElementById('hrGroupSelect');
+    if(hrFilter) {
+        let currentHrVal = hrFilter.value;
+        hrFilter.innerHTML = '<option value="ALL">Wszystkie Grupy</option>' + 
+            dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+        hrFilter.value = currentHrVal || "ALL";
     }
 
     const b = document.getElementById('aBadge');
@@ -883,12 +884,12 @@
     if(document.getElementById('vAlerts').classList.contains('active')) renderAlertsGroupView();
     if(document.getElementById('vPlanner').classList.contains('active')) renderPlanner(); 
     if(document.getElementById('vDaily').classList.contains('active')) renderDaily();
-    if(document.getElementById('vMatrix').classList.contains('active')) renderMatrix();
+    if(document.getElementById('vMatrix').classList.contains('active')) { renderMatrix(); renderHrCards(); }
     if(document.getElementById('vSettings').classList.contains('active')) renderCMS();
   }
 
   /* ==============================================================
-     4. SYSTEM ALERTÓW (3-POZIOMOWY)
+     4. SYSTEM ALERTÓW (3-POZIOMOWY + TYKAJĄCE HR)
      ============================================================== */
   function getEmpGroup(empName) {
       const emp = dbAdmin.employees.find(e => e.name === empName);
@@ -902,7 +903,7 @@
       document.getElementById('alertsDetailView').style.display = 'none';
       
       if(dbAdmin.alerts.length === 0) {
-          document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column: 1 / -1;">Brak nowych wniosków. System operuje na 100%! 🎉</p>'; return;
+          document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column: 1 / -1;">Brak nowych wniosków i alertów HR. Operujesz na 100%! 🎉</p>'; return;
       }
 
       let groupedAlerts = {};
@@ -917,7 +918,7 @@
           html += `
           <div class="group-bubble" onclick="renderAlertsEmpView('${gName}')">
               <h3 style="margin-top:0; font-size:20px; color:var(--text-main);">${gName}</h3>
-              <div style="font-size:36px; font-weight:800; color:#FF9500; margin:10px 0;">${count} <span style="font-size:16px; color:var(--text-muted);">zmian</span></div>
+              <div style="font-size:36px; font-weight:800; color:#FF9500; margin:10px 0;">${count} <span style="font-size:16px; color:var(--text-muted);">alertów</span></div>
               <span style="color:var(--ios-blue); font-size:13px; font-weight:700;">Zobacz szczegóły →</span>
           </div>`;
       }
@@ -946,7 +947,7 @@
       let html = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
           <h3 style="margin:0; font-size:22px;">Grupa: ${groupName}</h3>
-          <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:#34C759; box-shadow:0 4px 15px rgba(52,199,89,0.3);">✅ Zaakceptuj całą grupę</button>
+          <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:#34C759; box-shadow:0 4px 15px rgba(52,199,89,0.3);">✅ Zaakceptuj wnioski w grupie</button>
       </div>
       <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">`;
 
@@ -954,7 +955,7 @@
           html += `
           <div style="background:white; padding:20px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03); cursor:pointer; transition:0.3s; border:1px solid rgba(0,0,0,0.05);" onclick="renderAlertsDetailView('${eName}')" onmouseover="this.style.borderColor='var(--ios-blue)'" onmouseout="this.style.borderColor='rgba(0,0,0,0.05)'">
               <h4 style="margin:0 0 10px 0; font-size:18px;">${eName}</h4>
-              <div style="color:#FF9500; font-weight:800;">${count} oczekujących zmian</div>
+              <div style="color:#FF9500; font-weight:800;">${count} oczekujących powiadomień</div>
           </div>`;
       }
       html += `</div>`;
@@ -974,16 +975,29 @@
 
       let html = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-          <h3 style="margin:0; font-size:22px;">Wnioski: ${empName}</h3>
-          <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:#34C759; box-shadow:0 4px 15px rgba(52,199,89,0.3);">✅ Zaakceptuj wszystko</button>
+          <h3 style="margin:0; font-size:22px;">Powiadomienia: ${empName}</h3>
+          <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:#34C759; box-shadow:0 4px 15px rgba(52,199,89,0.3);">✅ Zaakceptuj wnioski grafiku</button>
       </div>`;
 
       html += empAlerts.map(a => {
+          // Jeśli to jest Alert HR (Ewaluacja)
+          if(a.id.toString().startsWith("hr_")) {
+              return `
+              <div class="alert-card" style="padding:20px; border-radius:16px; border-left:6px solid #5E5CE6; background:white; margin-bottom:15px; box-shadow:0 4px 15px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                      <div style="color:var(--text-muted); font-size:12px; margin-bottom:5px; font-weight:600;">System HR Data: <b style="color:var(--text-main); font-size:14px;">${a.date}</b></div>
+                      <div style="font-size:16px; font-weight:800; color:#5E5CE6; background:rgba(94,92,230,0.1); display:inline-block; padding:6px 12px; border-radius:10px;">${a.type}</div>
+                  </div>
+                  <button onclick="openHrDossier('${a.name}')" class="btn-main" style="background:linear-gradient(135deg, #5E5CE6, #4527A0); padding:10px 20px; font-size:13px; box-shadow:none;">📝 Otwórz Kartę HR</button>
+              </div>`;
+          }
+
+          // Zwykły wniosek urlopowy / dostępność
           const col = getTileColor(a.type);
           return `
           <div class="alert-card" style="padding:20px; border-radius:16px; border-left:6px solid ${col.c}; background:white; margin-bottom:15px; box-shadow:0 4px 15px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
               <div>
-                  <div style="color:var(--text-muted); font-size:12px; margin-bottom:5px; font-weight:600;">Data: <b style="color:var(--text-main); font-size:14px;">${a.date}</b></div>
+                  <div style="color:var(--text-muted); font-size:12px; margin-bottom:5px; font-weight:600;">Data w grafiku: <b style="color:var(--text-main); font-size:14px;">${a.date}</b></div>
                   <div style="font-size:16px; font-weight:800; color:${col.c}; background:${col.bg}; display:inline-block; padding:6px 12px; border-radius:10px;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div>
               </div>
               <div style="display:flex; gap:10px;">
@@ -998,7 +1012,9 @@
   async function resolveAlert(id, stat, n, d, t, h) { 
       const res = await apiCall('/admin/alerts/resolve', 'POST', { id, status: stat, name: n, date: d, type: t, hrs: h });
       if(res) { 
-          showT(res.msg); 
+          if(res.ok) showT(res.msg); 
+          else return showT("⚠️ " + res.msg);
+          
           await loadAdminData();
           if(dbAdmin.alerts.filter(a => a.name === n).length > 0) renderAlertsDetailView(n);
           else if(dbAdmin.alerts.filter(a => getEmpGroup(a.name) === currentAlertGroup).length > 0) renderAlertsEmpView(currentAlertGroup);
@@ -1009,7 +1025,8 @@
   async function resolveMassAlerts(idsString, stat) {
       if(!idsString) return;
       const ids = idsString.split(',');
-      if(!confirm(`Zaakceptować masowo ${ids.length} zmian?`)) return;
+      if(!confirm(`Czy na pewno chcesz zatwierdzić masowo te zmiany grafiku? (Alerty HR zostaną pominięte)`)) return;
+      
       showT("⏳ Przetwarzanie...");
       const res = await apiCall('/admin/alerts/resolve-mass', 'POST', { ids: ids, status: stat });
       if(res) { showT("✅ " + res.msg); await loadAdminData(); renderAlertsGroupView(); }
@@ -1038,7 +1055,7 @@
     }
     document.getElementById('pHead').innerHTML = hHtml;
     
-    document.getElementById('pBody').innerHTML = dbAdmin.employees.filter(e => e.name.toLowerCase().includes(q)).map(empObj => {
+    document.getElementById('pBody').innerHTML = dbAdmin.employees.filter(e => e.name.toLowerCase().includes(q) && e.name !== dbAdmin.rootAdmin).map(empObj => {
       const emp = empObj.name;
       let rHtml = `
         <td class="sticky-col">
@@ -1098,7 +1115,7 @@
   }
 
   /* ==============================================================
-     6. KANBAN DZIENNY (FILTROWANIE GRUP! + DRAG&DROP + MOBILE TAP)
+     6. KANBAN DZIENNY (FILTROWANIE GRUP! + DRAG&DROP)
      ============================================================== */
   function changeDailyDate(days) {
       const input = document.getElementById('dailyDate');
@@ -1132,7 +1149,7 @@
       const selectedGroup = document.getElementById('dailyGroupFilter').value;
       let allowedActs = dbAdmin.plannerActivities;
       
-      if (selectedGroup !== "ALL") {
+      if (selectedGroup) {
           const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
           if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
               allowedActs = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
@@ -1174,37 +1191,44 @@
     const dObj = new Date(rawDate);
     const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
     
-    // FILTROWANIE GRUP!
+    // WYMUSZONY WORKFLOW: Sprawdzamy czy Admin wybrał grupę
     const selectedGroup = document.getElementById('dailyGroupFilter').value;
+    const gridContainer = document.getElementById('dailyGrid');
     
+    if (!selectedGroup) {
+        gridContainer.innerHTML = `
+            <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:18px;">
+                👆 Najpierw wybierz grupę z menu u góry, aby załadować kolumny planowania.
+            </div>`;
+        return; // Przerywamy renderowanie kolumn!
+    }
+
     let dailyData = {}; 
     let assignedSet = new Set();
     
     let colsToRender = dbAdmin.plannerActivities;
-    if (selectedGroup !== "ALL") {
-        const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
-        if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
-            colsToRender = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
-        }
+    const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
+    
+    if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
+        colsToRender = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
     }
     
     colsToRender.forEach(a => dailyData[a] = []); 
     
     dbAdmin.employees.forEach(empObj => {
-      // Wyświetl całą resztę zespołu, ale pomiń jeśli filtr wyklucza
-      // Jeśli pracownik MA ZADANIE, które nie jest z jego grupy, i tak dodaj do asignedSet!
+      // Ignorujemy Root Admina
+      if(empObj.name === dbAdmin.rootAdmin) return;
+
       const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
       if(valStr && valStr.split("||")[0] && valStr.split("||")[0] !== "Wyczyść") { 
           const act = valStr.split("||")[0]; 
-          if(dailyData[act] !== undefined) { 
-              dailyData[act].push(empObj); 
-          }
+          if(dailyData[act] !== undefined) { dailyData[act].push(empObj); }
           assignedSet.add(empObj.name); 
       }
     });
     
-    // Lista dostępnych (Pokazuje cały magazyn, Admin może wziąć każdego do Hydr)
-    const avail = dbAdmin.employees.filter(e => !assignedSet.has(e.name)); 
+    // Lista dostępnych (Pokazuje CAŁY MAGAZYN, nie tylko ludzi z tej grupy)
+    const avail = dbAdmin.employees.filter(e => !assignedSet.has(e.name) && e.name !== dbAdmin.rootAdmin); 
     document.getElementById('availCount').innerText = avail.length;
     document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
         const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`];
@@ -1218,8 +1242,8 @@
             </div>`; 
     }).join('');
     
-    // Kolumny
-    document.getElementById('dailyGrid').innerHTML = colsToRender.map(act => {
+    // Generowanie Kolumn Aktywności dla wybranej Grupy
+    gridContainer.innerHTML = colsToRender.map(act => {
       const col = getTileColor(act);
       const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
       const currCount = dailyData[act].length;
@@ -1250,7 +1274,7 @@
                 <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:10px; font-size:14px; box-shadow:${col.shadow}">${currCount} os.</span>
             </h3>
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:white; padding:10px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
-                <span style="font-size:12px; font-weight:700; color:gray;">Zapotrzebowanie:</span>
+                <span style="font-size:12px; font-weight:700; color:gray;">Potrzeba:</span>
                 <input type="number" min="0" value="${reqCap}" onchange="saveCapacity('${act}', this)" style="width:60px; padding:6px; text-align:center; font-weight:800; border-radius:8px; border:1px solid rgba(0,0,0,0.1);">
             </div>
             <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">${list}</div>
@@ -1258,15 +1282,16 @@
     }).join('');
   }
 
+  // LOGIKA PODPOWIADANIA NAJLEPSZYCH PRACOWNIKÓW 💡
   function openSuggestions(act) {
       const dObj = new Date(document.getElementById('dailyDate').value);
       const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
       
       let availableEmps = [];
       dbAdmin.employees.forEach(e => {
+          if(e.name === dbAdmin.rootAdmin) return;
           const valStr = dbAdmin.planMap[`${e.name}_${dStr}`];
           const currentAct = valStr ? valStr.split("||")[0] : "";
-          
           if(currentAct !== act) { 
               let rating = dbAdmin.ratingsMap[`${e.name}_${act}`] || 2;
               availableEmps.push({ name: e.name, rating: rating, currentAct: currentAct });
@@ -1309,11 +1334,9 @@
   async function applyMass() {
     const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
     if(sel.length === 0) return showT("⚠️ Zaznacz pracowników w tabeli w tle!");
-    
     const act = document.getElementById('massAct').value, hrs = document.getElementById('massHrs').value;
     const odRaw = document.getElementById('mOd').value, dooRaw = document.getElementById('mDo').value;
     if(!odRaw || !dooRaw) return showT("⚠️ Wybierz zakres dat!");
-    
     closeM(); showT("⏳ Zapisywanie..."); 
     const res = await apiCall('/admin/planner/save', 'POST', { names: sel, start: odRaw, end: dooRaw, activity: act, hours: hrs });
     if(res) { showT("✅ Gotowe!"); loadAdminData(); }
@@ -1337,12 +1360,12 @@
   }
 
   /* ==============================================================
-     7. ZAKŁADKA GRUPY I KARTOTEKI (Z MATRYCĄ 1-5)
+     7. ZESPÓŁ I KARTOTEKI HR (ODDZIELONE)
      ============================================================== */
   function renderMatrix() { 
       const container = document.getElementById('groupBubbles');
       container.innerHTML = dbAdmin.groups.map(g => {
-          const emps = dbAdmin.employees.filter(e => e.group === g.name);
+          const emps = dbAdmin.employees.filter(e => e.group === g.name && e.name !== dbAdmin.rootAdmin);
           const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:12px; font-weight:800; background:rgba(255,149,0,0.1); padding:4px 8px; border-radius:8px;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:8px;">🔒 Sztywna</span>`;
           return `
           <div class="group-bubble" onclick="openGroupManager('${g.name}')">
@@ -1356,8 +1379,8 @@
   function openGroupManager(gName) {
       currentGroupManager = gName;
       const groupInfo = dbAdmin.groups.find(g => g.name === gName);
-      document.getElementById('gmTitle').innerText = gName;
-      document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type} | Reguła 20-go dnia: ${groupInfo.is_flexible === 1 ? 'WYŁĄCZONA' : 'WŁĄCZONA'}`;
+      document.getElementById('gmTitle').innerText = `Skład Grupy: ${gName}`;
+      document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type}`;
       document.getElementById('gmSearch').value = '';
       renderGroupManagerLists();
       openM('groupManagerModal');
@@ -1365,17 +1388,14 @@
 
   function renderGroupManagerLists() {
       const q = document.getElementById('gmSearch').value.toLowerCase();
-      const inGroup = dbAdmin.employees.filter(e => e.group === currentGroupManager);
-      const outGroup = dbAdmin.employees.filter(e => e.group !== currentGroupManager && e.name.toLowerCase().includes(q));
+      const inGroup = dbAdmin.employees.filter(e => e.group === currentGroupManager && e.name !== dbAdmin.rootAdmin);
+      const outGroup = dbAdmin.employees.filter(e => e.group !== currentGroupManager && e.name.toLowerCase().includes(q) && e.name !== dbAdmin.rootAdmin);
 
       document.getElementById('gmInCount').innerText = inGroup.length;
       document.getElementById('gmInGroup').innerHTML = inGroup.map(e => `
           <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
               <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:700;">ID: ${e.id}</span></div>
-              <div style="display:flex; gap:8px;">
-                  <button onclick="openMatrixModal('${e.name}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">📋 Karta HR</button>
-                  ${currentGroupManager !== 'Magazyn osoby stałe' ? `<button onclick="moveEmpGroup('${e.name}', 'Magazyn osoby stałe')" style="background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuć</button>` : ''}
-              </div>
+              ${currentGroupManager !== 'Magazyn osoby stałe' ? `<button onclick="moveEmpGroup('${e.name}', 'Magazyn osoby stałe')" style="background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuć</button>` : ''}
           </div>
       `).join('');
 
@@ -1391,33 +1411,73 @@
       const emp = dbAdmin.employees.find(e => e.name === empName);
       if(emp) {
           emp.group = newGroup;
-          renderGroupManagerLists(); renderMatrix(); 
+          renderGroupManagerLists(); renderMatrix(); renderHrCards();
           await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
       }
   }
 
   function filterGm() { renderGroupManagerLists(); }
 
-  // KARTOTEKA HR
-  async function openMatrixModal(empName) {
+  // KARTOTEKA HR (DOSSIER)
+  function renderHrCards() {
+      const search = document.getElementById('hrSearchInput').value.toLowerCase();
+      const groupFilt = document.getElementById('hrGroupSelect').value;
+      const container = document.getElementById('hrCardsContainer');
+
+      let filteredEmps = dbAdmin.employees.filter(e => {
+          if (e.name === dbAdmin.rootAdmin) return false;
+          let matchS = e.name.toLowerCase().includes(search);
+          let matchG = (groupFilt === "ALL" || e.group === groupFilt);
+          return matchS && matchG;
+      });
+
+      if (filteredEmps.length === 0) {
+          container.innerHTML = '<p style="color:gray; grid-column:1/-1;">Brak pracowników pasujących do filtrów.</p>';
+          return;
+      }
+
+      container.innerHTML = filteredEmps.map(e => `
+          <div class="hr-card-mini" onclick="openHrDossier('${e.name}')">
+              <h4 style="margin:0 0 5px 0; font-size:18px;">${e.name}</h4>
+              <span style="font-size:12px; color:gray; font-weight:600; background:rgba(0,0,0,0.04); padding:4px 10px; border-radius:10px;">${e.group}</span>
+              <div style="margin-top:15px; width:100%; border-top:1px solid rgba(0,0,0,0.05); padding-top:10px;">
+                  <span style="color:var(--ios-blue); font-weight:700; font-size:13px;">Wprowadź Oceny & Dossier →</span>
+              </div>
+          </div>
+      `).join('');
+  }
+
+  async function openHrDossier(empName) {
+      currentHrEmp = empName;
       const emp = dbAdmin.employees.find(e => e.name === empName);
-      document.getElementById('matrixTitle').innerText = empName;
+      document.getElementById('matrixTitle').innerText = `Dossier: ${empName}`;
       document.getElementById('matrixSubtitle').innerText = `ID: ${emp.id} | Grupa: ${emp.group}`;
       
+      // Czyszczenie starego stanu
       document.getElementById('hrStatM').innerText = '...';
       document.getElementById('hrStatQ').innerText = '...';
       document.getElementById('hrStatY').innerText = '...';
       document.getElementById('hrStatNoShow').innerText = '...';
+      document.getElementById('hrNotes').value = 'Ładowanie...';
+      document.getElementById('hrIsEval').checked = false;
+      document.getElementById('hrHistoryList').innerHTML = '';
       
-      document.getElementById('matrixGrid').innerHTML = dbAdmin.activityNames.map(act => {
+      // Filtrowanie kompetencji TYLKO do grupy pracownika
+      const groupObj = dbAdmin.groups.find(g => g.name === emp.group);
+      let allowedActs = dbAdmin.activityNames; // Fallback
+      if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
+          allowedActs = groupObj.activities;
+      }
+
+      document.getElementById('matrixGrid').innerHTML = allowedActs.map(act => {
           const v = dbAdmin.ratingsMap[empName+"_"+act] || 2; 
           return `
-          <div style="background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
-              <strong style="font-size:14px; display:block; margin-bottom:12px; color:var(--text-main);">${act}</strong>
-              <div style="display:flex; gap:6px;">
+          <div style="background:rgba(0,0,0,0.02); padding:10px 15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
+              <strong style="font-size:13px; display:block; margin-bottom:8px; color:var(--text-main);">${act}</strong>
+              <div style="display:flex; gap:4px;">
                   ${[1,2,3,4,5].map(x => `
                       <button onclick="svR('${empName}','${act}',${x},this)" 
-                              style="flex:1; padding:8px 0; border:none; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; transition:0.2s; 
+                              style="flex:1; padding:6px 0; border:none; border-radius:8px; font-size:12px; font-weight:800; cursor:pointer; transition:0.2s; 
                                      background:${v===x ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)'}; 
                                      color:${v===x ? 'white' : 'var(--text-muted)'};
                                      box-shadow:${v===x ? '0 4px 10px rgba(10,132,255,0.3)' : 'none'};">${x}</button>
@@ -1428,7 +1488,8 @@
       
       openM('matrixModal');
       
-      const res = await apiCall('/admin/employee/stats', 'POST', { username: empName });
+      // Zaciąganie detali HR z nowego Endpointu
+      const res = await apiCall('/admin/employee/hr_details', 'POST', { username: empName });
       if(res && res.ok) {
           const sumM = (res.stats.miesiac['Chory 🤒'] || 0) + (res.stats.miesiac['Urlop 🌴'] || 0) + (res.stats.miesiac['Wolne 🏠'] || 0);
           const sumQ = (res.stats.kwartal['Chory 🤒'] || 0) + (res.stats.kwartal['Urlop 🌴'] || 0) + (res.stats.kwartal['Wolne 🏠'] || 0);
@@ -1439,6 +1500,19 @@
           document.getElementById('hrStatQ').innerText = sumQ;
           document.getElementById('hrStatY').innerText = sumY;
           document.getElementById('hrStatNoShow').innerText = noShowY;
+
+          document.getElementById('hrNotes').value = res.notes;
+
+          if (res.history && res.history.length > 0) {
+              document.getElementById('hrHistoryList').innerHTML = res.history.map(h => `
+                  <div style="background:rgba(0,0,0,0.02); padding:10px; border-radius:12px; border:1px solid rgba(0,0,0,0.05);">
+                      <div style="font-size:11px; font-weight:800; color:var(--ios-blue); margin-bottom:5px;">📅 Ocena z dn. ${h.date}</div>
+                      <div style="font-size:12px; color:var(--text-main); font-style:italic;">"${h.notes}"</div>
+                  </div>
+              `).join('');
+          } else {
+              document.getElementById('hrHistoryList').innerHTML = '<span style="font-size:12px; color:gray;">Brak historii ocen okresowych.</span>';
+          }
       }
   }
   
@@ -1447,6 +1521,27 @@
       btn.style.background = 'var(--ios-blue)'; btn.style.color = 'white'; btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
       await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); 
       dbAdmin.ratingsMap[u+"_"+a] = v; 
+  }
+
+  async function saveHrNotes() {
+      const notes = document.getElementById('hrNotes').value;
+      const isEval = document.getElementById('hrIsEval').checked;
+
+      if(isEval && !confirm("Oznaczenie jako 'Ocena Okresowa' zresetuje licznik czasu do kolejnej oceny i wyczyści ewentualny alert HR. Kontynuować?")) {
+          return;
+      }
+
+      showT("⏳ Zapisywanie Dossier...");
+      const res = await apiCall('/admin/employee/hr_save', 'POST', { username: currentHrEmp, notes: notes, is_evaluation: isEval });
+      
+      if(res && res.ok) {
+          showT("✅ " + res.msg);
+          // Jeśli to była ewaluacja, trzeba odświeżyć dane, żeby alert zniknął i zaktualizowała się historia
+          if (isEval) {
+              await loadAdminData();
+              openHrDossier(currentHrEmp); // Refresh modala
+          }
+      }
   }
 
   /* ==============================================================
@@ -1462,7 +1557,7 @@
             let roleSelect = '';
             
             if (isSuper) {
-                roleSelect = `<span style="font-size:10px; font-weight:800; color:#FF3B30; background:rgba(255,59,48,0.1); padding:4px 8px; border-radius:6px;">SUPER ADMIN (KONTO GŁÓWNE)</span>`;
+                roleSelect = `<span style="font-size:10px; font-weight:800; color:#FF3B30; background:rgba(255,59,48,0.1); padding:4px 8px; border-radius:6px;">SUPER ADMIN (ROOT)</span>`;
             } else {
                 roleSelect = `
                 <select onchange="liveEditUserRole('${e.name}', this.value)" style="padding:6px; font-size:11px; font-weight:700; border-radius:8px; border:1px solid rgba(0,0,0,0.1); outline:none;">
