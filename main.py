@@ -574,6 +574,18 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 if not grp:
                     db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
         
+        # NOWOŚĆ: Edycja samej reguły (TOGGLE)
+        elif action == "TOGGLE_GROUP_FLEX":
+            grp = db.query(UserGroup).filter(UserGroup.name == val).first()
+            if grp:
+                grp.is_flexible = 1 if grp.is_flexible == 0 else 0
+
+        # NOWOŚĆ: Edycja koloru (UPDATE)
+        elif action == "UPDATE_ACT_COLOR":
+            act = db.query(Activity).filter(Activity.name == val).first()
+            if act:
+                act.color = req.get("color", "#0A84FF")
+
         elif action == "DELETE":
             if t == "employee": db.query(User).filter(User.name == val).delete()
             elif t == "shift": db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift", GlobalSetting.value == val).delete()
