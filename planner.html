@@ -8,210 +8,139 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;800&display=swap');
     
     :root { 
-        --ios-blue: #0A84FF; 
-        --ios-blue-hover: #0066d6;
-        --bg-color: #f2f2f7; 
-        --white: #FFFFFF; 
-        --border: rgba(0, 0, 0, 0.08); 
-        --cell-w: 130px; 
-        --text-main: #1d1d1f; 
-        --text-muted: #86868b;
+        --ios-blue: #0A84FF; --ios-blue-hover: #0066d6;
+        --bg-color: #f2f2f7; --white: #FFFFFF; 
+        --border: rgba(0, 0, 0, 0.08); --cell-w: 130px; 
+        --text-main: #1d1d1f; --text-muted: #86868b;
     }
 
     body { 
-        font-family: 'Inter', sans-serif; 
-        margin: 0; 
-        height: 100vh; 
-        display: flex; 
-        flex-direction: column; 
-        overflow: hidden; 
-        color: var(--text-main);
+        font-family: 'Inter', sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; color: var(--text-main);
         background-color: #f2f2f7;
-        background-image: 
-            radial-gradient(at 40% 20%, rgba(10, 132, 255, 0.1) 0px, transparent 50%), 
-            radial-gradient(at 80% 0%, rgba(48, 209, 88, 0.05) 0px, transparent 50%), 
-            radial-gradient(at 0% 50%, rgba(255, 59, 48, 0.05) 0px, transparent 50%);
-        background-size: 150% 150%; 
-        animation: gradientBG 15s ease infinite;
+        background-image: radial-gradient(at 40% 20%, rgba(10, 132, 255, 0.1) 0px, transparent 50%), radial-gradient(at 80% 0%, rgba(48, 209, 88, 0.05) 0px, transparent 50%), radial-gradient(at 0% 50%, rgba(255, 59, 48, 0.05) 0px, transparent 50%);
+        background-size: 150% 150%; animation: gradientBG 15s ease infinite;
     }
-
-    @keyframes gradientBG { 
-        0% { background-position: 0% 50%; } 
-        50% { background-position: 100% 50%; } 
-        100% { background-position: 0% 50%; } 
-    }
+    @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
     
-    .app-screen { 
-        display: none; 
-        width: 100%; 
-        height: 100%; 
-        flex-direction: column; 
-        overflow-y: auto; 
-        scroll-behavior: smooth; 
-    }
-    
-    .app-screen.active { 
-        display: flex; 
-        animation: fadeUp 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); 
-    }
-
-    @keyframes fadeUp { 
-        from { opacity: 0; transform: translateY(20px) scale(0.98); } 
-        to { opacity: 1; transform: translateY(0) scale(1); } 
-    }
+    .app-screen { display: none; width: 100%; height: 100%; flex-direction: column; overflow-y:auto; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; }
+    .app-screen.active { display: flex; animation: fadeUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(20px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
     input, select { 
-        background: rgba(255, 255, 255, 0.6); 
-        border: 1px solid rgba(0,0,0,0.1); 
-        padding: 16px; 
-        border-radius: 14px; 
-        font-size: 15px; 
-        outline: none; 
-        font-family: 'Inter', sans-serif; 
-        transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); 
-        box-sizing: border-box; 
-        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0,0,0,0.1); padding: 14px 16px; 
+        border-radius: 14px; font-size: 15px; outline: none; font-family: 'Inter', sans-serif; 
+        transition: all 0.3s; box-sizing: border-box; backdrop-filter: blur(10px);
     }
-
-    input:focus, select:focus { 
-        border-color: var(--ios-blue); 
-        background: #fff; 
-        box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.2); 
-        transform: translateY(-1px); 
-    }
+    input:focus, select:focus { border-color: var(--ios-blue); background: #fff; box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.2); transform: translateY(-1px); }
     
     .btn-main { 
-        background: linear-gradient(135deg, var(--ios-blue), #005ecb); 
-        color: white; 
-        border: none; 
-        padding: 16px 28px; 
-        border-radius: 14px; 
-        font-weight: 600; 
-        font-size: 15px; 
-        cursor: pointer; 
-        transition: all 0.3s ease; 
-        box-shadow: 0 4px 15px rgba(10, 132, 255, 0.3); 
-        letter-spacing: 0.3px;
+        background: linear-gradient(135deg, var(--ios-blue), #005ecb); color: white; border: none; 
+        padding: 16px 28px; border-radius: 14px; font-weight: 600; font-size: 15px; cursor: pointer; 
+        transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(10, 132, 255, 0.3); letter-spacing: 0.3px;
     }
-
-    .btn-main:hover { 
-        transform: translateY(-2px); 
-        box-shadow: 0 6px 20px rgba(10, 132, 255, 0.4); 
-    }
+    .btn-main:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(10, 132, 255, 0.4); }
+    .btn-main:active { transform: translateY(1px); box-shadow: 0 2px 10px rgba(10, 132, 255, 0.3); }
     
     .glass-card { 
-        background: rgba(255, 255, 255, 0.7); 
-        backdrop-filter: blur(25px); 
-        border-radius: 32px; 
-        padding: 45px; 
-        text-align: center; 
-        box-shadow: 0 20px 50px rgba(0,0,0,0.05), inset 0 0 0 1px rgba(255,255,255,0.8); 
-        transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); 
-        width: 100%; 
-        box-sizing: border-box; 
+        background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+        border-radius: 32px; padding: 40px; text-align: center; 
+        box-shadow: 0 20px 50px rgba(0,0,0,0.05), inset 0 0 0 1px rgba(255,255,255,0.8); transition: all 0.4s; width: 100%; box-sizing: border-box; 
     }
 
-    .landing-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; }
-    .landing-box { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; padding: 20px; max-width: 800px; margin: 0 auto; }
-    .landing-card { cursor: pointer; width: 280px; }
+    /* CENTROWANIE EKRANÓW STARTOWYCH */
+    .landing-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 20px; }
+    .landing-box { display: flex; gap: 30px; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 800px; margin: 0 auto; }
+    .landing-card { cursor: pointer; width: 280px; max-width: 100%; }
     .landing-card:hover { transform: translateY(-10px) scale(1.02); box-shadow: 0 30px 60px rgba(0,132,255,0.12), inset 0 0 0 1px rgba(255,255,255,0.9); }
     
     .login-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 20px; }
     .login-card { max-width: 380px; width: 100%; margin: 0 auto; }
 
+    /* NAWIGACJA (SCROLLOWALNA NA MOBILE) */
     .nav { 
-        display: flex; 
-        background: rgba(255, 255, 255, 0.85); 
-        backdrop-filter: blur(20px); 
-        border-bottom: 1px solid rgba(0,0,0,0.05); 
-        padding: 15px; 
-        justify-content: center; 
-        gap: 10px; 
-        z-index: 100; 
-        position: sticky; 
-        top: 0; 
-        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        display: flex; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(0,0,0,0.05); 
+        padding: 15px; gap: 10px; z-index: 100; position: sticky; top: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; justify-content: center;
     }
-
-    .nav-btn { 
-        padding: 12px 24px; 
-        border-radius: 14px; 
-        font-weight: 600; 
-        cursor: pointer; 
-        color: var(--text-muted); 
-        transition: all 0.3s; 
-        position: relative; 
-        font-size: 14px; 
-        letter-spacing: 0.2px;
-    }
-
+    .nav::-webkit-scrollbar { display: none; }
+    .nav-btn { padding: 12px 24px; border-radius: 14px; font-weight: 600; cursor: pointer; color: var(--text-muted); transition: all 0.3s; position: relative; font-size: 14px; }
     .nav-btn:hover { background: rgba(0,0,0,0.03); color: var(--text-main); }
     .nav-btn.active { background: var(--white); color: var(--ios-blue); box-shadow: 0 4px 15px rgba(0,0,0,0.06); }
-    
-    .badge { 
-        position: absolute; 
-        top: -5px; 
-        right: -5px; 
-        background: #ff3b30; 
-        color: white; 
-        font-size: 11px; 
-        font-weight: 800; 
-        padding: 4px 8px; 
-        border-radius: 12px; 
-        display: none; 
-        box-shadow: 0 2px 8px rgba(255,59,48,0.4); 
-        animation: pulse 2s infinite; 
-    }
-
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+    .badge { position: absolute; top: -5px; right: -5px; background: #ff3b30; color: white; font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 12px; display: none; box-shadow: 0 2px 8px rgba(255,59,48,0.4); animation: pulse 2s infinite; }
     
     .admin-view { flex: 1; display: none; flex-direction: column; overflow: hidden; }
     .admin-view.active { display: flex; animation: fadeUp 0.4s ease; }
 
-    /* PLANNER TYGODNIOWY CSS */
-    .tools { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); padding: 20px 25px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; border-bottom: 1px solid var(--border); z-index: 50; }
-    .planner-scroll { flex: 1; overflow: auto; position: relative; }
+    /* TABELE / PLANNER TYGODNIOWY */
+    .tools { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); padding: 15px 25px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; border-bottom: 1px solid var(--border); z-index: 50; justify-content: center; }
+    .planner-scroll { flex: 1; overflow: auto; position: relative; -webkit-overflow-scrolling: touch; }
     table { border-collapse: separate; border-spacing: 0; background: transparent; }
     th, td { border: 0.5px solid rgba(0,0,0,0.03); min-width: var(--cell-w); height: 85px; text-align: center; position: relative; transition: background 0.2s; }
-    .sticky-col { position: sticky; left: 0; z-index: 10; min-width: 260px; background: rgba(255,255,255,0.98); backdrop-filter: blur(10px); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 20px; display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 14px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); }
-    .sticky-row { position: sticky; top: 0; z-index: 20; background: rgba(250,250,252,0.95); backdrop-filter: blur(10px); font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.05); color: var(--text-muted); font-size: 13px; text-transform: uppercase; }
+    .sticky-col { position: sticky; left: 0; z-index: 10; min-width: 200px; background: rgba(255,255,255,0.98); backdrop-filter: blur(10px); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 15px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 13px; box-shadow: 2px 0 10px rgba(0,0,0,0.02); }
+    .sticky-row { position: sticky; top: 0; z-index: 20; background: rgba(250,250,252,0.95); backdrop-filter: blur(10px); font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.05); color: var(--text-muted); font-size: 12px; text-transform: uppercase; }
     .weekend-col { background: rgba(0,0,0,0.02) !important; }
-    .tile { width: 90%; height: 80%; border-radius: 14px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.3s; padding: 8px; box-sizing: border-box; line-height: 1.3; }
+    .tile { width: 90%; height: 80%; border-radius: 12px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; padding: 6px; box-sizing: border-box; line-height: 1.2; }
     .tile:hover { transform: scale(1.05) translateY(-2px); filter: brightness(1.05); }
-    
-    /* DASHBOARD PRACOWNIKA CSS */
-    .emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; padding: 20px 0; }
-    .day-row { background: rgba(255,255,255,0.8); backdrop-filter: blur(15px); border-radius: 24px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid rgba(255,255,255,0.5); display: flex; flex-direction: column; text-align: center; position: relative; transition: 0.3s; }
+
+    /* DASHBOARD PRACOWNIKA */
+    .emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; padding: 15px 0; }
+    .day-row { background: rgba(255,255,255,0.8); backdrop-filter: blur(15px); border-radius: 20px; padding: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); border: 1px solid rgba(255,255,255,0.5); display: flex; flex-direction: column; text-align: center; position: relative; transition: 0.3s; }
     .day-row:hover { transform: translateY(-5px); box-shadow: 0 15px 35px rgba(0,0,0,0.06); }
     .day-row.no-plan { background: rgba(250,250,252,0.6); border: 2px dashed rgba(0,0,0,0.1); box-shadow: none; }
-    .month-nav { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); padding: 20px 30px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.5); }
-    .nav-arrow { background: rgba(0,0,0,0.04); border: none; padding: 12px 24px; border-radius: 12px; font-weight: 700; cursor: pointer; color: var(--ios-blue); transition: 0.2s; }
+    .month-nav { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); padding: 15px 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.5); flex-wrap: wrap; gap: 10px;}
+    .nav-arrow { background: rgba(0,0,0,0.04); border: none; padding: 12px 20px; border-radius: 12px; font-weight: 700; cursor: pointer; color: var(--ios-blue); transition: 0.2s; }
     .nav-arrow:hover { background: rgba(10,132,255,0.1); }
 
-    .alert-card { background: rgba(255,255,255,0.9); border-radius: 20px; padding: 25px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border-left: 6px solid #FF9500; transition: 0.3s; }
-
     /* DZIENNY PLANNER - KANBAN */
-    .kanban-col { min-width: 320px; background: rgba(255,255,255,0.7); border-radius: 16px; padding: 15px; display: flex; flex-direction: column; transition: 0.2s; box-shadow: 0 5px 20px rgba(0,0,0,0.03);}
+    .kanban-col { min-width: 300px; background: rgba(255,255,255,0.7); border-radius: 16px; padding: 15px; display: flex; flex-direction: column; transition: 0.2s; box-shadow: 0 5px 20px rgba(0,0,0,0.03); flex: 1;}
     .kanban-col.dragover { background: rgba(10,132,255,0.1); border: 2px dashed var(--ios-blue); }
     .emp-card { background: white; padding: 12px 15px; border-radius: 12px; cursor: grab; box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; transition: 0.2s; margin-bottom: 10px;}
     .emp-card:hover { border-color: var(--ios-blue); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(10,132,255,0.15);}
     .emp-card:active { cursor: grabbing; }
 
     /* ZARZĄDZANIE GRUPAMI - BAŃKI */
-    .group-bubbles-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; padding: 20px 0; }
-    .group-bubble { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.04); cursor: pointer; border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+    .group-bubbles-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 0; }
+    .group-bubble { background: rgba(255,255,255,0.8); backdrop-filter: blur(20px); border-radius: 24px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.04); cursor: pointer; border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
     .group-bubble:hover { border-color: var(--ios-blue); transform: translateY(-5px) scale(1.02); box-shadow: 0 20px 40px rgba(10,132,255,0.15); }
     
+    /* MODALE I TOAST */
     .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(29, 29, 31, 0.9); backdrop-filter: blur(10px); color: white; padding: 16px 40px; border-radius: 30px; display: none; z-index: 9999; font-weight: 600; box-shadow: 0 15px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes slideUp { from { transform: translate(-50%, 20px); opacity:0; } to { transform: translate(-50%, 0); opacity:1; } }
-
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(8px); z-index: 900; display: none; animation: fadeIn 0.3s; }
-    .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.95); background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); padding: 40px; border-radius: 32px; z-index: 1000; display: none; width: 420px; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 60px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.5); }
+    .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.95); background: rgba(255,255,255,0.95); backdrop-filter: blur(20px); padding: 30px; border-radius: 24px; z-index: 1000; display: none; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 60px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.5); }
     .modal.active { display: block; animation: modalPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes modalPop { from { opacity: 0; transform: translate(-50%,-45%) scale(0.9); } to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
     
-    .cms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 30px; width: 100%; max-width: 1200px; margin: 0 auto; }
+    .cms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; width: 100%; max-width: 1200px; margin: 0 auto; }
+
+    /* ========================================================
+       MEDIA QUERIES (RESPONSYWNOŚĆ DLA ZEBRA / TELEFONÓW)
+       ======================================================== */
+    @media (max-width: 768px) {
+        .nav { justify-content: flex-start; padding: 10px; }
+        .nav-btn { font-size: 13px; padding: 10px 16px; }
+        .landing-box { gap: 15px; }
+        .glass-card { padding: 25px 20px; border-radius: 20px; }
+        .btn-main { padding: 14px 20px; font-size: 14px; width: 100%; }
+        
+        .tools { flex-direction: column; align-items: stretch; padding: 15px; }
+        .tools > * { width: 100% !important; margin-bottom: 5px; }
+        .tools .nav-arrow { width: auto !important; } /* Strzałki kalendarza nie na pełną szerokość */
+        
+        /* Dzienny Planner układ kolumn */
+        #vDaily > div:nth-child(2) { flex-direction: column; overflow-y: auto; }
+        .kanban-col { min-width: 100%; border-right: none; border-bottom: 2px solid rgba(0,0,0,0.05); margin-bottom: 15px; }
+        
+        /* Modal Grup */
+        #groupManagerModal { width: 95vw !important; padding: 20px !important; }
+        #groupManagerModal > div:nth-child(2) { flex-direction: column; gap: 15px; }
+        #groupManagerModal h3 { font-size: 22px !important; }
+        
+        .month-nav h2 { font-size: 18px !important; }
+        .emp-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+        
+        /* Sticky pierwsza kolumna w tygodniowym może zasłaniać za dużo na mobile */
+        .sticky-col { min-width: 120px; font-size: 11px; padding: 0 5px; }
+    }
   </style>
 </head>
 <body>
@@ -220,20 +149,20 @@
   <!-- EKRAN STARTOWY -->
   <div id="screen-landing" class="app-screen active">
     <div class="landing-wrapper">
-        <div style="text-align:center; margin-bottom: 40px;">
-          <div style="background: linear-gradient(135deg, var(--ios-blue), #5E5CE6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 56px; font-weight: 800; letter-spacing: -2px; margin-bottom: 10px;">WMS Center</div>
-          <p style="color:var(--text-muted); font-size:20px; font-weight:500;">Enterprise Module 1 & 2 Integrated</p>
+        <div style="text-align:center; margin-bottom: 30px;">
+          <div style="background: linear-gradient(135deg, var(--ios-blue), #5E5CE6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px;">WMS Center</div>
+          <p style="color:var(--text-muted); font-size:16px; font-weight:500;">Enterprise Module 1 & 2</p>
         </div>
         <div class="landing-box">
           <div class="glass-card landing-card" onclick="openScreen('screen-emp-login')">
-            <div style="font-size: 70px; margin-bottom:20px; filter: drop-shadow(0 10px 10px rgba(0,0,0,0.1));">🧑‍💻</div>
-            <h2 style="margin:0; font-weight:800; color:#1d1d1f;">Pracownik</h2>
-            <p style="color:var(--text-muted); font-size:14px; margin-top:10px;">Dostępność i grafik</p>
+            <div style="font-size: 60px; margin-bottom:15px;">🧑‍💻</div>
+            <h2 style="margin:0; font-weight:800; color:#1d1d1f; font-size:22px;">Pracownik</h2>
+            <p style="color:var(--text-muted); font-size:13px; margin-top:5px;">Dostępność i grafik</p>
           </div>
           <div class="glass-card landing-card" onclick="openScreen('screen-admin-login')">
-            <div style="font-size: 70px; margin-bottom:20px; filter: drop-shadow(0 10px 10px rgba(0,0,0,0.1));">🛠️</div>
-            <h2 style="margin:0; font-weight:800; color:#1d1d1f;">Manager</h2>
-            <p style="color:var(--text-muted); font-size:14px; margin-top:10px;">Planowanie i akceptacje</p>
+            <div style="font-size: 60px; margin-bottom:15px;">🛠️</div>
+            <h2 style="margin:0; font-weight:800; color:#1d1d1f; font-size:22px;">Manager</h2>
+            <p style="color:var(--text-muted); font-size:13px; margin-top:5px;">Planowanie i CMS</p>
           </div>
         </div>
     </div>
@@ -241,18 +170,18 @@
 
   <!-- LOGOWANIE PRACOWNIK -->
   <div id="screen-emp-login" class="app-screen">
-    <div style="padding: 20px 30px;">
-        <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:16px; cursor:pointer; font-weight:700; transition:0.2s;">← Wróć do menu</button>
+    <div style="padding: 15px 20px;">
+        <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
     </div>
     <div class="login-wrapper">
         <div class="glass-card login-card">
-          <h2 style="margin-top:0; font-weight:800; font-size:28px;">Panel Pracownika</h2>
-          <p style="color:var(--text-muted); font-size:14px; margin-bottom:30px;">Zaloguj się, aby podać dyspozycję.</p>
-          <select id="elName" style="width:100%; margin-bottom:20px;">
+          <h2 style="margin-top:0; font-weight:800; font-size:24px;">Panel Pracownika</h2>
+          <p style="color:var(--text-muted); font-size:13px; margin-bottom:25px;">Zaloguj się, aby podać dyspozycję.</p>
+          <select id="elName" style="width:100%; margin-bottom:15px;">
               <option value="">Wybierz nazwisko</option>
           </select>
-          <input type="password" id="elPin" placeholder="KOD PIN" pattern="[0-9]*" inputmode="numeric" style="width:100%; margin-bottom:30px; text-align:center; font-size:28px; letter-spacing:15px; font-weight:800;">
-          <button class="btn-main" style="width:100%; font-size:18px; padding:18px;" onclick="doEmpLogin()">Wejdź do systemu</button>
+          <input type="password" id="elPin" placeholder="KOD PIN" pattern="[0-9]*" inputmode="numeric" style="width:100%; margin-bottom:25px; text-align:center; font-size:24px; letter-spacing:10px; font-weight:800;">
+          <button class="btn-main" onclick="doEmpLogin()">Wejdź do systemu</button>
         </div>
     </div>
   </div>
@@ -265,52 +194,53 @@
       <div class="nav-btn" onclick="openScreen('screen-landing')" style="color:#ff3b30;">Wyloguj</div>
     </div>
     
-    <div id="eGrafik" style="flex:1; overflow-y:auto; padding:40px; max-width:1200px; margin:0 auto; width:100%; box-sizing:border-box;">
+    <div id="eGrafik" style="flex:1; overflow-y:auto; padding:20px; max-width:1200px; margin:0 auto; width:100%; box-sizing:border-box;">
       <div class="month-nav">
-        <button class="nav-arrow" onclick="changeEmpMonth(-1)">← Poprzedni</button>
-        <h2 style="margin:0; font-weight:800; font-size:24px;" id="empMonthTitle">Obecny Miesiąc</h2>
-        <button class="nav-arrow" onclick="changeEmpMonth(1)">Następny →</button>
+        <button class="nav-arrow" onclick="changeEmpMonth(-1)">← Poprz.</button>
+        <h2 style="margin:0; font-weight:800; font-size:20px;" id="empMonthTitle">Obecny Miesiąc</h2>
+        <button class="nav-arrow" onclick="changeEmpMonth(1)">Nast. →</button>
       </div>
       
-      <div style="margin-bottom:20px; display:flex; flex-direction:column; align-items:center; gap:15px;">
-          <div style="background:rgba(255,255,255,0.8); backdrop-filter:blur(10px); padding:8px 15px; border-radius:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; box-shadow:0 10px 20px rgba(0,0,0,0.03); border:1px solid rgba(0,0,0,0.05);">
-            <span style="font-size:20px;">🖌️</span>
-            <select id="empBrushAct" style="background:transparent; border:none; font-weight:700; color:var(--ios-blue); outline:none;"></select>
-            <input type="text" id="empBrushHrs" list="dlShifts" placeholder="Godziny..." style="width:120px; background:white; font-weight:600; padding:10px; border-radius:10px; border:1px solid rgba(0,0,0,0.1);">
-            <button id="eBtn" onclick="toggleEmpBrush()" style="background:transparent; border:2px dashed var(--ios-blue); padding:10px 20px; border-radius:12px; cursor:pointer; font-weight:800; transition:0.3s; color:var(--ios-blue);">PĘDZEL: WYŁ</button>
+      <!-- PĘDZEL PRACOWNIKA + PRZYCISK BATCH SUBMIT -->
+      <div style="margin-bottom:20px; display:flex; flex-direction:column; align-items:center; gap:10px;">
+          <div style="background:rgba(255,255,255,0.9); backdrop-filter:blur(10px); padding:10px; border-radius:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center; box-shadow:0 10px 20px rgba(0,0,0,0.03); width: 100%; max-width: 600px;">
+            <span style="font-size:18px;">🖌️</span>
+            <select id="empBrushAct" style="background:transparent; border:none; font-weight:700; color:var(--ios-blue); outline:none; flex:1; min-width:120px;"></select>
+            <input type="text" id="empBrushHrs" list="dlShifts" placeholder="Godziny..." style="width:100px; background:white; font-weight:600; padding:10px; border-radius:10px; border:1px solid rgba(0,0,0,0.1);">
+            <button id="eBtn" onclick="toggleEmpBrush()" style="background:transparent; border:2px dashed var(--ios-blue); padding:10px 15px; border-radius:12px; cursor:pointer; font-weight:800; transition:0.3s; color:var(--ios-blue);">PĘDZEL: WYŁ</button>
           </div>
-          <div id="empSubmitBox" style="display:none; animation:fadeUp 0.3s;">
-             <button class="btn-main" style="background:linear-gradient(135deg, #34C759, #28a745); font-size:18px; padding:16px 40px; box-shadow: 0 4px 15px rgba(52,199,89,0.3);" onclick="submitEmpChanges()">Zapisz i wyślij do grafiku 🚀</button>
+          <div id="empSubmitBox" style="display:none; animation:fadeUp 0.3s; width: 100%; max-width: 600px;">
+             <button class="btn-main" style="background:linear-gradient(135deg, #34C759, #28a745); width: 100%; font-size:16px;" onclick="submitEmpChanges()">Zapisz i wyślij do grafiku 🚀</button>
           </div>
       </div>
 
       <div id="empGrid" class="emp-grid">Ładowanie kalendarza...</div>
     </div>
 
-    <div id="eUstawienia" style="display:none; flex:1; padding:40px; max-width:600px; margin:0 auto; width:100%;">
-      <h2 style="font-weight:800; font-size:28px;">Bezpieczeństwo</h2>
-      <div class="glass-card" style="width:100%; text-align:left; padding:40px;">
+    <div id="eUstawienia" style="display:none; flex:1; padding:20px; max-width:600px; margin:0 auto; width:100%;">
+      <h2 style="font-weight:800; font-size:24px;">Bezpieczeństwo</h2>
+      <div class="glass-card" style="text-align:left; padding:25px;">
         <label style="font-weight:600; color:var(--text-muted); font-size:13px; margin-bottom:8px; display:block;">Stary PIN</label>
-        <input type="password" id="pOld" placeholder="****" style="width:100%; margin-bottom:20px; letter-spacing:5px;">
+        <input type="password" id="pOld" placeholder="****" style="width:100%; margin-bottom:15px; letter-spacing:5px;">
         <label style="font-weight:600; color:var(--text-muted); font-size:13px; margin-bottom:8px; display:block;">Nowy PIN</label>
-        <input type="password" id="pNew" placeholder="****" style="width:100%; margin-bottom:30px; letter-spacing:5px;">
-        <button class="btn-main" style="width:100%;" onclick="empChangePin()">Zmień PIN</button>
+        <input type="password" id="pNew" placeholder="****" style="width:100%; margin-bottom:25px; letter-spacing:5px;">
+        <button class="btn-main" onclick="empChangePin()">Zmień PIN</button>
       </div>
     </div>
   </div>
 
   <!-- LOGOWANIE ADMIN -->
   <div id="screen-admin-login" class="app-screen">
-    <div style="padding: 20px 30px;">
-        <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:16px; cursor:pointer; font-weight:700; transition:0.2s;">← Wróć do menu</button>
+    <div style="padding: 15px 20px;">
+        <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
     </div>
     <div class="login-wrapper">
         <div class="glass-card login-card">
-          <h2 style="margin-top:0; font-weight:800; font-size:28px;">Panel Managera</h2>
-          <p style="color:var(--text-muted); font-size:14px; margin-bottom:30px;">Wymagana autoryzacja.</p>
-          <input type="text" id="lUser" placeholder="Login" style="width:100%; margin-bottom:20px; font-weight:600;">
-          <input type="password" id="lPass" placeholder="Hasło" style="width:100%; margin-bottom:30px;">
-          <button class="btn-main" style="width:100%; font-size:18px; padding:18px;" onclick="doAdminLogin()">Autoryzuj</button>
+          <h2 style="margin-top:0; font-weight:800; font-size:24px;">Panel Managera</h2>
+          <p style="color:var(--text-muted); font-size:13px; margin-bottom:25px;">Wymagana autoryzacja.</p>
+          <input type="text" id="lUser" placeholder="Login" style="width:100%; margin-bottom:15px; font-weight:600;">
+          <input type="password" id="lPass" placeholder="Hasło" style="width:100%; margin-bottom:25px;">
+          <button class="btn-main" onclick="doAdminLogin()">Autoryzuj</button>
         </div>
     </div>
   </div>
@@ -319,17 +249,17 @@
   <div id="screen-admin" class="app-screen">
     <div class="nav">
       <div class="nav-btn" onclick="showAdminView('vAlerts')">🔔 Wnioski <span class="badge" id="aBadge">0</span></div>
-      <div class="nav-btn" onclick="showAdminView('vPlanner')">📅 Planner Tygodniowy</div>
-      <div class="nav-btn active" onclick="showAdminView('vDaily')">☀️ Planner Dzienny (Live)</div>
-      <div class="nav-btn" onclick="showAdminView('vMatrix')">👥 Grupy i Kompetencje</div>
-      <div class="nav-btn" onclick="showAdminView('vSettings')">⚙️ Ustawienia CMS</div>
+      <div class="nav-btn" onclick="showAdminView('vPlanner')">📅 Tygodniowy</div>
+      <div class="nav-btn active" onclick="showAdminView('vDaily')">☀️ Dzienny (Live)</div>
+      <div class="nav-btn" onclick="showAdminView('vMatrix')">👥 Zespół</div>
+      <div class="nav-btn" onclick="showAdminView('vSettings')">⚙️ CMS</div>
       <div class="nav-btn" onclick="openScreen('screen-landing')" style="color:#ff3b30;">Wyloguj</div>
     </div>
 
     <!-- WNIOSKI -->
-    <div id="vAlerts" class="admin-view" style="padding:40px; max-width:900px; margin:0 auto; width:100%; overflow-y:auto;">
-      <h2 style="margin-top:0; font-weight:800; font-size:32px;">Wnioski od pracowników</h2>
-      <p style="color:var(--text-muted); margin-bottom:30px;">Zgłoszenia wykraczające poza regulaminowy czas lub wymagające uwagi.</p>
+    <div id="vAlerts" class="admin-view" style="padding:20px; max-width:900px; margin:0 auto; width:100%; overflow-y:auto;">
+      <h2 style="margin-top:0; font-weight:800; font-size:26px;">Wnioski od pracowników</h2>
+      <p style="color:var(--text-muted); margin-bottom:20px; font-size:13px;">Zgłoszenia wykraczające poza regulaminowy czas lub grupy nieelastyczne.</p>
       <div id="alertsList">
           <p style="color:gray; font-weight:500;">Brak nowych wniosków. Wszystko pod kontrolą! 🎉</p>
       </div>
@@ -338,25 +268,20 @@
     <!-- PLANNER TYGODNIOWY -->
     <div id="vPlanner" class="admin-view">
       <div class="tools">
-        <input type="text" id="searchPlan" placeholder="🔍 Szukaj pracownika..." onkeyup="renderPlanner()" style="width:200px;">
+        <input type="text" id="searchPlan" placeholder="🔍 Szukaj pracownika..." onkeyup="renderPlanner()">
         <select id="aMonth" style="font-weight:600;" onchange="renderPlanner()">
           <option value="2">Marzec 2026</option>
           <option value="3" selected>Kwiecień 2026</option>
           <option value="4">Maj 2026</option>
           <option value="5">Czerwiec 2026</option>
         </select>
-        <div style="background:rgba(0,0,0,0.03); padding:8px 15px; border-radius:16px; display:flex; gap:10px; align-items:center;">
-          <span style="font-size:20px;">🖌️</span>
-          <select id="brushAct" style="background:transparent; border:none; font-weight:700; color:var(--ios-blue);"></select>
-          <input type="text" id="brushHrs" list="dlShifts" placeholder="Godziny..." style="width:120px; background:white; font-weight:600;">
-          <button id="bBtn" onclick="toggleBrush()" style="background:white; border:1px solid rgba(0,0,0,0.1); padding:10px 20px; border-radius:12px; cursor:pointer; font-weight:800; transition:0.3s;">TRYB MALOWANIA: WYŁ</button>
+        <div style="background:rgba(0,0,0,0.03); padding:6px 12px; border-radius:14px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center;">
+          <span style="font-size:18px;">🖌️</span>
+          <select id="brushAct" style="background:transparent; border:none; font-weight:700; color:var(--ios-blue); min-width:100px;"></select>
+          <input type="text" id="brushHrs" list="dlShifts" placeholder="Godziny..." style="width:100px; background:white; font-weight:600; padding:10px;">
+          <button id="bBtn" onclick="toggleBrush()" style="background:white; border:1px solid rgba(0,0,0,0.1); padding:10px 15px; border-radius:12px; cursor:pointer; font-weight:800; transition:0.3s; font-size:13px;">MALOWANIE: WYŁ</button>
         </div>
-        <button class="btn-main" style="background: linear-gradient(135deg, #5E5CE6, #4527A0); box-shadow: 0 4px 15px rgba(94, 92, 230, 0.3);" onclick="openM('massModal')">🚀 Planuj Masowo</button>
-        
-        <div style="flex:1; display:flex; justify-content:flex-end; align-items:center; gap:10px;">
-          <span style="font-size:12px; font-weight:600; color:var(--text-muted);">ZOOM</span>
-          <input type="range" min="100" max="220" value="130" oninput="document.documentElement.style.setProperty('--cell-w', this.value+'px')" style="padding:0; background:transparent;">
-        </div>
+        <button class="btn-main" style="background: linear-gradient(135deg, #5E5CE6, #4527A0);" onclick="openM('massModal')">🚀 Masowo</button>
       </div>
       <div class="planner-scroll">
           <table>
@@ -366,99 +291,103 @@
       </div>
     </div>
 
-    <!-- PLANNER DZIENNY (DRAG&DROP + ZAPOTRZEBOWANIE + SUGESTIE) -->
+    <!-- PLANNER DZIENNY (LIVE) -->
     <div id="vDaily" class="admin-view active">
-      <div class="tools" style="justify-content:center; box-shadow:0 4px 20px rgba(0,0,0,0.03); gap:20px;">
-        <input type="date" id="dailyDate" onchange="renderDaily()" style="font-size:18px; padding:15px 30px; font-weight:800; background:white;">
-        <button class="btn-main" style="background: linear-gradient(135deg, #FF9500, #FF3B30);" onclick="openCopyDaily()">📋 Skopiuj schemat dnia</button>
+      <div class="tools" style="justify-content:center; box-shadow:0 4px 20px rgba(0,0,0,0.03); gap:15px; flex-wrap:nowrap;">
+        
+        <div style="display:flex; align-items:center; gap:5px; background:white; border-radius:16px; padding:4px; border:1px solid rgba(0,0,0,0.1);">
+            <button class="nav-arrow" onclick="changeDailyDate(-1)" style="padding:10px 15px;">←</button>
+            <input type="date" id="dailyDate" onchange="renderDaily()" style="font-size:16px; padding:10px; font-weight:800; border:none; background:transparent;">
+            <button class="nav-arrow" onclick="changeDailyDate(1)" style="padding:10px 15px;">→</button>
+        </div>
+
+        <button class="btn-main" style="background: linear-gradient(135deg, #FF9500, #FF3B30); white-space:nowrap;" onclick="openCopyDaily()">📋 Kopiuj Dzień</button>
       </div>
       
-      <div style="display:flex; flex:1; overflow:hidden; background:#f2f2f7;">
+      <div style="display:flex; flex:1; overflow:hidden; background:#f2f2f7;" id="dailyContainer">
         <!-- PULA DOSTĘPNYCH (Wyczyść) -->
         <div class="kanban-col" style="border-right:1px solid var(--border); border-radius:0; background:rgba(255,255,255,0.8);" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, 'Wyczyść')">
-          <div style="padding:15px 10px; font-weight:800; color:var(--text-main); font-size:18px; border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:15px;">
-            Dostępni <span id="availCount" style="background:var(--ios-blue); color:white; padding:4px 10px; border-radius:10px; font-size:14px; float:right;">0</span>
+          <div style="padding:10px; font-weight:800; color:var(--text-main); font-size:16px; border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:10px; display:flex; justify-content:space-between;">
+            Wolni pracownicy <span id="availCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:10px; font-size:12px;">0</span>
           </div>
-          <div id="dailyAvailableList" style="flex:1; overflow-y:auto; padding-right:10px; display:flex; flex-direction:column; gap:8px;"></div>
+          <div id="dailyAvailableList" style="flex:1; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:8px;"></div>
         </div>
         
         <!-- KOLUMNY AKTYWNOŚCI -->
-        <div style="flex:1; display:flex; gap:20px; padding:20px; overflow-x:auto; align-items:flex-start;" id="dailyGrid"></div>
+        <div style="flex:1; display:flex; gap:15px; padding:15px; overflow-x:auto; align-items:flex-start;" id="dailyGrid"></div>
       </div>
     </div>
 
-    <!-- GRUPY I KARTOTEKI (BAŃKI) -->
-    <div id="vMatrix" class="admin-view" style="flex-direction:column; padding:40px; background:#f2f2f7; overflow-y:auto;">
-      <h2 style="font-weight:800; font-size:32px; margin-top:0;">Zarządzanie Grupami</h2>
-      <p style="color:var(--text-muted); margin-bottom:20px;">Wybierz grupę, aby dodać lub usunąć pracowników oraz ocenić ich w matrycy kompetencji.</p>
+    <!-- GRUPY I KARTOTEKI -->
+    <div id="vMatrix" class="admin-view" style="flex-direction:column; padding:20px; background:#f2f2f7; overflow-y:auto;">
+      <h2 style="font-weight:800; font-size:26px; margin-top:0;">Zarządzanie Grupami</h2>
+      <p style="color:var(--text-muted); margin-bottom:15px; font-size:13px;">Wybierz grupę (bańkę), aby przypisać pracowników i ustalić ich oceny kompetencji.</p>
       <div id="groupBubbles" class="group-bubbles-container"></div>
     </div>
 
     <!-- USTAWIENIA CMS -->
-    <div id="vSettings" class="admin-view" style="align-items:center; overflow-y:auto; padding:50px;">
+    <div id="vSettings" class="admin-view" style="align-items:center; overflow-y:auto; padding:20px;">
       <div class="cms-grid">
         
         <!-- Dodawanie Pracowników -->
-        <div class="glass-card" style="text-align:left; padding:35px;">
-            <h3 style="margin-top:0; font-weight:800; font-size:22px;">👥 Pracownicy i PINy</h3>
-            <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Dodaj pracownika do bazy. Do konkretnej grupy przydzielisz go w zakładce Grupy i Kompetencje.</p>
-            <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <div class="glass-card" style="text-align:left; padding:25px;">
+            <h3 style="margin-top:0; font-weight:800; font-size:18px;">👥 Pracownicy i PINy</h3>
+            <div style="display:flex; gap:8px; margin-bottom:15px;">
                 <input type="text" id="sEmp" placeholder="Imię Nazwisko" style="flex:1">
                 <button class="btn-main" onclick="saveEmp()">Dodaj</button>
             </div>
-            <div id="cmsEmpList" style="max-height:350px; overflow-y:auto; padding-right:10px;"></div>
+            <div id="cmsEmpList" style="max-height:250px; overflow-y:auto; padding-right:5px;"></div>
         </div>
 
         <!-- Dodawanie Grup -->
-        <div class="glass-card" style="text-align:left; padding:35px;">
-            <h3 style="margin-top:0; font-weight:800; font-size:22px;">🏢 Grupy Pracownicze</h3>
-            <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Twórz i usuwaj grupy. Zaznacz "Elastyczna", aby omijały regułę 20. dnia.</p>
-            <div style="display:flex; gap:10px; margin-bottom:10px;">
+        <div class="glass-card" style="text-align:left; padding:25px;">
+            <h3 style="margin-top:0; font-weight:800; font-size:18px;">🏢 Grupy Pracownicze</h3>
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
                 <input type="text" id="sGroup" placeholder="Nazwa nowej grupy" style="flex:1">
-                <select id="sGroupType" style="flex:0.5; padding:16px; border-radius:14px; outline:none;">
+                <select id="sGroupType" style="flex:0.5; padding:14px; border-radius:12px; outline:none; font-size:13px;">
                     <option value="Stały">Stali</option>
                     <option value="Dodatkowy">Dodatkowi</option>
                 </select>
             </div>
-            <div style="margin-bottom:20px; padding-left:10px;">
-                <label style="font-size:13px; font-weight:600; color:var(--ios-blue); cursor:pointer; display:flex; align-items:center; gap:8px;">
-                    <input type="checkbox" id="sGroupFlex" style="width:18px; height:18px; accent-color:var(--ios-blue);">
-                    Grupa elastyczna (Omija regułę)
+            <div style="margin-bottom:15px; padding-left:5px;">
+                <label style="font-size:12px; font-weight:600; color:var(--ios-blue); cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    <input type="checkbox" id="sGroupFlex" style="width:16px; height:16px; accent-color:var(--ios-blue);">
+                    Grupa elastyczna (Omija regułę 20. dnia)
                 </label>
             </div>
-            <button class="btn-main" style="width:100%; margin-bottom:20px;" onclick="saveGroup()">Utwórz Grupę</button>
-            <div id="cmsGroupList" style="max-height:300px; overflow-y:auto; padding-right:10px;"></div>
+            <button class="btn-main" style="width:100%; margin-bottom:15px;" onclick="saveGroup()">Utwórz Grupę</button>
+            <div id="cmsGroupList" style="max-height:200px; overflow-y:auto; padding-right:5px;"></div>
         </div>
 
         <!-- Aktywności -->
-        <div class="glass-card" style="text-align:left; padding:35px;">
-            <h3 style="margin-top:0; font-weight:800; font-size:22px;">📋 Aktywności (Kafelki Planner)</h3>
-            <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <div class="glass-card" style="text-align:left; padding:25px;">
+            <h3 style="margin-top:0; font-weight:800; font-size:18px;">📋 Aktywności (Kafelki)</h3>
+            <div style="display:flex; gap:8px; margin-bottom:15px;">
                 <input type="text" id="sAct" placeholder="Nazwa zadania" style="flex:1">
                 <button class="btn-main" onclick="saveSet('activity', 'sAct')">Dodaj</button>
             </div>
-            <div id="cmsActList" style="max-height:300px; overflow-y:auto; padding-right:10px;"></div>
+            <div id="cmsActList" style="max-height:200px; overflow-y:auto; padding-right:5px;"></div>
         </div>
 
         <!-- Zmiany Pracy -->
-        <div class="glass-card" style="text-align:left; padding:35px;">
-            <h3 style="margin-top:0; font-weight:800; font-size:22px;">⏰ Zmiany Pracy (Godziny)</h3>
-            <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <div class="glass-card" style="text-align:left; padding:25px;">
+            <h3 style="margin-top:0; font-weight:800; font-size:18px;">⏰ Zmiany Pracy</h3>
+            <div style="display:flex; gap:8px; margin-bottom:15px;">
                 <input type="text" id="sShift" placeholder="np. 07:00-15:00" style="flex:1">
                 <button class="btn-main" onclick="saveSet('shift', 'sShift')">Dodaj</button>
             </div>
-            <div id="cmsShiftList" style="max-height:200px; overflow-y:auto; padding-right:10px;"></div>
+            <div id="cmsShiftList" style="max-height:150px; overflow-y:auto; padding-right:5px;"></div>
         </div>
 
         <!-- Hasło -->
-        <div class="glass-card" style="text-align:left; padding:35px; height:fit-content;">
-            <h3 style="margin-top:0; font-weight:800; font-size:22px;">🔐 Dostęp Managera</h3>
-            <p style="color:var(--text-muted); font-size:13px; margin-bottom:15px;">Zmień główne hasło dostępowe do panelu.</p>
-            <div style="display:flex; gap:10px;">
+        <div class="glass-card" style="text-align:left; padding:25px; height:fit-content;">
+            <h3 style="margin-top:0; font-weight:800; font-size:18px;">🔐 Hasło Managera</h3>
+            <div style="display:flex; gap:8px;">
                 <input type="password" id="sAdP" placeholder="Nowe hasło" style="flex:1">
                 <button class="btn-main" onclick="changeAdminPass()">Zmień</button>
             </div>
         </div>
+
       </div>
     </div>
   </div>
@@ -467,78 +396,76 @@
   <div class="overlay" id="overlay" onclick="closeM()"></div>
   
   <!-- MODAL: ZARZĄDZANIE GRUPĄ -->
-  <div id="groupManagerModal" class="modal" style="width:850px; max-width:95vw; padding:30px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:15px;">
+  <div id="groupManagerModal" class="modal" style="width:850px; padding:25px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:10px;">
           <div>
-              <h3 id="gmTitle" style="margin:0; font-size:28px; font-weight:800;">Zarządzaj Grupą</h3>
-              <p id="gmSubtitle" style="margin:5px 0 0 0; color:var(--text-muted); font-size:14px; font-weight:600;"></p>
+              <h3 id="gmTitle" style="margin:0; font-size:22px; font-weight:800;">Zarządzaj Grupą</h3>
+              <p id="gmSubtitle" style="margin:4px 0 0 0; color:var(--text-muted); font-size:12px; font-weight:600;"></p>
           </div>
-          <button class="btn-main" onclick="closeM()" style="background:#f2f2f7; color:var(--text-main); box-shadow:none;">Zamknij ✕</button>
+          <button class="btn-main" onclick="closeM()" style="background:#f2f2f7; color:var(--text-main); box-shadow:none; padding:8px 16px; font-size:13px;">✕ Zamknij</button>
       </div>
       
-      <div style="display:flex; gap:25px;">
-          <!-- LEWA KOLUMNA: W Grupie -->
-          <div style="flex:1; background:rgba(0,0,0,0.02); padding:20px; border-radius:20px; border:1px solid rgba(0,0,0,0.05);">
-              <h4 style="margin-top:0; font-size:18px; color:var(--text-main); display:flex; justify-content:space-between;">
-                  Obecni w grupie <span id="gmInCount" style="background:var(--ios-blue); color:white; padding:2px 10px; border-radius:10px; font-size:13px;">0</span>
+      <div style="display:flex; gap:15px;" class="gm-columns-wrapper">
+          <div style="flex:1; background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
+              <h4 style="margin-top:0; font-size:15px; color:var(--text-main); display:flex; justify-content:space-between;">
+                  Obecni w grupie <span id="gmInCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:8px; font-size:12px;">0</span>
               </h4>
-              <div id="gmInGroup" style="max-height:400px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:8px;"></div>
+              <div id="gmInGroup" style="max-height:300px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:6px;"></div>
           </div>
           
-          <!-- PRAWA KOLUMNA: Z zewnątrz -->
-          <div style="flex:1; background:rgba(0,0,0,0.02); padding:20px; border-radius:20px; border:1px solid rgba(0,0,0,0.05);">
-              <h4 style="margin-top:0; font-size:18px; color:var(--text-main);">Pozostali pracownicy</h4>
-              <input type="text" id="gmSearch" placeholder="🔍 Szukaj po nazwisku..." onkeyup="filterGm()" style="width:100%; margin-bottom:15px; padding:12px; border-radius:12px;">
-              <div id="gmOutGroup" style="max-height:350px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:8px;"></div>
+          <div style="flex:1; background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
+              <h4 style="margin-top:0; font-size:15px; color:var(--text-main);">Pozostali pracownicy</h4>
+              <input type="text" id="gmSearch" placeholder="🔍 Szukaj..." onkeyup="filterGm()" style="width:100%; margin-bottom:10px; padding:10px; border-radius:10px; font-size:13px;">
+              <div id="gmOutGroup" style="max-height:260px; overflow-y:auto; padding-right:5px; display:flex; flex-direction:column; gap:6px;"></div>
           </div>
       </div>
   </div>
 
   <!-- MODAL: MATRYCA KOMPETENCJI 1-5 -->
-  <div id="matrixModal" class="modal" style="width:600px; max-width:90vw; z-index:1001;">
-      <div style="display:flex; justify-content:space-between; margin-bottom:30px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:20px;">
+  <div id="matrixModal" class="modal" style="width:600px; z-index:1001; padding:25px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:15px;">
           <div>
-              <h2 id="matrixTitle" style="font-size:28px; margin:0; font-weight:800;">Kompetencje</h2>
-              <div id="matrixSubtitle" style="color:var(--text-muted); font-weight:700; font-size:13px; margin-top:5px;"></div>
+              <h2 id="matrixTitle" style="font-size:22px; margin:0; font-weight:800;">Kompetencje</h2>
+              <div id="matrixSubtitle" style="color:var(--text-muted); font-weight:700; font-size:12px; margin-top:4px;"></div>
           </div>
-          <button class="btn-main" onclick="document.getElementById('matrixModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">Wróć</button>
+          <button class="btn-main" onclick="document.getElementById('matrixModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none; padding:8px 16px; font-size:13px;">Wróć</button>
       </div>
-      <div id="matrixGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px; max-height:50vh; overflow-y:auto; padding-right:10px;"></div>
+      <div id="matrixGrid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:10px; max-height:50vh; overflow-y:auto; padding-right:5px;"></div>
   </div>
 
-  <!-- MODAL: SUGESTIE PRACOWNIKÓW -->
-  <div id="suggestionModal" class="modal" style="width:500px; max-height:80vh;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:15px;">
+  <!-- MODAL: SUGESTIE AI 💡 -->
+  <div id="suggestionModal" class="modal" style="width:500px; padding:25px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:10px;">
           <div>
-              <h3 id="sugTitle" style="margin:0; font-size:24px; font-weight:800; color:var(--ios-blue);">Sugestie</h3>
-              <p style="margin:5px 0 0 0; color:var(--text-muted); font-size:13px;">Wybierz pracownika o najwyższych kompetencjach</p>
+              <h3 id="sugTitle" style="margin:0; font-size:20px; font-weight:800; color:var(--ios-blue);">Sugestie</h3>
+              <p style="margin:2px 0 0 0; color:var(--text-muted); font-size:12px;">Posortowani wg. kompetencji (Top do Bottom)</p>
           </div>
-          <button class="btn-main" onclick="document.getElementById('suggestionModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none; padding:8px 16px;">Zamknij</button>
+          <button class="btn-main" onclick="document.getElementById('suggestionModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none; padding:6px 12px; font-size:12px;">Zamknij</button>
       </div>
-      <div id="sugList" style="display:flex; flex-direction:column; gap:8px; overflow-y:auto; max-height:60vh; padding-right:10px;"></div>
+      <div id="sugList" style="display:flex; flex-direction:column; gap:6px; overflow-y:auto; max-height:50vh; padding-right:5px;"></div>
   </div>
 
   <!-- MODAL MASOWY -->
-  <div id="massModal" class="modal">
-    <h3 style="margin-top:0; font-size:24px; font-weight:800; color:var(--ios-blue);">Planowanie Masowe</h3>
-    <select id="massAct" style="width:100%; margin-bottom:15px; font-weight:600;"></select>
-    <input type="text" id="massHrs" list="dlShifts" placeholder="Godziny..." style="width:100%; margin-bottom:20px; font-weight:600;">
-    <div style="display:flex; gap:15px; margin-bottom:25px;">
-        <div style="flex:1"><label style="font-size:13px; font-weight:700;">Od:</label><input type="date" id="mOd" style="width:100%; margin-top:5px;"></div>
-        <div style="flex:1"><label style="font-size:13px; font-weight:700;">Do:</label><input type="date" id="mDo" style="width:100%; margin-top:5px;"></div>
+  <div id="massModal" class="modal" style="padding:25px;">
+    <h3 style="margin-top:0; font-size:20px; font-weight:800; color:var(--ios-blue);">Planowanie Masowe</h3>
+    <select id="massAct" style="width:100%; margin-bottom:10px; font-weight:600;"></select>
+    <input type="text" id="massHrs" list="dlShifts" placeholder="Godziny..." style="width:100%; margin-bottom:15px; font-weight:600;">
+    <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <div style="flex:1"><label style="font-size:12px; font-weight:700;">Od:</label><input type="date" id="mOd" style="width:100%; padding:10px;"></div>
+        <div style="flex:1"><label style="font-size:12px; font-weight:700;">Do:</label><input type="date" id="mDo" style="width:100%; padding:10px;"></div>
     </div>
-    <button class="btn-main" onclick="applyMass()" style="width:100%; font-size:16px;">Wgraj układ do bazy</button>
+    <button class="btn-main" onclick="applyMass()" style="width:100%;">Zapisz do grafiku</button>
   </div>
 
   <!-- MODAL KOPIOWANIA -->
-  <div id="copyDayModal" class="modal">
-    <h3 style="margin-top:0; font-size:24px; font-weight:800; color:#FF9500;">Skopiuj układ dnia</h3>
-    <p style="font-size:14px; color:var(--text-muted); margin-bottom:25px;">Pobierasz układ z daty: <b id="copySourceDateStr" style="color:var(--text-main);"></b></p>
-    <div style="display:flex; gap:15px; margin-bottom:25px;">
-      <div style="flex:1"><input type="date" id="copyOd" style="width:100%;"></div>
-      <div style="flex:1"><input type="date" id="copyDo" style="width:100%;"></div>
+  <div id="copyDayModal" class="modal" style="padding:25px;">
+    <h3 style="margin-top:0; font-size:20px; font-weight:800; color:#FF9500;">Skopiuj układ dnia</h3>
+    <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">Źródło: <b id="copySourceDateStr" style="color:var(--text-main);"></b></p>
+    <div style="display:flex; gap:10px; margin-bottom:20px;">
+      <div style="flex:1"><label style="font-size:12px; font-weight:700;">Wklej od:</label><input type="date" id="copyOd" style="width:100%; padding:10px;"></div>
+      <div style="flex:1"><label style="font-size:12px; font-weight:700;">Wklej do:</label><input type="date" id="copyDo" style="width:100%; padding:10px;"></div>
     </div>
-    <button class="btn-main" style="width:100%; background: linear-gradient(135deg, #FF9500, #FF3B30); font-size:16px;" onclick="applyCopyDay()">🚀 Wklej układ</button>
+    <button class="btn-main" style="width:100%; background: linear-gradient(135deg, #FF9500, #FF3B30);" onclick="applyCopyDay()">🚀 Wklej układ</button>
   </div>
 
   <div id="toast" class="toast">Akcja zakończona!</div>
@@ -551,36 +478,23 @@
   
   async function apiCall(endpoint, method = 'GET', body = null) {
     try {
-      const opt = { 
-          method, 
-          headers: { 'Content-Type': 'application/json' } 
-      };
+      const opt = { method, headers: { 'Content-Type': 'application/json' } };
       if (body) opt.body = JSON.stringify(body);
       const res = await fetch(API_URL + endpoint, opt);
       if (!res.ok) throw new Error("Błąd serwera");
       return await res.json();
     } catch(e) {
-      showT("❌ " + e.message);
-      return null;
+      showT("❌ " + e.message); return null;
     }
   }
 
-  let dbAdmin = {}; 
-  let currEmp = ""; 
-  let isBrush = false; 
-  let empMonthOffset = 0; 
-  let isEmpBrush = false; 
-  let empChanges = {}; 
+  let dbAdmin = {}; let currEmp = ""; let isBrush = false; let empMonthOffset = 0; let isEmpBrush = false; let empChanges = {}; 
 
   const palette = [ 
-      {bg:'rgba(33, 150, 243, 0.1)',c:'#1565c0'}, 
-      {bg:'rgba(76, 175, 80, 0.1)',c:'#2e7d32'}, 
-      {bg:'rgba(255, 152, 0, 0.1)',c:'#ef6c00'}, 
-      {bg:'rgba(233, 30, 99, 0.1)',c:'#c2185b'}, 
-      {bg:'rgba(156, 39, 176, 0.1)',c:'#6a1b9a'}, 
-      {bg:'rgba(0, 188, 212, 0.1)',c:'#006064'}, 
-      {bg:'rgba(255, 193, 7, 0.1)',c:'#f57f17'}, 
-      {bg:'rgba(103, 58, 183, 0.1)',c:'#4527a0'} 
+      {bg:'rgba(33, 150, 243, 0.1)',c:'#1565c0'}, {bg:'rgba(76, 175, 80, 0.1)',c:'#2e7d32'}, 
+      {bg:'rgba(255, 152, 0, 0.1)',c:'#ef6c00'}, {bg:'rgba(233, 30, 99, 0.1)',c:'#c2185b'}, 
+      {bg:'rgba(156, 39, 176, 0.1)',c:'#6a1b9a'}, {bg:'rgba(0, 188, 212, 0.1)',c:'#006064'}, 
+      {bg:'rgba(255, 193, 7, 0.1)',c:'#f57f17'}, {bg:'rgba(103, 58, 183, 0.1)',c:'#4527a0'} 
   ];
   
   function getTileColor(str) {
@@ -589,8 +503,7 @@
     if(str.includes("Urlop")) return {bg:'rgba(255, 152, 0, 0.1)', c:'#ef6c00', shadow:'0 4px 10px rgba(239,108,0,0.1)'};
     if(str.includes("Wolne")) return {bg:'rgba(158, 158, 158, 0.1)', c:'#616161', shadow:'0 4px 10px rgba(97,97,97,0.1)'};
     
-    let hash = 0; 
-    for(let i=0; i<str.length; i++) hash = str.charCodeAt(i) + ((hash<<5)-hash);
+    let hash = 0; for(let i=0; i<str.length; i++) hash = str.charCodeAt(i) + ((hash<<5)-hash);
     const col = palette[Math.abs(hash) % palette.length];
     return {bg: col.bg, c: col.c, shadow: `0 4px 12px ${col.c}25`};
   }
@@ -603,64 +516,34 @@
   window.onload = async () => {
     document.getElementById('dailyDate').valueAsDate = new Date();
     const data = await apiCall('/public');
-    if(data && data.employees) {
-        document.getElementById('elName').innerHTML = `<option value="">Wybierz nazwisko</option>` + data.employees.map(e => `<option value="${e}">${e}</option>`).join('');
-    }
+    if(data && data.employees) document.getElementById('elName').innerHTML = `<option value="">Wybierz nazwisko</option>` + data.employees.map(e => `<option value="${e}">${e}</option>`).join('');
   };
 
-  function openScreen(id) { 
-      document.querySelectorAll('.app-screen').forEach(s => s.classList.remove('active')); 
-      document.getElementById(id).classList.add('active'); 
-  }
-  
-  function showT(m) { 
-      const t = document.getElementById('toast'); 
-      t.innerText = m; 
-      t.style.display = 'block'; 
-      setTimeout(() => t.style.display = 'none', 3000); 
-  }
-  
-  function closeM() { 
-      document.querySelectorAll('.modal, .overlay').forEach(m => m.classList.remove('active')); 
-      setTimeout(() => { document.querySelectorAll('.modal, .overlay').forEach(m => m.style.display = 'none'); }, 300); 
-  }
-  
-  function openM(id) { 
-      document.getElementById('overlay').style.display = 'block'; 
-      document.getElementById(id).style.display = 'block'; 
-      setTimeout(() => document.getElementById(id).classList.add('active'), 10); 
-  }
+  function openScreen(id) { document.querySelectorAll('.app-screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+  function showT(m) { const t = document.getElementById('toast'); t.innerText = m; t.style.display = 'block'; setTimeout(() => t.style.display = 'none', 3000); }
+  function closeM() { document.querySelectorAll('.modal, .overlay').forEach(m => m.classList.remove('active')); setTimeout(() => { document.querySelectorAll('.modal, .overlay').forEach(m => m.style.display = 'none'); }, 300); }
+  function openM(id) { document.getElementById('overlay').style.display = 'block'; document.getElementById(id).style.display = 'block'; setTimeout(() => document.getElementById(id).classList.add('active'), 10); }
 
   /* ==============================================================
      LOGIKA PRACOWNIKA
      ============================================================== */
   async function doEmpLogin() {
-    currEmp = document.getElementById('elName').value; 
-    const pin = document.getElementById('elPin').value;
-    
+    currEmp = document.getElementById('elName').value; const pin = document.getElementById('elPin').value;
     if(!currEmp || !pin) return showT("⚠️ Uzupełnij dane!");
-    
     const res = await apiCall('/auth/login', 'POST', { username: currEmp, pin: pin, role: 'EMPLOYEE' });
-    if(res && res.ok) { 
-        empMonthOffset = 0; empChanges = {}; openScreen('screen-emp-dash'); loadEmpDash(); 
-    } else {
-        showT("❌ Niepoprawny PIN!");
-    }
+    if(res && res.ok) { empMonthOffset = 0; empChanges = {}; openScreen('screen-emp-dash'); loadEmpDash(); } else { showT("❌ Błąd PINu!"); }
   }
   
   function switchEmpTab(id) { 
-      document.getElementById('eGrafik').style.display = 'none'; 
-      document.getElementById('eUstawienia').style.display = 'none'; 
-      document.getElementById(id).style.display = 'block'; 
-      document.querySelectorAll('#screen-emp-dash .nav-btn').forEach(b => b.classList.remove('active')); 
+      document.getElementById('eGrafik').style.display = 'none'; document.getElementById('eUstawienia').style.display = 'none'; 
+      document.getElementById(id).style.display = 'block'; document.querySelectorAll('#screen-emp-dash .nav-btn').forEach(b => b.classList.remove('active')); 
       event.target.classList.add('active'); 
   }
   
   function changeEmpMonth(dir) { empMonthOffset += dir; loadEmpDash(); }
 
   function toggleEmpBrush() { 
-      isEmpBrush = !isEmpBrush; 
-      const b = document.getElementById('eBtn'); 
+      isEmpBrush = !isEmpBrush; const b = document.getElementById('eBtn'); 
       b.innerText = isEmpBrush ? "PĘDZEL: WŁ" : "PĘDZEL: WYŁ"; 
       b.style.background = isEmpBrush ? "linear-gradient(135deg, var(--ios-blue), #005ecb)" : "transparent"; 
       b.style.color = isEmpBrush ? "white" : "var(--ios-blue)"; 
@@ -669,45 +552,35 @@
 
   function empClickDay(dateIso, el) {
       if(!isEmpBrush) return;
-      
-      const act = document.getElementById('empBrushAct').value;
-      const hrs = document.getElementById('empBrushHrs').value;
-      const dObj = new Date(dateIso);
-      const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+      const act = document.getElementById('empBrushAct').value, hrs = document.getElementById('empBrushHrs').value;
+      const dObj = new Date(dateIso), dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
       
       empChanges[dStr] = { act: act, hrs: hrs };
       document.getElementById('empSubmitBox').style.display = 'flex';
       
-      const col = getTileColor(act);
-      el.style.border = "3px dashed var(--ios-blue)";
+      const col = getTileColor(act); el.style.border = "3px dashed var(--ios-blue)";
       el.innerHTML = `
-          <div style="font-weight:800; font-size:18px; margin-bottom:12px;">${dObj.getDate()}.${dObj.getMonth()+1}</div>
-          <div style="font-size:14px; font-weight:800; background:${col.bg}; color:${col.c}; padding:8px 12px; border-radius:10px;">${act==='Wyczyść'?'Do wyczyszczenia':act}</div>
-          ${hrs && act!=='Wyczyść' ? `<div style="font-size:12px; font-weight:800; margin-top:8px;">⌚ ${hrs}</div>` : ''}
-          <div style="background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:10px; font-weight:800; margin-top:8px; padding:4px; border-radius:8px;">LOKALNIE ZMIENIONE</div>
+          <div style="font-weight:800; font-size:16px; margin-bottom:10px;">${dObj.getDate()}.${dObj.getMonth()+1}</div>
+          <div style="font-size:13px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px 10px; border-radius:8px;">${act==='Wyczyść'?'Do wyczyszczenia':act}</div>
+          ${hrs && act!=='Wyczyść' ? `<div style="font-size:11px; font-weight:800; margin-top:6px;">⌚ ${hrs}</div>` : ''}
+          <div style="background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:9px; font-weight:800; margin-top:6px; padding:4px; border-radius:6px;">LOKALNIE ZMIENIONE</div>
       `;
   }
 
   async function submitEmpChanges() {
       const updates = Object.keys(empChanges).map(d => ({ date: d, act: empChanges[d].act, hrs: empChanges[d].hrs }));
       if(updates.length === 0) return;
-      
-      showT("⏳ Wysyłanie zmian...");
+      showT("⏳ Wysyłanie...");
       const res = await apiCall('/emp/request-batch', 'POST', { name: currEmp, updates: updates });
-      if(res) { 
-          empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none'; showT("✅ " + res.msg); loadEmpDash(); 
-      }
+      if(res) { empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none'; showT("✅ " + res.msg); loadEmpDash(); }
   }
 
   async function loadEmpDash() {
-    empChanges = {}; 
-    document.getElementById('empSubmitBox').style.display = 'none';
-    
+    empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none';
     const d = new Date(); d.setMonth(d.getMonth() + empMonthOffset);
     const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
     document.getElementById('empMonthTitle').innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-
-    document.getElementById('empGrid').innerHTML = '<p style="font-weight:600; color:gray; text-align:center; width:100%;">Ładowanie architektury miesiąca...</p>';
+    document.getElementById('empGrid').innerHTML = '<p style="text-align:center; width:100%;">Ładowanie...</p>';
 
     const data = await apiCall('/emp/dashboard', 'POST', { name: currEmp, year: d.getFullYear(), month: d.getMonth() });
     if(!data) return;
@@ -717,35 +590,26 @@
     document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">`).join('');
 
     document.getElementById('empGrid').innerHTML = data.schedule.map(s => {
-      const dt = new Date(s.date); 
-      const dNames = ["ND", "PN", "WT", "ŚR", "CZ", "PT", "SB"];
-      const col = getTileColor(s.act);
-      
+      const dt = new Date(s.date), dNames = ["ND", "PN", "WT", "ŚR", "CZ", "PT", "SB"], col = getTileColor(s.act);
       let reqBox = "";
-      if(s.req && s.req.status === "Oczekuje") {
-          reqBox = `<div style="background:rgba(255,255,255,0.9); padding:6px; border-radius:8px; margin-top:8px; border:1px dashed #FF9500; font-size:11px; font-weight:700; color:#FF9500;">⏳ Oczekuje</div>`;
-      } else if (s.req && s.req.status === "Odrzucono") {
-          reqBox = `<div style="background:rgba(255,255,255,0.9); padding:6px; border-radius:8px; margin-top:8px; border:1px dashed #FF3B30; font-size:11px; font-weight:700; color:#FF3B30;">❌ Odrzucono</div>`;
-      }
+      if(s.req && s.req.status === "Oczekuje") reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">⏳ Oczekuje</div>`;
+      else if (s.req && s.req.status === "Odrzucono") reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">❌ Odrzucono</div>`;
       
       let overrideBadge = "";
-      if (s.override === 1 && s.act !== "Brak planu") {
-          overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px 8px; border-radius:8px; font-size:10px; font-weight:800; margin-top:8px; display:inline-block; animation:pulse 2s infinite;">⚠️ ZMIENIONE PRZEZ MANAGERA</div>`;
-      }
+      if (s.override === 1 && s.act !== "Brak planu") overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px 6px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px; display:inline-block; animation:pulse 2s infinite;">⚠️ ZMIENIONE PRZEZ MANAGERA</div>`;
 
       return `
         <div class="day-row ${s.act==='Brak planu'?'no-plan':''}" style="border-top:6px solid ${col.c}; cursor:pointer;" onclick="empClickDay('${s.date}', this)">
-          <div style="font-weight:800; font-size:18px; margin-bottom:12px;">${dt.getDate()}.${dt.getMonth()+1} <span style="color:var(--text-muted); font-size:13px;">${dNames[dt.getDay()]}</span></div>
-          <div style="font-size:14px; font-weight:800; background:${col.bg}; color:${col.c}; padding:8px 12px; border-radius:10px;">${s.act}</div>
-          ${s.hrs ? `<div style="color:var(--text-muted); font-size:12px; font-weight:800; margin-top:8px;">⌚ ${s.hrs}</div>` : ''}
-          ${overrideBadge} 
-          ${reqBox}
+          <div style="font-weight:800; font-size:16px; margin-bottom:10px;">${dt.getDate()}.${dt.getMonth()+1} <span style="color:var(--text-muted); font-size:11px;">${dNames[dt.getDay()]}</span></div>
+          <div style="font-size:13px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px 10px; border-radius:8px;">${s.act}</div>
+          ${s.hrs ? `<div style="color:var(--text-muted); font-size:11px; font-weight:800; margin-top:6px;">⌚ ${s.hrs}</div>` : ''}
+          ${overrideBadge} ${reqBox}
         </div>`;
     }).join('');
   }
 
   async function empChangePin() {
-    const o = document.getElementById('pOld').value; const n = document.getElementById('pNew').value;
+    const o = document.getElementById('pOld').value, n = document.getElementById('pNew').value;
     if(!o || !n) return showT("⚠️ Wypełnij oba pola");
     const res = await apiCall('/auth/change-pin', 'POST', { name: currEmp, oldPin: o, newPin: n, isAdmin: false });
     if(res) { showT(res.msg); if(res.ok) { document.getElementById('pOld').value = ''; document.getElementById('pNew').value = ''; } }
@@ -757,25 +621,19 @@
   async function doAdminLogin() { 
       const u = document.getElementById('lUser').value, p = document.getElementById('lPass').value;
       if(!u || !p) return showT("⚠️ Uzupełnij dane!");
-      
       const res = await apiCall('/auth/login', 'POST', { username: u, pin: p, role: 'ADMIN' });
-      if(res && res.ok) { openScreen('screen-admin'); loadAdminData(); } else { showT("❌ Nieautoryzowany dostęp!"); }
+      if(res && res.ok) { openScreen('screen-admin'); loadAdminData(); } else { showT("❌ Błąd autoryzacji!"); }
   }
   
   function showAdminView(id) { 
       document.querySelectorAll('.admin-view').forEach(v => v.classList.remove('active')); 
       document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active')); 
-      document.getElementById(id).classList.add('active'); 
-      event.target.classList.add('active'); 
-      
-      if(id === 'vDaily') renderDaily(); 
-      if(id === 'vPlanner') renderPlanner();
+      document.getElementById(id).classList.add('active'); event.target.classList.add('active'); 
+      if(id === 'vDaily') renderDaily(); if(id === 'vPlanner') renderPlanner();
   }
 
   async function loadAdminData() {
-    const data = await apiCall('/admin/data');
-    if(!data) return; 
-    dbAdmin = data;
+    const data = await apiCall('/admin/data'); if(!data) return; dbAdmin = data;
     
     const acts = ["Wyczyść", ...data.plannerActivities];
     document.getElementById('brushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
@@ -785,27 +643,24 @@
     const b = document.getElementById('aBadge');
     if(data.alerts.length > 0) { b.innerText = data.alerts.length; b.style.display = 'inline-block'; } else { b.style.display = 'none'; }
     
-    renderAlerts(); 
-    renderPlanner(); 
-    renderCMS();
-    renderMatrix();
+    renderAlerts(); renderPlanner(); renderCMS(); renderMatrix();
     if(document.getElementById('vDaily').classList.contains('active')) renderDaily();
   }
 
   function renderAlerts() {
     const list = document.getElementById('alertsList');
-    if(dbAdmin.alerts.length === 0) { list.innerHTML = '<p style="color:var(--text-muted); font-size:16px; font-weight:500;">Brak nowych wniosków. Wszystko pod kontrolą! 🎉</p>'; return; }
+    if(dbAdmin.alerts.length === 0) { list.innerHTML = '<p style="color:var(--text-muted); font-size:14px;">Brak wniosków.</p>'; return; }
     
     list.innerHTML = dbAdmin.alerts.map(a => `
-        <div class="alert-card">
+        <div class="alert-card" style="padding:15px; border-radius:16px;">
             <div>
-                <div style="font-size:20px; font-weight:800; color:var(--text-main);">${a.name}</div>
-                <div style="color:var(--text-muted); font-size:13px; margin:5px 0; font-weight:600;">Data w grafiku: <b style="color:var(--text-main);">${a.date}</b></div>
-                <div style="font-size:16px; font-weight:800; color:var(--ios-blue); background:rgba(10,132,255,0.1); display:inline-block; padding:6px 12px; border-radius:10px; margin-top:5px;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div>
+                <div style="font-size:16px; font-weight:800;">${a.name}</div>
+                <div style="color:var(--text-muted); font-size:11px; margin:4px 0;">Data: <b style="color:var(--text-main);">${a.date}</b></div>
+                <div style="font-size:13px; font-weight:800; color:var(--ios-blue); background:rgba(10,132,255,0.1); display:inline-block; padding:4px 8px; border-radius:8px;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div>
             </div>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-                <button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:linear-gradient(135deg, #34C759, #28a745); box-shadow: 0 4px 12px rgba(52,199,89,0.3);">✅ Zatwierdź</button>
-                <button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:linear-gradient(135deg, #FF3B30, #d32f2f); box-shadow: 0 4px 12px rgba(255,59,48,0.3);">❌ Odrzuć</button>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                <button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:linear-gradient(135deg, #34C759, #28a745); padding:8px 16px; font-size:12px;">✅</button>
+                <button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:linear-gradient(135deg, #FF3B30, #d32f2f); padding:8px 16px; font-size:12px;">❌</button>
             </div>
         </div>`).join('');
   }
@@ -824,11 +679,11 @@
       const container = document.getElementById('groupBubbles');
       container.innerHTML = dbAdmin.groups.map(g => {
           const emps = dbAdmin.employees.filter(e => e.group === g.name);
-          const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:12px; font-weight:800;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700;">🔒 Sztywna</span>`;
+          const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:11px; font-weight:800;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:11px; font-weight:700;">🔒 Sztywna</span>`;
           return `
           <div class="group-bubble" onclick="openGroupManager('${g.name}')">
-              <h3 style="margin-top:0; font-size:20px; color:var(--text-main);">${g.name}</h3>
-              <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:10px 0;">${emps.length} <span style="font-size:16px; color:var(--text-muted);">os.</span></div>
+              <h3 style="margin-top:0; font-size:18px; color:var(--text-main);">${g.name}</h3>
+              <div style="font-size:32px; font-weight:800; color:var(--ios-blue); margin:8px 0;">${emps.length} <span style="font-size:14px; color:var(--text-muted);">os.</span></div>
               ${isFlex}
           </div>`;
       }).join('');
@@ -838,7 +693,7 @@
       currentGroupManager = gName;
       const groupInfo = dbAdmin.groups.find(g => g.name === gName);
       document.getElementById('gmTitle').innerText = gName;
-      document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type} | Reguła 20-go dnia: ${groupInfo.is_flexible === 1 ? 'WYŁĄCZONA' : 'WŁĄCZONA'}`;
+      document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type} | 20-ty dzień: ${groupInfo.is_flexible === 1 ? 'OMIJANY' : 'WŁĄCZONY'}`;
       document.getElementById('gmSearch').value = '';
       
       renderGroupManagerLists();
@@ -853,37 +708,24 @@
       document.getElementById('gmInCount').innerText = inGroup.length;
 
       document.getElementById('gmInGroup').innerHTML = inGroup.map(e => `
-          <div style="background:white; padding:15px; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                  <b style="font-size:15px; color:var(--text-main);">${e.name}</b><br>
-                  <span style="font-size:11px; color:gray; font-weight:700;">ID: ${e.id}</span>
+          <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
+              <div><b style="font-size:13px;">${e.name}</b><br><span style="font-size:10px; color:gray;">ID: ${e.id}</span></div>
+              <div style="display:flex; gap:6px;">
+                  <button onclick="openMatrixModal('${e.name}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:800; font-size:11px;">⭐ Oceny</button>
+                  ${currentGroupManager !== 'Magazyn osoby stałe' ? `<button onclick="moveEmpGroup('${e.name}', 'Magazyn osoby stałe')" style="background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:800; font-size:11px;">Wyrzuć</button>` : ''}
               </div>
-              <div style="display:flex; gap:8px;">
-                  <button onclick="openMatrixModal('${e.name}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">⭐ Oceny</button>
-                  ${currentGroupManager !== 'Magazyn osoby stałe' ? `<button onclick="moveEmpGroup('${e.name}', 'Magazyn osoby stałe')" style="background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuć</button>` : ''}
-              </div>
-          </div>
-      `).join('');
+          </div>`).join('');
 
       document.getElementById('gmOutGroup').innerHTML = outGroup.map(e => `
-          <div style="background:white; padding:15px; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
-              <div>
-                  <b style="font-size:14px; color:var(--text-main);">${e.name}</b><br>
-                  <span style="font-size:11px; color:gray; font-weight:600;">Z: ${e.group}</span>
-              </div>
-              <button onclick="moveEmpGroup('${e.name}', '${currentGroupManager}')" style="background:linear-gradient(135deg, #34C759, #28a745); color:white; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s; box-shadow:0 4px 10px rgba(52,199,89,0.2);">➕ Dodaj</button>
-          </div>
-      `).join('');
+          <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center;">
+              <div><b style="font-size:13px;">${e.name}</b><br><span style="font-size:10px; color:gray;">Z: ${e.group}</span></div>
+              <button onclick="moveEmpGroup('${e.name}', '${currentGroupManager}')" style="background:linear-gradient(135deg, #34C759, #28a745); color:white; border:none; padding:6px 12px; border-radius:8px; cursor:pointer; font-weight:800; font-size:11px;">➕ Dodaj</button>
+          </div>`).join('');
   }
 
   async function moveEmpGroup(empName, newGroup) {
       const emp = dbAdmin.employees.find(e => e.name === empName);
-      if(emp) {
-          emp.group = newGroup;
-          renderGroupManagerLists(); 
-          renderMatrix(); 
-          await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
-      }
+      if(emp) { emp.group = newGroup; renderGroupManagerLists(); renderMatrix(); await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup }); }
   }
 
   function filterGm() { renderGroupManagerLists(); }
@@ -896,87 +738,64 @@
       document.getElementById('matrixGrid').innerHTML = dbAdmin.activityNames.map(act => {
           const v = dbAdmin.ratingsMap[empName+"_"+act] || 2; 
           return `
-          <div style="background:rgba(0,0,0,0.02); padding:20px; border-radius:16px; border:1px solid rgba(0,0,0,0.05);">
-              <strong style="font-size:15px; display:block; margin-bottom:15px; color:var(--text-main);">${act}</strong>
-              <div style="display:flex; gap:6px;">
+          <div style="background:rgba(0,0,0,0.02); padding:15px; border-radius:14px; border:1px solid rgba(0,0,0,0.05);">
+              <strong style="font-size:13px; display:block; margin-bottom:10px;">${act}</strong>
+              <div style="display:flex; gap:4px;">
                   ${[1,2,3,4,5].map(x => `
                       <button onclick="svR('${empName}','${act}',${x},this)" 
-                              style="flex:1; padding:10px 0; border:none; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer; transition:0.2s; 
+                              style="flex:1; padding:8px 0; border:none; border-radius:8px; font-size:12px; font-weight:800; cursor:pointer; transition:0.2s; 
                                      background:${v==x ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)'}; 
-                                     color:${v==x ? 'white' : 'var(--text-muted)'};
-                                     box-shadow:${v==x ? '0 4px 10px rgba(10,132,255,0.3)' : 'none'};">${x}</button>
+                                     color:${v==x ? 'white' : 'var(--text-muted)'};">${x}</button>
                   `).join('')}
               </div>
           </div>`;
       }).join('');
       
-      document.getElementById('matrixModal').style.display = 'block';
-      setTimeout(()=>document.getElementById('matrixModal').classList.add('active'), 10);
+      openM('matrixModal');
   }
   
   async function svR(u, a, v, btn) { 
-      btn.parentElement.querySelectorAll('button').forEach(b => { b.style.background = 'rgba(0,0,0,0.05)'; b.style.color = 'var(--text-muted)'; b.style.boxShadow = 'none'; }); 
-      btn.style.background = 'var(--ios-blue)'; btn.style.color = 'white'; btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
-      await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); 
-      dbAdmin.ratingsMap[u+"_"+a] = v; 
+      btn.parentElement.querySelectorAll('button').forEach(b => { b.style.background = 'rgba(0,0,0,0.05)'; b.style.color = 'var(--text-muted)'; }); 
+      btn.style.background = 'var(--ios-blue)'; btn.style.color = 'white'; 
+      await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); dbAdmin.ratingsMap[u+"_"+a] = v; 
   }
 
   /* ==============================================================
-     PLANNER TYGODNIOWY (SYNCHRONIZACJA NAPRAWIONA)
+     PLANNER TYGODNIOWY PĘDZEL
      ============================================================== */
   function toggleBrush() { 
-      isBrush = !isBrush; 
-      const b = document.getElementById('bBtn'); 
-      b.innerText = isBrush ? "TRYB MALOWANIA: WŁ" : "TRYB MALOWANIA: WYŁ"; 
-      b.style.background = isBrush ? "var(--ios-blue)" : "white"; 
-      b.style.color = isBrush ? "white" : "var(--text-main)"; 
+      isBrush = !isBrush; const b = document.getElementById('bBtn'); 
+      b.innerText = isBrush ? "MALOWANIE: WŁ" : "MALOWANIE: WYŁ"; 
+      b.style.background = isBrush ? "var(--ios-blue)" : "white"; b.style.color = isBrush ? "white" : "var(--text-main)"; 
   }
   
   function renderPlanner() {
     const q = document.getElementById('searchPlan').value.toLowerCase(); 
     const m = parseInt(document.getElementById('aMonth').value);
-    const head = document.getElementById('pHead'); 
-    const body = document.getElementById('pBody');
+    const head = document.getElementById('pHead'), body = document.getElementById('pBody');
     const days = new Date(2026, m+1, 0).getDate();
     
     let hHtml = '<th class="sticky-col sticky-row" style="z-index:30;">Pracownik</th>';
-    for(let d=1; d<=days; d++) { 
-        let isW = new Date(2026,m,d).getDay() % 6 === 0; 
-        hHtml += `<th class="sticky-row ${isW ? 'weekend-col' : ''}">${d}.${m+1}</th>`; 
-    }
+    for(let d=1; d<=days; d++) { let isW = new Date(2026,m,d).getDay() % 6 === 0; hHtml += `<th class="sticky-row ${isW ? 'weekend-col' : ''}">${d}.${m+1}</th>`; }
     head.innerHTML = hHtml;
     
     body.innerHTML = dbAdmin.employees.filter(e => e.name.toLowerCase().includes(q)).map(empObj => {
       const emp = empObj.name;
-      let rHtml = `
-        <td class="sticky-col">
-            <input type="checkbox" class="chk" data-n="${emp}" style="width:20px;height:20px;accent-color:var(--ios-blue); margin:0; cursor:pointer;"> 
-            <div style="margin-left:10px; text-align:left;">
-                <span style="font-size:10px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span>
-                <span style="font-weight:600;">${emp}</span>
-            </div>
-        </td>`;
+      let rHtml = `<td class="sticky-col"><input type="checkbox" class="chk" data-n="${emp}" style="width:16px;height:16px;accent-color:var(--ios-blue); cursor:pointer;"> <div style="margin-left:8px; text-align:left;"><span style="font-size:9px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span><span>${emp}</span></div></td>`;
         
       for(let d=1; d<=days; d++) {
         let isW = new Date(2026,m,d).getDay() % 6 === 0; 
-        
-        // FIX: Używamy jednolitego klucza YYYY-MM-DD
-        const dateStr = formatDateKey(2026, m, d);
-        const key = `${emp}_${dateStr}`;
-        const valStr = dbAdmin.planMap[key] || "||"; 
-        const [act, hrs] = valStr.split("||"); 
-        const col = getTileColor(act);
+        const dateStr = formatDateKey(2026, m, d), key = `${emp}_${dateStr}`;
+        const valStr = dbAdmin.planMap[key] || "||"; const [act, hrs] = valStr.split("||"); const col = getTileColor(act);
         
         let availHint = ""; 
-        if(dbAdmin.availMap[key] && !act) {
-            availHint = `<div style="font-size:10px; color:#34C759; margin-top:4px; font-weight:800; background:rgba(52,199,89,0.1); padding:2px 6px; border-radius:6px;">Dostępny: ${dbAdmin.availMap[key]}</div>`;
-        }
+        if(dbAdmin.availMap[key] && !act) availHint = `<div style="font-size:9px; color:#34C759; margin-top:2px; font-weight:800; background:rgba(52,199,89,0.1); padding:2px 4px; border-radius:4px;">Dost: ${dbAdmin.availMap[key]}</div>`;
         
         rHtml += `
             <td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${dateStr}',this)">
                 <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">
                     ${act === 'Wyczyść' ? '' : act}
-                    <div style="font-size:10px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
+                    <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
                     ${availHint}
                 </div>
             </td>`;
@@ -987,33 +806,33 @@
   
   async function cClk(n, dateStr, td) {
     if(!isBrush) return;
+    const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); if(sel.length > 0 && !sel.includes(n)) return;
     
-    const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
-    if(sel.length > 0 && !sel.includes(n)) return;
-    
-    let act = document.getElementById('brushAct').value; 
-    let hrs = document.getElementById('brushHrs').value;
+    let act = document.getElementById('brushAct').value, hrs = document.getElementById('brushHrs').value;
     const key = `${n}_${dateStr}`;
     
     if(dbAdmin.availMap[key] && act !== "Wyczyść" && !hrs) hrs = dbAdmin.availMap[key];
     
     dbAdmin.planMap[key] = act + "||" + hrs + "||1"; 
-    
     const col = getTileColor(act); 
-    td.innerHTML = `
-        <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow}; transform:scale(0.9);">
-            ${act === 'Wyczyść' ? '' : act}
-            <div style="font-size:10px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
-        </div>`;
-        
+    td.innerHTML = `<div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow}; transform:scale(0.9);">${act === 'Wyczyść' ? '' : act}<div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div></div>`;
     setTimeout(() => td.querySelector('.tile').style.transform = 'scale(1)', 50); 
     
     await apiCall('/admin/planner/save', 'POST', { names: [n], start: dateStr, end: dateStr, activity: act, hours: hrs });
   }
 
   /* ==============================================================
-     KANBAN DZIENNY + INTELIGENTNE SUGESTIE 💡
+     KANBAN DZIENNY + INTELIGENTNE SUGESTIE 💡 + STRZAŁKI
      ============================================================== */
+  function changeDailyDate(days) {
+      const input = document.getElementById('dailyDate');
+      if(!input.value) return;
+      const d = new Date(input.value);
+      d.setDate(d.getDate() + days);
+      input.value = formatDateKey(d.getFullYear(), d.getMonth(), d.getDate());
+      renderDaily();
+  }
+
   function dragDaily(ev, empName) { ev.dataTransfer.setData("empName", empName); ev.target.style.opacity = '0.5'; }
   function dragEndDaily(ev) { ev.target.style.opacity = '1'; document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('dragover')); }
   function allowDropDaily(ev) { ev.preventDefault(); ev.currentTarget.classList.add('dragover'); }
@@ -1043,15 +862,12 @@
   }
 
   function renderDaily() {
-    const rawDate = document.getElementById('dailyDate').value; 
-    if(!rawDate) return;
+    const rawDate = document.getElementById('dailyDate').value; if(!rawDate) return;
     
     const dObj = new Date(rawDate);
     const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
     
-    let dailyData = {}; 
-    dbAdmin.plannerActivities.forEach(a => dailyData[a] = []); 
-    let assignedSet = new Set();
+    let dailyData = {}; dbAdmin.plannerActivities.forEach(a => dailyData[a] = []); let assignedSet = new Set();
     
     dbAdmin.employees.forEach(empObj => {
       const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
@@ -1067,8 +883,8 @@
         const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`];
         return `
             <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)">
-                <span><b style="font-size:14px; color:var(--text-main);">${e.name}</b> <span style="font-size:10px; color:gray; display:block;">${e.group}</span></span>
-                ${aHrs ? `<span style="background:rgba(52,199,89,0.1); color:#34C759; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">Dost: ${aHrs}</span>` : ''}
+                <span><b style="font-size:13px; color:var(--text-main);">${e.name}</b> <span style="font-size:9px; color:gray; display:block;">${e.group}</span></span>
+                ${aHrs ? `<span style="background:rgba(52,199,89,0.1); color:#34C759; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:800;">Dost: ${aHrs}</span>` : ''}
             </div>`; 
     }).join('');
     
@@ -1077,10 +893,10 @@
       const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
       const currCount = dailyData[act].length;
       
-      let boxStyle = `border-top: 8px solid ${col.c};`;
+      let boxStyle = `border-top: 6px solid ${col.c};`;
       if (reqCap > 0) {
-          if (currCount >= reqCap) boxStyle = `border-top: 8px solid #34C759; background:rgba(52,199,89,0.03);`; 
-          else boxStyle = `border-top: 8px solid #FF3B30; background:rgba(255,59,48,0.03);`; 
+          if (currCount >= reqCap) boxStyle = `border-top: 6px solid #34C759; background:rgba(52,199,89,0.03);`; 
+          else boxStyle = `border-top: 6px solid #FF3B30; background:rgba(255,59,48,0.03);`; 
       }
 
       const list = dailyData[act].map(e => {
@@ -1088,31 +904,30 @@
           let starColor = rating === 1 ? '#FF3B30' : (rating >= 4 ? '#34C759' : 'var(--ios-blue)');
           return `
               <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)">
-                  <span style="font-size:14px; font-weight:600; color:var(--text-main);">${e.name}</span>
-                  <span style="background:rgba(0,0,0,0.04); color:${starColor}; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">⭐ ${rating}</span>
+                  <span style="font-size:13px; font-weight:600; color:var(--text-main);">${e.name}</span>
+                  <span style="background:rgba(0,0,0,0.04); color:${starColor}; padding:2px 6px; border-radius:6px; font-size:10px; font-weight:800;">⭐ ${rating}</span>
               </div>`;
       }).join('');
 
-      // NOWOŚĆ: Przycisk 💡 Sugestie w nagłówku
       return `
         <div class="kanban-col" style="${boxStyle}" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, '${act}')">
-            <h3 style="display:flex; justify-content:space-between; align-items:center; margin-top:0; font-size:18px;">
+            <h3 style="display:flex; justify-content:space-between; align-items:center; margin-top:0; font-size:16px;">
                 <span style="color:${col.c}; display:flex; align-items:center; gap:5px;">
                     ${act} 
-                    <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:16px; transition:0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'" title="Zaproponuj najlepszych pracowników">💡</button>
+                    <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:16px; transition:0.2s; padding:0;" title="Zaproponuj najlepszych pracowników">💡</button>
                 </span>
-                <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:10px; font-size:14px; box-shadow:${col.shadow}">${currCount} os.</span>
+                <span style="background:${col.bg}; color:${col.c}; padding:4px 8px; border-radius:8px; font-size:12px; box-shadow:${col.shadow}">${currCount} os.</span>
             </h3>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:white; padding:10px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
-                <span style="font-size:12px; font-weight:700; color:gray;">Zapotrzebowanie:</span>
-                <input type="number" min="0" value="${reqCap}" onchange="saveCapacity('${act}', this)" style="width:60px; padding:6px; text-align:center; font-weight:800; border-radius:8px; border:1px solid rgba(0,0,0,0.1);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:white; padding:8px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
+                <span style="font-size:11px; font-weight:700; color:gray;">Zapotrzebowanie:</span>
+                <input type="number" min="0" value="${reqCap}" onchange="saveCapacity('${act}', this)" style="width:50px; padding:4px; text-align:center; font-weight:800; border-radius:6px; border:1px solid rgba(0,0,0,0.1); font-size:12px;">
             </div>
-            <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">${list}</div>
+            <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">${list}</div>
         </div>`;
     }).join('');
   }
 
-  // NOWOŚĆ: Logika podpowiadania najlepszych pracowników
+  // LOGIKA PODPOWIADANIA NAJLEPSZYCH PRACOWNIKÓW 💡
   function openSuggestions(act) {
       const rawDate = document.getElementById('dailyDate').value;
       const dObj = new Date(rawDate);
@@ -1123,31 +938,30 @@
           const valStr = dbAdmin.planMap[`${e.name}_${dStr}`];
           const currentAct = valStr ? valStr.split("||")[0] : "";
           
-          if(currentAct !== act) { // Pomiń tych, co już to robią
+          if(currentAct !== act) { 
               let rating = dbAdmin.ratingsMap[`${e.name}_${act}`] || 2;
               availableEmps.push({ name: e.name, rating: rating, currentAct: currentAct });
           }
       });
 
-      // Sortuj od najlepszego (5) do najgorszego (1)
       availableEmps.sort((a, b) => b.rating - a.rating);
 
       let html = availableEmps.map(e => {
           let statusText = (!e.currentAct || e.currentAct === 'Wyczyść') 
                            ? `<span style="color:#34C759; font-weight:700;">Wolny</span>` 
-                           : `<span style="color:#FF9500; font-weight:700;">Zajęty: ${e.currentAct}</span>`;
+                           : `<span style="color:#FF9500; font-weight:700;">Robi: ${e.currentAct}</span>`;
           
           let starColor = e.rating === 1 ? '#FF3B30' : (e.rating >= 4 ? '#34C759' : 'var(--ios-blue)');
 
           return `
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05);">
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid rgba(0,0,0,0.05);">
               <div>
-                  <b style="font-size:15px; color:var(--text-main);">${e.name}</b><br>
-                  <span style="font-size:11px;">${statusText}</span>
+                  <b style="font-size:13px; color:var(--text-main);">${e.name}</b><br>
+                  <span style="font-size:10px;">${statusText}</span>
               </div>
-              <div style="display:flex; align-items:center; gap:15px;">
-                  <span style="font-weight:800; color:${starColor}; background:rgba(0,0,0,0.03); padding:4px 8px; border-radius:8px;">⭐ ${e.rating}</span>
-                  <button onclick="assignFromSuggestion('${e.name}', '${act}')" class="btn-main" style="padding:8px 16px; font-size:13px; box-shadow:none;">➕ Przypisz</button>
+              <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="font-weight:800; color:${starColor}; background:rgba(0,0,0,0.03); padding:4px 6px; border-radius:6px; font-size:11px;">⭐ ${e.rating}</span>
+                  <button onclick="assignFromSuggestion('${e.name}', '${act}')" class="btn-main" style="padding:6px 12px; font-size:11px; box-shadow:none;">➕</button>
               </div>
           </div>`;
       }).join('');
@@ -1162,10 +976,10 @@
       const dObj = new Date(rawDate);
       const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
 
-      dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; // Nadpisz z flagą
+      dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
 
-      renderDaily(); // Odśwież tło
-      openSuggestions(targetAct); // Odśwież listę sugestii (zniknie z niej przypisana osoba)
+      renderDaily(); 
+      openSuggestions(targetAct); 
 
       await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
       showT(`✅ Przypisano: ${empName}`);
@@ -1211,100 +1025,39 @@
      USTAWIENIA CMS
      ============================================================== */
   function renderCMS() {
-    const bS = "background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:8px 16px; border-radius:10px; font-weight:700; cursor:pointer; transition:0.2s;";
+    const bS = "background:rgba(255,59,48,0.1); color:#FF3B30; border:none; padding:6px 12px; border-radius:8px; font-weight:700; cursor:pointer; transition:0.2s; font-size:11px;";
     
     document.getElementById('cmsEmpList').innerHTML = dbAdmin.employees.map(e => `
-        <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
-            <div>
-                <b style="font-size:15px;">${e.name}</b><br>
-                <span style="font-size:11px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group}</span>
-            </div> 
-            <div>
-                <button onclick="rstPin('${e.name}')" style="background:rgba(255,149,0,0.1); color:#FF9500; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; margin-right:8px;">Reset PIN</button>
+        <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
+            <div><b style="font-size:13px;">${e.name}</b><br><span style="font-size:10px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group}</span></div> 
+            <div style="display:flex; gap:5px;">
+                <button onclick="rstPin('${e.name}')" style="background:rgba(255,149,0,0.1); color:#FF9500; border:none; padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:700; font-size:11px;">Reset</button>
                 <button onclick="delSet('employee','${e.name}')" style="${bS}">Usuń</button>
             </div>
         </div>`).join('');
         
     document.getElementById('cmsGroupList').innerHTML = dbAdmin.groups.map(g => {
-        const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:11px; font-weight:800;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:11px; font-weight:700;">🔒 Sztywna</span>`;
+        const isFlex = g.is_flexible === 1 ? `<span style="color:#FF9500; font-size:10px; font-weight:800;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:10px; font-weight:700;">🔒 Sztywna</span>`;
         return `
-        <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
-            <div>
-                <b style="font-size:15px;">${g.name}</b><br>
-                <span style="font-size:11px; color:var(--ios-blue); font-weight:800; margin-right:10px;">${g.type}</span>
-                ${isFlex}
-            </div> 
+        <div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
+            <div><b style="font-size:13px;">${g.name}</b><br><span style="font-size:10px; color:var(--ios-blue); font-weight:800; margin-right:8px;">${g.type}</span>${isFlex}</div> 
             <button onclick="delSet('group','${g.name}')" style="${bS}">Usuń</button>
         </div>`
     }).join('');
 
-    document.getElementById('cmsActList').innerHTML = dbAdmin.activityNames.map(a => `
-        <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
-            <b style="font-size:15px;">${a}</b> 
-            <button onclick="delSet('activity','${a}')" style="${bS}">Usuń</button>
-        </div>`).join('');
-        
-    document.getElementById('cmsShiftList').innerHTML = dbAdmin.shifts.map(s => `
-        <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;">
-            <b style="font-size:15px;">${s}</b> 
-            <button onclick="delSet('shift','${s}')" style="${bS}">Usuń</button>
-        </div>`).join('');
+    document.getElementById('cmsActList').innerHTML = dbAdmin.activityNames.map(a => `<div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;"><b style="font-size:13px;">${a}</b> <button onclick="delSet('activity','${a}')" style="${bS}">Usuń</button></div>`).join('');
+    document.getElementById('cmsShiftList').innerHTML = dbAdmin.shifts.map(s => `<div style="display:flex; justify-content:space-between; padding:12px; border-bottom:1px solid rgba(0,0,0,0.05); align-items:center;"><b style="font-size:13px;">${s}</b> <button onclick="delSet('shift','${s}')" style="${bS}">Usuń</button></div>`).join('');
   }
   
-  async function saveSet(t, id) { 
-      const v = document.getElementById(id).value; 
-      if(v) { 
-          await apiCall('/admin/settings', 'POST', { action: 'ADD', type: t, value: v }); 
-          document.getElementById(id).value = ''; 
-          loadAdminData(); 
-      } 
-  }
-  
+  async function saveSet(t, id) { const v = document.getElementById(id).value; if(v) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: t, value: v }); document.getElementById(id).value = ''; loadAdminData(); } }
   async function saveGroup() {
-      const n = document.getElementById('sGroup').value;
-      const t = document.getElementById('sGroupType').value;
-      const f = document.getElementById('sGroupFlex').checked ? 1 : 0;
-      
-      if(n) {
-          await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'group', value: n, emp_type: t, is_flexible: f }); 
-          document.getElementById('sGroup').value = ''; 
-          document.getElementById('sGroupFlex').checked = false;
-          loadAdminData(); 
-      }
+      const n = document.getElementById('sGroup').value, t = document.getElementById('sGroupType').value, f = document.getElementById('sGroupFlex').checked ? 1 : 0;
+      if(n) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'group', value: n, emp_type: t, is_flexible: f }); document.getElementById('sGroup').value = ''; document.getElementById('sGroupFlex').checked = false; loadAdminData(); }
   }
-
-  async function saveEmp() { 
-      const n = document.getElementById('sEmp').value;
-      const g = document.getElementById('sEmpGroup').value; 
-      if(n) { 
-          await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'employee', value: n, group: g }); 
-          document.getElementById('sEmp').value = ''; 
-          loadAdminData(); 
-      } 
-  }
-  
-  async function delSet(t, v) { 
-      if(confirm("Usunąć trwale rekord: " + v + "? To zadziałanie jest nieodwracalne.")) { 
-          await apiCall('/admin/settings', 'POST', { action: 'DELETE', type: t, value: v }); 
-          loadAdminData(); 
-      } 
-  }
-  
-  async function rstPin(n) { 
-      if(confirm("Zresetować PIN pracownika na 1111?")) { 
-          await apiCall('/auth/change-pin', 'POST', { name: n, oldPin: "", newPin: "1111", isAdmin: true }); 
-          showT("PIN zresetowany do 1111"); 
-      } 
-  }
-  
-  async function changeAdminPass() {
-      const p = document.getElementById('sAdP').value; 
-      if(p) {
-          await apiCall('/admin/settings', 'POST', { action: 'EDIT_ADMIN_PASS', value: p });
-          document.getElementById('sAdP').value = '';
-          showT("✅ Hasło Managera zaktualizowane!");
-      }
-  }
+  async function saveEmp() { const n = document.getElementById('sEmp').value, g = document.getElementById('sEmpGroup').value; if(n) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'employee', value: n, group: g }); document.getElementById('sEmp').value = ''; loadAdminData(); } }
+  async function delSet(t, v) { if(confirm("Usunąć trwale rekord: " + v + "?")) { await apiCall('/admin/settings', 'POST', { action: 'DELETE', type: t, value: v }); loadAdminData(); } }
+  async function rstPin(n) { if(confirm("Zresetować PIN pracownika na 1111?")) { await apiCall('/auth/change-pin', 'POST', { name: n, oldPin: "", newPin: "1111", isAdmin: true }); showT("PIN zresetowany do 1111"); } }
+  async function changeAdminPass() { const p = document.getElementById('sAdP').value; if(p) { await apiCall('/admin/settings', 'POST', { action: 'EDIT_ADMIN_PASS', value: p }); document.getElementById('sAdP').value = ''; showT("✅ Hasło Managera zaktualizowane!"); } }
 </script>
 </body>
 </html>
