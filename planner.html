@@ -8,368 +8,159 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
         /* ==========================================
-           ZMIENNE GLOBALNE I BAZA
+           1. ZMIENNE GLOBALNE I BAZA
            ========================================== */
         :root {
-            --ios-blue: #0A84FF;
-            --ios-blue-hover: #0066d6;
-            --ios-purple: #5E5CE6;
-            --ios-green: #34C759;
-            --ios-red: #FF3B30;
-            --ios-orange: #FF9500;
-            --bg-color: #f2f2f7;
-            --white: #FFFFFF;
-            --text-main: #1d1d1f;
-            --text-muted: #86868b;
-            --border: rgba(0, 0, 0, 0.08);
-            --glass: rgba(255, 255, 255, 0.7);
+            --ios-blue: #0A84FF; --ios-blue-hover: #0066d6;
+            --ios-purple: #5E5CE6; --ios-green: #34C759;
+            --ios-red: #FF3B30; --ios-orange: #FF9500;
+            --bg-color: #f2f2f7; --white: #FFFFFF;
+            --text-main: #1d1d1f; --text-muted: #86868b;
+            --border: rgba(0, 0, 0, 0.08); --glass: rgba(255, 255, 255, 0.7);
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            font-family: 'Inter', sans-serif; margin: 0; height: 100vh; display: flex;
+            flex-direction: column; background-color: var(--bg-color); color: var(--text-main);
             overflow: hidden;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(10, 132, 255, 0.05) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(94, 92, 230, 0.05) 0px, transparent 50%);
+            background-image: radial-gradient(at 0% 0%, rgba(10, 132, 255, 0.05) 0px, transparent 50%),
+                              radial-gradient(at 100% 100%, rgba(94, 92, 230, 0.05) 0px, transparent 50%);
             background-size: 100% 100%;
         }
 
         /* ==========================================
-           NAWIGACJA
+           2. NAWIGACJA
            ========================================== */
         .nav {
-            display: flex;
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-bottom: 1px solid var(--border);
-            padding: 12px;
-            gap: 12px;
-            z-index: 100;
-            justify-content: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            overflow-x: auto;
-            white-space: nowrap;
+            display: flex; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--border);
+            padding: 12px; gap: 12px; z-index: 100; justify-content: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.03); overflow-x: auto; white-space: nowrap;
         }
-
         .nav::-webkit-scrollbar { display: none; }
 
         .nav-btn {
-            padding: 10px 20px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            color: var(--text-muted);
-            transition: all 0.3s ease;
-            position: relative;
+            padding: 10px 20px; border-radius: 12px; font-weight: 600; font-size: 14px;
+            cursor: pointer; color: var(--text-muted); transition: all 0.3s ease; position: relative;
         }
-
         .nav-btn:hover { background: rgba(0,0,0,0.03); color: var(--text-main); }
-        .nav-btn.active {
-            background: var(--white);
-            color: var(--ios-blue);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-        }
+        .nav-btn.active { background: var(--white); color: var(--ios-blue); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 
         .badge {
-            position: absolute;
-            top: -6px;
-            right: -6px;
-            background: var(--ios-red);
-            color: white;
-            font-size: 10px;
-            font-weight: 800;
-            padding: 3px 7px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(255,59,48,0.3);
-            display: none;
+            position: absolute; top: -6px; right: -6px; background: var(--ios-red); color: white;
+            font-size: 10px; font-weight: 800; padding: 3px 7px; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(255,59,48,0.3); display: none;
         }
 
         /* ==========================================
-           UKŁAD EKRANÓW
+           3. UKŁAD EKRANÓW (FIX SCROLLA)
            ========================================== */
-        .app-screen {
-            display: none;
-            width: 100%;
-            height: 100%;
-            flex-direction: column;
-            overflow-y: auto;
-            animation: fadeIn 0.4s ease-out;
-        }
-
+        .app-screen { display: none; width: 100%; height: 100%; flex-direction: column; overflow-y: auto; animation: fadeIn 0.4s ease-out; }
         .app-screen.active { display: flex; }
-        .admin-view { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+        
+        .admin-view { flex: 1; display: none; flex-direction: column; overflow-y: auto; overflow-x: hidden; padding-bottom: 40px; }
         .admin-view.active { display: flex; animation: fadeIn 0.4s ease; }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         /* ==========================================
-           KARTY I FORMULARZE
+           4. KARTY, FORMULARZE I CMS FIX
            ========================================== */
         .glass-card {
-            background: var(--glass);
-            backdrop-filter: blur(25px);
-            -webkit-backdrop-filter: blur(25px);
-            border-radius: 24px;
-            padding: 30px;
-            text-align: center;
-            border: 1px solid rgba(255,255,255,0.8);
-            box-shadow: 0 15px 35px rgba(0,0,0,0.04);
-            min-width: 400px;
-            display: flex;
-            flex-direction: column;
+            background: var(--glass); backdrop-filter: blur(25px); border-radius: 24px; padding: 30px;
+            text-align: center; border: 1px solid rgba(255,255,255,0.8); box-shadow: 0 15px 35px rgba(0,0,0,0.04);
+            min-width: 400px; display: flex; flex-direction: column;
         }
 
-        /* NAPRAWA ROZJEŻDŻAJĄCYCH SIĘ GUZIKÓW CMS (ZDJĘCIE) */
-        .input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap; /* To naprawia ucinanie przycisków */
-            align-items: center;
-        }
+        .login-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 20px; }
+        .login-card { max-width: 400px; width: 100%; min-width: unset; margin: 0 auto; }
 
-        .input-group input, .input-group select {
-            flex: 1;
-            min-width: 180px;
-        }
-
-        .input-group button {
-            flex: 0 0 auto;
-            width: 100%;
-            max-width: 120px;
-        }
+        /* FIX: Flex-wrap na przyciskach w CMS! */
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .input-group input, .input-group select { flex: 1; min-width: 180px; }
+        .input-group button { flex: 0 0 auto; width: 100%; max-width: 120px; }
 
         input, select, textarea {
-            background: rgba(255, 255, 255, 0.7);
-            border: 1px solid rgba(0,0,0,0.1);
-            padding: 14px 16px;
-            border-radius: 12px;
-            font-size: 14px;
-            font-family: 'Inter', sans-serif;
-            outline: none;
-            transition: 0.3s;
+            background: rgba(255, 255, 255, 0.7); border: 1px solid rgba(0,0,0,0.1); padding: 14px 16px;
+            border-radius: 12px; font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: 0.3s;
         }
-
-        input:focus, select:focus, textarea:focus {
-            border-color: var(--ios-blue);
-            background: #fff;
-            box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.15);
-        }
+        input:focus, select:focus, textarea:focus { border-color: var(--ios-blue); background: #fff; box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.15); }
 
         .btn-main {
-            background: linear-gradient(135deg, var(--ios-blue), #005ecb);
-            color: white;
-            border: none;
-            padding: 14px 24px;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(10, 132, 255, 0.2);
+            background: linear-gradient(135deg, var(--ios-blue), #005ecb); color: white; border: none;
+            padding: 14px 24px; border-radius: 12px; font-weight: 600; font-size: 14px; cursor: pointer;
+            transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(10, 132, 255, 0.2); display: inline-flex; align-items: center; justify-content: center;
         }
-
-        .btn-main:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(10, 132, 255, 0.3);
-        }
+        .btn-main:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(10, 132, 255, 0.3); }
 
         /* ==========================================
-           GRID CMS I ZESPÓŁ
+           5. GRID CMS I ZESPÓŁ
            ========================================== */
-        .cms-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            gap: 25px;
-            width: 100%;
-            max-width: 1200px; /* Ogranicza rozrost, max 2 na wiersz na PC */
-            margin: 0 auto;
-        }
-
-        .group-bubbles-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 20px;
-            padding: 20px 0;
-        }
-
+        .cms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 25px; width: 100%; max-width: 1200px; margin: 0 auto; }
+        .group-bubbles-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; padding: 20px 0; }
         .group-bubble {
-            background: rgba(255,255,255,0.8);
-            border-radius: 20px;
-            padding: 25px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-            cursor: pointer;
-            border: 2px solid transparent;
-            transition: 0.3s;
+            background: rgba(255,255,255,0.8); border-radius: 20px; padding: 25px; text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.04); cursor: pointer; border: 2px solid transparent; transition: 0.3s;
         }
-
-        .group-bubble:hover {
-            border-color: var(--ios-blue);
-            transform: translateY(-5px);
-        }
+        .group-bubble:hover { border-color: var(--ios-blue); transform: translateY(-5px); }
 
         /* ==========================================
-           TABELA EXCEL (OCENY OKRESOWE HR)
+           6. TABELA EXCEL (OCENY HR)
            ========================================== */
-        .excel-table-wrapper {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            overflow-x: auto;
-        }
-
-        .excel-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-
-        .excel-table th {
-            background: #f8f8fa;
-            padding: 16px;
-            text-align: left;
-            font-weight: 800;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 2px solid rgba(0,0,0,0.05);
-        }
-
-        .excel-table td {
-            padding: 16px;
-            border-bottom: 1px solid rgba(0,0,0,0.03);
-            font-weight: 600;
-        }
-
-        .excel-table tr:hover td {
-            background: rgba(10,132,255,0.03);
-            cursor: pointer;
-        }
+        .excel-table-wrapper { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); overflow-x: auto; }
+        .excel-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .excel-table th { background: #f8f8fa; padding: 16px; text-align: left; font-weight: 800; color: var(--text-muted); text-transform: uppercase; border-bottom: 2px solid rgba(0,0,0,0.05); }
+        .excel-table td { padding: 16px; border-bottom: 1px solid rgba(0,0,0,0.03); font-weight: 600; }
+        .excel-table tr:hover td { background: rgba(10,132,255,0.03); cursor: pointer; }
 
         /* ==========================================
-           DZIENNY LIVE (SZACHOWNICA / KOMPAKTOWY GRID)
+           7. DZIENNY LIVE (SZACHOWNICA / KOMPAKTOWY GRID)
            ========================================== */
-        #dailyGrid {
-            display: flex;
-            flex-wrap: wrap; /* Wymuszenie szachownicy zamiast scrolla */
-            gap: 15px;
-            padding: 15px;
-            align-content: flex-start;
-            overflow-y: auto;
-            flex: 1;
-        }
-
+        #dailyGrid { display: flex; flex-wrap: wrap; gap: 15px; padding: 15px; align-content: flex-start; overflow-y: auto; flex: 1; }
         .kanban-col {
-            flex: 1 1 240px; /* Minimalnie 240px, ładnie się dopasowuje */
-            max-width: 320px;
-            background: rgba(255,255,255,0.7);
-            border-radius: 16px;
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.03);
+            flex: 1 1 240px; max-width: 320px; background: rgba(255,255,255,0.7); border-radius: 16px;
+            padding: 15px; display: flex; flex-direction: column; box-shadow: 0 5px 20px rgba(0,0,0,0.03); border-top: 5px solid var(--ios-blue);
         }
-
-        .kanban-col.dragover {
-            background: rgba(10,132,255,0.1);
-            border: 2px dashed var(--ios-blue);
-        }
-
-        #dailyContainer > .kanban-col:first-child {
-            max-width: 300px;
-            border-right: 1px solid var(--border);
-            border-radius: 0;
-            background: rgba(255,255,255,0.8);
-        }
-
+        .kanban-col.dragover { background: rgba(10,132,255,0.1); border: 2px dashed var(--ios-blue); }
+        #dailyContainer > .kanban-col:first-child { max-width: 300px; border-right: 1px solid var(--border); border-radius: 0; background: rgba(255,255,255,0.8); border-top: none; }
+        
         .emp-card {
-            background: white;
-            padding: 12px;
-            border-radius: 12px;
-            cursor: grab;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.02);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 2px solid transparent;
-            margin-bottom: 10px;
-            font-size: 13px;
+            background: white; padding: 12px; border-radius: 12px; cursor: grab; box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+            display: flex; justify-content: space-between; align-items: center; border: 2px solid transparent; margin-bottom: 10px; font-size: 13px;
         }
+        .emp-card:hover { border-color: var(--ios-blue); transform: translateY(-2px); }
 
         /* ==========================================
-           PLANNER TYGODNIOWY (KALENDARZ)
+           8. PLANNER TYGODNIOWY (KALENDARZ)
            ========================================== */
-        .tools {
-            background: rgba(255,255,255,0.9);
-            padding: 15px 25px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-            border-bottom: 1px solid var(--border);
-            z-index: 50;
-            justify-content: center;
-        }
-
+        .tools { background: rgba(255,255,255,0.9); padding: 15px 25px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; border-bottom: 1px solid var(--border); z-index: 50; justify-content: center; }
         .planner-scroll { flex: 1; overflow: auto; position: relative; }
         table { border-collapse: separate; border-spacing: 0; }
         th, td { border: 0.5px solid rgba(0,0,0,0.03); min-width: 120px; height: 80px; text-align: center; }
-        
-        .sticky-col {
-            position: sticky; left: 0; z-index: 10; min-width: 160px; max-width: 200px;
-            background: rgba(255,255,255,0.98); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 15px;
-            display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 12px;
-        }
-        .sticky-row {
-            position: sticky; top: 0; z-index: 20; background: #fafafc; font-weight: 800;
-            border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 11px; text-transform: uppercase;
-        }
+        .sticky-col { position: sticky; left: 0; z-index: 10; min-width: 160px; max-width: 200px; background: rgba(255,255,255,0.98); border-right: 1px solid rgba(0,0,0,0.05); padding: 0 15px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 12px; }
+        .sticky-row { position: sticky; top: 0; z-index: 20; background: #fafafc; font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 11px; text-transform: uppercase; }
         .weekend-col { background: rgba(0,0,0,0.02) !important; }
-
-        .tile {
-            width: 90%; height: 80%; border-radius: 10px; margin: auto; display: flex;
-            flex-direction: column; align-items: center; justify-content: center;
-            font-size: 11px; font-weight: 700; cursor: pointer;
-        }
+        .tile { width: 90%; height: 80%; border-radius: 10px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.2s;}
+        .tile:hover { transform: scale(1.05); }
 
         /* ==========================================
-           MODALE
+           9. MODALE I TOASTY
            ========================================== */
         .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(5px); z-index: 900; display: none; }
-        
         .modal {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%) scale(0.95);
             background: rgba(255,255,255,0.98); border-radius: 20px; padding: 30px; z-index: 1000;
-            display: none; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.15);
+            display: none; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 60px rgba(0,0,0,0.15);
         }
-
         .modal.active { display: block; animation: modalPop 0.3s forwards; }
         @keyframes modalPop { to { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
-
-        .toast {
-            position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
-            background: rgba(29, 29, 31, 0.9); color: white; padding: 16px 40px;
-            border-radius: 30px; display: none; z-index: 9999; font-weight: 600;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
-        }
+        
+        .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(29, 29, 31, 0.9); color: white; padding: 16px 40px; border-radius: 30px; display: none; z-index: 9999; font-weight: 600; box-shadow: 0 15px 40px rgba(0,0,0,0.2); }
 
         /* ==========================================
-           KARTA HR DOSSIER
+           10. KARTA HR DOSSIER (STATS)
            ========================================== */
         .hr-stats-container { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
         .hr-stat-box {
@@ -381,7 +172,6 @@
         .hr-stat-box.box-u { border-top-color: var(--ios-orange); }
         .hr-stat-box.box-wo { border-top-color: var(--text-muted); }
         .hr-stat-box.box-ns { border-top-color: #8B0000; background: rgba(139,0,0,0.02); }
-
         .hr-stat-title { font-size: 10px; text-transform: uppercase; font-weight: 800; color: var(--text-muted); }
         .hr-stat-num { font-size: 24px; font-weight: 800; margin-top: 5px; }
 
@@ -394,7 +184,7 @@
             .input-group > * { min-width: 100%; }
             .cms-grid { grid-template-columns: 1fr; }
             #dailyContainer { flex-direction: column !important; }
-            #dailyContainer > .kanban-col:first-child { max-width: 100%; max-height: 25vh; overflow-y: auto; }
+            #dailyContainer > .kanban-col:first-child { max-width: 100%; max-height: 25vh; overflow-y: auto; border-right: none; border-bottom: 1px solid var(--border);}
             .kanban-col { max-width: 100%; min-width: 100%; }
             .modal { width: 95vw; padding: 20px; }
             .excel-table th, .excel-table td { padding: 10px; font-size: 11px; }
@@ -406,20 +196,18 @@
     <datalist id="dlShifts"></datalist>
     <datalist id="dlEmployees"></datalist>
 
-    <!-- =========================================================
-         EKRAN STARTOWY
-         ========================================================= -->
+    <!-- EKRAN STARTOWY -->
     <div id="screen-landing" class="app-screen active">
         <div class="landing-wrapper">
             <div style="text-align:center; margin-bottom: 30px;">
                 <div style="background: linear-gradient(135deg, var(--ios-blue), var(--ios-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px;">WMS Center</div>
-                <p style="color:var(--text-muted); font-size:16px; font-weight:500;">Moduł 1: ERP & HR</p>
+                <p style="color:var(--text-muted); font-size:16px; font-weight:500;">Moduł 1: ERP & HR | Moduł 2: V-MAX</p>
             </div>
             <div class="landing-box">
                 <div class="glass-card landing-card" onclick="openScreen('screen-emp-login')">
                     <div style="font-size: 50px; margin-bottom:15px;">🧑‍💻</div>
                     <h2 style="margin:0; font-weight:800; font-size:20px;">Pracownik</h2>
-                    <p style="color:var(--text-muted); font-size:12px; margin-top:5px;">Dostępność, URLOP, Twój Grafik</p>
+                    <p style="color:var(--text-muted); font-size:12px; margin-top:5px;">Grafik, Absencje & Magazyn (V-MAX)</p>
                 </div>
                 <div class="glass-card landing-card" onclick="openScreen('screen-admin-login')">
                     <div style="font-size: 50px; margin-bottom:15px;">🛠️</div>
@@ -430,35 +218,27 @@
         </div>
     </div>
 
-    <!-- =========================================================
-         LOGOWANIE PRACOWNIK
-         ========================================================= -->
+    <!-- LOGOWANIE PRACOWNIK -->
     <div id="screen-emp-login" class="app-screen">
-        <div style="padding: 15px 20px;">
-            <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
-        </div>
+        <div style="padding: 15px 20px;"><button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button></div>
         <div class="login-wrapper">
-            <div class="glass-card login-card" style="min-width: unset;">
-                <h2 style="margin-top:0; font-weight:800; font-size:22px;">Twój Panel</h2>
-                <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Zaloguj się, aby podać dyspozycję.</p>
+            <div class="glass-card login-card">
+                <h2 style="margin-top:0; font-weight:800; font-size:22px;">Panel Pracownika</h2>
+                <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Podaj PIN, aby wejść do systemu.</p>
                 <input list="dlEmployees" id="elName" placeholder="Zacznij wpisywać nazwisko..." style="width:100%; margin-bottom:15px; font-weight:600;">
-                <input type="password" id="elPin" placeholder="KOD PIN / Hasło" style="width:100%; margin-bottom:20px; text-align:center; font-size:20px; letter-spacing:8px; font-weight:800;">
-                <button class="btn-main" onclick="doEmpLogin()" style="width:100%;">Wejdź</button>
+                <input type="password" id="elPin" placeholder="KOD PIN" style="width:100%; margin-bottom:20px; text-align:center; font-size:20px; letter-spacing:8px; font-weight:800;">
+                <button class="btn-main" onclick="doEmpLogin()" style="width:100%;">Zaloguj</button>
             </div>
         </div>
     </div>
 
-    <!-- =========================================================
-         LOGOWANIE ADMINISTRACJA
-         ========================================================= -->
+    <!-- LOGOWANIE ADMIN -->
     <div id="screen-admin-login" class="app-screen">
-        <div style="padding: 15px 20px;">
-            <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
-        </div>
+        <div style="padding: 15px 20px;"><button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button></div>
         <div class="login-wrapper">
-            <div class="glass-card login-card" style="min-width: unset;">
-                <h2 style="margin-top:0; font-weight:800; font-size:22px;">Panel Zarządzania</h2>
-                <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Wymagane uprawnienia min. Team Leader.</p>
+            <div class="glass-card login-card">
+                <h2 style="margin-top:0; font-weight:800; font-size:22px;">Panel Administracyjny</h2>
+                <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Wymagane uprawnienia Team Leader.</p>
                 <input list="dlEmployees" id="lUser" placeholder="Login / Nazwisko" style="width:100%; margin-bottom:15px; font-weight:600;">
                 <input type="password" id="lPass" placeholder="Hasło / PIN" style="width:100%; margin-bottom:20px;">
                 <button class="btn-main" style="width:100%;" onclick="doAdminLogin()">Autoryzuj</button>
@@ -467,18 +247,19 @@
     </div>
 
     <!-- =========================================================
-         PANEL PRACOWNIKA (DASHBOARD)
+         PANEL PRACOWNIKA (DASHBOARD ERP & V-MAX)
          ========================================================= -->
     <div id="screen-emp-dash" class="app-screen">
         <div class="nav">
             <div class="nav-btn active" onclick="switchEmpTab('eGrafik')">📅 Mój Kalendarz</div>
+            <div class="nav-btn" onclick="switchEmpTab('eMagazyn')">📦 Praca (V-MAX)</div>
             <div class="nav-btn" onclick="switchEmpTab('eUstawienia')">⚙️ Ustawienia</div>
             <div class="nav-btn" onclick="openScreen('screen-landing')" style="color:var(--ios-red);">Wyloguj</div>
         </div>
         
+        <!-- ERP: GRAFIK -->
         <div id="eGrafik" style="flex:1; overflow-y:auto; padding:20px; max-width:1000px; margin:0 auto; width:100%;">
             <h2 id="empWelcomeTitle" style="font-weight:800; font-size:24px; margin-top:0; margin-bottom:20px;">Witaj!</h2>
-            
             <div class="tools" style="border-radius:16px; margin-bottom:20px;">
                 <button class="btn-main" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;" onclick="changeEmpMonth(-1)">← Poprz.</button>
                 <h2 style="margin:0; font-weight:800; font-size:18px;" id="empMonthTitle">Miesiąc</h2>
@@ -486,21 +267,51 @@
             </div>
             
             <div style="background:white; padding:15px; border-radius:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; box-shadow:0 5px 15px rgba(0,0,0,0.02); margin-bottom:20px;">
-                <span style="font-size:18px;">🖌️ Zgłoś dyspozycję:</span>
+                <span style="font-size:16px; font-weight:600;">🖌️ Zgłoś dyspozycję:</span>
                 <select id="empBrushAct" style="flex:1; min-width:120px; font-weight:700; color:var(--ios-blue); border:none;"></select>
                 <input type="text" id="empBrushHrs" list="dlShifts" placeholder="Godziny..." style="width:120px;">
                 <button id="eBtn" onclick="toggleEmpBrush()" style="background:transparent; border:2px dashed var(--ios-blue); padding:10px 15px; border-radius:12px; cursor:pointer; font-weight:800; color:var(--ios-blue);">PĘDZEL: WYŁ</button>
             </div>
-            
             <div id="empSubmitBox" style="display:none; margin-bottom:20px;">
                 <button class="btn-main" style="width:100%; background:var(--ios-green);" onclick="submitEmpChanges()">Wyślij zmiany do systemu 🚀</button>
             </div>
-
-            <div id="empGrid" style="display:grid; grid-template-columns: 30px repeat(7, 1fr); gap:8px; width:100%;">
-                <!-- Kalendarz -->
-            </div>
+            <div id="empGrid" style="display:grid; grid-template-columns: 30px repeat(7, 1fr); gap:8px; width:100%;"></div>
         </div>
 
+        <!-- V-MAX: PRACA NA MAGAZYNIE (ZACHOWANY STARY KOD VMAX DLA PRACOWNIKA) -->
+        <div id="eMagazyn" style="display:none; flex:1; overflow-y:auto; padding:20px; max-width:800px; margin:0 auto; width:100%;">
+            <h2 style="margin-top:0;">Panel Operacyjny V-MAX</h2>
+            
+            <div class="glass-card" style="text-align:left; margin-bottom:20px; padding:20px;">
+                <h3 style="margin-top:0;">Maszyny i Narzędzia</h3>
+                <div class="input-group">
+                    <select id="vmSkaner" style="font-weight:700;"><option value="">Brak Skanera</option></select>
+                    <select id="vmWozek" style="font-weight:700;"><option value="">Brak Wózka</option></select>
+                    <button class="btn-main" onclick="updateEq()">Pobierz</button>
+                </div>
+            </div>
+
+            <div class="glass-card" style="text-align:left; margin-bottom:20px; padding:20px; background:rgba(10,132,255,0.05); border:1px solid rgba(10,132,255,0.2);">
+                <h3 style="margin-top:0; color:var(--ios-blue);">Obecne Zadanie</h3>
+                <div id="currentTaskBox" style="font-size:18px; font-weight:800; margin-bottom:15px; color:var(--ios-orange);">Brak aktywnego zadania</div>
+                <div class="input-group">
+                    <select id="vmAktywnosc" style="font-weight:700;"></select>
+                    <button class="btn-main" style="background:var(--ios-green);" onclick="startTask()">Rozpocznij</button>
+                    <button class="btn-main" style="background:var(--ios-red);" onclick="stopTask()">Zakończ Pracę</button>
+                </div>
+            </div>
+
+            <div class="glass-card" style="text-align:left; padding:20px;">
+                <h3 style="margin-top:0;">Zgłoś Problem</h3>
+                <textarea id="vmProblem" placeholder="Opisz problem z towarem, maszyną lub systemem..." style="width:100%; height:80px; margin-bottom:10px; resize:none;"></textarea>
+                <button class="btn-main" style="width:100%; background:var(--ios-orange);" onclick="reportProblem()">Wyślij do Lidera</button>
+            </div>
+
+            <h3 style="margin-top:30px;">Historia Dnia</h3>
+            <div id="vmaxHistory" style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+
+        <!-- USTAWIENIA -->
         <div id="eUstawienia" style="display:none; padding:20px; max-width:500px; margin:0 auto; width:100%;">
             <div class="glass-card" style="text-align:left; min-width:unset;">
                 <h3 style="margin-top:0;">Zmień PIN logowania</h3>
@@ -516,57 +327,52 @@
          ========================================================= -->
     <div id="screen-admin" class="app-screen">
         <div class="nav">
-            <div class="nav-btn" onclick="showAdminView('vAlerts')">🔔 Wnioski Grafiku <span class="badge" id="aBadge">0</span></div>
-            <div class="nav-btn" onclick="showAdminView('vHrAlerts')">⚠️ Oceny Okresowe <span class="badge" id="hBadge" style="background:var(--ios-purple);">0</span></div>
+            <!-- ERP TABS -->
+            <div class="nav-btn" onclick="showAdminView('vDaily')">☀️ Dzienny Live</div>
             <div class="nav-btn" onclick="showAdminView('vPlanner')">📅 Tygodniowy</div>
-            <div class="nav-btn active" onclick="showAdminView('vDaily')">☀️ Dzienny Live</div>
             <div class="nav-btn" onclick="showAdminView('vMatrix')">👥 Zespół & Dossier</div>
-            <div class="nav-btn" onclick="showAdminView('vSettings')">⚙️ Ustawienia CMS</div>
+            <div class="nav-btn" onclick="showAdminView('vAlerts')">🔔 Wnioski Grafiku <span class="badge" id="aBadge">0</span></div>
+            <div class="nav-btn" onclick="showAdminView('vHrAlerts')">⚠️ Oceny HR <span class="badge" id="hBadge" style="background:var(--ios-purple);">0</span></div>
+            <!-- V-MAX TABS -->
+            <div class="nav-btn" onclick="showAdminView('vActive')">📡 Aktywne Sesje (V-MAX)</div>
+            <div class="nav-btn" onclick="showAdminView('vReports')">📊 Raporty (V-MAX)</div>
+            <div class="nav-btn" onclick="showAdminView('vSettings')">⚙️ CMS</div>
             <div class="nav-btn" onclick="openScreen('screen-landing')" style="color:var(--ios-red);">Wyloguj</div>
         </div>
 
-        <!-- 1. WNIOSKI Z GRAFIKU -->
-        <div id="vAlerts" class="admin-view" style="padding:20px; max-width:900px; margin:0 auto; width:100%;">
-            <h2 style="display:flex; justify-content:space-between; align-items:center;">
-                Wnioski o wolne / dostępność
-                <button id="alertBackBtn" onclick="renderAlertsGroupView()" class="btn-main" style="display:none; padding:8px 16px; font-size:12px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">← Wróć do Grup</button>
-            </h2>
-            <div id="alertsGroupView" class="group-bubbles-container"></div>
-            <div id="alertsEmpView" style="display:none;"></div>
-            <div id="alertsDetailView" style="display:none;"></div>
-        </div>
-
-        <!-- 2. NOWOŚĆ: TABELA ALERTÓW HR -->
-        <div id="vHrAlerts" class="admin-view" style="padding:20px; max-width:1100px; margin:0 auto; width:100%;">
-            <h2 style="color:var(--ios-purple);">Terminarz Ocen Okresowych (HR)</h2>
-            <div class="input-group">
-                <select id="hrAlertGroupFilt" onchange="renderHrAlertsTable()" style="font-weight:600;">
-                    <option value="ALL">Filtruj wg grupy: Wszystkie</option>
+        <!-- 1. DZIENNY LIVE (SZACHOWNICA - ZAKTUALIZOWANA) -->
+        <div id="vDaily" class="admin-view active">
+            <div class="tools">
+                <select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); min-width:250px;">
+                    <option value="" selected disabled>👇 Najpierw wybierz grupę...</option>
                 </select>
-                <select id="hrAlertSort" onchange="renderHrAlertsTable()" style="font-weight:600;">
-                    <option value="date_desc">Sortuj: Najpilniejsze (Najstarsze daty)</option>
-                    <option value="date_asc">Sortuj: Najnowsze (Świeże zgłoszenia)</option>
-                    <option value="type">Sortuj: Rodzaj oceny</option>
-                </select>
+                <div style="display:flex; align-items:center; gap:5px; background:white; border-radius:12px; padding:4px; border:1px solid var(--border);">
+                    <button class="btn-main" onclick="changeDailyDate(-1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">←</button>
+                    <input type="date" id="dailyDate" onchange="renderDaily()" style="font-weight:800; border:none; background:transparent;">
+                    <button class="btn-main" onclick="changeDailyDate(1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">→</button>
+                </div>
+                <button class="btn-main" style="background:var(--ios-orange);" onclick="openCopyDaily()">📋 Kopiuj Dzień</button>
             </div>
             
-            <div class="excel-table-wrapper">
-                <table class="excel-table">
-                    <thead>
-                        <tr>
-                            <th>Pracownik</th>
-                            <th>Grupa</th>
-                            <th>Rodzaj Ewaluacji</th>
-                            <th>Termin od</th>
-                            <th style="text-align:right;">Akcja</th>
-                        </tr>
-                    </thead>
-                    <tbody id="hrAlertsTableBody"></tbody>
-                </table>
+            <div style="display:flex; flex:1; overflow:hidden;" id="dailyContainer">
+                <!-- Pula Wolnych (Z lewej) -->
+                <div class="kanban-col" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, 'Wyczyść')">
+                    <h3 style="margin-top:0; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                        Wolni <span id="availCount" class="badge" style="position:static; display:inline-block; background:var(--ios-blue);">0</span>
+                    </h3>
+                    <div id="dailyAvailableList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
+                </div>
+                
+                <!-- Szachownica Zadań -->
+                <div id="dailyGrid">
+                    <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600;">
+                        👆 Wybierz grupę z menu, aby załadować dostępne dla niej akcje.
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- 3. PLANNER TYGODNIOWY -->
+        <!-- 2. PLANNER TYGODNIOWY -->
         <div id="vPlanner" class="admin-view">
             <div class="tools">
                 <input type="text" id="searchPlan" placeholder="🔍 Szukaj pracownika..." onkeyup="renderPlanner()" style="min-width:200px;">
@@ -588,44 +394,11 @@
             </div>
         </div>
 
-        <!-- 4. PLANNER DZIENNY LIVE (KOMPAKTOWA SZACHOWNICA) -->
-        <div id="vDaily" class="admin-view active">
-            <div class="tools">
-                <select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); min-width:250px;">
-                    <option value="" selected disabled>👇 Najpierw wybierz grupę...</option>
-                </select>
-                <div style="display:flex; align-items:center; gap:5px; background:white; border-radius:12px; padding:4px; border:1px solid var(--border);">
-                    <button class="btn-main" onclick="changeDailyDate(-1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">←</button>
-                    <input type="date" id="dailyDate" onchange="renderDaily()" style="font-weight:800; border:none; background:transparent;">
-                    <button class="btn-main" onclick="changeDailyDate(1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">→</button>
-                </div>
-                <button class="btn-main" style="background:var(--ios-orange);" onclick="openCopyDaily()">📋 Kopiuj Dzień</button>
-            </div>
-            
-            <div style="display:flex; flex:1; overflow:hidden;" id="dailyContainer">
-                <div class="kanban-col" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, 'Wyczyść')">
-                    <h3 style="margin-top:0; border-bottom:1px solid var(--border); padding-bottom:10px;">
-                        Wolni <span id="availCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:8px; font-size:12px;">0</span>
-                    </h3>
-                    <div id="dailyAvailableList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
-                </div>
-                
-                <!-- TUTAJ ZADZIAŁA FLEX-WRAP (SZACHOWNICA) -->
-                <div id="dailyGrid">
-                    <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600;">
-                        👆 Wybierz grupę z menu, aby załadować dostępne dla niej akcje.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 5. ZESPÓŁ I DOSSIER HR -->
+        <!-- 3. ZESPÓŁ I DOSSIER HR -->
         <div id="vMatrix" class="admin-view" style="padding:20px; overflow-y:auto;">
             <h2>Zarządzanie Składem Grup</h2>
             <div id="groupBubbles" class="group-bubbles-container"></div>
-            
             <hr style="margin:40px 0; border:none; border-top:2px dashed var(--border);">
-
             <h2>Karty HR (Dossier i Absencje)</h2>
             <div class="input-group">
                 <input type="text" id="hrSearchInput" placeholder="🔍 Szukaj pracownika..." onkeyup="renderHrCards()">
@@ -636,11 +409,69 @@
             <div id="hrCardsContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;"></div>
         </div>
 
-        <!-- 6. CMS I USTAWIENIA -->
+        <!-- 4. WNIOSKI Z GRAFIKU -->
+        <div id="vAlerts" class="admin-view" style="padding:20px; max-width:900px; margin:0 auto; width:100%;">
+            <h2 style="display:flex; justify-content:space-between; align-items:center;">
+                Wnioski o wolne / dostępność
+                <button id="alertBackBtn" onclick="renderAlertsGroupView()" class="btn-main" style="display:none; padding:8px 16px; font-size:12px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">← Wróć do Grup</button>
+            </h2>
+            <div id="alertsGroupView" class="group-bubbles-container"></div>
+            <div id="alertsEmpView" style="display:none;"></div>
+            <div id="alertsDetailView" style="display:none;"></div>
+        </div>
+
+        <!-- 5. TABELA ALERTÓW HR (EXCEL STYLE) -->
+        <div id="vHrAlerts" class="admin-view" style="padding:20px; max-width:1100px; margin:0 auto; width:100%;">
+            <h2 style="color:var(--ios-purple);">Terminarz Ocen Okresowych (HR)</h2>
+            <div class="input-group">
+                <select id="hrAlertGroupFilt" onchange="renderHrAlertsTable()" style="font-weight:600;">
+                    <option value="ALL">Filtruj wg grupy: Wszystkie</option>
+                </select>
+                <select id="hrAlertSort" onchange="renderHrAlertsTable()" style="font-weight:600;">
+                    <option value="date_desc">Sortuj: Najpilniejsze (Najstarsze daty)</option>
+                    <option value="date_asc">Sortuj: Najnowsze (Świeże zgłoszenia)</option>
+                    <option value="type">Sortuj: Rodzaj oceny</option>
+                </select>
+            </div>
+            <div class="excel-table-wrapper">
+                <table class="excel-table">
+                    <thead><tr><th>Pracownik</th><th>Grupa</th><th>Rodzaj Ewaluacji</th><th>Termin od</th><th style="text-align:right;">Akcja</th></tr></thead>
+                    <tbody id="hrAlertsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 6. V-MAX: AKTYWNE SESJE -->
+        <div id="vActive" class="admin-view" style="padding:20px; overflow-y:auto; background:#f2f2f7;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                <h2 style="margin:0;">Aktualnie na magazynie (V-MAX Live)</h2>
+                <button class="btn-main" style="background:var(--ios-red);" onclick="vmaxCloseAll()">Wyloguj wszystkich</button>
+            </div>
+            <div id="vmaxActiveSessions" style="display:flex; flex-wrap:wrap; gap:20px;"></div>
+        </div>
+
+        <!-- 7. V-MAX: RAPORTY -->
+        <div id="vReports" class="admin-view" style="padding:20px; overflow-y:auto;">
+            <h2>Raportowanie i Produktywność</h2>
+            <div class="glass-card" style="text-align:left; min-width:unset; margin-bottom:20px;">
+                <div class="input-group">
+                    <input type="date" id="repD1">
+                    <input type="date" id="repD2">
+                    <select id="repUser" style="font-weight:700;"><option value="Wszyscy">Wszyscy pracownicy</option></select>
+                    <button class="btn-main" onclick="loadVmaxReports()">Generuj Raport</button>
+                </div>
+            </div>
+            <div class="excel-table-wrapper">
+                <table class="excel-table">
+                    <thead><tr><th>Pracownik</th><th>Zadanie</th><th>Skaner/Wózek</th><th>Start</th><th>Koniec</th><th>Czas</th></tr></thead>
+                    <tbody id="vmaxReportBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 8. CMS I USTAWIENIA -->
         <div id="vSettings" class="admin-view" style="padding:30px 20px; overflow-y:auto;">
             <div class="cms-grid">
-                
-                <!-- KARTA 1: PRACOWNICY -->
                 <div class="glass-card" style="text-align:left;">
                     <h3 style="margin-top:0;">👥 Dodaj Pracownika</h3>
                     <div class="input-group">
@@ -653,10 +484,10 @@
                         </select>
                         <button class="btn-main" onclick="saveEmp()">Dodaj</button>
                     </div>
+                    <input type="text" id="cmsEmpSearch" placeholder="🔍 Szukaj pracownika..." onkeyup="renderCMS()" style="margin-bottom:10px; width:100%;">
                     <div id="cmsEmpList" style="max-height:300px; overflow-y:auto;"></div>
                 </div>
 
-                <!-- KARTA 2: GRUPY -->
                 <div class="glass-card" style="text-align:left;">
                     <h3 style="margin-top:0;">🏢 Tworzenie Grup</h3>
                     <div class="input-group">
@@ -673,7 +504,6 @@
                     <div id="cmsGroupList" style="max-height:300px; overflow-y:auto;"></div>
                 </div>
 
-                <!-- KARTA 3: AKTYWNOŚCI I ZMIANY -->
                 <div class="glass-card" style="text-align:left;">
                     <h3 style="margin-top:0;">📋 Aktywności i Zmiany</h3>
                     <div class="input-group">
@@ -682,7 +512,6 @@
                         <button class="btn-main" onclick="saveAct()">Zadanie</button>
                     </div>
                     <div id="cmsActList" style="max-height:200px; overflow-y:auto; margin-bottom:20px;"></div>
-                    
                     <div class="input-group">
                         <input type="text" id="sShift" placeholder="np. 07:00-15:00">
                         <button class="btn-main" onclick="saveSet('shift', 'sShift')">Zmiana</button>
@@ -690,34 +519,31 @@
                     <div id="cmsShiftList" style="max-height:150px; overflow-y:auto;"></div>
                 </div>
 
-                <!-- KARTA 4: BAZA, SYMULACJA I ROOT -->
                 <div class="glass-card" style="text-align:left; height:fit-content;">
                     <h3 style="margin-top:0; color:var(--ios-green);">💾 Zrzut Bazy & Testy</h3>
-                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Pobierz kopię bezpieczeństwa SQLite lub wygeneruj sztuczny ruch.</p>
-                    
-                    <button class="btn-main" style="width:100%; margin-bottom:10px; background:var(--ios-green);" onclick="downloadBackup()">📥 Pobierz plik test.db</button>
-                    <button class="btn-main" style="width:100%; background:var(--ios-orange);" onclick="runSimulation()">🤖 Uruchom Symulację (Sty - Maj 2026)</button>
-                    
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Pobierz kopię JSON wszystkich danych lub wygeneruj sztuczny ruch.</p>
+                    <div class="input-group">
+                        <button class="btn-main" style="background:var(--ios-green);" onclick="downloadBackup()">📥 Zrzut Bazy (JSON)</button>
+                        <button class="btn-main" style="background:var(--ios-orange);" onclick="runSimulation()">🤖 Uruchom Symulację</button>
+                    </div>
                     <hr style="margin:25px 0; border-top:1px solid var(--border);">
-
-                    <h3 style="margin-top:0; color:var(--ios-red);">👑 Główne Konto (Root)</h3>
+                    <h3 style="margin-top:0; color:var(--ios-red);">👑 Konto Główne (Root)</h3>
                     <div class="input-group" style="margin-bottom:10px;">
                         <input type="text" id="sRootLogin" placeholder="Nowy login">
                         <input type="password" id="sRootPass" placeholder="Nowe hasło">
+                        <button class="btn-main" style="background:var(--ios-red);" onclick="changeRootAdmin()">Zapisz Root Admina</button>
                     </div>
-                    <button class="btn-main" style="width:100%; background:var(--ios-red);" onclick="changeRootAdmin()">Zapisz Root Admina</button>
                 </div>
-
             </div>
         </div>
     </div>
 
     <!-- =========================================================
-         MODALE WYSKAKUJĄCE (OVERLAYS)
+         WSZYSTKIE MODALE SYSTEMOWE
          ========================================================= -->
     <div class="overlay" id="overlay" onclick="closeM()"></div>
 
-    <!-- MODAL: KARTOTEKA HR DOSSIER (Z KALENDARZEM ABSENCJI) -->
+    <!-- MODAL 1: KARTOTEKA HR DOSSIER (Z KALENDARZEM ABSENCJI) -->
     <div id="matrixModal" class="modal" style="width:900px; padding:30px;">
         <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:15px; flex-wrap:wrap; gap:10px;">
             <div>
@@ -748,7 +574,6 @@
                 <h3 style="font-size:16px;">⭐ Kompetencje Grupy</h3>
                 <div id="matrixGrid" style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto; padding-right:5px;"></div>
             </div>
-            
             <div style="flex:1; min-width:300px; display:flex; flex-direction:column;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                     <h3 style="font-size:16px; margin:0;">📝 Nowa Ewaluacja</h3>
@@ -769,51 +594,92 @@
 
         <hr style="margin:20px 0; border-top:1px solid var(--border);">
         <h3 style="font-size:16px; margin-bottom:10px;">🕰️ Historia Ocen Okresowych</h3>
-        <div id="hrHistoryList" style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        <div id="hrHistoryList" style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:5px;"></div>
     </div>
 
-    <!-- POZOSTAŁE MODALE (Skład Grupy, Sugestie, Kopiowanie) - Struktura zachowana z poprzednich wersji -->
+    <!-- MODAL 2: SZCZEGÓŁY HISTORYCZNEJ OCENY -->
+    <div id="evalDetailsModal" class="modal" style="width:700px; padding:30px; z-index:1005;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:15px; margin-bottom:20px;">
+            <div>
+                <h2 style="margin:0; color:var(--ios-blue);">Karta Oceny Okresowej</h2>
+                <div id="edPeriod" style="font-size:13px; font-weight:600; color:var(--text-muted); margin-top:5px;">Okres: Ładowanie...</div>
+            </div>
+            <button class="btn-main" onclick="document.getElementById('evalDetailsModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">Wróć</button>
+        </div>
+        
+        <h3 style="font-size:15px;">📊 Absencje w ocenianym okresie</h3>
+        <div class="hr-stats-container" style="margin-bottom:20px;">
+            <div class="hr-stat-box box-w"><span class="hr-stat-title">W Pracy</span><span class="hr-stat-num" id="edStatW" style="color:var(--ios-blue);">0</span></div>
+            <div class="hr-stat-box box-c"><span class="hr-stat-title">Chory</span><span class="hr-stat-num" id="edStatC" style="color:var(--ios-red);">0</span></div>
+            <div class="hr-stat-box box-u"><span class="hr-stat-title">Urlop</span><span class="hr-stat-num" id="edStatU" style="color:var(--ios-orange);">0</span></div>
+            <div class="hr-stat-box box-wo"><span class="hr-stat-title">Wolne</span><span class="hr-stat-num" id="edStatWo" style="color:var(--text-muted);">0</span></div>
+            <div class="hr-stat-box box-ns"><span class="hr-stat-title">No Show</span><span class="hr-stat-num" id="edStatNs" style="color:#8B0000;">0</span></div>
+        </div>
+
+        <div style="background:rgba(0,0,0,0.02); padding:20px; border-radius:16px; border:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 style="margin:0; font-size:15px;">📝 Notatka Menedżera</h3>
+                <span id="edRating" style="font-weight:800; color:var(--ios-orange); background:white; padding:6px 12px; border-radius:10px; border:1px solid var(--border);">Ocena: - ⭐</span>
+            </div>
+            <p id="edNotes" style="font-style:italic; font-size:14px; color:var(--text-main); line-height:1.5; margin:0;"></p>
+        </div>
+    </div>
+
+    <!-- MODAL 3: ZARZĄDZANIE GRUPĄ -->
     <div id="groupManagerModal" class="modal" style="width:800px; padding:25px;">
-        <h2 id="gmTitle" style="margin-top:0;">Skład Grupy</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+            <div>
+                <h3 id="gmTitle" style="margin:0; font-size:22px; font-weight:800;">Skład Grupy</h3>
+                <p id="gmSubtitle" style="margin:4px 0 0 0; color:var(--text-muted); font-size:12px; font-weight:600;"></p>
+            </div>
+            <button class="btn-main" onclick="closeM()" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">✕ Zamknij</button>
+        </div>
         <div class="gm-columns-wrapper" style="display:flex; gap:15px;">
             <div style="flex:1; background:var(--bg-color); padding:15px; border-radius:16px;">
-                <h4>Obecny skład <span id="gmInCount" class="badge" style="position:static; display:inline-block;">0</span></h4>
-                <div id="gmInGroup" style="max-height:250px; overflow-y:auto;"></div>
+                <h4>Obecny skład <span id="gmInCount" class="badge" style="position:static; display:inline-block; background:var(--ios-blue);">0</span></h4>
+                <div id="gmInGroup" style="max-height:250px; overflow-y:auto; padding-right:5px;"></div>
             </div>
             <div style="flex:1; background:var(--bg-color); padding:15px; border-radius:16px;">
                 <h4>Pozostali</h4>
                 <input type="text" id="gmSearch" placeholder="Szukaj..." onkeyup="filterGm()" style="width:100%; margin-bottom:10px;">
-                <div id="gmOutGroup" style="max-height:200px; overflow-y:auto;"></div>
+                <div id="gmOutGroup" style="max-height:200px; overflow-y:auto; padding-right:5px;"></div>
             </div>
         </div>
     </div>
 
+    <!-- MODAL 4: MASOWE PLANOWANIE -->
     <div id="massModal" class="modal">
-        <h2>Planowanie Masowe</h2>
+        <h2 style="color:var(--ios-purple);">Planowanie Masowe</h2>
         <select id="massAct" style="width:100%; margin-bottom:10px;"></select>
         <input type="text" id="massHrs" list="dlShifts" placeholder="Godziny..." style="width:100%; margin-bottom:15px;">
         <div class="input-group">
             <input type="date" id="mOd">
             <input type="date" id="mDo">
+            <button class="btn-main" onclick="applyMass()">Zapisz</button>
         </div>
-        <button class="btn-main" onclick="applyMass()" style="width:100%;">Zapisz</button>
     </div>
 
+    <!-- MODAL 5: KOPIOWANIE DNIA -->
     <div id="copyDayModal" class="modal">
         <h2 style="color:var(--ios-orange);">Skopiuj układ dnia</h2>
         <p>Źródło: <b id="copySourceDateStr"></b></p>
         <div class="input-group">
             <input type="date" id="copyOd">
             <input type="date" id="copyDo">
+            <button class="btn-main" onclick="applyCopyDay()" style="background:var(--ios-orange);">Wklej układ</button>
         </div>
-        <button class="btn-main" onclick="applyCopyDay()" style="width:100%; background:var(--ios-orange);">Wklej układ</button>
     </div>
 
+    <!-- MODAL 6: SUGESTIE -->
     <div id="suggestionModal" class="modal">
-        <h2 id="sugTitle" style="color:var(--ios-blue);">Sugestie</h2>
-        <div id="sugList" style="max-height:300px; overflow-y:auto;"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+            <div><h3 id="sugTitle" style="margin:0; font-size:20px; font-weight:800; color:var(--ios-blue);">Sugestie</h3></div>
+            <button class="btn-main" onclick="document.getElementById('suggestionModal').style.display='none'" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">Zamknij</button>
+        </div>
+        <div id="sugList" style="max-height:300px; overflow-y:auto; padding-right:5px;"></div>
     </div>
 
+    <!-- MODAL 7: PRZYPISANIE MOBILE -->
     <div id="mobileAssignModal" class="modal" style="text-align:center;">
         <h2>Przypisz zadanie</h2>
         <p id="mobileAssignName" style="font-weight:800; color:var(--ios-blue);"></p>
@@ -821,12 +687,11 @@
     </div>
 
     <div id="toast" class="toast">Wykonano!</div>
-
 <script>
     // ==========================================
     // 1. KONFIGURACJA API I NARZĘDZIA POMOCNICZE
     // ==========================================
-    const API_URL = "https://vmax-api.onrender.com/api"; 
+    const API_URL = "https://vmax-api.onrender.com/api"; // Zmień na swój adres, jeśli to konieczne
     
     async function apiCall(endpoint, method = 'GET', body = null) {
         try {
@@ -916,23 +781,22 @@
     };
 
     // ==========================================
-    // 2. LOGIKA PRACOWNIKA
+    // 2. LOGIKA PRACOWNIKA (ERP & V-MAX)
     // ==========================================
     async function doEmpLogin() {
         currEmp = document.getElementById('elName').value; 
         const pin = document.getElementById('elPin').value;
-        
         if(!currEmp || !pin) return showT("⚠️ Uzupełnij dane!");
         
         const res = await apiCall('/auth/login', 'POST', { username: currEmp, pin: pin, role: 'EMPLOYEE' });
-        
         if(res && res.ok) { 
-            empMonthOffset = 0; 
-            empChanges = {}; 
+            empMonthOffset = 0; empChanges = {}; 
             let welcomePrefix = (res.role === "ADMIN" || res.role === "SUPER_ADMIN" || res.role === "MANAGER") ? "👑 Witaj, " : "Witaj, ";
             document.getElementById('empWelcomeTitle').innerText = `${welcomePrefix}${currEmp}! 👋`;
             openScreen('screen-emp-dash'); 
             loadEmpDash(); 
+            loadVmaxConfig(); // Ładowanie opcji V-MAX
+            refreshVmaxHistory(); // Ładowanie historii V-MAX
         } else {
             showT("❌ Niepoprawny PIN lub Hasło!");
         }
@@ -940,16 +804,14 @@
     
     function switchEmpTab(id) { 
         document.getElementById('eGrafik').style.display = 'none'; 
+        document.getElementById('eMagazyn').style.display = 'none'; 
         document.getElementById('eUstawienia').style.display = 'none'; 
         document.getElementById(id).style.display = 'block'; 
         document.querySelectorAll('#screen-emp-dash .nav-btn').forEach(b => b.classList.remove('active')); 
         event.target.classList.add('active'); 
     }
     
-    function changeEmpMonth(dir) { 
-        empMonthOffset += dir; 
-        loadEmpDash(); 
-    }
+    function changeEmpMonth(dir) { empMonthOffset += dir; loadEmpDash(); }
 
     function toggleEmpBrush() { 
         isEmpBrush = !isEmpBrush; 
@@ -972,37 +834,22 @@
         
         const col = getTileColor(act);
         el.style.border = "3px dashed var(--ios-blue)";
-        el.innerHTML = `
-            <div style="font-weight:800; font-size:18px; margin-bottom:8px;">${dObj.getDate()}</div>
-            <div style="font-size:12px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${act==='Wyczyść'?'Pusto':act}</div>
-            ${hrs && act!=='Wyczyść' ? `<div style="font-size:11px; font-weight:800; margin-top:6px;">⌚ ${hrs}</div>` : ''}
-            <div style="background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:9px; font-weight:800; margin-top:6px; padding:4px; border-radius:6px;">ZMIENIONE</div>
-        `;
+        el.innerHTML = `<div style="font-weight:800; font-size:18px; margin-bottom:8px;">${dObj.getDate()}</div><div style="font-size:12px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${act==='Wyczyść'?'Pusto':act}</div>${hrs && act!=='Wyczyść' ? `<div style="font-size:11px; font-weight:800; margin-top:6px;">⌚ ${hrs}</div>` : ''}<div style="background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:9px; font-weight:800; margin-top:6px; padding:4px; border-radius:6px;">ZMIENIONE</div>`;
     }
 
     async function submitEmpChanges() {
         const updates = Object.keys(empChanges).map(d => ({ date: d, act: empChanges[d].act, hrs: empChanges[d].hrs }));
         if(updates.length === 0) return;
-        
         showT("⏳ Wysyłanie zmian...");
         const res = await apiCall('/emp/request-batch', 'POST', { name: currEmp, updates: updates });
-        if(res) { 
-            empChanges = {}; 
-            document.getElementById('empSubmitBox').style.display = 'none'; 
-            showT("✅ " + res.msg); 
-            loadEmpDash(); 
-        }
+        if(res) { empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none'; showT("✅ " + res.msg); loadEmpDash(); }
     }
 
     async function loadEmpDash() {
-        empChanges = {}; 
-        document.getElementById('empSubmitBox').style.display = 'none';
-        
-        const d = new Date(); 
-        d.setMonth(d.getMonth() + empMonthOffset);
+        empChanges = {}; document.getElementById('empSubmitBox').style.display = 'none';
+        const d = new Date(); d.setMonth(d.getMonth() + empMonthOffset);
         const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
         document.getElementById('empMonthTitle').innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-
         document.getElementById('empGrid').innerHTML = '<p style="font-weight:600; color:gray; text-align:center; width:100%; grid-column:1/-1;">Ładowanie kalendarza...</p>';
 
         const data = await apiCall('/emp/dashboard', 'POST', { name: currEmp, year: d.getFullYear(), month: d.getMonth() });
@@ -1013,65 +860,106 @@
         document.getElementById('empBrushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">`).join('');
 
-        let calHtml = `
-            <div class="cal-header">Wk</div>
-            <div class="cal-header">PN</div><div class="cal-header">WT</div><div class="cal-header">ŚR</div>
-            <div class="cal-header">CZ</div><div class="cal-header">PT</div><div class="cal-header">SB</div><div class="cal-header">ND</div>
-        `;
-
+        let calHtml = `<div class="cal-header">Wk</div><div class="cal-header">PN</div><div class="cal-header">WT</div><div class="cal-header">ŚR</div><div class="cal-header">CZ</div><div class="cal-header">PT</div><div class="cal-header">SB</div><div class="cal-header">ND</div>`;
         const firstDay = new Date(d.getFullYear(), d.getMonth(), 1);
         let startDayOfWeek = firstDay.getDay() === 0 ? 7 : firstDay.getDay(); 
-        
         let currentWeekNum = getWeekNumber(firstDay);
         calHtml += `<div class="week-num">T. ${currentWeekNum}</div>`;
-
-        for(let i = 1; i < startDayOfWeek; i++) {
-            calHtml += `<div class="day-row empty-day"></div>`;
-        }
+        for(let i = 1; i < startDayOfWeek; i++) calHtml += `<div class="day-row empty-day"></div>`;
 
         data.schedule.forEach(s => {
-            const dt = new Date(s.date); 
-            const col = getTileColor(s.act);
-            
-            if (dt.getDate() !== 1 && dt.getDay() === 1) {
-                currentWeekNum = getWeekNumber(dt);
-                calHtml += `<div class="week-num">T. ${currentWeekNum}</div>`;
-            }
-
+            const dt = new Date(s.date); const col = getTileColor(s.act);
+            if (dt.getDate() !== 1 && dt.getDay() === 1) { currentWeekNum = getWeekNumber(dt); calHtml += `<div class="week-num">T. ${currentWeekNum}</div>`; }
             let reqBox = "";
-            if(s.req && s.req.status === "Oczekuje") {
-                reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">⏳ Oczekuje</div>`;
-            } else if (s.req && s.req.status === "Odrzucono") {
-                reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">❌ Odrzucono</div>`;
-            }
-            
+            if(s.req && s.req.status === "Oczekuje") reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">⏳</div>`;
+            else if (s.req && s.req.status === "Odrzucono") reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">❌</div>`;
             let overrideBadge = "";
-            if (s.override === 1 && s.act !== "Brak planu") {
-                overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px;">⚠️ MGR</div>`;
-            }
+            if (s.override === 1 && s.act !== "Brak planu") overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px;">⚠️ MGR</div>`;
 
-            calHtml += `
-                <div class="day-row ${s.act==='Brak planu'?'no-plan':''}" style="border-top:6px solid ${col.c};" onclick="empClickDay('${s.date}', this)">
-                    <div style="font-weight:800; font-size:16px; margin-bottom:8px;">${dt.getDate()}</div>
-                    <div style="font-size:11px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${s.act}</div>
-                    ${s.hrs ? `<div style="color:var(--text-muted); font-size:10px; font-weight:800; margin-top:6px;">⌚ ${s.hrs}</div>` : ''}
-                    ${overrideBadge} ${reqBox}
-                </div>`;
+            calHtml += `<div class="day-row ${s.act==='Brak planu'?'no-plan':''}" style="border-top:6px solid ${col.c};" onclick="empClickDay('${s.date}', this)"><div style="font-weight:800; font-size:16px; margin-bottom:8px;">${dt.getDate()}</div><div style="font-size:11px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${s.act}</div>${s.hrs ? `<div style="color:var(--text-muted); font-size:10px; font-weight:800; margin-top:6px;">⌚ ${s.hrs}</div>` : ''}${overrideBadge} ${reqBox}</div>`;
         });
-
         document.getElementById('empGrid').innerHTML = calHtml;
     }
 
     async function empChangePin() {
-        const o = document.getElementById('pOld').value; 
-        const n = document.getElementById('pNew').value;
+        const o = document.getElementById('pOld').value, n = document.getElementById('pNew').value;
         if(!o || !n) return showT("⚠️ Wypełnij oba pola");
-        
         const res = await apiCall('/auth/change-pin', 'POST', { name: currEmp, oldPin: o, newPin: n, isAdmin: false });
-        if(res) { 
-            showT(res.msg); 
-            if(res.ok) { document.getElementById('pOld').value = ''; document.getElementById('pNew').value = ''; } 
+        if(res) { showT(res.msg); if(res.ok) { document.getElementById('pOld').value = ''; document.getElementById('pNew').value = ''; } }
+    }
+
+    // --- FUNKCJE V-MAX PRACOWNIKA ---
+    async function loadVmaxConfig() {
+        const data = await apiCall('/config');
+        if(data) {
+            let skHtml = '<option value="">Brak skanera</option>';
+            data.skanery.forEach(s => {
+                let busy = data.zajete_skanery.includes(s) ? ' (Zajęty)' : '';
+                skHtml += `<option value="${s}" ${busy?'disabled':''}>${s}${busy}</option>`;
+            });
+            document.getElementById('vmSkaner').innerHTML = skHtml;
+
+            let wzHtml = '<option value="">Brak wózka</option>';
+            data.wozki.forEach(w => {
+                let busy = data.zajete_wozki.includes(w) ? ' (Zajęty)' : '';
+                wzHtml += `<option value="${w}" ${busy?'disabled':''}>${w}${busy}</option>`;
+            });
+            document.getElementById('vmWozek').innerHTML = wzHtml;
+            document.getElementById('vmAktywnosc').innerHTML = data.aktywnosci.map(a => `<option value="${a}">${a}</option>`).join('');
+            
+            // Populate repUser dla Admina z góry
+            const repUser = document.getElementById('repUser');
+            if(repUser) repUser.innerHTML = '<option value="Wszyscy">Wszyscy pracownicy</option>' + data.pracownicy.map(p => `<option value="${p}">${p}</option>`).join('');
         }
+    }
+
+    async function refreshVmaxHistory() {
+        const res = await apiCall('/user/history', 'POST', { username: currEmp, month: "" });
+        if(res) {
+            if(res.currentTask) {
+                document.getElementById('currentTaskBox').innerHTML = `🛠️ ${res.currentTask.name} <br><span style="font-size:12px; color:var(--text-muted)">Od: ${res.currentTask.start_time} | Skaner: ${res.currentTask.skaner || '-'} | Wózek: ${res.currentTask.wozek || '-'}</span>`;
+            } else {
+                document.getElementById('currentTaskBox').innerHTML = "Brak aktywnego zadania";
+            }
+            
+            document.getElementById('vmaxHistory').innerHTML = res.hist.map(h => `
+                <div style="background:white; padding:12px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <b style="font-size:14px; color:var(--text-main);">${h.zadanie}</b>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">${h.data} | Sk: ${h.skaner||'-'} | Wz: ${h.wozek||'-'}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:12px; font-weight:800; color:var(--ios-blue);">${h.start} - ${h.koniec}</div>
+                        <div style="font-size:11px; color:var(--ios-green); font-weight:700; margin-top:2px;">${h.czas}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    async function updateEq() {
+        const sk = document.getElementById('vmSkaner').value; const wz = document.getElementById('vmWozek').value;
+        const res = await apiCall('/user/equipment', 'POST', { username: currEmp, skaner: sk, wozek: wz });
+        if(res) { showT("Zaktualizowano maszyny!"); loadVmaxConfig(); refreshVmaxHistory(); }
+    }
+
+    async function startTask() {
+        const task = document.getElementById('vmAktywnosc').value;
+        const sk = document.getElementById('vmSkaner').value; const wz = document.getElementById('vmWozek').value;
+        const res = await apiCall('/user/action', 'POST', { username: currEmp, type: "TASK", task: task, skaner: sk, wozek: wz });
+        if(res) { showT("Zadanie rozpoczęte!"); loadVmaxConfig(); refreshVmaxHistory(); }
+    }
+
+    async function stopTask() {
+        const res = await apiCall('/user/action', 'POST', { username: currEmp, type: "STOP", task: "" });
+        if(res) { showT("Praca zakończona!"); loadVmaxConfig(); refreshVmaxHistory(); }
+    }
+
+    async function reportProblem() {
+        const prob = document.getElementById('vmProblem').value;
+        if(!prob) return showT("Wpisz opis problemu!");
+        const res = await apiCall('/user/problem', 'POST', { username: currEmp, description: prob });
+        if(res) { showT("Wysłano zgłoszenie do lidera!"); document.getElementById('vmProblem').value = ''; }
     }
 
 
@@ -1079,14 +967,17 @@
     // 3. LOGIKA ADMINA & NAWIGACJA
     // ==========================================
     async function doAdminLogin() { 
-        const u = document.getElementById('lUser').value;
-        const p = document.getElementById('lPass').value;
+        const u = document.getElementById('lUser').value, p = document.getElementById('lPass').value;
         if(!u || !p) return showT("⚠️ Uzupełnij dane!");
         
         const res = await apiCall('/auth/login', 'POST', { username: u, pin: p, role: 'ADMIN' });
         if(res && res.ok) { 
             openScreen('screen-admin'); 
             loadAdminData(); 
+            // Ustawienia dat w raportach domyślnie na dziś
+            const dzis = new Date();
+            document.getElementById('repD1').valueAsDate = dzis;
+            document.getElementById('repD2').valueAsDate = dzis;
         } else { 
             showT("❌ Nieautoryzowany dostęp lub złe hasło!"); 
         }
@@ -1104,6 +995,8 @@
         if(id === 'vAlerts') renderAlertsGroupView();
         if(id === 'vHrAlerts') renderHrAlertsTable();
         if(id === 'vSettings') renderCMS(); 
+        if(id === 'vActive') loadActiveSessions();
+        if(id === 'vReports') loadVmaxReports();
     }
 
     async function loadAdminData() {
@@ -1111,39 +1004,32 @@
         if(!data) return; 
         dbAdmin = data;
         
-        // Ładowanie opcji CMS
         const acts = ["Wyczyść", ...data.plannerActivities];
         document.getElementById('brushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('massAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">${s}</option>`).join('');
         
-        // Dropdown Daily Live
         const dailyFilter = document.getElementById('dailyGroupFilter');
         if (dailyFilter) {
             let currentFilterValue = dailyFilter.value;
-            dailyFilter.innerHTML = '<option value="" selected disabled>👇 Najpierw wybierz grupę...</option>' + 
-                dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+            dailyFilter.innerHTML = '<option value="" selected disabled>👇 Najpierw wybierz grupę...</option>' + dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
             if(currentFilterValue) dailyFilter.value = currentFilterValue; 
         }
 
-        // Dropdowny HR
         const hrFilter = document.getElementById('hrGroupSelect');
         if(hrFilter) {
             let currentHrVal = hrFilter.value;
-            hrFilter.innerHTML = '<option value="ALL">Wszystkie Grupy</option>' + 
-                dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+            hrFilter.innerHTML = '<option value="ALL">Wszystkie Grupy</option>' + dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
             hrFilter.value = currentHrVal || "ALL";
         }
 
         const alertHrFilter = document.getElementById('hrAlertGroupFilt');
         if(alertHrFilter) {
             let currentHrAlertVal = alertHrFilter.value;
-            alertHrFilter.innerHTML = '<option value="ALL">Filtruj wg grupy: Wszystkie</option>' + 
-                dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+            alertHrFilter.innerHTML = '<option value="ALL">Filtruj wg grupy: Wszystkie</option>' + dbAdmin.groups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
             alertHrFilter.value = currentHrAlertVal || "ALL";
         }
 
-        // Odznaki powiadomień
         const aBadge = document.getElementById('aBadge');
         if(data.alerts.length > 0) { aBadge.innerText = data.alerts.length; aBadge.style.display = 'inline-block'; } 
         else { aBadge.style.display = 'none'; }
@@ -1152,23 +1038,20 @@
         if(data.hrAlerts && data.hrAlerts.length > 0) { hBadge.innerText = data.hrAlerts.length; hBadge.style.display = 'inline-block'; } 
         else { hBadge.style.display = 'none'; }
         
-        // Odświeżanie aktywnego widoku
         if(document.getElementById('vAlerts').classList.contains('active')) renderAlertsGroupView();
         if(document.getElementById('vHrAlerts').classList.contains('active')) renderHrAlertsTable();
         if(document.getElementById('vPlanner').classList.contains('active')) renderPlanner(); 
         if(document.getElementById('vDaily').classList.contains('active')) renderDaily();
         if(document.getElementById('vMatrix').classList.contains('active')) { renderMatrix(); renderHrCards(); }
         if(document.getElementById('vSettings').classList.contains('active')) renderCMS();
+        
+        loadVmaxConfig(); // Załaduj konfigurację VMAX dla admina (np do selectów z ludźmi w raportach)
     }
 
-
     // ==========================================
-    // 4. WNIOSKI Z GRAFIKU & TABELE HR
+    // 4. ALERTY I WNIOSKI Z GRAFIKU
     // ==========================================
-    function getEmpGroup(empName) {
-        const emp = dbAdmin.employees.find(e => e.name === empName);
-        return emp ? emp.group : "Nieprzypisani";
-    }
+    function getEmpGroup(empName) { const emp = dbAdmin.employees.find(e => e.name === empName); return emp ? emp.group : "Nieprzypisani"; }
 
     function renderAlertsGroupView() {
         document.getElementById('alertBackBtn').style.display = 'none';
@@ -1177,27 +1060,18 @@
         document.getElementById('alertsDetailView').style.display = 'none';
         
         if(dbAdmin.alerts.length === 0) {
-            document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column: 1 / -1;">Brak nowych wniosków o wolne. Operujesz na 100%! 🎉</p>'; 
-            return;
+            document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column: 1 / -1;">Brak nowych wniosków o wolne. Operujesz na 100%! 🎉</p>'; return;
         }
 
         let groupedAlerts = {};
-        dbAdmin.alerts.forEach(a => {
-            let g = getEmpGroup(a.name);
-            if(!groupedAlerts[g]) groupedAlerts[g] = 0;
-            groupedAlerts[g]++;
-        });
+        dbAdmin.alerts.forEach(a => { let g = getEmpGroup(a.name); if(!groupedAlerts[g]) groupedAlerts[g] = 0; groupedAlerts[g]++; });
 
-        let html = "";
-        for (const [gName, count] of Object.entries(groupedAlerts)) {
-            html += `
+        document.getElementById('alertsGroupView').innerHTML = Object.keys(groupedAlerts).map(gName => `
             <div class="group-bubble" onclick="renderAlertsEmpView('${gName}')">
-                <h3 style="margin-top:0; font-size:20px; color:var(--text-main);">${gName}</h3>
-                <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:10px 0;">${count} <span style="font-size:16px; color:var(--text-muted);">wniosków</span></div>
+                <h3 style="margin-top:0; font-size:20px;">${gName}</h3>
+                <div style="font-size:36px; font-weight:800; color:var(--ios-orange); margin:10px 0;">${groupedAlerts[gName]} <span style="font-size:16px; color:gray;">wniosków</span></div>
                 <span style="color:var(--ios-blue); font-size:13px; font-weight:700;">Zobacz szczegóły →</span>
-            </div>`;
-        }
-        document.getElementById('alertsGroupView').innerHTML = html;
+            </div>`).join('');
     }
 
     function renderAlertsEmpView(groupName) {
@@ -1208,33 +1082,20 @@
         document.getElementById('alertsEmpView').style.display = 'block';
         document.getElementById('alertsDetailView').style.display = 'none';
 
-        let empsInGroup = {};
-        let alertIdsToResolve = [];
-
+        let empsInGroup = {}; let alertIdsToResolve = [];
         dbAdmin.alerts.forEach(a => {
             if(getEmpGroup(a.name) === groupName) {
                 if(!empsInGroup[a.name]) empsInGroup[a.name] = 0;
-                empsInGroup[a.name]++;
-                alertIdsToResolve.push(a.id);
+                empsInGroup[a.name]++; alertIdsToResolve.push(a.id);
             }
         });
 
-        let html = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-            <h3 style="margin:0; font-size:22px;">Grupa: ${groupName}</h3>
-            <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">✅ Zaakceptuj masowo grupę</button>
-        </div>
-        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">`;
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;"><h3 style="margin:0;">Grupa: ${groupName}</h3><button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green);">✅ Zaakceptuj masowo grupę</button></div><div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">`;
 
         for (const [eName, count] of Object.entries(empsInGroup)) {
-            html += `
-            <div style="background:white; padding:20px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03); cursor:pointer; transition:0.3s; border:1px solid rgba(0,0,0,0.05);" onclick="renderAlertsDetailView('${eName}')" onmouseover="this.style.borderColor='var(--ios-blue)'" onmouseout="this.style.borderColor='rgba(0,0,0,0.05)'">
-                <h4 style="margin:0 0 10px 0; font-size:18px;">${eName}</h4>
-                <div style="color:var(--ios-orange); font-weight:800;">${count} oczekujących wniosków</div>
-            </div>`;
+            html += `<div style="background:white; padding:20px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03); cursor:pointer; transition:0.3s; border:1px solid rgba(0,0,0,0.05);" onclick="renderAlertsDetailView('${eName}')" onmouseover="this.style.borderColor='var(--ios-blue)'" onmouseout="this.style.borderColor='rgba(0,0,0,0.05)'"><h4 style="margin:0 0 10px 0; font-size:18px;">${eName}</h4><div style="color:var(--ios-orange); font-weight:800;">${count} wniosków</div></div>`;
         }
-        html += `</div>`;
-        document.getElementById('alertsEmpView').innerHTML = html;
+        document.getElementById('alertsEmpView').innerHTML = html + `</div>`;
     }
 
     function renderAlertsDetailView(empName) {
@@ -1247,39 +1108,25 @@
         let empAlerts = dbAdmin.alerts.filter(a => a.name === empName);
         let alertIdsToResolve = empAlerts.map(a => a.id);
 
-        let html = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-            <h3 style="margin:0; font-size:22px;">Wnioski: ${empName}</h3>
-            <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">✅ Zaakceptuj wszystko pracownika</button>
-        </div>`;
+        let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;"><h3 style="margin:0;">Wnioski: ${empName}</h3><button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green);">✅ Zaakceptuj wszystko pracownika</button></div>`;
 
         html += empAlerts.map(a => {
             const col = getTileColor(a.type);
             return `
-            <div class="alert-card" style="padding:20px; border-radius:16px; border-left:6px solid ${col.c}; background:white; margin-bottom:15px; box-shadow:0 4px 15px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <div style="color:var(--text-muted); font-size:12px; margin-bottom:5px; font-weight:600;">Data w grafiku: <b style="color:var(--text-main); font-size:14px;">${a.date}</b></div>
-                    <div style="font-size:16px; font-weight:800; color:${col.c}; background:${col.bg}; display:inline-block; padding:6px 12px; border-radius:10px;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div>
-                </div>
-                <div style="display:flex; gap:10px;">
-                    <button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-green); padding:10px 20px; font-size:13px; box-shadow:none;">Zaakceptuj</button>
-                    <button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-red); padding:10px 20px; font-size:13px; box-shadow:none;">Odrzuć</button>
-                </div>
+            <div class="alert-card" style="border-left-color:${col.c}; display:flex; justify-content:space-between; align-items:center;">
+                <div><div style="color:gray; font-size:12px; margin-bottom:5px;">Data: <b style="color:var(--text-main); font-size:14px;">${a.date}</b></div><div style="font-size:16px; font-weight:800; color:${col.c}; background:${col.bg}; padding:6px 12px; border-radius:10px; display:inline-block;">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div></div>
+                <div style="display:flex; gap:10px;"><button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-green); padding:10px 20px; font-size:13px; box-shadow:none;">Zaakceptuj</button><button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-red); padding:10px 20px; font-size:13px; box-shadow:none;">Odrzuć</button></div>
             </div>`;
         }).join('');
         document.getElementById('alertsDetailView').innerHTML = html;
     }
 
-    // TABELA EXCEL DLA HR
     function renderHrAlertsTable() {
         const gFilt = document.getElementById('hrAlertGroupFilt').value;
         const sort = document.getElementById('hrAlertSort').value;
-        
         let alerts = [...(dbAdmin.hrAlerts || [])];
         
-        if(gFilt !== "ALL") {
-            alerts = alerts.filter(a => getEmpGroup(a.name) === gFilt);
-        }
+        if(gFilt !== "ALL") alerts = alerts.filter(a => getEmpGroup(a.name) === gFilt);
         
         alerts.sort((a,b) => {
             if(sort === 'date_desc') return new Date(a.date) - new Date(b.date); 
@@ -1287,29 +1134,15 @@
             return a.type.localeCompare(b.type);
         });
 
-        if(alerts.length === 0) {
-            document.getElementById('hrAlertsTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:gray;">Brak powiadomień HR dla tej grupy.</td></tr>';
-            return;
-        }
+        if(alerts.length === 0) { document.getElementById('hrAlertsTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:gray;">Brak powiadomień HR dla tej grupy.</td></tr>'; return; }
 
-        document.getElementById('hrAlertsTableBody').innerHTML = alerts.map(a => `
-            <tr onclick="openHrDossierFromAlert('${a.name}')">
-                <td><b>${a.name}</b></td>
-                <td><span style="background:var(--bg-color); padding:4px 8px; border-radius:6px; font-size:11px;">${getEmpGroup(a.name)}</span></td>
-                <td><span style="color:var(--ios-purple); font-weight:800; background:rgba(94,92,230,0.1); padding:4px 10px; border-radius:8px;">${a.type}</span></td>
-                <td>${a.date}</td>
-                <td style="text-align:right;">
-                    <button class="btn-main" style="background:var(--ios-purple); padding:6px 12px; font-size:11px; display:inline-block;">📝 Otwórz Dossier</button>
-                </td>
-            </tr>`).join('');
+        document.getElementById('hrAlertsTableBody').innerHTML = alerts.map(a => `<tr onclick="openHrDossierFromAlert('${a.name}')"><td><b>${a.name}</b></td><td><span style="background:var(--bg-color); padding:4px 8px; border-radius:6px; font-size:11px;">${getEmpGroup(a.name)}</span></td><td><span style="color:var(--ios-purple); font-weight:800; background:rgba(94,92,230,0.1); padding:4px 10px; border-radius:8px;">${a.type}</span></td><td>${a.date}</td><td style="text-align:right;"><button class="btn-main" style="background:var(--ios-purple); padding:6px 12px; font-size:11px;">📝 Otwórz Dossier</button></td></tr>`).join('');
     }
 
     async function resolveAlert(id, stat, n, d, t, h) { 
         const res = await apiCall('/admin/alerts/resolve', 'POST', { id, status: stat, name: n, date: d, type: t, hrs: h });
         if(res) { 
-            if(res.ok) showT(res.msg); 
-            else return showT("⚠️ " + res.msg);
-            
+            if(res.ok) showT(res.msg); else return showT("⚠️ " + res.msg);
             await loadAdminData();
             if(dbAdmin.alerts.filter(a => a.name === n).length > 0) renderAlertsDetailView(n);
             else if(dbAdmin.alerts.filter(a => getEmpGroup(a.name) === currentAlertGroup).length > 0) renderAlertsEmpView(currentAlertGroup);
@@ -1321,20 +1154,12 @@
         if(!idsString) return;
         const ids = idsString.split(',');
         if(!confirm(`Czy na pewno chcesz zatwierdzić masowo te zmiany grafiku? (Alerty HR i tak zostaną pominięte)`)) return;
-        
         showT("⏳ Przetwarzanie...");
         const res = await apiCall('/admin/alerts/resolve-mass', 'POST', { ids: ids, status: stat });
-        if(res) { 
-            showT("✅ " + res.msg); 
-            await loadAdminData(); 
-            renderAlertsGroupView(); 
-        }
+        if(res) { showT("✅ " + res.msg); await loadAdminData(); renderAlertsGroupView(); }
     }
 
-    function openHrDossierFromAlert(empName) {
-        showAdminView('vMatrix');
-        openHrDossier(empName);
-    }
+    function openHrDossierFromAlert(empName) { showAdminView('vMatrix'); openHrDossier(empName); }
 
 
     // ==========================================
@@ -1343,8 +1168,7 @@
     function changeDailyDate(days) {
         const input = document.getElementById('dailyDate');
         if(!input.value) return;
-        const d = new Date(input.value);
-        d.setDate(d.getDate() + days);
+        const d = new Date(input.value); d.setDate(d.getDate() + days);
         input.value = formatDateKey(d.getFullYear(), d.getMonth(), d.getDate());
         renderDaily();
     }
@@ -1355,12 +1179,10 @@
     function dragLeaveDaily(ev) { ev.currentTarget.classList.remove('dragover'); }
 
     async function dropDaily(ev, targetAct) {
-        ev.preventDefault(); 
-        ev.currentTarget.classList.remove('dragover');
+        ev.preventDefault(); ev.currentTarget.classList.remove('dragover');
         const empName = ev.dataTransfer.getData("empName");
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        
         dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
         renderDaily(); 
         await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
@@ -1369,23 +1191,17 @@
     function openMobileAssign(empName) {
         if (window.innerWidth > 768) return; 
         document.getElementById('mobileAssignName').innerText = empName;
-        
         const selectedGroup = document.getElementById('dailyGroupFilter').value;
         let allowedActs = dbAdmin.plannerActivities;
-        
         if (selectedGroup) {
             const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
-            if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
-                allowedActs = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
-            }
+            if (groupObj && groupObj.activities && groupObj.activities.length > 0) allowedActs = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
         }
-
         let html = `<button onclick="assignFromMobile('${empName}', 'Wyczyść')" class="btn-main" style="background:rgba(0,0,0,0.05); color:var(--text-main); box-shadow:none;">Wyczyść przydział</button>`;
         html += allowedActs.map(act => {
             const col = getTileColor(act);
             return `<button onclick="assignFromMobile('${empName}', '${act}')" class="btn-main" style="background:${col.bg}; color:${col.c}; border:2px solid ${col.c}; box-shadow:none;">${act}</button>`;
         }).join('');
-        
         document.getElementById('mobileAssignList').innerHTML = html;
         openM('mobileAssignModal');
     }
@@ -1393,9 +1209,7 @@
     async function assignFromMobile(empName, targetAct) {
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        closeM();
-        dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
-        renderDaily(); 
+        closeM(); dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; renderDaily(); 
         await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
     }
 
@@ -1403,58 +1217,41 @@
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
         const val = parseInt(inputEl.value) || 0;
-        dbAdmin.capacityMap[`${dStr}_${act}`] = val;
-        renderDaily(); 
-        
-        let caps = {}; 
-        caps[act] = val;
+        dbAdmin.capacityMap[`${dStr}_${act}`] = val; renderDaily(); 
+        let caps = {}; caps[act] = val;
         await apiCall('/admin/capacity/save', 'POST', { date: dStr, capacities: caps });
     }
 
     function renderDaily() {
         const rawDate = document.getElementById('dailyDate').value; 
         if(!rawDate) return;
-        
         const dObj = new Date(rawDate);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        
         const selectedGroup = document.getElementById('dailyGroupFilter').value;
         const gridContainer = document.getElementById('dailyGrid');
         
         if (!selectedGroup) {
-            gridContainer.innerHTML = `
-                <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:18px;">
-                    👆 Najpierw wybierz grupę z menu u góry, aby załadować kolumny planowania.
-                </div>`;
+            gridContainer.innerHTML = `<div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:18px;">👆 Najpierw wybierz grupę z menu u góry, aby załadować kolumny planowania.</div>`;
             return; 
         }
 
-        let dailyData = {}; 
-        let assignedSet = new Set();
-        
+        let dailyData = {}; let assignedSet = new Set();
         let colsToRender = dbAdmin.plannerActivities;
         const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
-        
-        if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
-            colsToRender = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
-        }
+        if (groupObj && groupObj.activities && groupObj.activities.length > 0) colsToRender = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
         
         colsToRender.forEach(a => dailyData[a] = []); 
         
         dbAdmin.employees.forEach(empObj => {
             if(empObj.name === dbAdmin.rootAdmin) return;
-
             const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
             if(valStr && valStr.split("||")[0] && valStr.split("||")[0] !== "Wyczyść") { 
                 const act = valStr.split("||")[0]; 
-                if(dailyData[act] !== undefined) { 
-                    dailyData[act].push(empObj); 
-                }
+                if(dailyData[act] !== undefined) dailyData[act].push(empObj); 
                 assignedSet.add(empObj.name); 
             }
         });
         
-        // Zabezpieczenie przed błędem u pracowników bez przypisanej grupy
         const avail = dbAdmin.employees.filter(e => !assignedSet.has(e.name) && e.name !== dbAdmin.rootAdmin); 
         document.getElementById('availCount').innerText = avail.length;
         document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
@@ -1462,10 +1259,7 @@
             const safeGroup = e.group || "Nieprzypisani";
             return `
                 <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
-                    <span>
-                        <b style="font-size:14px; color:var(--text-main);">${e.name}</b> 
-                        <span style="font-size:10px; color:gray; display:block;">${safeGroup}</span>
-                    </span>
+                    <span><b style="font-size:14px; color:var(--text-main);">${e.name}</b> <span style="font-size:10px; color:gray; display:block;">${safeGroup}</span></span>
                     ${aHrs ? `<span style="background:rgba(52,199,89,0.1); color:var(--ios-green); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">Dost: ${aHrs}</span>` : ''}
                 </div>`; 
         }).join('');
@@ -1474,7 +1268,6 @@
             const col = getTileColor(act);
             const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
             const currCount = dailyData[act].length;
-            
             let boxStyle = `border-top: 5px solid ${col.c};`;
             if (reqCap > 0) {
                 if (currCount >= reqCap) boxStyle = `border-top: 5px solid var(--ios-green); background:rgba(52,199,89,0.03);`; 
@@ -1494,10 +1287,7 @@
             return `
             <div class="kanban-col" style="${boxStyle}" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, '${act}')">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <div style="color:${col.c}; font-weight:800; font-size:15px; display:flex; align-items:center; gap:5px;">
-                        ${act} 
-                        <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:14px;" title="Podpowiedz pracowników">💡</button>
-                    </div>
+                    <div style="color:${col.c}; font-weight:800; font-size:15px; display:flex; align-items:center; gap:5px;">${act} <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:14px;">💡</button></div>
                     <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:800;">${currCount} os.</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:white; padding:8px; border-radius:10px; box-shadow:0 2px 5px rgba(0,0,0,0.02);">
@@ -1509,19 +1299,14 @@
         }).join('');
     }
 
-    // ==========================================
-    // 6. SUGESTIE, MASOWE PLANOWANIE I KOPIOWANIE
-    // ==========================================
     function openSuggestions(act) {
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        
         let availableEmps = [];
         dbAdmin.employees.forEach(e => {
             if(e.name === dbAdmin.rootAdmin) return;
             const valStr = dbAdmin.planMap[`${e.name}_${dStr}`];
             const currentAct = valStr ? valStr.split("||")[0] : "";
-            
             if(currentAct !== act) { 
                 let rating = dbAdmin.ratingsMap[`${e.name}_${act}`] || 2;
                 availableEmps.push({ name: e.name, rating: rating, currentAct: currentAct });
@@ -1529,12 +1314,10 @@
         });
         availableEmps.sort((a, b) => b.rating - a.rating);
 
-        let html = availableEmps.map(e => {
-            let statusText = (!e.currentAct || e.currentAct === 'Wyczyść') 
-                             ? `<span style="color:var(--ios-green); font-weight:700;">Wolny</span>` 
-                             : `<span style="color:var(--ios-orange); font-weight:700;">Robi: ${e.currentAct}</span>`;
+        document.getElementById('sugTitle').innerText = `Najlepsi do: ${act}`;
+        document.getElementById('sugList').innerHTML = availableEmps.map(e => {
+            let statusText = (!e.currentAct || e.currentAct === 'Wyczyść') ? `<span style="color:var(--ios-green); font-weight:700;">Wolny</span>` : `<span style="color:var(--ios-orange); font-weight:700;">Robi: ${e.currentAct}</span>`;
             let starColor = e.rating === 1 ? 'var(--ios-red)' : (e.rating >= 4 ? 'var(--ios-green)' : 'var(--ios-blue)');
-
             return `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid var(--border);">
                 <div><b style="font-size:15px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px;">${statusText}</span></div>
@@ -1544,9 +1327,6 @@
                 </div>
             </div>`;
         }).join('');
-        
-        document.getElementById('sugTitle').innerText = `Najlepsi do: ${act}`;
-        document.getElementById('sugList').innerHTML = html;
         openM('suggestionModal');
     }
 
@@ -1554,12 +1334,12 @@
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
         dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
-        renderDaily(); 
-        openSuggestions(targetAct); 
+        renderDaily(); openSuggestions(targetAct); 
         await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
         showT(`✅ Przypisano: ${empName}`);
     }
 
+    // --- PLANNER TYGODNIOWY ---
     function toggleBrush() { 
         isBrush = !isBrush; 
         const b = document.getElementById('bBtn'); 
@@ -1582,41 +1362,24 @@
         
         document.getElementById('pBody').innerHTML = dbAdmin.employees.filter(e => e.name.toLowerCase().includes(q) && e.name !== dbAdmin.rootAdmin).map(empObj => {
             const emp = empObj.name;
-            let rHtml = `
-            <td class="sticky-col">
-                <input type="checkbox" class="chk" data-n="${emp}" style="width:20px;height:20px;accent-color:var(--ios-blue); margin:0; cursor:pointer; flex-shrink:0;"> 
-                <div style="margin-left:8px; text-align:left; overflow:hidden;">
-                    <span style="font-size:10px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span>
-                    <span style="font-weight:600; white-space:nowrap; text-overflow:ellipsis; display:block; width:100%;" title="${emp}">${emp}</span>
-                </div>
-            </td>`;
+            let rHtml = `<td class="sticky-col"><input type="checkbox" class="chk" data-n="${emp}" style="width:20px;height:20px;accent-color:var(--ios-blue); margin:0; cursor:pointer; flex-shrink:0;"> <div style="margin-left:8px; text-align:left; overflow:hidden;"><span style="font-size:10px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span><span style="font-weight:600; white-space:nowrap; text-overflow:ellipsis; display:block; width:100%;" title="${emp}">${emp}</span></div></td>`;
             
             for(let d=1; d<=days; d++) {
                 let isW = new Date(2026,m,d).getDay() % 6 === 0; 
                 const dateStr = formatDateKey(2026, m, d);
                 const key = `${emp}_${dateStr}`;
-                
-                // Zabezpieczenie przed błędem, gdy pracownik nie ma wpisu
                 const valStr = dbAdmin.planMap[key] || "||"; 
                 const parts = valStr.split("||");
                 const act = parts[0] || "Wyczyść";
                 const hrs = parts[1] || "";
                 
                 const col = getTileColor(act);
-                
                 let availHint = ""; 
                 if(dbAdmin.availMap[key] && (act === "Wyczyść" || !act)) {
                     availHint = `<div style="font-size:9px; color:var(--ios-green); margin-top:3px; font-weight:800; background:rgba(52,199,89,0.1); padding:2px 4px; border-radius:4px;">Dost: ${dbAdmin.availMap[key]}</div>`;
                 }
                 
-                rHtml += `
-                <td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${dateStr}',this)">
-                    <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">
-                        ${act === 'Wyczyść' ? '' : act}
-                        <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
-                        ${availHint}
-                    </div>
-                </td>`;
+                rHtml += `<td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${dateStr}',this)"><div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">${act === 'Wyczyść' ? '' : act}<div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>${availHint}</div></td>`;
             }
             return `<tr>${rHtml}</tr>`;
         }).join('');
@@ -1635,63 +1398,44 @@
         dbAdmin.planMap[key] = act + "||" + hrs + "||1"; 
         const col = getTileColor(act); 
         
-        td.innerHTML = `
-            <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow}; transform:scale(0.9);">
-                ${act === 'Wyczyść' ? '' : act}
-                <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
-            </div>`;
+        td.innerHTML = `<div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow}; transform:scale(0.9);">${act === 'Wyczyść' ? '' : act}<div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div></div>`;
         setTimeout(() => td.querySelector('.tile').style.transform = 'scale(1)', 50); 
         await apiCall('/admin/planner/save', 'POST', { names: [n], start: dateStr, end: dateStr, activity: act, hours: hrs });
     }
 
     function openMass() { openM('massModal'); }
-    
     async function applyMass() {
         const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
-        if(sel.length === 0) return showT("⚠️ Zaznacz pracowników w tabeli w tle!");
-        
-        const act = document.getElementById('massAct').value;
-        const hrs = document.getElementById('massHrs').value;
-        const odRaw = document.getElementById('mOd').value;
-        const dooRaw = document.getElementById('mDo').value;
-        
+        if(sel.length === 0) return showT("⚠️ Zaznacz pracowników w tabeli!");
+        const act = document.getElementById('massAct').value, hrs = document.getElementById('massHrs').value;
+        const odRaw = document.getElementById('mOd').value, dooRaw = document.getElementById('mDo').value;
         if(!odRaw || !dooRaw) return showT("⚠️ Wybierz zakres dat!");
-        
-        closeM(); 
-        showT("⏳ Zapisywanie..."); 
+        closeM(); showT("⏳ Zapisywanie..."); 
         const res = await apiCall('/admin/planner/save', 'POST', { names: sel, start: odRaw, end: dooRaw, activity: act, hours: hrs });
         if(res) { showT("✅ Gotowe!"); loadAdminData(); }
     }
 
     function openCopyDaily() {
         const src = document.getElementById('dailyDate').value; 
-        if(!src) return showT("⚠️ Wybierz dzień z kalendarza!");
-        
+        if(!src) return showT("⚠️ Wybierz dzień!");
         document.getElementById('copySourceDateStr').innerText = src;
-        document.getElementById('copyOd').value = src; 
-        document.getElementById('copyDo').value = src;
+        document.getElementById('copyOd').value = src; document.getElementById('copyDo').value = src;
         openM('copyDayModal');
     }
     
     async function applyCopyDay() {
-        const src = document.getElementById('dailyDate').value;
-        const od = document.getElementById('copyOd').value;
-        const doo = document.getElementById('copyDo').value;
-        
-        if(!od || !doo) return showT("⚠️ Podaj daty docelowe!");
-        
-        closeM(); 
-        showT("🚀 Klonowanie układu...");
+        const src = document.getElementById('dailyDate').value, od = document.getElementById('copyOd').value, doo = document.getElementById('copyDo').value;
+        if(!od || !doo) return showT("⚠️ Podaj daty!");
+        closeM(); showT("🚀 Klonowanie...");
         const res = await apiCall('/admin/planner/copy-day', 'POST', { sourceDate: src, targetStart: od, targetEnd: doo });
-        if(res) { showT("✅ Skopiowano pomyślnie!"); loadAdminData(); }
+        if(res) { showT("✅ Skopiowano!"); loadAdminData(); }
     }
 
     // ==========================================
     // 7. ZESPÓŁ I KARTOTEKI HR (DOSSIER)
     // ==========================================
     function renderMatrix() { 
-        const container = document.getElementById('groupBubbles');
-        container.innerHTML = dbAdmin.groups.map(g => {
+        document.getElementById('groupBubbles').innerHTML = dbAdmin.groups.map(g => {
             const emps = dbAdmin.employees.filter(e => e.group === g.name && e.name !== dbAdmin.rootAdmin);
             const isFlex = g.is_flexible === 1 ? `<span style="color:var(--ios-orange); font-size:12px; font-weight:800; background:rgba(255,149,0,0.1); padding:4px 8px; border-radius:8px;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:8px;">🔒 Sztywna</span>`;
             return `
@@ -1723,33 +1467,22 @@
             <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:700;">ID: ${e.id}</span></div>
                 ${currentGroupManager !== 'Nieprzypisani' ? `<button onclick="moveEmpGroup('${e.name}', 'Nieprzypisani')" style="background:rgba(255,59,48,0.1); color:var(--ios-red); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuć do Nieprzypisanych</button>` : ''}
-            </div>
-        `).join('');
+            </div>`).join('');
 
         document.getElementById('gmOutGroup').innerHTML = outGroup.map(e => `
             <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                 <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:600;">Z: ${e.group || 'Nieprzypisani'}</span></div>
                 <button onclick="moveEmpGroup('${e.name}', '${currentGroupManager}')" style="background:linear-gradient(135deg, var(--ios-green), #28a745); color:white; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s; box-shadow:0 4px 10px rgba(52,199,89,0.2);">➕ Dodaj</button>
-            </div>
-        `).join('');
+            </div>`).join('');
     }
 
     async function moveEmpGroup(empName, newGroup) {
         const emp = dbAdmin.employees.find(e => e.name === empName);
-        if(emp) {
-            emp.group = newGroup;
-            renderGroupManagerLists(); 
-            renderMatrix(); 
-            renderHrCards();
-            await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
-        }
+        if(emp) { emp.group = newGroup; renderGroupManagerLists(); renderMatrix(); renderHrCards(); await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup }); }
     }
 
-    function filterGm() { 
-        renderGroupManagerLists(); 
-    }
+    function filterGm() { renderGroupManagerLists(); }
 
-    // KARTOTEKI HR (DOSSIER)
     function renderHrCards() {
         const search = document.getElementById('hrSearchInput').value.toLowerCase();
         const groupFilt = document.getElementById('hrGroupSelect').value;
@@ -1757,42 +1490,28 @@
 
         let filteredEmps = dbAdmin.employees.filter(e => {
             if (e.name === dbAdmin.rootAdmin) return false;
-            let matchS = e.name.toLowerCase().includes(search);
-            let matchG = (groupFilt === "ALL" || e.group === groupFilt);
-            return matchS && matchG;
+            return e.name.toLowerCase().includes(search) && (groupFilt === "ALL" || e.group === groupFilt);
         });
 
-        if (filteredEmps.length === 0) {
-            container.innerHTML = '<p style="color:gray; grid-column:1/-1;">Brak pracowników pasujących do filtrów.</p>'; 
-            return;
-        }
+        if (filteredEmps.length === 0) { container.innerHTML = '<p style="color:gray; grid-column:1/-1;">Brak pracowników pasujących do filtrów.</p>'; return; }
 
         container.innerHTML = filteredEmps.map(e => `
             <div class="hr-card-mini" onclick="openHrDossier('${e.name}')">
                 <h4 style="margin:0 0 5px 0; font-size:18px;">${e.name}</h4>
                 <span style="font-size:12px; color:gray; font-weight:600; background:rgba(0,0,0,0.04); padding:4px 10px; border-radius:10px;">${e.group || 'Nieprzypisani'}</span>
-                <div style="margin-top:15px; width:100%; border-top:1px solid var(--border); padding-top:10px;">
-                    <span style="color:var(--ios-blue); font-weight:700; font-size:13px;">Oceny & Dossier →</span>
-                </div>
-            </div>
-        `).join('');
+                <div style="margin-top:15px; width:100%; border-top:1px solid var(--border); padding-top:10px;"><span style="color:var(--ios-blue); font-weight:700; font-size:13px;">Oceny & Dossier →</span></div>
+            </div>`).join('');
     }
 
     async function openHrDossier(empName) {
         currentHrEmp = empName;
         const emp = dbAdmin.employees.find(e => e.name === empName);
-        
         document.getElementById('matrixTitle').innerText = `Dossier: ${empName}`;
         document.getElementById('matrixSubtitle').innerText = `ID: ${emp.id} | Grupa: ${emp.group || 'Nieprzypisani'}`;
         
-        // Ustawienie domyślnych dat filtra absencji (ostatnie 30 dni)
-        const dzis = new Date();
-        const przed30 = new Date();
-        przed30.setDate(dzis.getDate() - 30);
-        
+        const dzis = new Date(); const przed30 = new Date(); przed30.setDate(dzis.getDate() - 30);
         document.getElementById('hrDateFrom').value = formatDateKey(przed30.getFullYear(), przed30.getMonth(), przed30.getDate());
         document.getElementById('hrDateTo').valueAsDate = dzis;
-
         document.getElementById('hrNotes').value = 'Ładowanie...';
         document.getElementById('hrIsEval').checked = false;
         document.getElementById('hrHistoryList').innerHTML = '';
@@ -1804,12 +1523,7 @@
     async function refreshHrStats() {
         const d_from = document.getElementById('hrDateFrom').value;
         const d_to = document.getElementById('hrDateTo').value;
-        
-        const res = await apiCall('/admin/employee/hr_details', 'POST', { 
-            username: currentHrEmp,
-            date_from: d_from,
-            date_to: d_to
-        });
+        const res = await apiCall('/admin/employee/hr_details', 'POST', { username: currentHrEmp, date_from: d_from, date_to: d_to });
 
         if(res && res.ok) {
             document.getElementById('hrStatW').innerText = res.stats["Praca"];
@@ -1817,31 +1531,22 @@
             document.getElementById('hrStatU').innerText = res.stats["Urlop 🌴"];
             document.getElementById('hrStatWo').innerText = res.stats["Wolne 🏠"];
             document.getElementById('hrStatNoShow').innerText = res.stats["No Show ❌"];
-            
             document.getElementById('hrNotes').value = res.notes;
 
-            // Renderowanie Historii z klikalnymi elementami
             if (res.history && res.history.length > 0) {
                 document.getElementById('hrHistoryList').innerHTML = res.history.map(h => `
                     <div style="background:rgba(0,0,0,0.02); padding:12px; border-radius:12px; border:1px solid var(--border); cursor:pointer; transition:0.2s;" onclick="openEvalDetails(${h.id})" onmouseover="this.style.background='rgba(10,132,255,0.05)'" onmouseout="this.style.background='rgba(0,0,0,0.02)'">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                            <span style="font-size:11px; font-weight:800; color:var(--ios-blue);">📅 ${h.date}</span>
-                            <span style="font-size:11px; font-weight:800; color:var(--ios-orange);">Ocena: ${h.rating} ⭐</span>
-                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="font-size:11px; font-weight:800; color:var(--ios-blue);">📅 ${h.date}</span><span style="font-size:11px; font-weight:800; color:var(--ios-orange);">Ocena: ${h.rating} ⭐</span></div>
                         <div style="font-size:12px; color:var(--text-main); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${h.notes}"</div>
-                    </div>
-                `).join('');
+                    </div>`).join('');
             } else {
                 document.getElementById('hrHistoryList').innerHTML = '<span style="font-size:12px; color:gray;">Brak historii ocen okresowych.</span>';
             }
             
             const emp = dbAdmin.employees.find(e => e.name === currentHrEmp);
             const groupObj = dbAdmin.groups.find(g => g.name === emp.group);
-            
             let allowedActs = dbAdmin.activityNames; 
-            if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
-                allowedActs = groupObj.activities;
-            }
+            if (groupObj && groupObj.activities && groupObj.activities.length > 0) allowedActs = groupObj.activities;
 
             document.getElementById('matrixGrid').innerHTML = allowedActs.map(act => {
                 const v = dbAdmin.ratingsMap[currentHrEmp+"_"+act] || 2; 
@@ -1849,20 +1554,13 @@
                 <div style="background:rgba(0,0,0,0.02); padding:10px 15px; border-radius:12px; border:1px solid var(--border);">
                     <strong style="font-size:13px; display:block; margin-bottom:8px; color:var(--text-main);">${act}</strong>
                     <div style="display:flex; gap:4px;">
-                        ${[1,2,3,4,5].map(x => `
-                            <button onclick="svR('${currentHrEmp}','${act}',${x},this)" 
-                                    style="flex:1; padding:6px 0; border:none; border-radius:8px; font-size:12px; font-weight:800; cursor:pointer; transition:0.2s; 
-                                           background:${v===x ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)'}; 
-                                           color:${v===x ? 'white' : 'var(--text-muted)'};
-                                           box-shadow:${v===x ? '0 4px 10px rgba(10,132,255,0.3)' : 'none'};">${x}</button>
-                        `).join('')}
+                        ${[1,2,3,4,5].map(x => `<button onclick="svR('${currentHrEmp}','${act}',${x},this)" style="flex:1; padding:6px 0; border:none; border-radius:8px; font-size:12px; font-weight:800; cursor:pointer; transition:0.2s; background:${v===x ? 'var(--ios-blue)' : 'rgba(0,0,0,0.05)'}; color:${v===x ? 'white' : 'var(--text-muted)'}; box-shadow:${v===x ? '0 4px 10px rgba(10,132,255,0.3)' : 'none'};">${x}</button>`).join('')}
                     </div>
                 </div>`;
             }).join('');
         }
     }
     
-    // --- NOWOŚĆ: POBIERANIE DETALI HISTORYCZNEJ OCENY ---
     async function openEvalDetails(evalId) {
         showT("⏳ Ładowanie detali...");
         const res = await apiCall('/admin/employee/eval_details', 'POST', { eval_id: evalId });
@@ -1874,26 +1572,18 @@
             document.getElementById('edStatU').innerText = res.stats["Urlop 🌴"] || 0;
             document.getElementById('edStatWo').innerText = res.stats["Wolne 🏠"] || 0;
             document.getElementById('edStatNs').innerText = res.stats["No Show ❌"] || 0;
-            
             document.getElementById('edRating').innerText = "Ocena: " + res.rating + " ⭐";
             document.getElementById('edNotes').innerText = res.notes ? `"${res.notes}"` : "Brak notatki.";
             
-            openM('evalDetailsModal');
+            document.getElementById('evalDetailsModal').style.display = 'block';
+            setTimeout(() => document.getElementById('evalDetailsModal').classList.add('active'), 10);
         }
     }
 
     async function svR(u, a, v, btn) { 
-        btn.parentElement.querySelectorAll('button').forEach(b => { 
-            b.style.background = 'rgba(0,0,0,0.05)'; 
-            b.style.color = 'var(--text-muted)'; 
-            b.style.boxShadow = 'none'; 
-        }); 
-        btn.style.background = 'var(--ios-blue)'; 
-        btn.style.color = 'white'; 
-        btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
-        
-        await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); 
-        dbAdmin.ratingsMap[u+"_"+a] = v; 
+        btn.parentElement.querySelectorAll('button').forEach(b => { b.style.background = 'rgba(0,0,0,0.05)'; b.style.color = 'var(--text-muted)'; b.style.boxShadow = 'none'; }); 
+        btn.style.background = 'var(--ios-blue)'; btn.style.color = 'white'; btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
+        await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: v }); dbAdmin.ratingsMap[u+"_"+a] = v; 
     }
 
     async function saveHrNotes() {
@@ -1901,41 +1591,90 @@
         const isEval = document.getElementById('hrIsEval').checked;
         const ratingVal = document.getElementById('hrOverallRating').value;
 
-        if(isEval && !confirm("Oznaczenie jako 'Ocena Okresowa' zresetuje licznik czasu do kolejnej oceny i wyczyści ewentualny alert HR. Kontynuować?")) {
-            return;
-        }
+        if(isEval && !confirm("Oznaczenie jako 'Ocena Okresowa' zresetuje licznik czasu do kolejnej oceny i wyczyści ewentualny alert HR. Kontynuować?")) return;
 
         showT("⏳ Zapisywanie Dossier...");
-        const res = await apiCall('/admin/employee/hr_save', 'POST', { 
-            username: currentHrEmp, 
-            notes: notes, 
-            is_evaluation: isEval,
-            rating: ratingVal
-        });
+        const res = await apiCall('/admin/employee/hr_save', 'POST', { username: currentHrEmp, notes: notes, is_evaluation: isEval, rating: ratingVal });
+        if(res && res.ok) { showT("✅ " + res.msg); if (isEval) { await loadAdminData(); openHrDossier(currentHrEmp); } }
+    }
+
+    // ==========================================
+    // 8. LOGIKA V-MAX (ADMIN: AKTYWNE SESJE I RAPORTY)
+    // ==========================================
+    async function loadActiveSessions() {
+        const sessions = await apiCall('/admin/active-sessions');
+        let html = "";
+        for(const [task, users] of Object.entries(sessions)) {
+            html += `<div style="width:100%;"><h3 style="color:var(--ios-blue); border-bottom:2px solid var(--border); padding-bottom:5px;">${task}</h3><div style="display:flex; flex-wrap:wrap; gap:15px;">`;
+            html += users.map(u => `
+                <div class="glass-card" style="padding:15px; min-width:200px; text-align:left;">
+                    <b style="font-size:16px;">${u.user}</b>
+                    <div style="font-size:12px; color:var(--text-muted); margin:5px 0;">Start: ${u.start}</div>
+                    <div style="font-size:12px; font-weight:600; color:var(--ios-orange);">Sk: ${u.skaner||'brak'} | Wz: ${u.wozek||'brak'}</div>
+                    <button onclick="vmaxCloseSession('${u.user}')" class="btn-main" style="margin-top:10px; padding:6px 12px; font-size:11px; background:var(--ios-red);">Zakończ sesję</button>
+                </div>
+            `).join('');
+            html += `</div></div>`;
+        }
+        document.getElementById('vmaxActiveSessions').innerHTML = html || "<p style='color:gray;'>Brak aktywnych sesji na magazynie.</p>";
+    }
+
+    async function vmaxCloseSession(user) {
+        if(confirm(`Czy na pewno wymusić zamknięcie sesji V-MAX pracownika ${user}?`)) {
+            await apiCall('/admin/live-session/close', 'POST', { username: user });
+            showT("✅ Zamknięto sesję pracownika.");
+            loadActiveSessions();
+        }
+    }
+
+    async function vmaxCloseAll() {
+        if(confirm(`UWAGA! Zakończysz wszystkie aktywne sesje V-MAX na magazynie. Kontynuować?`)) {
+            await apiCall('/admin/live-session/close-all', 'POST');
+            showT("✅ Wszystkie sesje zostały zakończone.");
+            loadActiveSessions();
+        }
+    }
+
+    async function loadVmaxReports() {
+        const d1 = document.getElementById('repD1').value;
+        const d2 = document.getElementById('repD2').value;
+        const u = document.getElementById('repUser').value;
         
-        if(res && res.ok) {
-            showT("✅ " + res.msg);
-            if (isEval) { 
-                await loadAdminData(); 
-                openHrDossier(currentHrEmp); 
+        if(!d1 || !d2) return showT("Wybierz zakres dat w formularzu!");
+        
+        showT("⏳ Pobieram raport...");
+        const res = await apiCall('/admin/reports', 'POST', { d1: d1, d2: d2, user: u });
+        
+        if(res) {
+            let html = "";
+            for(const [worker, data] of Object.entries(res)) {
+                data.logi.forEach(l => {
+                    html += `<tr>
+                        <td><b>${worker}</b></td>
+                        <td>${l.zadanie}</td>
+                        <td>Sk: ${l.skaner||'-'} | Wz: ${l.wozek||'-'}</td>
+                        <td>${l.data} <br> ${l.start}</td>
+                        <td>${l.koniec}</td>
+                        <td><b style="color:var(--ios-blue);">${l.czas}</b></td>
+                    </tr>`;
+                });
             }
+            document.getElementById('vmaxReportBody').innerHTML = html || "<tr><td colspan='6' style='text-align:center; padding:20px; color:gray;'>Brak logów pracy w wybranym okresie.</td></tr>";
+            showT("✅ Wygenerowano raport.");
         }
     }
 
     // ==========================================
-    // 8. USTAWIENIA CMS & ADMIN & SYMULATOR
+    // 9. USTAWIENIA CMS
     // ==========================================
     function renderCMS() {
         try {
             const bS = "background:rgba(255,59,48,0.1); color:var(--ios-red); border:none; padding:8px 16px; border-radius:10px; font-weight:700; cursor:pointer; transition:0.2s; font-size:12px;";
             
-            // Wyszukiwarka CMS
             const searchEmpInput = document.getElementById('cmsEmpSearch');
             const q = searchEmpInput ? searchEmpInput.value.toLowerCase() : "";
-            
             const filteredEmps = dbAdmin.employees.filter(e => e.name.toLowerCase().includes(q));
 
-            // PRACOWNICY I ROLE
             document.getElementById('cmsEmpList').innerHTML = filteredEmps.map(e => {
                 const isSuper = e.name === dbAdmin.rootAdmin;
                 let roleSelect = '';
@@ -1954,198 +1693,90 @@
 
                 return `
                 <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center;">
-                    <div>
-                        <b style="font-size:15px;">${e.name}</b><br>
-                        <span style="font-size:11px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group || 'Nieprzypisani'}</span>
-                        <div style="margin-top:6px;">${roleSelect}</div>
-                    </div> 
-                    <div style="display:flex; gap:8px;">
-                        <button onclick="rstPin('${e.name}')" style="background:rgba(255,149,0,0.1); color:var(--ios-orange); border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; font-size:12px;">Reset PIN</button>
-                        ${!isSuper ? `<button onclick="delSet('employee','${e.name}')" style="${bS}">Usuń</button>` : ''}
-                    </div>
+                    <div><b style="font-size:15px;">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group || 'Nieprzypisani'}</span><div style="margin-top:6px;">${roleSelect}</div></div> 
+                    <div style="display:flex; gap:8px;"><button onclick="rstPin('${e.name}')" style="background:rgba(255,149,0,0.1); color:var(--ios-orange); border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; font-size:12px;">Reset PIN</button>${!isSuper ? `<button onclick="delSet('employee','${e.name}')" style="${bS}">Usuń</button>` : ''}</div>
                 </div>`;
             }).join('');
                 
-            // GRUPY
             document.getElementById('cmsGroupList').innerHTML = dbAdmin.groups.map(g => {
                 const isFlexChecked = g.is_flexible === 1 ? 'checked' : '';
                 const safeName = g.name.replace(/\s+/g, '-');
-                
                 let actsHtml = dbAdmin.activityNames.map(a => {
                     let isChecked = (g.activities && g.activities.includes(a)) ? 'checked' : '';
-                    return `
-                    <label style="font-size:11px; display:inline-flex; align-items:center; gap:4px; background:rgba(0,0,0,0.03); padding:6px 10px; border-radius:8px; cursor:pointer; border:1px solid var(--border); margin-bottom:4px;">
-                        <input type="checkbox" class="act-chk-${safeName}" value="${a}" ${isChecked} style="width:16px; height:16px; margin:0; cursor:pointer; accent-color:var(--ios-blue);"> ${a}
-                    </label>`;
+                    return `<label style="font-size:11px; display:inline-flex; align-items:center; gap:4px; background:rgba(0,0,0,0.03); padding:6px 10px; border-radius:8px; cursor:pointer; border:1px solid var(--border); margin-bottom:4px;"><input type="checkbox" class="act-chk-${safeName}" value="${a}" ${isChecked} style="width:16px; height:16px; margin:0; cursor:pointer; accent-color:var(--ios-blue);"> ${a}</label>`;
                 }).join('');
 
                 return `
                 <div style="padding:20px 0; border-bottom:1px solid var(--border);">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                        <div>
-                            <b style="font-size:16px;">${g.name}</b><br>
-                            <span style="font-size:12px; color:var(--ios-blue); font-weight:800; margin-right:10px;">${g.type}</span>
-                            <label style="font-size:11px; font-weight:700; color:var(--ios-orange); display:inline-flex; align-items:center; gap:4px; cursor:pointer;">
-                                <input type="checkbox" onchange="liveEditGroupFlex('${g.name}', this.checked)" ${isFlexChecked} style="accent-color:var(--ios-orange);"> Elastyczna
-                            </label>
-                        </div> 
+                        <div><b style="font-size:16px;">${g.name}</b><br><span style="font-size:12px; color:var(--ios-blue); font-weight:800; margin-right:10px;">${g.type}</span><label style="font-size:11px; font-weight:700; color:var(--ios-orange); display:inline-flex; align-items:center; gap:4px; cursor:pointer;"><input type="checkbox" onchange="liveEditGroupFlex('${g.name}', this.checked)" ${isFlexChecked} style="accent-color:var(--ios-orange);"> Elastyczna</label></div> 
                         <button onclick="delSet('group','${g.name}')" style="${bS}">Usuń</button>
                     </div>
                     <div style="background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid var(--border);">
                         <div style="font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase;">Dozwolone aktywności:</div>
-                        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:15px;">
-                            ${actsHtml || '<span style="font-size:12px; color:gray; font-style:italic;">Brak aktywności</span>'}
-                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:15px;">${actsHtml || '<span style="font-size:12px; color:gray; font-style:italic;">Brak aktywności</span>'}</div>
                         <button onclick="saveGroupActs('${g.name}', '${safeName}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:10px 20px; border-radius:12px; font-weight:800; cursor:pointer; font-size:13px; transition:0.2s;">💾 Zapisz uprawnienia</button>
                     </div>
                 </div>`
             }).join('');
 
-            // AKTYWNOŚCI
             document.getElementById('cmsActList').innerHTML = dbAdmin.activityNames.map(a => {
                 const cColor = (dbAdmin.activityColors && dbAdmin.activityColors[a]) ? dbAdmin.activityColors[a] : '#0A84FF';
-                return `
-                <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center;">
-                    <div style="display:flex; align-items:center; gap:12px;">
-                        <input type="color" value="${cColor}" onchange="liveEditActivityColor('${a}', this.value)" style="width:30px; height:30px; padding:0; border:none; border-radius:8px; cursor:pointer;">
-                        <b style="font-size:15px;">${a}</b>
-                    </div> 
-                    <button onclick="delSet('activity','${a}')" style="${bS}">Usuń</button>
-                </div>`
+                return `<div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center;"><div style="display:flex; align-items:center; gap:12px;"><input type="color" value="${cColor}" onchange="liveEditActivityColor('${a}', this.value)" style="width:30px; height:30px; padding:0; border:none; border-radius:8px; cursor:pointer;"><b style="font-size:15px;">${a}</b></div><button onclick="delSet('activity','${a}')" style="${bS}">Usuń</button></div>`
             }).join('');
                 
-            // ZMIANY (SHIFTS)
-            document.getElementById('cmsShiftList').innerHTML = dbAdmin.shifts.map(s => `
-                <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center;">
-                    <b style="font-size:15px;">${s}</b>
-                    <button onclick="delSet('shift','${s}')" style="${bS}">Usuń</button>
-                </div>`).join('');
+            document.getElementById('cmsShiftList').innerHTML = dbAdmin.shifts.map(s => `<div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center;"><b style="font-size:15px;">${s}</b><button onclick="delSet('shift','${s}')" style="${bS}">Usuń</button></div>`).join('');
                 
-        } catch (err) { 
-            console.error("Błąd CMS:", err); 
-        }
+        } catch (err) { console.error("Błąd CMS:", err); }
     }
 
-    async function liveEditUserRole(empName, newRole) { 
-        await apiCall('/admin/settings', 'POST', { action: 'EDIT_USER_ROLE', value: empName, role: newRole }); 
-        showT("✅ Zmieniono rolę!"); 
-    }
-    
-    async function liveEditActivityColor(actName, newColor) { 
-        dbAdmin.activityColors[actName] = newColor; 
-        await apiCall('/admin/settings', 'POST', { action: 'EDIT_ACTIVITY_COLOR', value: actName, color: newColor }); 
-        showT("✅ Zapisano kolor!"); 
-    }
-    
-    async function liveEditGroupFlex(grpName, isChecked) { 
-        const flexVal = isChecked ? 1 : 0; 
-        await apiCall('/admin/settings', 'POST', { action: 'EDIT_GROUP_FLEX', value: grpName, is_flexible: flexVal }); 
-        showT("✅ Zmieniono regułę grupy!"); 
-    }
+    async function liveEditUserRole(empName, newRole) { await apiCall('/admin/settings', 'POST', { action: 'EDIT_USER_ROLE', value: empName, role: newRole }); showT("✅ Zmieniono rolę!"); }
+    async function liveEditActivityColor(actName, newColor) { dbAdmin.activityColors[actName] = newColor; await apiCall('/admin/settings', 'POST', { action: 'EDIT_ACTIVITY_COLOR', value: actName, color: newColor }); showT("✅ Zapisano kolor!"); }
+    async function liveEditGroupFlex(grpName, isChecked) { const flexVal = isChecked ? 1 : 0; await apiCall('/admin/settings', 'POST', { action: 'EDIT_GROUP_FLEX', value: grpName, is_flexible: flexVal }); showT("✅ Zmieniono regułę grupy!"); }
 
     async function changeRootAdmin() {
-        const login = document.getElementById('sRootLogin').value;
-        const pass = document.getElementById('sRootPass').value;
+        const login = document.getElementById('sRootLogin').value; const pass = document.getElementById('sRootPass').value;
         if(!login && !pass) return showT("⚠️ Wypełnij chociaż jedno pole!");
-        
         const res = await apiCall('/admin/settings', 'POST', { action: 'EDIT_ROOT_ADMIN', login: login, pass: pass });
-        if(res && res.ok) { 
-            showT("✅ Konto Główne zaktualizowane!"); 
-            document.getElementById('sRootLogin').value = ''; 
-            document.getElementById('sRootPass').value = ''; 
-            loadAdminData(); 
-        }
+        if(res && res.ok) { showT("✅ Konto Główne zaktualizowane!"); document.getElementById('sRootLogin').value = ''; document.getElementById('sRootPass').value = ''; loadAdminData(); }
     }
 
-    async function saveSet(t, id) { 
-        const v = document.getElementById(id).value; 
-        if(v) { 
-            await apiCall('/admin/settings', 'POST', { action: 'ADD', type: t, value: v }); 
-            document.getElementById(id).value = ''; 
-            loadAdminData(); 
-        } 
-    }
+    async function saveSet(t, id) { const v = document.getElementById(id).value; if(v) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: t, value: v }); document.getElementById(id).value = ''; loadAdminData(); } }
+    async function saveAct() { const v = document.getElementById('sAct').value; const c = document.getElementById('sActColor').value; if(v) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'activity', value: v, color: c }); document.getElementById('sAct').value = ''; loadAdminData(); } }
+    async function saveGroup() { const n = document.getElementById('sGroup').value; const t = document.getElementById('sGroupType').value; const f = document.getElementById('sGroupFlex').checked ? 1 : 0; if(n) { await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'group', value: n, emp_type: t, is_flexible: f }); document.getElementById('sGroup').value = ''; document.getElementById('sGroupFlex').checked = false; loadAdminData(); } }
     
-    async function saveAct() {
-        const v = document.getElementById('sAct').value;
-        const c = document.getElementById('sActColor').value;
-        if(v) { 
-            await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'activity', value: v, color: c }); 
-            document.getElementById('sAct').value = ''; 
-            loadAdminData(); 
-        }
-    }
-    
-    async function saveGroup() {
-        const n = document.getElementById('sGroup').value;
-        const t = document.getElementById('sGroupType').value;
-        const f = document.getElementById('sGroupFlex').checked ? 1 : 0;
-        
-        if(n) { 
-            await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'group', value: n, emp_type: t, is_flexible: f }); 
-            document.getElementById('sGroup').value = ''; 
-            document.getElementById('sGroupFlex').checked = false; 
-            loadAdminData(); 
-        }
-    }
-
     async function saveGroupActs(gName, safeName) {
         const chks = document.querySelectorAll(`.act-chk-${safeName}:checked`);
         const selectedActs = Array.from(chks).map(c => c.value);
-        
         showT("⏳ Zapisywanie uprawnień...");
         const res = await apiCall('/admin/settings', 'POST', { action: 'UPDATE_GROUP_ACTS', type: 'group', value: gName, activities: selectedActs });
-        if(res && res.ok) { 
-            showT("✅ Zapisano uprawnienia dla: " + gName); 
-            loadAdminData(); 
-        }
+        if(res && res.ok) { showT("✅ Zapisano uprawnienia dla: " + gName); loadAdminData(); }
     }
 
     async function saveEmp() { 
-        const n = document.getElementById('sEmp').value;
-        const r = document.getElementById('sEmpRole').value;
-        
+        const n = document.getElementById('sEmp').value; const r = document.getElementById('sEmpRole').value;
         if(n) { 
             const res = await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'employee', value: n, role: r, group: "Nieprzypisani" }); 
-            if(res && res.ok) { 
-                document.getElementById('sEmp').value = ''; 
-                showT("✅ Dodano pracownika!"); 
-                loadAdminData(); 
-            } else { 
-                showT("❌ " + res.msg); 
-            }
+            if(res && res.ok) { document.getElementById('sEmp').value = ''; showT("✅ Dodano pracownika!"); loadAdminData(); } 
+            else { showT("❌ " + res.msg); }
         } 
     }
     
-    async function delSet(t, v) { 
-        if(confirm(`Usunąć trwale rekord: ${v}?`)) { 
-            await apiCall('/admin/settings', 'POST', { action: 'DELETE', type: t, value: v }); 
-            loadAdminData(); 
-        } 
-    }
-    
-    async function rstPin(n) { 
-        if(confirm(`Zresetować PIN pracownika ${n} na 1111?`)) { 
-            await apiCall('/auth/change-pin', 'POST', { name: n, oldPin: "", newPin: "1111", isAdmin: true }); 
-            showT("PIN zresetowany do 1111"); 
-        } 
-    }
+    async function delSet(t, v) { if(confirm(`Usunąć trwale rekord: ${v}?`)) { await apiCall('/admin/settings', 'POST', { action: 'DELETE', type: t, value: v }); loadAdminData(); } }
+    async function rstPin(n) { if(confirm(`Zresetować PIN pracownika ${n} na 1111?`)) { await apiCall('/auth/change-pin', 'POST', { name: n, oldPin: "", newPin: "1111", isAdmin: true }); showT("PIN zresetowany do 1111"); } }
 
-    function downloadBackup() { 
-        window.open('/api/admin/backup/db', '_blank'); 
-    }
+    function downloadBackup() { window.open('/api/admin/backup/db', '_blank'); }
 
     async function runSimulation() {
         if(confirm("To wygeneruje tysiące rekordów historii pracy od stycznia do maja 2026. Stare dane z tego okresu zostaną nadpisane. Kontynuować?")) {
             showT("🤖 Symulacja w toku. To może potrwać kilka sekund...");
             const res = await apiCall('/admin/simulate', 'POST');
-            if(res && res.ok) {
-                alert(res.msg);
-                location.reload(); 
-            }
+            if(res && res.ok) { alert(res.msg); location.reload(); }
         }
     }
 </script>
 </body>
 </html>
+
+
 
