@@ -34,7 +34,7 @@ class UserGroup(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     emp_type = Column(String) 
-    allowed_activities = Column(String, default="[]") # JSON z listą dozwolonych aktywności
+    allowed_activities = Column(String, default="[]") 
     is_flexible = Column(Integer, default=0)
 
 class User(Base):
@@ -89,7 +89,7 @@ class Activity(Base):
     __tablename__ = "activities"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
-    color = Column(String, default="#0A84FF") # NOWOŚĆ: Edytowalne kolory
+    color = Column(String, default="#0A84FF")
 
 class Scanner(Base):
     __tablename__ = "scanners"
@@ -148,7 +148,6 @@ class AlertDismiss(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# CHIRURGICZNA MIGRACJA
 with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR")); conn.commit()
     except: conn.rollback()
@@ -263,7 +262,15 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     shifts = [s.value for s in db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift").all()]
     if not shifts: shifts = ["07:00-15:00", "08:00-16:00"]
     
-    activities = [a.name for a in db.query(Activity).all()]
+    # Przekazanie kolorów również na ekran pracownika
+    db_acts = db.query(Activity).all()
+    activityColors = {a.name: a.color for a in db_acts}
+    activityColors["Chory 🤒"] = "#D32F2F"
+    activityColors["Urlop 🌴"] = "#F57F17"
+    activityColors["Wolne 🏠"] = "#757575"
+    activityColors["No Show ❌"] = "#8B0000"
+    
+    activities = [a.name for a in db_acts]
     plan_map = {s.date_str: s for s in schedules}
     req_map = {r.date_str: r for r in requests}
     
@@ -289,7 +296,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
             "override": p.is_override if p else 0 
         })
         
-    return {"schedule": schedule_list, "shifts": shifts, "activities": activities}
+    return {"schedule": schedule_list, "shifts": shifts, "activities": activities, "activityColors": activityColors}
 
 @app.post("/api/emp/request-batch")
 def submit_request_batch(req: dict, db: Session = Depends(get_db)):
@@ -338,11 +345,9 @@ def get_admin_data(db: Session = Depends(get_db)):
     
     groups = [{"name": g.name, "type": g.emp_type, "is_flexible": g.is_flexible, "activities": json.loads(g.allowed_activities) if g.allowed_activities else []} for g in db.query(UserGroup).all()]
     
-    # NOWOŚĆ: Słownik kolorów dla aktywności
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
     
-    # Dodajemy domyślne kolory dla funkcji systemowych
     activityColors["Chory 🤒"] = "#D32F2F"
     activityColors["Urlop 🌴"] = "#F57F17"
     activityColors["Wolne 🏠"] = "#757575"
@@ -377,12 +382,11 @@ def get_admin_data(db: Session = Depends(get_db)):
 
     return {
         "employees": employees, "groups": groups, "activityNames": activities, "plannerActivities": planner_activities,
-        "activityColors": activityColors, # Słownik przekazywany na front
+        "activityColors": activityColors, 
         "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, 
         "alerts": alerts, "availMap": avail_map, "capacityMap": capacity_map
     }
 
-# NOWOŚĆ: Statystyki pracownika dla HR
 @app.post("/api/admin/employee/stats")
 def get_emp_stats(req: dict, db: Session = Depends(get_db)):
     username = req.get("username")
@@ -455,7 +459,6 @@ def resolve_alert(req: dict, db: Session = Depends(get_db)):
         db.commit()
     return {"ok": True, "msg": "Wniosek rozpatrzony!"}
 
-# NOWOŚĆ: Masowe rozwiązywanie alertów
 @app.post("/api/admin/alerts/resolve-mass")
 def resolve_mass_alerts(req: dict, db: Session = Depends(get_db)):
     alert_ids = req.get("ids", [])
@@ -572,11 +575,6 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 if not grp:
                     db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
         
-        elif action == "UPDATE_GROUP_ACTS":
-            grp = db.query(UserGroup).filter(UserGroup.name == val).first()
-            if grp:
-                grp.allowed_activities = json.dumps(req.get("activities", []))
-
         elif action == "DELETE":
             if t == "employee": db.query(User).filter(User.name == val).delete()
             elif t == "shift": db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift", GlobalSetting.value == val).delete()
