@@ -65,8 +65,14 @@
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify(body)
       });
-      if(!res.ok) throw new Error((await res.json()).detail || 'Błąd logowania');
-      return res.json();
+      const rawText = await res.text();
+      let payload = null;
+      try { payload = rawText ? JSON.parse(rawText) : null; } catch(_) {}
+      if(!res.ok) {
+        const msg = (payload && payload.detail) ? payload.detail : (rawText || 'Błąd logowania');
+        throw new Error(msg);
+      }
+      return payload || {};
     }
 
     async function loadUsersList() {
