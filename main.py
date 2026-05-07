@@ -121,6 +121,10 @@ class User(Base):
     next_eval_date = Column(DateTime, nullable=True)
     eval_count = Column(Integer, default=0)
     notes = Column(String, default="")
+    login_panelu = Column(String, default="")
+    login_magazynu = Column(String, default="")
+    id_punktualnika = Column(String, default="")
+    external_id = Column(String, default="")
 
 class EvaluationLog(Base):
     __tablename__ = "evaluation_logs"
@@ -257,6 +261,14 @@ with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE users ADD COLUMN eval_count INTEGER DEFAULT 0")); conn.commit()
     except: conn.rollback()
     try: conn.execute(text("ALTER TABLE users ADD COLUMN notes VARCHAR DEFAULT ''")); conn.commit()
+    except: conn.rollback()
+    try: conn.execute(text("ALTER TABLE users ADD COLUMN login_panelu VARCHAR DEFAULT ''")); conn.commit()
+    except: conn.rollback()
+    try: conn.execute(text("ALTER TABLE users ADD COLUMN login_magazynu VARCHAR DEFAULT ''")); conn.commit()
+    except: conn.rollback()
+    try: conn.execute(text("ALTER TABLE users ADD COLUMN id_punktualnika VARCHAR DEFAULT ''")); conn.commit()
+    except: conn.rollback()
+    try: conn.execute(text("ALTER TABLE users ADD COLUMN external_id VARCHAR DEFAULT ''")); conn.commit()
     except: conn.rollback()
     try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR")); conn.commit()
     except: conn.rollback()
@@ -438,6 +450,11 @@ def serve_planner():
     if os.path.exists("planner.html"): return FileResponse("planner.html")
     return HTMLResponse("<h1>Brak pliku planner.html</h1>", status_code=404)
 
+@app.get("/vmax")
+def serve_vmax_module():
+    if os.path.exists("vmax.html"): return FileResponse("vmax.html")
+    return HTMLResponse("<h1>Brak pliku vmax.html</h1>", status_code=404)
+
 @app.get("/api/public")
 def get_public_data(db: Session = Depends(get_db)):
     employees = [u.name for u in db.query(User).all()]
@@ -456,10 +473,10 @@ def login(req: dict, db: Session = Depends(get_db)):
             "global_id": user.global_id if user else "",
             "group": user.group_name if user else "",
             "master_group": group.master_group if group else "",
-            "login_panelu": user.login_panelu if user else "",
-            "login_magazynu": user.login_magazynu if user else "",
-            "id_punktualnika": user.id_punktualnika if user else "",
-            "external_id": user.external_id if user else "",
+            "login_panelu": getattr(user, "login_panelu", "") if user else "",
+            "login_magazynu": getattr(user, "login_magazynu", "") if user else "",
+            "id_punktualnika": getattr(user, "id_punktualnika", "") if user else "",
+            "external_id": getattr(user, "external_id", "") if user else "",
         }
 
     u = str(req.get("username", "")).strip()
