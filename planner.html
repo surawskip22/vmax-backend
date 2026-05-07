@@ -718,11 +718,15 @@
         <div id="vDaily" class="admin-view active">
             <div class="tools">
                 <select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); min-width:250px;">
-                    <option value="" selected disabled>👇 Aktywności wg grupy...</option>
+                    <option value="ALL">Zestaw aktywności: Wszystkie aktywności</option>
                 </select>
-                <select id="dailyPeopleFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-purple); min-width:250px;">
-                    <option value="ALL">Osoby: wszystkie dostępne grupy</option>
+                <select id="dailyPeopleMasterFilter" onchange="syncDailyPeopleGroupFilter(); renderDaily()" style="font-weight:800; color:var(--ios-purple); min-width:220px;">
+                    <option value="ALL">Master grupa osób: wszystkie</option>
                 </select>
+                <select id="dailyPeopleGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-purple); min-width:220px;">
+                    <option value="ALL">Grupa osób: wszystkie</option>
+                </select>
+                <input id="dailyPeopleSearch" type="text" placeholder="Szukaj osoby..." oninput="renderDaily()" style="min-width:220px;">
                 <div style="display:flex; align-items:center; gap:5px; background:white; border-radius:12px; padding:4px; border:1px solid var(--border);">
                     <button class="btn-main" onclick="changeDailyDate(-1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">←</button>
                     <input type="date" id="dailyDate" onchange="renderDaily()" style="font-weight:800; border:none; background:transparent;">
@@ -742,7 +746,28 @@
                 <!-- TUTAJ ZADZIAŁA FLEX-WRAP (SZACHOWNICA) -->
                 <div id="dailyGrid">
                     <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600;">
-                        👆 Wybierz grupę z menu, aby załadować dostępne dla niej akcje.
+                        Ładowanie Dzienny Live...
+                    </div>
+                </div>
+            </div>
+            <div id="dailyAttendancePanel" style="padding:15px; margin-top:8px; background:rgba(255,255,255,0.85); border-top:1px solid var(--border); overflow-y:auto;">
+                <h3 style="margin:0 0 10px 0;">Kontrola obecności</h3>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+                    <div style="background:white; border:1px solid var(--border); border-radius:12px; padding:10px;">
+                        <div style="font-weight:800; font-size:12px; color:var(--text-muted); margin-bottom:8px;">Nie rozpoczęli pracy mimo planu</div>
+                        <div id="dailyNoStartList" style="font-size:12px; color:gray;">Brak integracji V-Max w tym etapie.</div>
+                    </div>
+                    <div style="background:white; border:1px solid var(--border); border-radius:12px; padding:10px;">
+                        <div style="font-weight:800; font-size:12px; color:var(--ios-orange); margin-bottom:8px;">Spóźnienie</div>
+                        <div id="dailyLateList" style="font-size:12px; color:gray;">Brak.</div>
+                    </div>
+                    <div style="background:white; border:1px solid var(--border); border-radius:12px; padding:10px;">
+                        <div style="font-weight:800; font-size:12px; color:var(--ios-green); margin-bottom:8px;">Ad-Hoc / Bez planu</div>
+                        <div id="dailyAdHocList" style="font-size:12px; color:gray;">Brak.</div>
+                    </div>
+                    <div style="background:white; border:1px solid var(--border); border-radius:12px; padding:10px;">
+                        <div style="font-weight:800; font-size:12px; color:var(--ios-red); margin-bottom:8px;">No Show</div>
+                        <div id="dailyNoShowList" style="font-size:12px; color:gray;">Brak.</div>
                     </div>
                 </div>
             </div>
@@ -1313,6 +1338,229 @@ function hexToRgba(hex, alpha) {
         }
     }
 
+    function employeeSearchText(emp) {
+        const g = groupByName(emp.group || "Nieprzypisani");
+        return [
+            emp.name || "",
+            emp.global_id || "",
+            emp.id || "",
+            emp.group || "",
+            (g && g.master) ? g.master : "",
+            emp.login_panelu || "",
+            emp.login_magazynu || "",
+            emp.id_punktualnika || "",
+            emp.external_id || ""
+        ].join(" ").toLowerCase();
+    }
+
+    function validateHoursRangeFormat(value) {
+        const v = String(value || "").trim();
+        if(!v) return true;
+        return /^([0-2]?\d):([0-5]\d)-([0-2]?\d):([0-5]\d)$/.test(v);
+    }
+
+    function getDailyActivityColumns() {
+        const sel = document.getElementById('dailyGroupFilter')?.value || "ALL";
+        const all = (dbAdmin.plannerActivities || []).slice();
+        if(sel === "ALL") return { columns: all, emptyReason: "" };
+        const grp = groupByName(sel);
+        const cols = (grp && Array.isArray(grp.activities))
+            ? grp.activities.filter(a => all.includes(a))
+            : [];
+        if(cols.length === 0) {
+            return { columns: [], emptyReason: "Brak aktywności przypisanych do tej grupy. Uzupełnij aktywności w CMS." };
+        }
+        return { columns: cols, emptyReason: "" };
+    }
+
+    function getDailyMasterOptions() {
+        const groups = getManagedGroups();
+        const uniq = new Set();
+        groups.forEach(g => uniq.add(g.master || "Bez master grupy"));
+        return Array.from(uniq);
+    }
+
+    function syncDailyFilters() {
+        const actSel = document.getElementById('dailyGroupFilter');
+        const masterSel = document.getElementById('dailyPeopleMasterFilter');
+        const groupSel = document.getElementById('dailyPeopleGroupFilter');
+        if(!actSel || !masterSel || !groupSel) return;
+
+        const prevAct = actSel.value || "ALL";
+        const prevMaster = masterSel.value || "ALL";
+
+        actSel.innerHTML = '<option value="ALL">Zestaw aktywności: Wszystkie aktywności</option>' +
+            getManagedGroups().map(g => `<option value="${escapeHtml(g.name)}">Zestaw aktywności: ${escapeHtml(g.name)}</option>`).join('');
+        actSel.value = prevAct;
+        if(!actSel.value) actSel.value = "ALL";
+
+        masterSel.innerHTML = '<option value="ALL">Master grupa osób: wszystkie</option>' +
+            getDailyMasterOptions().map(m => `<option value="${escapeHtml(m)}">Master grupa osób: ${escapeHtml(m)}</option>`).join('');
+        masterSel.value = prevMaster;
+        if(!masterSel.value) masterSel.value = "ALL";
+        syncDailyPeopleGroupFilter();
+    }
+
+    function syncDailyPeopleGroupFilter() {
+        const masterSel = document.getElementById('dailyPeopleMasterFilter');
+        const groupSel = document.getElementById('dailyPeopleGroupFilter');
+        if(!masterSel || !groupSel) return;
+        const prevGroup = groupSel.value || "ALL";
+        const master = masterSel.value || "ALL";
+        let groups = getManagedGroups();
+        if(master !== "ALL") groups = groups.filter(g => (g.master || "Bez master grupy") === master);
+        groupSel.innerHTML = '<option value="ALL">Grupa osób: wszystkie</option>' +
+            groups.map(g => `<option value="${escapeHtml(g.name)}">Grupa osób: ${escapeHtml(g.name)}</option>`).join('');
+        groupSel.value = prevGroup;
+        if(!groupSel.value) groupSel.value = "ALL";
+    }
+
+    function getDailyEmployeePool() {
+        const masterFilter = document.getElementById('dailyPeopleMasterFilter')?.value || "ALL";
+        const groupFilter = document.getElementById('dailyPeopleGroupFilter')?.value || "ALL";
+        const q = (document.getElementById('dailyPeopleSearch')?.value || "").toLowerCase().trim();
+        return (dbAdmin.employees || []).filter(e => {
+            if(!canSeeEmp(e)) return false;
+            const g = groupByName(e.group || "Nieprzypisani");
+            if(masterFilter !== "ALL" && (!g || (g.master || "Bez master grupy") !== masterFilter)) return false;
+            if(groupFilter !== "ALL" && (e.group || "Nieprzypisani") !== groupFilter) return false;
+            if(q && !employeeSearchText(e).includes(q)) return false;
+            return true;
+        });
+    }
+
+    function ratingBadge(empName, act) {
+        if(!isRealActivity(act)) return `<span style="font-size:11px; color:var(--text-muted); font-weight:700;">Ocena: —</span>`;
+        const raw = dbAdmin.ratingsMap ? dbAdmin.ratingsMap[`${empName}_${act}`] : null;
+        if(raw === undefined || raw === null || raw === "") return `<span style="font-size:11px; color:var(--text-muted); font-weight:700;">Ocena: brak oceny</span>`;
+        const v = clampRating(raw, 2);
+        const c = v <= 1 ? "var(--ios-red)" : (v >= 4 ? "var(--ios-green)" : "var(--ios-blue)");
+        return `<span style="font-size:11px; color:${c}; font-weight:900;">Ocena: ${v}/4</span>`;
+    }
+
+    function statusBadgeForDaily(statusData) {
+        const st = (statusData && statusData.status) ? statusData.status : "NORMAL";
+        if(st === "NORMAL") return "";
+        const meta = STATUS_META[st] || STATUS_META.NORMAL;
+        const note = statusData.note ? ` title="${escapeHtml(statusData.note)}"` : "";
+        return `<span class="status-pill ${meta.pulse ? 'tile-pulse' : ''}"${note} style="background:${meta.color}; display:inline-block;">${meta.label}</span>`;
+    }
+
+    function dailyStatusCardStyle(statusData) {
+        const st = (statusData && statusData.status) ? statusData.status : "NORMAL";
+        if(st === "NORMAL") return "";
+        const meta = STATUS_META[st] || STATUS_META.NORMAL;
+        return `border-right:3px solid ${meta.color}; background:${meta.bg};`;
+    }
+
+    async function setDailyHours(empName, activity, rawHours) {
+        const dObj = new Date(document.getElementById('dailyDate').value);
+        const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+        const key = `${empName}_${dStr}`;
+        const current = parsePlanValue(dbAdmin.planMap[key]);
+        const hours = String(rawHours || "").trim();
+        if(!validateHoursRangeFormat(hours)) {
+            showT("⚠️ Format godzin: HH:MM-HH:MM");
+            renderDaily();
+            return;
+        }
+        const act = activity || current.act || "Wyczyść";
+        const res = await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: act, hours: hours });
+        if(res && res.ok) {
+            dbAdmin.planMap[key] = `${act}||${hours}||1`;
+            renderDaily();
+            if(typeof renderPlanner === 'function') renderPlanner();
+        }
+    }
+
+    async function setDailyStatus(empName, status, note = "", fallbackAct = "") {
+        const dObj = new Date(document.getElementById('dailyDate').value);
+        const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+        const key = `${empName}_${dStr}`;
+        const current = parsePlanValue(dbAdmin.planMap[key]);
+        let act = current.act;
+        let hrs = current.hrs;
+
+        if(status === "AD_HOC" && !isRealActivity(act)) {
+            const colData = getDailyActivityColumns();
+            act = isRealActivity(fallbackAct) ? fallbackAct : (colData.columns[0] || "");
+            if(!act) {
+                showT("Brak aktywności do przypisania AD_HOC.");
+                return;
+            }
+            hrs = hrs || (dbAdmin.availMap ? (dbAdmin.availMap[key] || "") : "");
+        }
+
+        if(status !== "NORMAL") {
+            const mapped = mapStatusToDefaultActivity(status);
+            if(mapped && !isRealActivity(act)) act = mapped;
+        }
+
+        if(act) {
+            const resPlan = await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: act, hours: hrs || "" });
+            if(!resPlan || !resPlan.ok) return;
+            dbAdmin.planMap[key] = `${act}||${hrs || ""}||1`;
+        }
+
+        const resStatus = await apiCall('/admin/planner/status', 'POST', {
+            name: empName,
+            date: dStr,
+            status: status,
+            status_note: note,
+            updated_by: currentAdminName || ""
+        });
+        if(!resStatus || !resStatus.ok) return;
+
+        dbAdmin.scheduleStatusMap = dbAdmin.scheduleStatusMap || {};
+        if(status === "NORMAL") delete dbAdmin.scheduleStatusMap[key];
+        else dbAdmin.scheduleStatusMap[key] = { status: status, note: note, updated_by: currentAdminName || "" };
+
+        renderDaily();
+        if(typeof renderPlanner === 'function') renderPlanner();
+    }
+
+    async function promptSetLate(empName, fallbackAct = "") {
+        const mins = prompt("Podaj minuty spóźnienia (lub zostaw puste):", "");
+        if(mins === null) return;
+        const arrival = prompt("Podaj godzinę przyjścia HH:MM (opcjonalnie):", "");
+        if(arrival === null && !mins) return;
+        let note = "";
+        const cleanMins = String(mins || "").trim();
+        const cleanArrival = String(arrival || "").trim();
+        if(cleanMins) note = `Spóźnienie ${cleanMins} min`;
+        else if(cleanArrival) note = `Przyszedł o ${cleanArrival}`;
+        await setDailyStatus(empName, "LATE", note, fallbackAct);
+    }
+
+    async function setNoShow(empName, fallbackAct = "") {
+        if(!confirm(`Oznaczyć ${empName} jako NO_SHOW?`)) return;
+        await setDailyStatus(empName, "NO_SHOW", "", fallbackAct);
+    }
+
+    async function setAdHoc(empName, fallbackAct = "") {
+        await setDailyStatus(empName, "AD_HOC", "", fallbackAct);
+    }
+
+    function renderDailyAttendancePanel(dStr, employeePool) {
+        const late = [];
+        const adHoc = [];
+        const noShow = [];
+        employeePool.forEach(e => {
+            const key = `${e.name}_${dStr}`;
+            const st = getStatusByKey(key);
+            const p = parsePlanValue(dbAdmin.planMap[key]);
+            if(st.status === "LATE") late.push({ name: e.name, note: st.note || "Brak notatki" });
+            if(st.status === "AD_HOC") adHoc.push({ name: e.name, act: p.act || "—", hrs: p.hrs || "—" });
+            if(st.status === "NO_SHOW") noShow.push({ name: e.name, note: st.note || "" });
+        });
+
+        const fmt = (arr, mapper) => arr.length ? arr.map(mapper).join('') : '<span style="color:gray; font-size:12px;">Brak.</span>';
+        document.getElementById('dailyNoStartList').innerHTML = '<span style="color:gray; font-size:12px;">Brak integracji V-Max w tym etapie.</span>';
+        document.getElementById('dailyLateList').innerHTML = fmt(late, x => `<div style="padding:6px 0; border-bottom:1px solid var(--border);"><b>${escapeHtml(x.name)}</b><div style="font-size:11px; color:var(--text-muted);">${escapeHtml(x.note)}</div></div>`);
+        document.getElementById('dailyAdHocList').innerHTML = fmt(adHoc, x => `<div style="padding:6px 0; border-bottom:1px solid var(--border);"><b>${escapeHtml(x.name)}</b><div style="font-size:11px; color:var(--text-muted);">${escapeHtml(x.act)} (${escapeHtml(x.hrs)})</div></div>`);
+        document.getElementById('dailyNoShowList').innerHTML = fmt(noShow, x => `<div style="padding:6px 0; border-bottom:1px solid var(--border);"><b>${escapeHtml(x.name)}</b>${x.note ? `<div style="font-size:11px; color:var(--text-muted);">${escapeHtml(x.note)}</div>` : ''}</div>`);
+    }
+
     function availabilityStart(hrs) {
         const match = String(hrs || '').match(/(\d{1,2}):(\d{2})/);
         return match ? parseInt(match[1], 10) * 60 + parseInt(match[2], 10) : 99999;
@@ -1569,7 +1817,7 @@ function hexToRgba(hex, alpha) {
         document.getElementById(id).classList.add('active'); 
         document.querySelectorAll('.nav-btn').forEach(b => { if(b.getAttribute('onclick').includes(id)) b.classList.add('active'); });
         
-        if(id === 'vDaily') renderDaily(); 
+        if(id === 'vDaily') { syncDailyFilters(); renderDaily(); } 
         if(id === 'vPlanner') renderPlanner();
         if(id === 'vMatrix') { renderMatrix(); renderHrCards(); }
         if(id === 'vAlerts') loadAdminData();
@@ -1638,24 +1886,8 @@ function hexToRgba(hex, alpha) {
         // Ładowanie opcji CMS
         document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">${s}</option>`).join('');
         
-        // Dropdown Daily Live
-        const dailyFilter = document.getElementById('dailyGroupFilter');
-        if (dailyFilter) {
-            let currentFilterValue = dailyFilter.value;
-            dailyFilter.innerHTML = '<option value="" selected disabled>Wybierz zestaw aktywnosci...</option>' + 
-                getManagedGroups().map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
-            if(currentFilterValue) dailyFilter.value = currentFilterValue; 
-        }
-
-        const dailyPeopleFilter = document.getElementById('dailyPeopleFilter');
-        if(dailyPeopleFilter) {
-            let currentDailyPeople = dailyPeopleFilter.value || "ALL";
-            dailyPeopleFilter.innerHTML = '<option value="ALL">Osoby: wszystkie dostepne grupy</option>' +
-                (dbAdmin.masterGroups || []).map(m => `<option value="MASTER:${escapeHtml(m)}">Master: ${escapeHtml(m)}</option>`).join('') +
-                getManagedGroups().map(g => `<option value="GROUP:${escapeHtml(g.name)}">Grupa: ${escapeHtml(g.name)}</option>`).join('');
-            dailyPeopleFilter.value = currentDailyPeople;
-            if(!dailyPeopleFilter.value) dailyPeopleFilter.value = "ALL";
-        }
+        // Dropdowny Dzienny Live
+        syncDailyFilters();
 
         syncPlannerFilters();
         syncPlannerBrushActivities(false);
@@ -1936,25 +2168,23 @@ function hexToRgba(hex, alpha) {
         const empName = ev.dataTransfer.getData("empName");
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        
-        dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
+
+        const key = `${empName}_${dStr}`;
+        const prev = parsePlanValue(dbAdmin.planMap[key]);
+        const nextHours = targetAct === "Wyczyść" ? "" : (prev.hrs || (dbAdmin.availMap ? dbAdmin.availMap[key] || "" : ""));
+        dbAdmin.planMap[key] = `${targetAct}||${nextHours}||1`;
         renderDaily(); 
-        await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
+        const res = await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: nextHours });
+        if(res && res.ok && typeof renderPlanner === 'function') renderPlanner();
     }
 
     function openMobileAssign(empName) {
         if (window.innerWidth > 768) return; 
         document.getElementById('mobileAssignName').innerText = empName;
-        
-        const selectedGroup = document.getElementById('dailyGroupFilter').value;
-        let allowedActs = dbAdmin.plannerActivities;
-        
-        if (selectedGroup) {
-            const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
-            if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
-                allowedActs = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
-            }
-        }
+
+        const colData = getDailyActivityColumns();
+        let allowedActs = colData.columns;
+        if(!allowedActs || allowedActs.length === 0) allowedActs = dbAdmin.plannerActivities || [];
 
         let html = `<button onclick="assignFromMobile('${empName}', 'Wyczyść')" class="btn-main" style="background:rgba(0,0,0,0.05); color:var(--text-main); box-shadow:none;">Wyczyść przydział</button>`;
         html += allowedActs.map(act => {
@@ -1969,10 +2199,14 @@ function hexToRgba(hex, alpha) {
     async function assignFromMobile(empName, targetAct) {
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+        const key = `${empName}_${dStr}`;
+        const prev = parsePlanValue(dbAdmin.planMap[key]);
+        const hrs = targetAct === "Wyczyść" ? "" : (prev.hrs || (dbAdmin.availMap ? dbAdmin.availMap[key] || "" : ""));
         closeM();
-        dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
+        dbAdmin.planMap[key] = `${targetAct}||${hrs}||1`;
         renderDaily(); 
-        await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
+        const res = await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: hrs });
+        if(res && res.ok && typeof renderPlanner === 'function') renderPlanner();
     }
 
     async function saveCapacity(act, inputEl) {
@@ -1994,41 +2228,19 @@ function hexToRgba(hex, alpha) {
         const dObj = new Date(rawDate);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
         
-        const selectedGroup = document.getElementById('dailyGroupFilter').value;
-        const selectedPeopleFilter = document.getElementById('dailyPeopleFilter') ? document.getElementById('dailyPeopleFilter').value : "ALL";
         const gridContainer = document.getElementById('dailyGrid');
-        
-        if (!selectedGroup) {
-            gridContainer.innerHTML = `
-                <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:18px;">
-                    👆 Najpierw wybierz grupę z menu u góry, aby załadować kolumny planowania.
-                </div>`;
-            return; 
+
+        const dailyCols = getDailyActivityColumns();
+        const colsToRender = dailyCols.columns || [];
+        if(colsToRender.length === 0) {
+            gridContainer.innerHTML = `<div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:16px;">${escapeHtml(dailyCols.emptyReason || "Brak kolumn do wyświetlenia.")}</div>`;
         }
 
         let dailyData = {}; 
         let assignedSet = new Set();
-        
-        let colsToRender = dbAdmin.plannerActivities;
-        const groupObj = dbAdmin.groups.find(g => g.name === selectedGroup);
-        
-        if (groupObj && groupObj.activities && groupObj.activities.length > 0) {
-            colsToRender = groupObj.activities.filter(a => dbAdmin.plannerActivities.includes(a));
-        }
-        
         colsToRender.forEach(a => dailyData[a] = []); 
 
-        const dailyEmployeePool = dbAdmin.employees.filter(e => {
-            if(!canSeeEmp(e)) return false;
-            const g = groupByName(e.group || "Nieprzypisani");
-            if(selectedPeopleFilter && selectedPeopleFilter.startsWith("MASTER:")) {
-                return g && (g.master || "Bez master grupy") === selectedPeopleFilter.replace("MASTER:", "");
-            }
-            if(selectedPeopleFilter && selectedPeopleFilter.startsWith("GROUP:")) {
-                return e.group === selectedPeopleFilter.replace("GROUP:", "");
-            }
-            return true;
-        });
+        const dailyEmployeePool = getDailyEmployeePool();
         
         dailyEmployeePool.forEach(empObj => {
             const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
@@ -2036,8 +2248,8 @@ function hexToRgba(hex, alpha) {
                 const act = valStr.split("||")[0]; 
                 if(dailyData[act] !== undefined) { 
                     dailyData[act].push(empObj); 
+                    assignedSet.add(empObj.name); 
                 }
-                assignedSet.add(empObj.name); 
             }
         });
         
@@ -2045,19 +2257,34 @@ function hexToRgba(hex, alpha) {
         const avail = dailyEmployeePool.filter(e => !assignedSet.has(e.name)).sort((a, b) => availabilityStart(dbAdmin.availMap[`${a.name}_${dStr}`]) - availabilityStart(dbAdmin.availMap[`${b.name}_${dStr}`]) || a.name.localeCompare(b.name)); 
         document.getElementById('availCount').innerText = avail.length;
         document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
-            const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`];
+            const key = `${e.name}_${dStr}`;
+            const plan = parsePlanValue(dbAdmin.planMap[key]);
+            const aHrs = plan.hrs || dbAdmin.availMap[key] || "";
+            const st = getStatusByKey(key);
             const safeGroup = e.group || "Nieprzypisani";
             const gColor = groupAccentColor(safeGroup);
             return `
-                <div class="emp-card" style="border-left:4px solid ${gColor};" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
-                    <span>
-                        <b style="font-size:14px; color:var(--text-main);">${e.name}</b> 
-                        <span style="font-size:10px; color:gray; display:block;">${safeGroup}</span>
-                    </span>
-                    ${aHrs ? `<span style="background:rgba(52,199,89,0.1); color:var(--ios-green); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">Dost: ${aHrs}</span>` : ''}
+                <div class="emp-card" style="border-left:4px solid ${gColor}; ${dailyStatusCardStyle(st)}" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
+                    <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                        <b style="font-size:14px; color:var(--text-main);">${escapeHtml(e.name)}</b>
+                        <span style="font-size:10px; color:gray;">ID: ${escapeHtml(e.id || e.global_id || '—')} | ${escapeHtml(safeGroup)}</span>
+                        ${aHrs ? `<span style="font-size:10px; color:var(--ios-blue); font-weight:800;">Godziny: ${escapeHtml(aHrs)}</span>` : '<span style="font-size:10px; color:gray;">Godziny: —</span>'}
+                        <span style="font-size:10px; color:var(--text-muted); font-weight:700;">Ocena: —</span>
+                        ${statusBadgeForDaily(st)}
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                        <button onclick="event.stopPropagation(); promptSetLate('${e.name}')" style="border:none; background:rgba(255,149,0,0.14); color:var(--ios-orange); border-radius:8px; padding:3px 6px; font-size:10px; font-weight:800; cursor:pointer;">⏱️</button>
+                        <button onclick="event.stopPropagation(); setNoShow('${e.name}')" style="border:none; background:rgba(255,59,48,0.14); color:var(--ios-red); border-radius:8px; padding:3px 6px; font-size:10px; font-weight:800; cursor:pointer;">❌</button>
+                        <button onclick="event.stopPropagation(); setAdHoc('${e.name}')" style="border:none; background:rgba(52,199,89,0.14); color:var(--ios-green); border-radius:8px; padding:3px 6px; font-size:10px; font-weight:800; cursor:pointer;">🟢</button>
+                    </div>
                 </div>`; 
         }).join('');
-        
+
+        if(colsToRender.length === 0) {
+            renderDailyAttendancePanel(dStr, dailyEmployeePool);
+            return;
+        }
+
         gridContainer.innerHTML = colsToRender.map(act => {
             const col = getTileColor(act);
             const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
@@ -2070,13 +2297,25 @@ function hexToRgba(hex, alpha) {
             }
 
             const list = dailyData[act].map(e => {
-                const rating = clampRating(dbAdmin.ratingsMap[`${e.name}_${act}`], 2);
-                let starColor = rating === 1 ? 'var(--ios-red)' : (rating >= 4 ? 'var(--ios-green)' : 'var(--ios-blue)');
+                const key = `${e.name}_${dStr}`;
+                const plan = parsePlanValue(dbAdmin.planMap[key]);
+                const hoursDisplay = plan.hrs || (dbAdmin.availMap ? (dbAdmin.availMap[key] || "") : "");
+                const st = getStatusByKey(key);
                 const gColor = groupAccentColor(e.group || "Nieprzypisani");
                 return `
-                    <div class="emp-card" style="border-left:4px solid ${gColor};" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
-                        <span style="font-size:14px; font-weight:600; color:var(--text-main);">${e.name}</span>
-                        <span style="background:rgba(0,0,0,0.04); color:${starColor}; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">⭐ ${rating}</span>
+                    <div class="emp-card" style="border-left:4px solid ${gColor}; ${dailyStatusCardStyle(st)}" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
+                        <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
+                            <span style="font-size:14px; font-weight:600; color:var(--text-main);">${escapeHtml(e.name)}</span>
+                            <span style="font-size:10px; color:gray;">ID: ${escapeHtml(e.id || e.global_id || '—')} | ${escapeHtml(e.group || 'Nieprzypisani')}</span>
+                            <div>${ratingBadge(e.name, act)}</div>
+                            ${statusBadgeForDaily(st)}
+                            <input type="text" value="${escapeHtml(hoursDisplay)}" placeholder="HH:MM-HH:MM" onkeydown="if(event.key==='Enter'){ this.blur(); }" onblur="setDailyHours('${e.name}','${escapeHtml(act)}', this.value)" style="margin-top:4px; font-size:11px; font-weight:700; border-radius:8px; padding:4px 6px;">
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                            <button onclick="event.stopPropagation(); promptSetLate('${e.name}','${escapeHtml(act)}')" style="border:none; background:rgba(255,149,0,0.14); color:var(--ios-orange); border-radius:8px; padding:3px 6px; font-size:10px; font-weight:800; cursor:pointer;">⏱️</button>
+                            <button onclick="event.stopPropagation(); setNoShow('${e.name}','${escapeHtml(act)}')" style="border:none; background:rgba(255,59,48,0.14); color:var(--ios-red); border-radius:8px; padding:3px 6px; font-size:10px; font-weight:800; cursor:pointer;">❌</button>
+                            <button onclick="event.stopPropagation(); setAdHoc('${e.name}','${escapeHtml(act)}')" style="border:none; background:rgba(52,199,89,0.14); color:var(--ios-green); border-radius:8px; padding:3px 6px; font-size:10px; font-weight:800; cursor:pointer;">🟢</button>
+                        </div>
                     </div>`;
             }).join('');
 
@@ -2096,6 +2335,7 @@ function hexToRgba(hex, alpha) {
                 <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:5px;">${list}</div>
             </div>`;
         }).join('');
+        renderDailyAttendancePanel(dStr, dailyEmployeePool);
     }
 
     // ==========================================
@@ -2106,8 +2346,7 @@ function hexToRgba(hex, alpha) {
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
         
         let availableEmps = [];
-        dbAdmin.employees.forEach(e => {
-            if(!canSeeEmp(e)) return;
+        getDailyEmployeePool().forEach(e => {
             const valStr = dbAdmin.planMap[`${e.name}_${dStr}`];
             const currentAct = valStr ? valStr.split("||")[0] : "";
             
@@ -2142,10 +2381,14 @@ function hexToRgba(hex, alpha) {
     async function assignFromSuggestion(empName, targetAct) {
         const dObj = new Date(document.getElementById('dailyDate').value);
         const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        dbAdmin.planMap[`${empName}_${dStr}`] = targetAct + "||||1"; 
+        const key = `${empName}_${dStr}`;
+        const prev = parsePlanValue(dbAdmin.planMap[key]);
+        const hrs = prev.hrs || (dbAdmin.availMap ? dbAdmin.availMap[key] || "" : "");
+        dbAdmin.planMap[key] = `${targetAct}||${hrs}||1`;
         renderDaily(); 
         openSuggestions(targetAct); 
-        await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
+        const res = await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: hrs });
+        if(res && res.ok && typeof renderPlanner === 'function') renderPlanner();
         showT(`✅ Przypisano: ${empName}`);
     }
 
