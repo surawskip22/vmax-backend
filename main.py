@@ -608,9 +608,14 @@ def get_admin_data(db: Session = Depends(get_db)):
     db_users = db.query(User).order_by(User.global_id).all()
     employees = [{
         "id": u.global_id,
+        "global_id": u.global_id,
         "name": u.name,
         "group": u.group_name,
         "role": u.role,
+        "login_panelu": u.login_panelu or "",
+        "login_magazynu": u.login_magazynu or "",
+        "id_punktualnika": u.id_punktualnika or "",
+        "external_id": u.external_id or "",
         "hire_date": date_to_str(u.hire_date),
         "last_eval_date": date_to_str(u.last_eval_date),
         "next_eval_date": date_to_str(u.next_eval_date),
