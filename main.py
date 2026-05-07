@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, desc, text, event
@@ -9,6 +9,7 @@ import uuid
 import random
 import io
 import re
+import base64
 from datetime import datetime, timedelta
 import zoneinfo
 import openpyxl
@@ -333,9 +334,13 @@ def get_public_data(db: Session = Depends(get_db)):
     return {"employees": employees}
 
 @app.post("/api/admin/import-excel")
-async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+def import_excel(req: dict, db: Session = Depends(get_db)):
     try:
-        contents = await file.read()
+        b64_data = req.get("file_b64")
+        if not b64_data:
+            return {"ok": False, "msg": "Brak danych pliku."}
+            
+        contents = base64.b64decode(b64_data)
         wb = openpyxl.load_workbook(io.BytesIO(contents))
         ws = wb.active
         
@@ -347,7 +352,7 @@ async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_d
         for col_idx, group_name in enumerate(headers, start=1):
             group_name = str(group_name).strip()
             db.add(UserGroup(name=group_name, emp_type="Stały", allowed_activities="[]", is_flexible=0))
-            db.commit() # commit after group so users can attach correctly without constraint issues if any
+            db.commit() 
             
             for row_idx in range(2, ws.max_row + 1):
                 emp_name = ws.cell(row=row_idx, column=col_idx).value
