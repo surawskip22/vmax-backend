@@ -95,6 +95,7 @@ class UserGroup(Base):
     emp_type = Column(String) 
     allowed_activities = Column(String, default="[]") 
     is_flexible = Column(Integer, default=0)
+    color = Column(String, default="#0A84FF")
 
 class MasterGroup(Base):
     __tablename__ = "master_groups"
@@ -156,6 +157,16 @@ class Schedule(Base):
     activity = Column(String)
     hours = Column(String)
     is_override = Column(Integer, default=0)
+
+class ScheduleStatus(Base):
+    __tablename__ = "schedule_status"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, index=True)
+    date_str = Column(String, index=True)
+    status = Column(String, default="NORMAL")
+    status_note = Column(String, default="")
+    updated_by = Column(String, default="")
+    updated_at = Column(DateTime, default=get_now)
 
 class DailyCapacity(Base):
     __tablename__ = "daily_capacity"
@@ -284,6 +295,12 @@ with engine.connect() as conn:
     except: conn.rollback()
     try: conn.execute(text("ALTER TABLE user_groups ADD COLUMN master_group VARCHAR DEFAULT 'Bez master grupy'")); conn.commit()
     except: conn.rollback()
+    try: conn.execute(text("ALTER TABLE user_groups ADD COLUMN color VARCHAR DEFAULT '#0A84FF'")); conn.commit()
+    except: conn.rollback()
+    try:
+        conn.execute(text("UPDATE user_groups SET color = '#0A84FF' WHERE color IS NULL OR color = ''"))
+        conn.commit()
+    except: conn.rollback()
     try: conn.execute(text("ALTER TABLE activities ADD COLUMN color VARCHAR DEFAULT '#0A84FF'")); conn.commit()
     except: conn.rollback()
     try:
@@ -320,7 +337,10 @@ with SessionLocal() as db:
     ]
     for g in default_groups:
         if not db.query(UserGroup).filter(UserGroup.name == g["name"]).first():
-            db.add(UserGroup(name=g["name"], emp_type=g["type"], master_group=g["master"], allowed_activities="[]", is_flexible=g["flex"]))
+            db.add(UserGroup(name=g["name"], emp_type=g["type"], master_group=g["master"], allowed_activities="[]", is_flexible=g["flex"], color="#0A84FF"))
+    for grp in db.query(UserGroup).all():
+        if not grp.color:
+            grp.color = "#0A84FF"
     
     all_users = db.query(User).all()
     for u in all_users:
@@ -382,6 +402,7 @@ def read_people_from_excel(path):
 
 def reset_employee_data(db: Session, include_vmax_logs=False):
     db.query(Schedule).delete()
+    db.query(ScheduleStatus).delete()
     db.query(Request).delete()
     db.query(EvaluationLog).delete()
     db.query(Competence).delete()
@@ -528,8 +549,8 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
-    activityColors["Chory 🤒"] = "#FF3B30"; activityColors["Urlop 🌴"] = "#FFCC00"
-    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#8B0000"
+    activityColors["Chory 🤒"] = "#FF9500"; activityColors["Urlop 🌴"] = "#7D5FFF"
+    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#FF3B30"
     
     user_db = db.query(User).filter(User.name == name).first()
     allowed_acts = []
@@ -601,6 +622,7 @@ def get_admin_data(db: Session = Depends(get_db)):
         "master": g.master_group or "Bez master grupy",
         "type": g.emp_type,
         "is_flexible": g.is_flexible,
+        "color": g.color or "#0A84FF",
         "activities": json.loads(g.allowed_activities) if g.allowed_activities else []
     } for g in db.query(UserGroup).all()]
     access_rows = db.query(GroupAccess).all()
@@ -610,8 +632,8 @@ def get_admin_data(db: Session = Depends(get_db)):
     
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
-    activityColors["Chory 🤒"] = "#FF3B30"; activityColors["Urlop 🌴"] = "#FFCC00"
-    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#8B0000"
+    activityColors["Chory 🤒"] = "#FF9500"; activityColors["Urlop 🌴"] = "#7D5FFF"
+    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#FF3B30"
 
     activities = [a.name for a in db_acts]
     planner_activities = list(set(activities + ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"]))
@@ -622,6 +644,16 @@ def get_admin_data(db: Session = Depends(get_db)):
     ratings_map = {f"{c.username}_{c.activity}": clamp_rating(c.rating, default=2) for c in comps}
     schedules = db.query(Schedule).all()
     plan_map = {f"{s.username}_{s.date_str}": f"{s.activity}||{s.hours}||{s.is_override}" for s in schedules}
+    schedule_status_rows = db.query(ScheduleStatus).all()
+    schedule_status_map = {
+        f"{s.username}_{s.date_str}": {
+            "status": (s.status or "NORMAL"),
+            "note": s.status_note or "",
+            "updated_by": s.updated_by or "",
+            "updated_at": date_to_str(s.updated_at) if s.updated_at else ""
+        }
+        for s in schedule_status_rows
+    }
     capacities = db.query(DailyCapacity).all()
     capacity_map = {f"{c.date_str}_{c.activity}": c.required_count for c in capacities}
     
@@ -655,7 +687,7 @@ def get_admin_data(db: Session = Depends(get_db)):
                 hr_alerts.append({"id": f"hr_{u.name}_{u.eval_count}", "name": u.name, "date": now.strftime("%Y-%m-%d"), "type": "Ocena Okresowa (3 mc)", "hrs": "", "ts": now.strftime("%Y-%m-%d %H:%M")})
 
     root_login, _ = get_root_admin(db)
-    return {"employees": employees, "groups": groups, "masterGroups": master_groups, "groupAccess": access_map, "activityNames": activities, "plannerActivities": planner_activities, "activityColors": activityColors, "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, "requestMap": request_map, "alerts": alerts, "flexAlerts": flex_alerts, "hrAlerts": hr_alerts, "availMap": avail_map, "capacityMap": capacity_map, "rootAdmin": root_login}
+    return {"employees": employees, "groups": groups, "masterGroups": master_groups, "groupAccess": access_map, "activityNames": activities, "plannerActivities": planner_activities, "activityColors": activityColors, "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, "scheduleStatusMap": schedule_status_map, "requestMap": request_map, "alerts": alerts, "flexAlerts": flex_alerts, "hrAlerts": hr_alerts, "availMap": avail_map, "capacityMap": capacity_map, "rootAdmin": root_login}
 
 @app.post("/api/admin/employee/hr_details")
 def get_hr_details(req: dict, db: Session = Depends(get_db)):
@@ -840,6 +872,41 @@ def update_matrix(req: dict, db: Session = Depends(get_db)):
     db.commit()
     return {"ok": True}
 
+@app.post("/api/admin/planner/status")
+def save_planner_status(req: dict, db: Session = Depends(get_db)):
+    username = str(req.get("name", "")).strip()
+    date_str = str(req.get("date", "")).strip()
+    status = str(req.get("status", "NORMAL")).strip().upper() or "NORMAL"
+    note = str(req.get("status_note", req.get("note", "")) or "").strip()
+    updated_by = str(req.get("updated_by", "") or "").strip()
+
+    allowed_statuses = {"NORMAL", "NO_SHOW", "LATE", "AD_HOC", "CHORY", "URLOP", "WOLNE"}
+    if status not in allowed_statuses:
+        status = "NORMAL"
+
+    if not username or not date_str:
+        return {"ok": False, "msg": "Brak pracownika lub daty."}
+
+    if not db.query(User).filter(User.name == username).first():
+        return {"ok": False, "msg": "Pracownik nie istnieje."}
+
+    existing = db.query(ScheduleStatus).filter(ScheduleStatus.username == username, ScheduleStatus.date_str == date_str).first()
+    if status in ["", "NORMAL"]:
+        if existing:
+            db.delete(existing)
+            db.commit()
+        return {"ok": True, "msg": "Status ustawiony na NORMAL."}
+
+    if not existing:
+        existing = ScheduleStatus(username=username, date_str=date_str)
+        db.add(existing)
+    existing.status = status
+    existing.status_note = note
+    existing.updated_by = updated_by
+    existing.updated_at = get_now()
+    db.commit()
+    return {"ok": True, "msg": "Status grafiku zapisany."}
+
 @app.post("/api/admin/planner/save")
 def save_planner(req: dict, db: Session = Depends(get_db)):
     names, start, end, act, hrs = req.get("names", []), req.get("start"), req.get("end"), req.get("activity"), req.get("hours", "")
@@ -918,14 +985,14 @@ def import_excel(req: dict, db: Session = Depends(get_db)):
         db.flush()
         db.add(MasterGroup(name="Bez master grupy"))
         db.add(MasterGroup(name="Magazyn"))
-        db.add(UserGroup(name="Nieprzypisani", master_group="Bez master grupy", emp_type="Stały", allowed_activities="[]", is_flexible=0))
+        db.add(UserGroup(name="Nieprzypisani", master_group="Bez master grupy", emp_type="Stały", allowed_activities="[]", is_flexible=0, color="#0A84FF"))
         imported_groups = []
         for row in rows:
             group_name = row["group"]
             if group_name not in imported_groups:
                 imported_groups.append(group_name)
             if not db.query(UserGroup).filter(UserGroup.name == group_name).first():
-                db.add(UserGroup(name=group_name, master_group="Magazyn", emp_type="Stały", allowed_activities="[]", is_flexible=0))
+                db.add(UserGroup(name=group_name, master_group="Magazyn", emp_type="Stały", allowed_activities="[]", is_flexible=0, color="#0A84FF"))
 
         privileged_roles = ["ADMIN", "MANAGER", "TEAM_LEADER", "SUPER_ADMIN"]
         db.query(User).filter(~User.role.in_(privileged_roles)).delete(synchronize_session=False)
@@ -948,6 +1015,7 @@ def import_excel(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/admin/settings")
 def cms_settings(req: dict, db: Session = Depends(get_db)):
     action, t, val = req.get("action"), req.get("type"), req.get("value")
+    protected_system_activities = {"Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌", "LATE", "AD_HOC", "NO_SHOW", "CHORY", "URLOP", "WOLNE"}
     try:
         if action == "ADD":
             if t == "employee": 
@@ -955,6 +1023,8 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 db.add(User(global_id=generate_global_id(db), name=val, pin="1111", role=req.get("role", "EMPLOYEE"), group_name="Nieprzypisani", hire_date=get_now(), eval_count=0))
             elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
             elif t == "activity": 
+                if val in protected_system_activities:
+                    return {"ok": False, "msg": "Ta aktywnosc jest systemowa i nie podlega edycji w CMS."}
                 act = db.query(Activity).filter(Activity.name == val).first()
                 if act: act.color = req.get("color", "#0A84FF")
                 else: db.add(Activity(name=val, color=req.get("color", "#0A84FF")))
@@ -966,7 +1036,7 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                     master_name = req.get("master_group") or "Bez master grupy"
                     if not db.query(MasterGroup).filter(MasterGroup.name == master_name).first():
                         db.add(MasterGroup(name=master_name))
-                    db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), master_group=master_name, is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
+                    db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), master_group=master_name, is_flexible=req.get("is_flexible", 0), allowed_activities="[]", color=req.get("color", "#0A84FF")))
         elif action == "EDIT_USER_ROLE":
             user = db.query(User).filter(User.name == val).first()
             if user:
@@ -974,6 +1044,8 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 if user.role == "EMPLOYEE":
                     db.query(GroupAccess).filter(GroupAccess.username == user.name).delete()
         elif action == "EDIT_ACTIVITY_COLOR":
+            if val in protected_system_activities:
+                return {"ok": False, "msg": "Kolor aktywnosci systemowej jest zablokowany."}
             act = db.query(Activity).filter(Activity.name == val).first()
             if act: act.color = req.get("color", "#0A84FF")
         elif action == "EDIT_GROUP_FLEX":
@@ -986,6 +1058,10 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 if not db.query(MasterGroup).filter(MasterGroup.name == master_name).first():
                     db.add(MasterGroup(name=master_name))
                 grp.master_group = master_name
+        elif action == "EDIT_GROUP_COLOR":
+            grp = db.query(UserGroup).filter(UserGroup.name == val).first()
+            if grp:
+                grp.color = req.get("color", "#0A84FF")
         elif action == "EDIT_GROUP_NAME":
             new_name = str(req.get("new_value", "")).strip()
             grp = db.query(UserGroup).filter(UserGroup.name == val).first()
@@ -1023,8 +1099,11 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
             if t == "employee": 
                 db.query(User).filter(User.name == val).delete()
                 db.query(EvaluationLog).filter(EvaluationLog.username == val).delete() 
+                db.query(ScheduleStatus).filter(ScheduleStatus.username == val).delete()
             elif t == "shift": db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift", GlobalSetting.value == val).delete()
             elif t == "activity": 
+                if val in protected_system_activities:
+                    return {"ok": False, "msg": "Nie mozna usunac aktywnosci systemowej."}
                 db.query(Activity).filter(Activity.name == val).delete()
                 db.query(Competence).filter(Competence.activity == val).delete()
                 db.query(DailyCapacity).filter(DailyCapacity.activity == val).delete()
