@@ -983,11 +983,13 @@
             if (body) opt.body = JSON.stringify(body);
             
             const res = await fetch(API_URL + endpoint, opt);
+            const rawText = await res.text();
+            let payload = null;
+            try { payload = rawText ? JSON.parse(rawText) : null; } catch(_) {}
             if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || "Błąd serwera API");
+                throw new Error((payload && payload.detail) ? payload.detail : (rawText || "Błąd serwera API"));
             }
-            return await res.json();
+            return payload || {};
         } catch(e) {
             showT("❌ " + e.message);
             console.error("Fetch API Error:", e);
