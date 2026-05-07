@@ -96,7 +96,7 @@ def normalize_status(value):
         "NO SHOW": "NO_SHOW",
         "NOSHOW": "NO_SHOW",
         "SPOZNIENIE": "LATE",
-        "SPÓŹNIENIE": "LATE",
+        "SPÃ“Å¹NIENIE": "LATE",
         "LATE": "LATE",
         "ADHOC": "AD_HOC",
         "AD-HOC": "AD_HOC",
@@ -387,8 +387,8 @@ with SessionLocal() as db:
             db.add(MasterGroup(name=mg))
 
     default_groups = [
-        {"name": "Nieprzypisani", "type": "Stały", "flex": 0, "master": "Bez master grupy"},
-        {"name": "Magazyn osoby stałe", "type": "Stały", "flex": 0, "master": "Magazyn"},
+        {"name": "Nieprzypisani", "type": "StaÅ‚y", "flex": 0, "master": "Bez master grupy"},
+        {"name": "Magazyn osoby staÅ‚e", "type": "StaÅ‚y", "flex": 0, "master": "Magazyn"},
         {"name": "Magazyn osoby dodatkowe", "type": "Dodatkowy", "flex": 1, "master": "Magazyn"},
         {"name": "Hydry", "type": "Dodatkowy", "flex": 1, "master": "Magazyn"}
     ]
@@ -497,12 +497,12 @@ def run_simulation(db: Session = Depends(get_db)):
         while curr_d <= end_date:
             d_str = curr_d.strftime("%Y-%m-%d")
             if curr_d.weekday() >= 5:
-                db.add(Schedule(username=u.name, date_str=d_str, activity="Wolne 🏠", hours="", is_override=1))
+                db.add(Schedule(username=u.name, date_str=d_str, activity="Wolne ðŸ ", hours="", is_override=1))
             else:
                 rand_val = random.randint(1, 100)
-                if rand_val <= 5: db.add(Schedule(username=u.name, date_str=d_str, activity="Chory 🤒", hours="", is_override=1))
-                elif rand_val <= 10: db.add(Schedule(username=u.name, date_str=d_str, activity="Urlop 🌴", hours="", is_override=1))
-                elif rand_val <= 12: db.add(Schedule(username=u.name, date_str=d_str, activity="No Show ❌", hours="", is_override=1))
+                if rand_val <= 5: db.add(Schedule(username=u.name, date_str=d_str, activity="Chory ðŸ¤’", hours="", is_override=1))
+                elif rand_val <= 10: db.add(Schedule(username=u.name, date_str=d_str, activity="Urlop ðŸŒ´", hours="", is_override=1))
+                elif rand_val <= 12: db.add(Schedule(username=u.name, date_str=d_str, activity="No Show âŒ", hours="", is_override=1))
                 else:
                     if acts:
                         assigned_act = random.choice(acts)
@@ -510,10 +510,10 @@ def run_simulation(db: Session = Depends(get_db)):
             curr_d += timedelta(days=1)
             
     db.commit()
-    return {"ok": True, "msg": "Zakończono generowanie historii pracy. Pracownicy otrzymali alerty HR o ocenie (3 mc)."}
+    return {"ok": True, "msg": "ZakoÅ„czono generowanie historii pracy. Pracownicy otrzymali alerty HR o ocenie (3 mc)."}
 
 # ==========================================
-# 4. MODUŁ 1: PLANNER I HR
+# 4. MODUÅ 1: PLANNER I HR
 # ==========================================
 @app.get("/")
 def serve_index():
@@ -542,19 +542,40 @@ def get_public_data(db: Session = Depends(get_db)):
 
 @app.post("/api/auth/login")
 def login(req: dict, db: Session = Depends(get_db)):
-    u, p, r = str(req.get("username", "")).strip(), str(req.get("pin", "")).strip(), req.get("role", "EMPLOYEE")
+    def build_login_response(name: str, role: str, user: User = None):
+        group = db.query(UserGroup).filter(UserGroup.name == user.group_name).first() if user else None
+        return {
+            "ok": True,
+            "name": name,
+            "role": role,
+            "global_id": user.global_id if user else "",
+            "group": user.group_name if user else "",
+            "master_group": group.master_group if group else "",
+            "login_panelu": user.login_panelu if user else "",
+            "login_magazynu": user.login_magazynu if user else "",
+            "id_punktualnika": user.id_punktualnika if user else "",
+            "external_id": user.external_id if user else "",
+        }
+
+    u = str(req.get("username", "")).strip()
+    p = str(req.get("pin", "")).strip()
+    r = req.get("role", "EMPLOYEE")
     root_login, root_pass = get_root_admin(db)
-    
+
     if r == "ADMIN":
-        if u == root_login and p == root_pass: return {"ok": True, "name": root_login, "role": "SUPER_ADMIN"}
+        if u == root_login and p == root_pass:
+            return build_login_response(root_login, "SUPER_ADMIN")
         user = db.query(User).filter(User.name == u, User.pin == p).first()
-        if user and user.role in ["ADMIN", "MANAGER", "TEAM_LEADER", "SUPER_ADMIN"]: return {"ok": True, "name": user.name, "role": user.role}
-        raise HTTPException(status_code=401, detail="Błędny Login/PIN lub brak uprawnień!")
-    else:
-        if u == root_login and p == root_pass: return {"ok": True, "name": root_login, "role": "SUPER_ADMIN"}
-        user = db.query(User).filter(User.name == u, User.pin == p).first()
-        if user: return {"ok": True, "name": user.name, "role": user.role}
-        raise HTTPException(status_code=401, detail="Błędny PIN!")
+        if user and user.role in ["ADMIN", "MANAGER", "TEAM_LEADER", "SUPER_ADMIN"]:
+            return build_login_response(user.name, user.role, user)
+        raise HTTPException(status_code=401, detail="BÅ‚Ä™dny Login/PIN lub brak uprawnieÅ„!")
+
+    if u == root_login and p == root_pass:
+        return build_login_response(root_login, "SUPER_ADMIN")
+    user = db.query(User).filter(User.name == u, User.pin == p).first()
+    if user:
+        return build_login_response(user.name, user.role, user)
+    raise HTTPException(status_code=401, detail="BÅ‚Ä™dny PIN!")
 
 @app.post("/api/auth/change-pin")
 def change_pin(req: dict, db: Session = Depends(get_db)):
@@ -562,18 +583,18 @@ def change_pin(req: dict, db: Session = Depends(get_db)):
     root_login, root_pass = get_root_admin(db)
     
     if name == root_login:
-        if not is_admin and oldP != root_pass: return {"ok": False, "msg": "Stare hasło jest błędne"}
+        if not is_admin and oldP != root_pass: return {"ok": False, "msg": "Stare hasÅ‚o jest bÅ‚Ä™dne"}
         p_setting = db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first()
         if p_setting: p_setting.value = newP
         db.commit()
-        return {"ok": True, "msg": "Hasło Głównego Admina zostało zmienione!"}
+        return {"ok": True, "msg": "HasÅ‚o GÅ‚Ã³wnego Admina zostaÅ‚o zmienione!"}
 
     user = db.query(User).filter(User.name == name).first()
-    if not user: return {"ok": False, "msg": "Nie znaleziono użytkownika"}
-    if not is_admin and user.pin != oldP: return {"ok": False, "msg": "Stary PIN jest błędny"}
+    if not user: return {"ok": False, "msg": "Nie znaleziono uÅ¼ytkownika"}
+    if not is_admin and user.pin != oldP: return {"ok": False, "msg": "Stary PIN jest bÅ‚Ä™dny"}
     user.pin = newP
     db.commit()
-    return {"ok": True, "msg": "Hasło/PIN zostało zmienione!"}
+    return {"ok": True, "msg": "HasÅ‚o/PIN zostaÅ‚o zmienione!"}
 
 @app.post("/api/emp/dashboard")
 def get_emp_dash(req: dict, db: Session = Depends(get_db)):
@@ -585,8 +606,8 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     
     db_acts = db.query(Activity).order_by(Activity.sort_order, Activity.name).all()
     activityColors = {a.name: a.color for a in db_acts}
-    activityColors["Chory 🤒"] = "#FF3B30"; activityColors["Urlop 🌴"] = "#FFCC00"
-    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#8B0000"
+    activityColors["Chory ðŸ¤’"] = "#FF3B30"; activityColors["Urlop ðŸŒ´"] = "#FFCC00"
+    activityColors["Wolne ðŸ "] = "#8E8E93"; activityColors["No Show âŒ"] = "#8B0000"
     
     user_db = db.query(User).filter(User.name == name).first()
     allowed_acts = []
@@ -624,13 +645,13 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
         return {"ok": False, "msg": "Blad uzytkownika"}
     group_db = db.query(UserGroup).filter(UserGroup.name == user_db.group_name).first()
     is_flexible = bool(group_db and group_db.is_flexible)
-    allowed_req_types = ["Dostępny", "Urlop 🌴", "Chory 🤒", "Wolne 🏠", "Wyczyść"]
+    allowed_req_types = ["DostÄ™pny", "Urlop ðŸŒ´", "Chory ðŸ¤’", "Wolne ðŸ ", "WyczyÅ›Ä‡"]
     
     for upd in updates:
         d_str, r_type, hrs = upd["date"], upd["act"], upd["hrs"]
         if r_type not in allowed_req_types:
             continue
-        if r_type == "Wyczyść":
+        if r_type == "WyczyÅ›Ä‡":
             db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").delete()
         else:
             existing = db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").first()
@@ -641,7 +662,7 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
     if is_flexible:
         for upd in updates:
             d_str, r_type, hrs = upd["date"], upd["act"], upd["hrs"]
-            if r_type == "WyczyÅ›Ä‡":
+            if r_type == "WyczyÃ…â€ºÃ„â€¡":
                 continue
             pending = db.query(Request).filter(Request.username == name, Request.date_str == d_str, Request.status == "Oczekuje").first()
             if pending:
@@ -682,8 +703,8 @@ def get_admin_data(db: Session = Depends(get_db)):
     
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
-    activityColors["Chory 🤒"] = "#FF3B30"; activityColors["Urlop 🌴"] = "#FFCC00"
-    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#8B0000"
+    activityColors["Chory ðŸ¤’"] = "#FF3B30"; activityColors["Urlop ðŸŒ´"] = "#FFCC00"
+    activityColors["Wolne ðŸ "] = "#8E8E93"; activityColors["No Show âŒ"] = "#8B0000"
 
     activities = [a.name for a in db_acts if (a.is_active is None or a.is_active == 1) and not (a.is_system or 0)]
     activity_tree = []
@@ -700,7 +721,7 @@ def get_admin_data(db: Session = Depends(get_db)):
             "is_system": parent.is_system or 0,
             "children": [{"id": c.id, "name": c.name, "color": c.color, "is_system": c.is_system or 0} for c in by_parent.get(parent.id, [])]
         })
-    planner_activities = list(set(activities + ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"]))
+    planner_activities = list(set(activities + ["Chory ðŸ¤’", "Urlop ðŸŒ´", "Wolne ðŸ ", "No Show âŒ"]))
     shifts = [s.value for s in db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift").all()]
     if not shifts: shifts = ["07:00-15:00", "08:00-16:00"]
     
@@ -722,7 +743,7 @@ def get_admin_data(db: Session = Depends(get_db)):
     for r in reversed(reqs):
         request_map[f"{r.username}_{r.date_str}"] = {"type": r.req_type, "hrs": r.hours, "status": r.status}
         if r.status == "Oczekuje": alerts.append({"id": r.id, "name": r.username, "date": r.date_str, "type": r.req_type, "hrs": r.hours, "ts": r.timestamp.strftime("%Y-%m-%d %H:%M")})
-        if r.req_type == "Dostępny" and r.status in ["Oczekuje", "Zatwierdzono"]:
+        if r.req_type == "DostÄ™pny" and r.status in ["Oczekuje", "Zatwierdzono"]:
             avail_map[f"{r.username}_{r.date_str}"] = r.hours
 
     enriched_alerts = []
@@ -774,12 +795,12 @@ def get_hr_details(req: dict, db: Session = Depends(get_db)):
     d_from = datetime.strptime(d_from_str, "%Y-%m-%d") if d_from_str else (now - timedelta(days=30))
     d_to = datetime.strptime(d_to_str, "%Y-%m-%d") if d_to_str else now
 
-    tracked_acts = ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"]
+    tracked_acts = ["Chory ðŸ¤’", "Urlop ðŸŒ´", "Wolne ðŸ ", "No Show âŒ"]
     schedules = db.query(Schedule).filter(Schedule.username == username, Schedule.date_str >= d_from.strftime("%Y-%m-%d"), Schedule.date_str <= d_to.strftime("%Y-%m-%d")).all()
-    stats = {"Praca": 0, "Chory 🤒": 0, "Urlop 🌴": 0, "Wolne 🏠": 0, "No Show ❌": 0}
+    stats = {"Praca": 0, "Chory ðŸ¤’": 0, "Urlop ðŸŒ´": 0, "Wolne ðŸ ": 0, "No Show âŒ": 0}
     for s in schedules:
         if s.activity in stats: stats[s.activity] += 1
-        elif s.activity and s.activity not in ["Brak planu", "Wyczyść"]: stats["Praca"] += 1
+        elif s.activity and s.activity not in ["Brak planu", "WyczyÅ›Ä‡"]: stats["Praca"] += 1
         
     eval_logs = db.query(EvaluationLog).filter(EvaluationLog.username == username).order_by(desc(EvaluationLog.eval_date)).all()
     history = [{
@@ -817,10 +838,10 @@ def get_eval_details(req: dict, db: Session = Depends(get_db)):
     end_date = eval_log.eval_date
     
     schedules = db.query(Schedule).filter(Schedule.username == eval_log.username, Schedule.date_str >= start_date.strftime("%Y-%m-%d"), Schedule.date_str <= end_date.strftime("%Y-%m-%d")).all()
-    stats = {"Praca": 0, "Chory 🤒": 0, "Urlop 🌴": 0, "Wolne 🏠": 0, "No Show ❌": 0}
+    stats = {"Praca": 0, "Chory ðŸ¤’": 0, "Urlop ðŸŒ´": 0, "Wolne ðŸ ": 0, "No Show âŒ": 0}
     for s in schedules:
         if s.activity in stats: stats[s.activity] += 1
-        elif s.activity and s.activity not in ["Brak planu", "Wyczyść"]: stats["Praca"] += 1
+        elif s.activity and s.activity not in ["Brak planu", "WyczyÅ›Ä‡"]: stats["Praca"] += 1
         
     return {
         "ok": True,
@@ -913,17 +934,17 @@ def change_emp_group(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/admin/alerts/resolve")
 def resolve_alert(req: dict, db: Session = Depends(get_db)):
     a_id, stat, name, date_str, a_type, hrs = req.get("id"), req.get("status"), req.get("name"), req.get("date"), req.get("type"), req.get("hrs")
-    if "hr_" in str(a_id): return {"ok": False, "msg": "Alerty HR zamykają się po zapisaniu Oceny w Karcie HR!"}
+    if "hr_" in str(a_id): return {"ok": False, "msg": "Alerty HR zamykajÄ… siÄ™ po zapisaniu Oceny w Karcie HR!"}
     db_req = db.query(Request).filter(Request.id == a_id).first()
     if db_req:
         db_req.status = stat
-        if stat == "Zatwierdzono" and a_type != "Dostępny":
+        if stat == "Zatwierdzono" and a_type != "DostÄ™pny":
             sched = db.query(Schedule).filter(Schedule.username == name, Schedule.date_str == date_str).first()
             if not sched:
                 sched = Schedule(username=name, date_str=date_str)
                 db.add(sched)
-            sched.activity = a_type if a_type != "Wyczyść" else ""
-            sched.hours = hrs if a_type != "Wyczyść" else ""
+            sched.activity = a_type if a_type != "WyczyÅ›Ä‡" else ""
+            sched.hours = hrs if a_type != "WyczyÅ›Ä‡" else ""
             sched.is_override = 1 
         db.commit()
     return {"ok": True, "msg": "Wniosek rozpatrzony!"}
@@ -935,18 +956,18 @@ def resolve_mass_alerts(req: dict, db: Session = Depends(get_db)):
     reqs = db.query(Request).filter(Request.id.in_(filtered_ids)).all()
     for db_req in reqs:
         db_req.status = stat
-        if stat == "Zatwierdzono" and db_req.req_type != "Dostępny":
+        if stat == "Zatwierdzono" and db_req.req_type != "DostÄ™pny":
             sched = db.query(Schedule).filter(Schedule.username == db_req.username, Schedule.date_str == db_req.date_str).first()
             if not sched:
                 sched = Schedule(username=db_req.username, date_str=db_req.date_str)
                 db.add(sched)
-            sched.activity = db_req.req_type if db_req.req_type != "Wyczyść" else ""
-            sched.hours = db_req.hours if db_req.req_type != "Wyczyść" else ""
+            sched.activity = db_req.req_type if db_req.req_type != "WyczyÅ›Ä‡" else ""
+            sched.hours = db_req.hours if db_req.req_type != "WyczyÅ›Ä‡" else ""
             sched.is_override = 1
     db.commit()
     hr_skipped = len(ids) - len(filtered_ids)
-    msg = f"Przetworzono {len(reqs)} wniosków grafiku!"
-    if hr_skipped > 0: msg += f" (Pominięto {hr_skipped} alertów HR)"
+    msg = f"Przetworzono {len(reqs)} wnioskÃ³w grafiku!"
+    if hr_skipped > 0: msg += f" (PominiÄ™to {hr_skipped} alertÃ³w HR)"
     return {"ok": True, "msg": msg}
 
 @app.post("/api/admin/matrix/update")
@@ -1035,7 +1056,7 @@ def get_employee_workday(req: dict, db: Session = Depends(get_db)):
         "skaner": l.skaner or "",
         "wozek": l.wozek or ""
     } for l in logs]
-    active = next((l for l in logs if not l.end_time and l.task_name != "Zakończenie pracy"), None)
+    active = next((l for l in logs if not l.end_time and l.task_name != "ZakoÅ„czenie pracy"), None)
     return {
         "ok": True,
         "employee": user_payload(user, group),
@@ -1063,7 +1084,7 @@ def copy_daily(req: dict, db: Session = Depends(get_db)):
     while curr <= end_dt:
         t_query = curr.strftime("%Y-%m-%d")
         for s in source_schedules:
-            if s.activity and s.activity != "Wyczyść":
+            if s.activity and s.activity != "WyczyÅ›Ä‡":
                 target_s = db.query(Schedule).filter(Schedule.username == s.username, Schedule.date_str == t_query).first()
                 if not target_s:
                     target_s = Schedule(username=s.username, date_str=t_query)
@@ -1104,14 +1125,14 @@ def import_excel(req: dict, db: Session = Depends(get_db)):
         db.flush()
         db.add(MasterGroup(name="Bez master grupy"))
         db.add(MasterGroup(name="Magazyn"))
-        db.add(UserGroup(name="Nieprzypisani", master_group="Bez master grupy", emp_type="Stały", allowed_activities="[]", is_flexible=0))
+        db.add(UserGroup(name="Nieprzypisani", master_group="Bez master grupy", emp_type="StaÅ‚y", allowed_activities="[]", is_flexible=0))
         imported_groups = []
         for row in rows:
             group_name = row["group"]
             if group_name not in imported_groups:
                 imported_groups.append(group_name)
             if not db.query(UserGroup).filter(UserGroup.name == group_name).first():
-                db.add(UserGroup(name=group_name, master_group="Magazyn", emp_type="Stały", allowed_activities="[]", is_flexible=0))
+                db.add(UserGroup(name=group_name, master_group="Magazyn", emp_type="StaÅ‚y", allowed_activities="[]", is_flexible=0))
 
         privileged_roles = ["ADMIN", "MANAGER", "TEAM_LEADER", "SUPER_ADMIN"]
         db.query(User).filter(~User.role.in_(privileged_roles)).delete(synchronize_session=False)
@@ -1137,7 +1158,7 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
     try:
         if action == "ADD":
             if t == "employee": 
-                if db.query(User).filter(User.name == val).first(): return {"ok": False, "msg": "Użytkownik już istnieje!"}
+                if db.query(User).filter(User.name == val).first(): return {"ok": False, "msg": "UÅ¼ytkownik juÅ¼ istnieje!"}
                 db.add(User(global_id=generate_global_id(db), name=val, pin="1111", role=req.get("role", "EMPLOYEE"), group_name="Nieprzypisani", hire_date=get_now(), eval_count=0))
             elif t == "shift": db.add(GlobalSetting(setting_type="shift", value=val))
             elif t == "activity": 
@@ -1156,7 +1177,7 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                     master_name = req.get("master_group") or "Bez master grupy"
                     if not db.query(MasterGroup).filter(MasterGroup.name == master_name).first():
                         db.add(MasterGroup(name=master_name))
-                    db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), master_group=master_name, is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
+                    db.add(UserGroup(name=val, emp_type=req.get("emp_type", "StaÅ‚y"), master_group=master_name, is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
         elif action == "EDIT_USER_ROLE":
             user = db.query(User).filter(User.name == val).first()
             if user:
@@ -1246,7 +1267,7 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
         return {"ok": False, "msg": str(e)}
 
 # ==========================================
-# 5. MODUŁ 2: V-MAX (CZAS PRACY I SKANERY)
+# 5. MODUÅ 2: V-MAX (CZAS PRACY I SKANERY)
 # ==========================================
 @app.get("/api/config")
 def get_vmax_config(db: Session = Depends(get_db)):
@@ -1279,7 +1300,7 @@ def get_user_history(req: dict, db: Session = Depends(get_db)):
         if not month or log.date_str.startswith(month):
             czas_str = format_dur(calc_mins(log.start_time, log.end_time)) if log.end_time else "-"
             hist_data.append({"data": log.date_str, "zadanie": log.task_name, "start": log.start_time.strftime("%H:%M"), "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa...", "czas": czas_str, "skaner": log.skaner, "wozek": log.wozek})
-        if not log.end_time and not current_task and log.task_name != "Zakończenie pracy":
+        if not log.end_time and not current_task and log.task_name != "ZakoÅ„czenie pracy":
             current_task = {"name": log.task_name, "skaner": log.skaner, "wozek": log.wozek, "start_time": log.start_time.strftime("%H:%M")}
     return {"hist": hist_data, "currentTask": current_task}
 
@@ -1291,8 +1312,8 @@ def user_action(req: dict, db: Session = Depends(get_db)):
     date_str = now.strftime("%Y-%m-%d")
     
     if act_type in ["START", "TASK"]:
-        if skaner and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Skaner zajęty przez kogoś innego!")
-        if wozek and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Wózek zajęty przez kogoś innego!")
+        if skaner and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Skaner zajÄ™ty przez kogoÅ› innego!")
+        if wozek and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="WÃ³zek zajÄ™ty przez kogoÅ› innego!")
 
     active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
     if active_log and act_type == "TASK":
@@ -1304,15 +1325,15 @@ def user_action(req: dict, db: Session = Depends(get_db)):
         db.commit()
         
     if act_type in ["START", "TASK"]: db.add(WorkLog(username=user, task_name=task, start_time=now, date_str=date_str, skaner=skaner, wozek=wozek))
-    elif act_type == "STOP": db.add(WorkLog(username=user, task_name="Zakończenie pracy", start_time=now, end_time=now, date_str=date_str))
+    elif act_type == "STOP": db.add(WorkLog(username=user, task_name="ZakoÅ„czenie pracy", start_time=now, end_time=now, date_str=date_str))
     db.commit()
     return get_user_history({"username": user}, db)
 
 @app.post("/api/user/equipment")
 def update_equipment(req: dict, db: Session = Depends(get_db)):
     user, skaner, wozek = str(req.get("username", "")).strip(), str(req.get("skaner", "")).strip(), str(req.get("wozek", "")).strip()
-    if skaner and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Skaner jest już w użyciu!")
-    if wozek and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Wózek jest już w użyciu!")
+    if skaner and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.skaner == skaner, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="Skaner jest juÅ¼ w uÅ¼yciu!")
+    if wozek and db.query(WorkLog).filter(WorkLog.end_time == None, WorkLog.wozek == wozek, WorkLog.username != user).first(): raise HTTPException(status_code=400, detail="WÃ³zek jest juÅ¼ w uÅ¼yciu!")
     active_log = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
     if active_log:
         active_log.skaner, active_log.wozek = skaner, wozek
@@ -1321,7 +1342,7 @@ def update_equipment(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/user/correct-task")
 def correct_task(req: dict, db: Session = Depends(get_db)):
-    last_log = db.query(WorkLog).filter(WorkLog.username == req.get("username"), WorkLog.task_name != "Zakończenie pracy").order_by(desc(WorkLog.id)).first()
+    last_log = db.query(WorkLog).filter(WorkLog.username == req.get("username"), WorkLog.task_name != "ZakoÅ„czenie pracy").order_by(desc(WorkLog.id)).first()
     if last_log:
         last_log.task_name = req.get("task")
         db.commit()
@@ -1374,7 +1395,7 @@ def close_live_session(req: dict, db: Session = Depends(get_db)):
     active = db.query(WorkLog).filter(WorkLog.username == user, WorkLog.end_time == None).first()
     if active:
         active.end_time = now
-        db.add(WorkLog(username=user, task_name="Zakończenie pracy", start_time=now, end_time=now, date_str=now.strftime("%Y-%m-%d")))
+        db.add(WorkLog(username=user, task_name="ZakoÅ„czenie pracy", start_time=now, end_time=now, date_str=now.strftime("%Y-%m-%d")))
         db.commit()
     return True
 
@@ -1383,7 +1404,7 @@ def close_all_live_sessions(db: Session = Depends(get_db)):
     now = get_now()
     for active in db.query(WorkLog).filter(WorkLog.end_time == None).all():
         active.end_time = now
-        db.add(WorkLog(username=active.username, task_name="Zakończenie pracy", start_time=now, end_time=now, date_str=now.strftime("%Y-%m-%d")))
+        db.add(WorkLog(username=active.username, task_name="ZakoÅ„czenie pracy", start_time=now, end_time=now, date_str=now.strftime("%Y-%m-%d")))
     db.commit()
     return True
 
@@ -1405,23 +1426,23 @@ def get_vmax_alerts(db: Session = Depends(get_db)):
     logs = db.query(WorkLog).filter(WorkLog.date_str == today).all()
     alerts = []
     replies = db.query(Message).filter(Message.is_read == 1, Message.reply != None, Message.is_archived == 0).all()
-    for r in replies: alerts.append({"type": "msg", "id": r.id, "date": r.timestamp.strftime("%Y-%m-%d"), "text": f"✉️ <b>{r.receiver}</b> odpisał: <i>{r.reply}</i>"})
+    for r in replies: alerts.append({"type": "msg", "id": r.id, "date": r.timestamp.strftime("%Y-%m-%d"), "text": f"âœ‰ï¸ <b>{r.receiver}</b> odpisaÅ‚: <i>{r.reply}</i>"})
     probs = db.query(Problem).filter(Problem.is_resolved == 0).all()
-    for p in probs: alerts.append({"type": "prob", "id": p.id, "date": p.timestamp.strftime("%Y-%m-%d"), "text": f"⚠️ PROBLEM ({p.username}): {p.description}"})
+    for p in probs: alerts.append({"type": "prob", "id": p.id, "date": p.timestamp.strftime("%Y-%m-%d"), "text": f"âš ï¸ PROBLEM ({p.username}): {p.description}"})
     dismissed = [d.alert_key for d in db.query(AlertDismiss).all()]
     for u in set([l.username for l in logs if l.is_autoclosed == 1]):
         key = f"sys_auto_{u}_{today}"
-        if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"🔴 {u}: System zamknął sesję (brak aktywności >15h)."})
+        if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"ðŸ”´ {u}: System zamknÄ…Å‚ sesjÄ™ (brak aktywnoÅ›ci >15h)."})
     for u in set([l.username for l in logs]):
         u_logs = [l for l in logs if l.username == u]
         break_mins = sum([calc_mins(l.start_time, l.end_time) for l in u_logs if "Przerwa" in l.task_name and l.end_time])
-        has_finished = any([l.end_time and l.task_name == "Zakończenie pracy" for l in u_logs])
+        has_finished = any([l.end_time and l.task_name == "ZakoÅ„czenie pracy" for l in u_logs])
         if break_mins == 0 and has_finished: 
             key = f"sys_nobreak_{u}_{today}"
-            if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"⚠️ {u}: Zakończył pracę bez przerwy."})
+            if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"âš ï¸ {u}: ZakoÅ„czyÅ‚ pracÄ™ bez przerwy."})
         elif break_mins > 40: 
             key = f"sys_longbreak_{u}_{today}"
-            if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"⏱️ {u}: Przekroczono limit przerwy ({break_mins} min)."})
+            if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"â±ï¸ {u}: Przekroczono limit przerwy ({break_mins} min)."})
     return alerts
 
 @app.post("/api/admin/alerts/dismiss-all")
@@ -1460,7 +1481,7 @@ def get_productivity_json(req: dict, db: Session = Depends(get_db)):
     d1, d2 = req.get("d1"), req.get("d2")
     chartData, headcount, workerDetails, packingStats = {}, {}, {}, {}
     for log in db.query(WorkLog).filter(WorkLog.date_str >= d1, WorkLog.date_str <= d2).all():
-        if log.task_name in ["Rozpoczęcie pracy", "Zakończenie pracy"]: continue
+        if log.task_name in ["RozpoczÄ™cie pracy", "ZakoÅ„czenie pracy"]: continue
         mins = calc_mins(log.start_time, log.end_time) if log.end_time else 0
         if mins > 0:
             act, u = log.task_name, log.username
@@ -1580,3 +1601,4 @@ def vmax_admin_db(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/admin/export")
 def vmax_export_placeholder(req: dict):
     return {"ok": False, "msg": "Eksport plikowy V-MAX zostanie podpiety w kolejnym etapie.", "url": ""}
+
