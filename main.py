@@ -333,7 +333,7 @@ def get_public_data(db: Session = Depends(get_db)):
     if root_login not in employees: employees.append(root_login)
     return {"employees": employees}
 
-# NUKLEARNY IMPORT Z EXCELA (HARD RESET)
+# NUKLEARNY IMPORT Z EXCELA (HARD RESET) - WERSJA Z BASE64
 @app.post("/api/admin/import-excel")
 def import_excel(req: dict, db: Session = Depends(get_db)):
     try:
@@ -344,6 +344,66 @@ def import_excel(req: dict, db: Session = Depends(get_db)):
         contents = base64.b64decode(b64_data)
         wb = openpyxl.load_workbook(io.BytesIO(contents))
         ws = wb.active
+        
+        # ---------------------------------------------------------
+        # CZYSZCZENIE TOTALNE (Zostaje tylko główne konto Admin)
+        # ---------------------------------------------------------
+        db.query(User).filter(User.role != "SUPER_ADMIN", User.name != "ADMIN").delete()
+        db.query(UserGroup).delete()
+        db.query(Schedule).delete()
+        db.query(WorkLog).delete()
+        db.query(Request).delete()
+        db.query(EvaluationLog).delete()
+        db.query(Competence).delete()
+        db.query(Productivity).delete()
+        db.query(Problem).delete()
+        db.query(Message).delete()
+        db.commit() 
+        # ---------------------------------------------------------
+        
+        # Pobieramy MAX ID z kont, które przetrwały czyszczenie (np. Admin)
+        users_left = db.query(User).all()
+        max_id = 0
+        seen_names = set()
+        
+        for u in users_left:
+            seen_names.add(u.name.lower().strip())
+            if u.global_id and str(u.global_id).isdigit():
+                max_id = max(max_id, int(u.global_id))
+        
+        headers = [cell.value for cell in ws[1] if cell.value]
+        for col_idx, group_name in enumerate(headers, start=1):
+            group_name = str(group_name).strip()
+            db.add(UserGroup(name=group_name, emp_type="Stały", allowed_activities="[]", is_flexible=0))
+            db.commit() 
+            
+            for row_idx in range(2, ws.max_row + 1):
+                emp_name = ws.cell(row=row_idx, column=col_idx).value
+                if emp_name:
+                    emp_name = str(emp_name).strip()
+                    
+                    # Zabezpieczenie przed duplikatami w Excelu
+                    if emp_name.lower() in seen_names:
+                        continue # Pomijamy osobę, jeśli już ją dodaliśmy
+                        
+                    seen_names.add(emp_name.lower())
+                    max_id += 1 # Ręcznie podbijamy ID w pętli
+                    new_global_id = f"{max_id:05d}"
+                    
+                    db.add(User(
+                        global_id=new_global_id,
+                        name=emp_name,
+                        pin="1111",
+                        role="EMPLOYEE",
+                        group_name=group_name,
+                        hire_date=get_now(),
+                        eval_count=0
+                    ))
+        db.commit()
+        return {"ok": True, "msg": "Baza zresetowana i zaimportowana z pliku pomyślnie!"}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "msg": f"Błąd importu pliku Excel: {str(e)}"}
         
         # ---------------------------------------------------------
         # CZYSZCZENIE TOTALNE (Zostaje tylko główne konto Admin)
