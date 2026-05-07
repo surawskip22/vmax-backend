@@ -671,6 +671,7 @@
                         </select>
                         <button class="btn-main" onclick="saveEmp()">Dodaj</button>
                     </div>
+                    <input type="text" id="cmsEmpSearch" placeholder="Szukaj po imieniu, nazwisku, grupie lub roli..." onkeyup="renderCMS()" style="width:100%; margin:10px 0 12px 0;">
                     <div id="cmsEmpList" style="max-height:300px; overflow-y:auto;"></div>
                 </div>
 
@@ -2170,7 +2171,10 @@
             const searchEmpInput = document.getElementById('cmsEmpSearch');
             const q = searchEmpInput ? searchEmpInput.value.toLowerCase() : "";
             
-            const filteredEmps = dbAdmin.employees.filter(e => e.name.toLowerCase().includes(q));
+            const filteredEmps = dbAdmin.employees.filter(e => {
+                const haystack = `${e.name || ''} ${e.group || ''} ${e.role || ''} ${e.id || ''}`.toLowerCase();
+                return haystack.includes(q);
+            });
             const masterSelect = document.getElementById('sGroupMaster');
             if(masterSelect) {
                 const currentMaster = masterSelect.value || "Bez master grupy";
@@ -2188,7 +2192,7 @@
                     roleSelect = `<span style="font-size:10px; font-weight:800; color:var(--ios-red); background:rgba(255,59,48,0.1); padding:4px 8px; border-radius:6px;">SUPER ADMIN (ROOT)</span>`;
                 } else {
                     roleSelect = `
-                    <select onchange="liveEditUserRole('${e.name}', this.value)" style="padding:6px; font-size:11px; font-weight:700; border-radius:8px; border:1px solid var(--border); outline:none;">
+                    <select class="cms-role-select" data-emp="${escapeHtml(e.name)}" style="padding:6px; font-size:11px; font-weight:700; border-radius:8px; border:1px solid var(--border); outline:none;">
                         <option value="EMPLOYEE" ${e.role==='EMPLOYEE'?'selected':''}>Pracownik</option>
                         <option value="TEAM_LEADER" ${e.role==='TEAM_LEADER'?'selected':''}>Team Leader</option>
                         <option value="MANAGER" ${e.role==='MANAGER'?'selected':''}>Manager</option>
@@ -2197,18 +2201,21 @@
                 }
 
                 return `
-                <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center;">
-                    <div>
-                        <b style="font-size:15px;">${e.name}</b><br>
-                        <span style="font-size:11px; color:gray; font-weight:600;">ID: ${e.id} | ${e.group || 'Nieprzypisani'}</span>
+                <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center; width:100%; box-sizing:border-box; gap:12px;">
+                    <div style="min-width:0; flex:1;">
+                        <b style="font-size:15px;">${escapeHtml(e.name)}</b><br>
+                        <span style="font-size:11px; color:gray; font-weight:600;">ID: ${escapeHtml(e.id)} | ${escapeHtml(e.group || 'Nieprzypisani')}</span>
                         <div style="margin-top:6px;">${roleSelect}</div>
                     </div> 
                     <div style="display:flex; gap:8px;">
-                        <button onclick="rstPin('${e.name}')" style="background:rgba(255,149,0,0.1); color:var(--ios-orange); border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; font-size:12px;">Reset PIN</button>
-                        ${!isSuper ? `<button onclick="delSet('employee','${e.name}')" style="${bS}">Usuń</button>` : ''}
+                        <button onclick="rstPin('${escapeHtml(e.name)}')" style="background:rgba(255,149,0,0.1); color:var(--ios-orange); border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; font-size:12px;">Reset PIN</button>
+                        ${!isSuper ? `<button onclick="delSet('employee','${escapeHtml(e.name)}')" style="${bS}">Usuń</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
+            document.querySelectorAll('#cmsEmpList .cms-role-select').forEach(sel => {
+                sel.addEventListener('change', () => liveEditUserRole(sel.dataset.emp, sel.value));
+            });
                 
             // GRUPY
             document.getElementById('cmsGroupList').innerHTML = dbAdmin.groups.map(g => {
