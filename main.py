@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse, FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, desc, text, event
@@ -8,7 +8,7 @@ import json
 import uuid
 import random
 import io
-import re  # <--- TUTAJ JEST ZGUBIONY IMPORT!
+import re
 from datetime import datetime, timedelta
 import zoneinfo
 import openpyxl
@@ -61,6 +61,7 @@ class User(Base):
     pin = Column(String)
     hire_date = Column(DateTime, default=get_now)
     last_eval_date = Column(DateTime, nullable=True)
+    next_eval_date = Column(DateTime, nullable=True)
     eval_count = Column(Integer, default=0)
     notes = Column(String, default="")
 
@@ -71,6 +72,7 @@ class EvaluationLog(Base):
     eval_date = Column(DateTime, default=get_now)
     rating = Column(Integer, default=3) 
     notes_snapshot = Column(String)
+    task_ratings = Column(String, default="{}")
 
 class GlobalSetting(Base):
     __tablename__ = "global_settings"
@@ -117,7 +119,6 @@ class Activity(Base):
     name = Column(String, unique=True)
     color = Column(String, default="#0A84FF") 
 
-# --- V-MAX Tabele ---
 class Scanner(Base):
     __tablename__ = "scanners"
     id = Column(Integer, primary_key=True, index=True)
@@ -183,13 +184,17 @@ def generate_global_id(db: Session):
             max_id = max(max_id, int(u.global_id))
     return f"{max_id + 1:05d}"
 
-# MIGRACJE BEZPIECZNE
+# MIGRACJE BEZPIECZNE (Z UWZGLĘDNIENIEM NOWYCH PÓL I KONWERSJI SKALI)
 with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE evaluation_logs ADD COLUMN rating INTEGER DEFAULT 3")); conn.commit()
+    except: conn.rollback()
+    try: conn.execute(text("ALTER TABLE evaluation_logs ADD COLUMN task_ratings VARCHAR DEFAULT '{}'")); conn.commit()
     except: conn.rollback()
     try: conn.execute(text("ALTER TABLE users ADD COLUMN hire_date TIMESTAMP")); conn.commit()
     except: conn.rollback()
     try: conn.execute(text("ALTER TABLE users ADD COLUMN last_eval_date TIMESTAMP")); conn.commit()
+    except: conn.rollback()
+    try: conn.execute(text("ALTER TABLE users ADD COLUMN next_eval_date TIMESTAMP")); conn.commit()
     except: conn.rollback()
     try: conn.execute(text("ALTER TABLE users ADD COLUMN eval_count INTEGER DEFAULT 0")); conn.commit()
     except: conn.rollback()
@@ -208,6 +213,12 @@ with engine.connect() as conn:
     try: conn.execute(text("ALTER TABLE user_groups ADD COLUMN is_flexible INTEGER DEFAULT 0")); conn.commit()
     except: conn.rollback()
     try: conn.execute(text("ALTER TABLE activities ADD COLUMN color VARCHAR DEFAULT '#0A84FF'")); conn.commit()
+    except: conn.rollback()
+    
+    # Przymusowa konwersja do skali 4-stopniowej
+    try: conn.execute(text("UPDATE evaluation_logs SET rating = 4 WHERE rating > 4")); conn.commit()
+    except: conn.rollback()
+    try: conn.execute(text("UPDATE competences SET rating = 4 WHERE rating > 4")); conn.commit()
     except: conn.rollback()
 
 with SessionLocal() as db:
@@ -320,6 +331,42 @@ def get_public_data(db: Session = Depends(get_db)):
     root_login, _ = get_root_admin(db)
     if root_login not in employees: employees.append(root_login)
     return {"employees": employees}
+
+@app.post("/api/admin/import-excel")
+async def import_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    try:
+        contents = await file.read()
+        wb = openpyxl.load_workbook(io.BytesIO(contents))
+        ws = wb.active
+        
+        # Bezpieczne czyszczenie bazy dla pracowników i grup, zachowujemy ADMINA
+        db.query(User).filter(User.role != "SUPER_ADMIN", User.name != "ADMIN").delete()
+        db.query(UserGroup).delete()
+        
+        headers = [cell.value for cell in ws[1] if cell.value]
+        for col_idx, group_name in enumerate(headers, start=1):
+            group_name = str(group_name).strip()
+            db.add(UserGroup(name=group_name, emp_type="Stały", allowed_activities="[]", is_flexible=0))
+            db.commit() # commit after group so users can attach correctly without constraint issues if any
+            
+            for row_idx in range(2, ws.max_row + 1):
+                emp_name = ws.cell(row=row_idx, column=col_idx).value
+                if emp_name:
+                    emp_name = str(emp_name).strip()
+                    db.add(User(
+                        global_id=generate_global_id(db),
+                        name=emp_name,
+                        pin="1111",
+                        role="EMPLOYEE",
+                        group_name=group_name,
+                        hire_date=get_now(),
+                        eval_count=0
+                    ))
+        db.commit()
+        return {"ok": True, "msg": "Zaimportowano bazę i utworzono grupy pomyślnie!"}
+    except Exception as e:
+        db.rollback()
+        return {"ok": False, "msg": f"Błąd importu pliku Excel: {str(e)}"}
 
 @app.post("/api/auth/login")
 def login(req: dict, db: Session = Depends(get_db)):
@@ -463,11 +510,14 @@ def get_admin_data(db: Session = Depends(get_db)):
     hr_alerts = []
     for u in db_users:
         if not u.hire_date or u.role == "SUPER_ADMIN": continue
-        days_since_hire = (now - u.hire_date).days
-        if u.eval_count == 0 and days_since_hire >= 14: hr_alerts.append({"id": f"hr_{u.name}_0", "name": u.name, "date": now.strftime("%Y-%m-%d"), "type": "Ocena (14 dni)", "hrs": "", "ts": now.strftime("%Y-%m-%d %H:%M")})
-        elif u.eval_count == 1 and days_since_hire >= 45: hr_alerts.append({"id": f"hr_{u.name}_1", "name": u.name, "date": now.strftime("%Y-%m-%d"), "type": "Ocena (1.5 mc)", "hrs": "", "ts": now.strftime("%Y-%m-%d %H:%M")})
-        elif u.eval_count >= 2 and u.last_eval_date:
-            if (now - u.last_eval_date).days >= 90: hr_alerts.append({"id": f"hr_{u.name}_{u.eval_count}", "name": u.name, "date": now.strftime("%Y-%m-%d"), "type": "Ocena Okresowa (3 mc)", "hrs": "", "ts": now.strftime("%Y-%m-%d %H:%M")})
+        if u.next_eval_date and u.next_eval_date <= now:
+            hr_alerts.append({"id": f"hr_{u.name}_custom", "name": u.name, "date": u.next_eval_date.strftime("%Y-%m-%d"), "type": "Planowana Ocena", "hrs": "", "ts": now.strftime("%Y-%m-%d %H:%M")})
+        else:
+            days_since_hire = (now - u.hire_date).days
+            if u.eval_count == 0 and days_since_hire >= 14: hr_alerts.append({"id": f"hr_{u.name}_0", "name": u.name, "date": now.strftime("%Y-%m-%d"), "type": "Ocena (14 dni)", "hrs": "", "ts": now.strftime("%Y-%m-%d %H:%M")})
+            elif u.eval_count == 1 and days_since_hire >= 45: hr_alerts.append({"id": f"hr_{u.name}_1", "name": u.name, "date": now.strftime("%Y-%m-%d"), "type": "Ocena (1.5 mc)", "hrs": "", "ts": now.strftime("%Y-%m-%d %H:%M")})
+            elif u.eval_count >= 2 and u.last_eval_date:
+                if (now - u.last_eval_date).days >= 90: hr_alerts.append({"id": f"hr_{u.name}_{u.eval_count}", "name": u.name, "date": now.strftime("%Y-%m-%d"), "type": "Ocena Okresowa (3 mc)", "hrs": "", "ts": now.strftime("%Y-%m-%d %H:%M")})
 
     root_login, _ = get_root_admin(db)
     return {"employees": employees, "groups": groups, "activityNames": activities, "plannerActivities": planner_activities, "activityColors": activityColors, "shifts": shifts, "ratingsMap": ratings_map, "planMap": plan_map, "alerts": alerts, "hrAlerts": hr_alerts, "availMap": avail_map, "capacityMap": capacity_map, "rootAdmin": root_login}
@@ -478,6 +528,7 @@ def get_hr_details(req: dict, db: Session = Depends(get_db)):
     if not username: return {"ok": False}
     user_db = db.query(User).filter(User.name == username).first()
     notes = user_db.notes if user_db and user_db.notes else ""
+    next_eval_date = user_db.next_eval_date.strftime("%Y-%m-%d") if user_db and user_db.next_eval_date else ""
     now = get_now()
     d_from = datetime.strptime(d_from_str, "%Y-%m-%d") if d_from_str else (now - timedelta(days=30))
     d_to = datetime.strptime(d_to_str, "%Y-%m-%d") if d_to_str else now
@@ -491,7 +542,7 @@ def get_hr_details(req: dict, db: Session = Depends(get_db)):
         
     eval_logs = db.query(EvaluationLog).filter(EvaluationLog.username == username).order_by(desc(EvaluationLog.eval_date)).all()
     history = [{"id": l.id, "date": l.eval_date.strftime("%Y-%m-%d"), "rating": l.rating, "notes": l.notes_snapshot} for l in eval_logs]
-    return {"ok": True, "stats": stats, "notes": notes, "history": history}
+    return {"ok": True, "stats": stats, "notes": notes, "next_eval_date": next_eval_date, "history": history}
 
 @app.post("/api/admin/employee/eval_details")
 def get_eval_details(req: dict, db: Session = Depends(get_db)):
@@ -510,19 +561,49 @@ def get_eval_details(req: dict, db: Session = Depends(get_db)):
         if s.activity in stats: stats[s.activity] += 1
         elif s.activity and s.activity not in ["Brak planu", "Wyczyść"]: stats["Praca"] += 1
         
-    return {"ok": True, "period": f"{start_date.strftime('%Y-%m-%d')} do {end_date.strftime('%Y-%m-%d')}", "stats": stats, "rating": eval_log.rating, "notes": eval_log.notes_snapshot}
+    task_ratings_dict = json.loads(eval_log.task_ratings) if eval_log.task_ratings else {}
+        
+    return {"ok": True, "period": f"{start_date.strftime('%Y-%m-%d')} do {end_date.strftime('%Y-%m-%d')}", "stats": stats, "rating": eval_log.rating, "notes": eval_log.notes_snapshot, "task_ratings": task_ratings_dict}
 
 @app.post("/api/admin/employee/hr_save")
 def save_hr_details(req: dict, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.name == req.get("username")).first()
     if user:
         user.notes = req.get("notes", "")
+        
+        if req.get("next_eval_date"):
+            try: user.next_eval_date = datetime.strptime(req.get("next_eval_date"), "%Y-%m-%d")
+            except: pass
+        else:
+            user.next_eval_date = None
+
         if req.get("is_evaluation"):
             user.eval_count += 1
             user.last_eval_date = get_now()
-            db.add(EvaluationLog(username=user.name, rating=int(req.get("rating", 3)), notes_snapshot=user.notes))
+            user.next_eval_date = None # Reset custom next date after evaluation
+            
+            rating = min(int(req.get("rating", 3)), 4)
+            task_ratings = req.get("task_ratings", {})
+            
+            db.add(EvaluationLog(
+                username=user.name, 
+                rating=rating, 
+                notes_snapshot=user.notes,
+                task_ratings=json.dumps(task_ratings)
+            ))
+            
+            # Aktualizacja pojedynczych kompetencji
+            for act, r in task_ratings.items():
+                r = min(int(r), 4)
+                comp = db.query(Competence).filter(Competence.username == user.name, Competence.activity == act).first()
+                if not comp:
+                    comp = Competence(username=user.name, activity=act, rating=r)
+                    db.add(comp)
+                else:
+                    comp.rating = r
+                    
         db.commit()
-    return {"ok": True, "msg": "Zapisano ewaluację i zaktualizowano alerty!" if req.get("is_evaluation") else "Zapisano notatki HR."}
+    return {"ok": True, "msg": "Zapisano ewaluację i zaktualizowano alerty!" if req.get("is_evaluation") else "Zapisano notatki HR i datę przeglądu."}
 
 @app.post("/api/admin/capacity/save")
 def save_capacity(req: dict, db: Session = Depends(get_db)):
@@ -585,7 +666,7 @@ def resolve_mass_alerts(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/admin/matrix/update")
 def update_matrix(req: dict, db: Session = Depends(get_db)):
-    name, act, rating = req.get("name"), req.get("activity"), req.get("rating")
+    name, act, rating = req.get("name"), req.get("activity"), min(int(req.get("rating")), 4)
     comp = db.query(Competence).filter(Competence.username == name, Competence.activity == act).first()
     if not comp:
         comp = Competence(username=name, activity=act)
@@ -858,17 +939,25 @@ def edit_live_session(req: dict, db: Session = Depends(get_db)):
 
 @app.get("/api/admin/alerts")
 def get_vmax_alerts(db: Session = Depends(get_db)):
-    today = get_now().strftime("%Y-%m-%d")
+    today_time = get_now()
+    today = today_time.strftime("%Y-%m-%d")
     logs = db.query(WorkLog).filter(WorkLog.date_str == today).all()
     alerts = []
+    
+    # 1. Zwykłe alerty V-MAX (problemy i wiadomości)
     replies = db.query(Message).filter(Message.is_read == 1, Message.reply != None, Message.is_archived == 0).all()
     for r in replies: alerts.append({"type": "msg", "id": r.id, "date": r.timestamp.strftime("%Y-%m-%d"), "text": f"✉️ <b>{r.receiver}</b> odpisał: <i>{r.reply}</i>"})
+    
     probs = db.query(Problem).filter(Problem.is_resolved == 0).all()
     for p in probs: alerts.append({"type": "prob", "id": p.id, "date": p.timestamp.strftime("%Y-%m-%d"), "text": f"⚠️ PROBLEM ({p.username}): {p.description}"})
+    
     dismissed = [d.alert_key for d in db.query(AlertDismiss).all()]
+    
+    # 2. Systemowe auto-zamknięcia i przerwy
     for u in set([l.username for l in logs if l.is_autoclosed == 1]):
         key = f"sys_auto_{u}_{today}"
         if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"🔴 {u}: System zamknął sesję (brak aktywności >15h)."})
+        
     for u in set([l.username for l in logs]):
         u_logs = [l for l in logs if l.username == u]
         break_mins = sum([calc_mins(l.start_time, l.end_time) for l in u_logs if "Przerwa" in l.task_name and l.end_time])
@@ -879,6 +968,31 @@ def get_vmax_alerts(db: Session = Depends(get_db)):
         elif break_mins > 40: 
             key = f"sys_longbreak_{u}_{today}"
             if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"⏱️ {u}: Przekroczono limit przerwy ({break_mins} min)."})
+            
+    # 3. CROSS-CHECK ALERTS (Grafik vs V-MAX)
+    schedules = db.query(Schedule).filter(Schedule.date_str == today).all()
+    for s in schedules:
+        if not s.hours or "-" not in s.hours: continue
+        try:
+            st_str, en_str = s.hours.split("-")
+            st_dt = datetime.strptime(f"{today} {st_str}", "%Y-%m-%d %H:%M")
+            en_dt = datetime.strptime(f"{today} {en_str}", "%Y-%m-%d %H:%M")
+            
+            u_logs = [l for l in logs if l.username == s.username]
+            
+            # Brak Odbicia (No Show) na start
+            if today_time > st_dt + timedelta(minutes=5) and len(u_logs) == 0:
+                key = f"sys_noshow_{s.username}_{today}"
+                if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"🔴 CROSS-CHECK ({s.username}): Brak odbicia na wejściu (Plan: {s.hours})."})
+            
+            # Nadgodziny / Brak wylogowania po końcu
+            active = [l for l in u_logs if l.end_time is None]
+            if today_time > en_dt + timedelta(minutes=5) and len(active) > 0:
+                key = f"sys_nologout_{s.username}_{today}"
+                if key not in dismissed: alerts.append({"type": "sys", "id": key, "date": today, "text": f"🔴 CROSS-CHECK ({s.username}): Przekroczony czas pracy i wciąż otwarta sesja (Plan: {s.hours})."})
+        except Exception:
+            pass
+
     return alerts
 
 @app.post("/api/admin/alerts/dismiss-all")
