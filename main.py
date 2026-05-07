@@ -867,9 +867,9 @@ def import_excel(req: dict, db: Session = Depends(get_db)):
         db.query(GroupAccess).delete()
         db.query(UserGroup).delete()
         db.query(MasterGroup).delete()
+        db.flush()
         db.add(MasterGroup(name="Bez master grupy"))
-        if not db.query(MasterGroup).filter(MasterGroup.name == "Magazyn").first():
-            db.add(MasterGroup(name="Magazyn"))
+        db.add(MasterGroup(name="Magazyn"))
         db.add(UserGroup(name="Nieprzypisani", master_group="Bez master grupy", emp_type="Stały", allowed_activities="[]", is_flexible=0))
         imported_groups = []
         for row in rows:
@@ -921,7 +921,10 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                     db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), master_group=master_name, is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
         elif action == "EDIT_USER_ROLE":
             user = db.query(User).filter(User.name == val).first()
-            if user: user.role = req.get("role", "EMPLOYEE")
+            if user:
+                user.role = req.get("role", "EMPLOYEE")
+                if user.role == "EMPLOYEE":
+                    db.query(GroupAccess).filter(GroupAccess.username == user.name).delete()
         elif action == "EDIT_ACTIVITY_COLOR":
             act = db.query(Activity).filter(Activity.name == val).first()
             if act: act.color = req.get("color", "#0A84FF")
@@ -935,6 +938,31 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 if not db.query(MasterGroup).filter(MasterGroup.name == master_name).first():
                     db.add(MasterGroup(name=master_name))
                 grp.master_group = master_name
+        elif action == "EDIT_GROUP_NAME":
+            new_name = str(req.get("new_value", "")).strip()
+            grp = db.query(UserGroup).filter(UserGroup.name == val).first()
+            if not grp:
+                return {"ok": False, "msg": "Grupa nie istnieje."}
+            if not new_name:
+                return {"ok": False, "msg": "Nowa nazwa grupy jest pusta."}
+            if new_name != val and db.query(UserGroup).filter(UserGroup.name == new_name).first():
+                return {"ok": False, "msg": "Grupa o takiej nazwie juz istnieje."}
+            grp.name = new_name
+            db.query(User).filter(User.group_name == val).update({"group_name": new_name})
+            db.query(GroupAccess).filter(GroupAccess.group_name == val).update({"group_name": new_name})
+        elif action == "EDIT_MASTER_GROUP_NAME":
+            new_name = str(req.get("new_value", "")).strip()
+            master = db.query(MasterGroup).filter(MasterGroup.name == val).first()
+            if not master:
+                return {"ok": False, "msg": "Master grupa nie istnieje."}
+            if val == "Bez master grupy":
+                return {"ok": False, "msg": "Nie mozna zmienic nazwy systemowej master grupy."}
+            if not new_name:
+                return {"ok": False, "msg": "Nowa nazwa master grupy jest pusta."}
+            if new_name != val and db.query(MasterGroup).filter(MasterGroup.name == new_name).first():
+                return {"ok": False, "msg": "Master grupa o takiej nazwie juz istnieje."}
+            master.name = new_name
+            db.query(UserGroup).filter(UserGroup.master_group == val).update({"master_group": new_name})
         elif action == "UPDATE_GROUP_ACCESS":
             db.query(GroupAccess).filter(GroupAccess.username == val).delete()
             for group_name in req.get("groups", []):
