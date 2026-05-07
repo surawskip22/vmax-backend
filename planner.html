@@ -95,7 +95,7 @@
         }
 
         /* ==========================================
-           UKÅAD EKRANÃ“W
+           UKŁAD EKRANÓW
            ========================================== */
         .app-screen {
             display: none;
@@ -132,12 +132,12 @@
             flex-direction: column;
         }
 
-        /* NAPRAWA ROZJEÅ»DÅ»AJÄ„CYCH SIÄ˜ GUZIKÃ“W CMS (ZDJÄ˜CIE) */
+        /* NAPRAWA ROZJEŻDŻAJĄCYCH SIĘ GUZIKÓW CMS (ZDJĘCIE) */
         .input-group {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
-            flex-wrap: wrap; /* To naprawia ucinanie przyciskÃ³w */
+            flex-wrap: wrap; /* To naprawia ucinanie przycisków */
             align-items: center;
         }
 
@@ -188,7 +188,7 @@
         }
 
         /* ==========================================
-           GRID CMS I ZESPÃ“Å
+           GRID CMS I ZESPÓŁ
            ========================================== */
         .cms-grid {
             display: grid;
@@ -274,7 +274,7 @@
         }
 
         .kanban-col {
-            flex: 1 1 240px; /* Minimalnie 240px, Å‚adnie siÄ™ dopasowuje */
+            flex: 1 1 240px; /* Minimalnie 240px, ładnie się dopasowuje */
             max-width: 320px;
             background: rgba(255,255,255,0.7);
             border-radius: 16px;
@@ -399,24 +399,6 @@
             .modal { width: 95vw; padding: 20px; }
             .excel-table th, .excel-table td { padding: 10px; font-size: 11px; }
         }
-        .scroll-panel { max-height: calc(100vh - 180px); overflow-y: auto; padding-right: 6px; }
-        .toolbar-field { display:flex; flex-direction:column; gap:5px; min-width:160px; }
-        .toolbar-field label { font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
-        .accordion-card { background:white; border:1px solid var(--border); border-radius:18px; margin-bottom:16px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.04); }
-        .accordion-card > summary { cursor:pointer; list-style:none; padding:18px 22px; font-size:18px; font-weight:900; display:flex; justify-content:space-between; align-items:center; }
-        .accordion-card > summary::-webkit-details-marker { display:none; }
-        .accordion-body { padding:0 22px 22px; }
-        .status-pulse { animation: statusPulse 1.6s ease-in-out infinite; }
-        @keyframes statusPulse { 0%,100% { box-shadow:0 0 0 0 rgba(255,149,0,.25); } 50% { box-shadow:0 0 0 7px rgba(255,149,0,.08); } }
-        .status-NO_SHOW { border:2px solid #8B0000 !important; background:#fff5f5 !important; }
-        .status-LATE { border:2px solid var(--ios-orange) !important; background:#fff8ed !important; }
-        .status-AD_HOC { border:2px solid var(--ios-purple) !important; background:#f8f2ff !important; }
-        .rating-badge { padding:3px 7px; border-radius:8px; font-size:10px; font-weight:900; display:inline-block; }
-        .rating-1 { background:rgba(255,59,48,.12); color:var(--ios-red); }
-        .rating-2 { background:rgba(255,149,0,.14); color:var(--ios-orange); }
-        .rating-3 { background:rgba(10,132,255,.12); color:var(--ios-blue); }
-        .rating-4 { background:rgba(52,199,89,.14); color:var(--ios-green); }
-        .rating-empty { background:rgba(0,0,0,.05); color:var(--text-muted); }
     
         .wf-switcher {
             position: fixed;
@@ -445,6 +427,33 @@
             color: #fff;
             background: var(--ios-red);
         }
+
+        .alerts-scroll-box {
+            max-height: calc(100vh - 280px);
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .alerts-two-col {
+            display: grid;
+            grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.3fr);
+            gap: 20px;
+            align-items: start;
+        }
+        .alerts-right-list {
+            max-height: calc(100vh - 320px);
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .alerts-sticky-card {
+            position: sticky;
+            top: 0;
+        }
+        @media (max-width: 980px) {
+            .alerts-two-col { grid-template-columns: 1fr; }
+            .alerts-sticky-card { position: static; }
+            .alerts-right-list { max-height: none; overflow-y: visible; }
+            .alerts-scroll-box { max-height: none; overflow-y: visible; }
+        }
     </style>
 </head>
 <body>
@@ -465,17 +474,17 @@
         <div class="landing-wrapper">
             <div style="text-align:center; margin-bottom: 30px;">
                 <div style="background: linear-gradient(135deg, var(--ios-blue), var(--ios-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 42px; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px;">WorkFlow Planner</div>
-                <p style="color:var(--text-muted); font-size:16px; font-weight:500;">ModuÅ‚ 1: WorkFlow Planner</p>
+                <p style="color:var(--text-muted); font-size:16px; font-weight:500;">WorkFlow Planner</p>
             </div>
             <div class="landing-box">
                 <div class="glass-card landing-card" onclick="openScreen('screen-emp-login')">
-                    <div style="font-size: 50px; margin-bottom:15px;">ðŸ§‘â€ðŸ’»</div>
+                    <div style="font-size: 50px; margin-bottom:15px;">🧑‍💻</div>
                     <h2 style="margin:0; font-weight:800; font-size:20px;">Pracownik</h2>
-                    <p style="color:var(--text-muted); font-size:12px; margin-top:5px;">DostÄ™pnoÅ›Ä‡, URLOP, TwÃ³j Grafik</p>
+                    <p style="color:var(--text-muted); font-size:12px; margin-top:5px;">Dostępność, URLOP, Twój Grafik</p>
                 </div>
                 <div class="glass-card landing-card" onclick="openScreen('screen-admin-login')">
-                    <div style="font-size: 50px; margin-bottom:15px;">ðŸ› ï¸</div>
-                    <h2 style="margin:0; font-weight:800; font-size:20px;">ZarzÄ…dzanie</h2>
+                    <div style="font-size: 50px; margin-bottom:15px;">🛠️</div>
+                    <h2 style="margin:0; font-weight:800; font-size:20px;">Zarządzanie</h2>
                     <p style="color:var(--text-muted); font-size:12px; margin-top:5px;">Lider, Manager, HR, Admin</p>
                 </div>
             </div>
@@ -487,15 +496,15 @@
          ========================================================= -->
     <div id="screen-emp-login" class="app-screen">
         <div style="padding: 15px 20px;">
-            <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">â† WrÃ³Ä‡</button>
+            <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
         </div>
         <div class="login-wrapper">
             <div class="glass-card login-card" style="min-width: unset;">
-                <h2 style="margin-top:0; font-weight:800; font-size:22px;">TwÃ³j Panel</h2>
-                <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Zaloguj siÄ™, aby podaÄ‡ dyspozycjÄ™.</p>
-                <input list="dlEmployees" id="elName" placeholder="Zacznij wpisywaÄ‡ nazwisko..." style="width:100%; margin-bottom:15px; font-weight:600;">
-                <input type="password" id="elPin" placeholder="KOD PIN / HasÅ‚o" style="width:100%; margin-bottom:20px; text-align:center; font-size:20px; letter-spacing:8px; font-weight:800;">
-                <button class="btn-main" onclick="doEmpLogin()" style="width:100%;">WejdÅº</button>
+                <h2 style="margin-top:0; font-weight:800; font-size:22px;">Twój Panel</h2>
+                <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Zaloguj się, aby podać dyspozycję.</p>
+                <input list="dlEmployees" id="elName" placeholder="Zacznij wpisywać nazwisko..." style="width:100%; margin-bottom:15px; font-weight:600;">
+                <input type="password" id="elPin" placeholder="KOD PIN / Hasło" style="width:100%; margin-bottom:20px; text-align:center; font-size:20px; letter-spacing:8px; font-weight:800;">
+                <button class="btn-main" onclick="doEmpLogin()" style="width:100%;">Wejdź</button>
             </div>
         </div>
     </div>
@@ -505,14 +514,14 @@
          ========================================================= -->
     <div id="screen-admin-login" class="app-screen">
         <div style="padding: 15px 20px;">
-            <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">â† WrÃ³Ä‡</button>
+            <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
         </div>
         <div class="login-wrapper">
             <div class="glass-card login-card" style="min-width: unset;">
-                <h2 style="margin-top:0; font-weight:800; font-size:22px;">Panel ZarzÄ…dzania</h2>
+                <h2 style="margin-top:0; font-weight:800; font-size:22px;">Panel Zarządzania</h2>
                 <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Wymagane uprawnienia min. Team Leader.</p>
                 <input list="dlEmployees" id="lUser" placeholder="Login / Nazwisko" style="width:100%; margin-bottom:15px; font-weight:600;">
-                <input type="password" id="lPass" placeholder="HasÅ‚o / PIN" style="width:100%; margin-bottom:20px;">
+                <input type="password" id="lPass" placeholder="Hasło / PIN" style="width:100%; margin-bottom:20px;">
                 <button class="btn-main" style="width:100%;" onclick="doAdminLogin()">Autoryzuj</button>
             </div>
         </div>
@@ -523,8 +532,8 @@
          ========================================================= -->
     <div id="screen-emp-dash" class="app-screen">
         <div class="nav">
-            <div class="nav-btn active" onclick="switchEmpTab('eGrafik')">ðŸ“… MÃ³j Kalendarz</div>
-            <div class="nav-btn" onclick="switchEmpTab('eUstawienia')">âš™ï¸ Ustawienia</div>
+            <div class="nav-btn active" onclick="switchEmpTab('eGrafik')">📅 Mój Kalendarz</div>
+            <div class="nav-btn" onclick="switchEmpTab('eUstawienia')">⚙️ Ustawienia</div>
             <div class="nav-btn" onclick="logoutWorkflow()" style="color:var(--ios-red);">Wyloguj</div>
         </div>
         
@@ -532,20 +541,20 @@
             <h2 id="empWelcomeTitle" style="font-weight:800; font-size:24px; margin-top:0; margin-bottom:20px;">Witaj!</h2>
             
             <div class="tools" style="border-radius:16px; margin-bottom:20px;">
-                <button class="btn-main" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;" onclick="changeEmpMonth(-1)">â† Poprz.</button>
-                <h2 style="margin:0; font-weight:800; font-size:18px;" id="empMonthTitle">MiesiÄ…c</h2>
-                <button class="btn-main" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;" onclick="changeEmpMonth(1)">Nast. â†’</button>
+                <button class="btn-main" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;" onclick="changeEmpMonth(-1)">← Poprz.</button>
+                <h2 style="margin:0; font-weight:800; font-size:18px;" id="empMonthTitle">Miesiąc</h2>
+                <button class="btn-main" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;" onclick="changeEmpMonth(1)">Nast. →</button>
             </div>
             
             <div style="background:white; padding:15px; border-radius:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; box-shadow:0 5px 15px rgba(0,0,0,0.02); margin-bottom:20px;">
-                <span style="font-size:18px;">ðŸ–Œï¸ ZgÅ‚oÅ› dyspozycjÄ™:</span>
+                <span style="font-size:18px;">🖌️ Zgłoś dyspozycję:</span>
                 <select id="empBrushAct" style="flex:1; min-width:120px; font-weight:700; color:var(--ios-blue); border:none;"></select>
                 <input type="text" id="empBrushHrs" list="dlShifts" placeholder="Godziny..." style="width:120px;">
-                <button id="eBtn" onclick="toggleEmpBrush()" style="background:transparent; border:2px dashed var(--ios-blue); padding:10px 15px; border-radius:12px; cursor:pointer; font-weight:800; color:var(--ios-blue);">PÄ˜DZEL: WYÅ</button>
+                <button id="eBtn" onclick="toggleEmpBrush()" style="background:transparent; border:2px dashed var(--ios-blue); padding:10px 15px; border-radius:12px; cursor:pointer; font-weight:800; color:var(--ios-blue);">PĘDZEL: WYŁ</button>
             </div>
             
             <div id="empSubmitBox" style="display:none; margin-bottom:20px;">
-                <button class="btn-main" style="width:100%; background:var(--ios-green);" onclick="submitEmpChanges()">WyÅ›lij zmiany do systemu ðŸš€</button>
+                <button class="btn-main" style="width:100%; background:var(--ios-green);" onclick="submitEmpChanges()">Wyślij zmiany do systemu 🚀</button>
             </div>
 
             <div id="empGrid" style="display:grid; grid-template-columns: 30px repeat(7, 1fr); gap:8px; width:100%;">
@@ -555,7 +564,7 @@
 
         <div id="eUstawienia" style="display:none; padding:20px; max-width:500px; margin:0 auto; width:100%;">
             <div class="glass-card" style="text-align:left; min-width:unset;">
-                <h3 style="margin-top:0;">ZmieÅ„ PIN logowania</h3>
+                <h3 style="margin-top:0;">Zmień PIN logowania</h3>
                 <input type="password" id="pOld" placeholder="Stary PIN" style="width:100%; margin-bottom:10px; letter-spacing:5px;">
                 <input type="password" id="pNew" placeholder="Nowy PIN" style="width:100%; margin-bottom:20px; letter-spacing:5px;">
                 <button class="btn-main" style="width:100%;" onclick="empChangePin()">Zapisz PIN</button>
@@ -564,48 +573,52 @@
     </div>
 
     <!-- =========================================================
-         PANEL ADMINISTRACJI / ZARZÄ„DZANIA
+         PANEL ADMINISTRACJI / ZARZĄDZANIA
          ========================================================= -->
     <div id="screen-admin" class="app-screen">
         <div class="nav">
-            <div class="nav-btn" onclick="showAdminView('vAlerts')">ðŸ”” Powiadomienia od pracownikÃ³w <span class="badge" id="aBadge">0</span></div>
-            <div class="nav-btn" onclick="showAdminView('vPlanner')">ðŸ“… Tygodniowy</div>
-            <div class="nav-btn active" onclick="showAdminView('vDaily')">â˜€ï¸ Dzienny Live</div>
-            <div class="nav-btn" onclick="showAdminView('vMatrix')">ðŸ‘¥ ZespÃ³Å‚ & Dossier</div>
-            <div class="nav-btn" onclick="showAdminView('vSettings')">âš™ï¸ Ustawienia CMS</div>
+            <div class="nav-btn" onclick="showAdminView('vAlerts')">🔔 Powiadomienia od pracowników <span class="badge" id="aBadge">0</span></div>
+            <div class="nav-btn" onclick="showAdminView('vHrAlerts')">⚠️ Oceny Okresowe <span class="badge" id="hBadge" style="background:var(--ios-purple);">0</span></div>
+            <div class="nav-btn" onclick="showAdminView('vPlanner')">📅 Tygodniowy</div>
+            <div class="nav-btn active" onclick="showAdminView('vDaily')">☀️ Dzienny Live</div>
+            <div class="nav-btn" onclick="showAdminView('vMatrix')">👥 Zespół & Dossier</div>
+            <div class="nav-btn" onclick="showAdminView('vSettings')">⚙️ Ustawienia CMS</div>
             <div class="nav-btn" onclick="logoutWorkflow()" style="color:var(--ios-red);">Wyloguj</div>
         </div>
 
-        <!-- 1. WNIOSKI Z GRAFIKU -->
-        <div id="vAlerts" class="admin-view" style="padding:20px; max-width:1180px; margin:0 auto; width:100%; overflow:hidden;">
+        <!-- 1. POWIADOMIENIA OD PRACOWNIKÓW -->
+        <div id="vAlerts" class="admin-view" style="padding:20px; max-width:900px; margin:0 auto; width:100%;">
             <h2 style="display:flex; justify-content:space-between; align-items:center;">
-                Wnioski o wolne / dostÄ™pnoÅ›Ä‡
-                <button id="alertBackBtn" onclick="renderAlertsGroupView()" class="btn-main" style="display:none; padding:8px 16px; font-size:12px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">â† WrÃ³Ä‡ do Grup</button>
+                Powiadomienia od pracowników
+                <button id="alertBackBtn" onclick="renderAlertsGroupView()" class="btn-main" style="display:none; padding:8px 16px; font-size:12px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">← Wróć do Grup</button>
             </h2>
-            <div class="tools" style="margin-bottom:15px;">
-                <select id="alertMasterFilter" onchange="renderAlertsGroupView()"><option value="ALL">Wszystkie master grupy</option></select>
-                <select id="alertGroupFilter" onchange="renderAlertsGroupView()"><option value="ALL">Wszystkie grupy</option></select>
-                <select id="alertTypeFilter" onchange="renderAlertsGroupView()">
-                    <option value="ALL">Wszystkie typy</option>
-                    <option value="NORMAL">Normalne</option>
-                    <option value="FLEXIBLE">Grupa elastyczna</option>
-                    <option value="HR">HR</option>
-                    <option value="SYSTEM">Systemowe</option>
+            <div class="input-group" style="margin-bottom:12px;">
+                <select id="alertsMasterGroupFilter" onchange="renderAlertsGroupView()" style="font-weight:600;">
+                    <option value="ALL">Master grupa: wszystkie</option>
                 </select>
-                <select id="alertSortFilter" onchange="renderAlertsGroupView()">
-                    <option value="newest">Najnowsze</option>
-                    <option value="oldest">Najstarsze</option>
-                    <option value="date">Data grafiku</option>
-                    <option value="employee">Pracownik</option>
-                    <option value="group">Grupa</option>
+                <select id="alertsGroupFilter" onchange="renderAlertsGroupView()" style="font-weight:600;">
+                    <option value="ALL">Grupa: wszystkie</option>
+                </select>
+                <select id="alertsTypeFilter" onchange="renderAlertsGroupView()" style="font-weight:600;">
+                    <option value="ALL">Typ: Wszystkie</option>
+                    <option value="NORMAL">Typ: Normalne</option>
+                    <option value="FLEXIBLE">Typ: Grupa elastyczna</option>
+                    <option value="HR">Typ: HR</option>
+                    <option value="SYSTEM">Typ: Systemowe</option>
+                </select>
+                <select id="alertsSortFilter" onchange="renderAlertsGroupView()" style="font-weight:600;">
+                    <option value="ts_desc">Sortuj: Najnowsze</option>
+                    <option value="ts_asc">Sortuj: Najstarsze</option>
+                    <option value="name_asc">Sortuj: Nazwisko A-Z</option>
+                    <option value="name_desc">Sortuj: Nazwisko Z-A</option>
                 </select>
             </div>
-            <div id="alertsGroupView" class="group-bubbles-container scroll-panel"></div>
-            <div id="alertsEmpView" class="scroll-panel" style="display:none;"></div>
-            <div id="alertsDetailView" class="scroll-panel" style="display:none;"></div>
+            <div id="alertsGroupView" class="group-bubbles-container alerts-scroll-box"></div>
+            <div id="alertsEmpView" class="alerts-scroll-box" style="display:none;"></div>
+            <div id="alertsDetailView" class="alerts-scroll-box" style="display:none;"></div>
         </div>
 
-        <!-- 2. NOWOÅšÄ†: TABELA ALERTÃ“W HR -->
+        <!-- 2. NOWOŚĆ: TABELA ALERTÓW HR -->
         <div id="vHrAlerts" class="admin-view" style="padding:20px; max-width:1100px; margin:0 auto; width:100%;">
             <h2 style="color:var(--ios-purple);">Terminarz Ocen Okresowych (HR)</h2>
             <div class="input-group">
@@ -614,7 +627,7 @@
                 </select>
                 <select id="hrAlertSort" onchange="renderHrAlertsTable()" style="font-weight:600;">
                     <option value="date_desc">Sortuj: Najpilniejsze (Najstarsze daty)</option>
-                    <option value="date_asc">Sortuj: Najnowsze (ÅšwieÅ¼e zgÅ‚oszenia)</option>
+                    <option value="date_asc">Sortuj: Najnowsze (Świeże zgłoszenia)</option>
                     <option value="type">Sortuj: Rodzaj oceny</option>
                 </select>
             </div>
@@ -630,7 +643,7 @@
                             <th style="text-align:right;">Akcja</th>
                         </tr>
                     </thead>
-                    <tbody id="hrAlertsTableBodyLegacy"></tbody>
+                    <tbody id="hrAlertsTableBody"></tbody>
                 </table>
             </div>
         </div>
@@ -638,10 +651,10 @@
         <!-- 3. PLANNER TYGODNIOWY -->
         <div id="vPlanner" class="admin-view">
             <div class="tools">
-                <input type="text" id="searchPlan" placeholder="ðŸ” Szukaj pracownika..." onkeyup="renderPlanner()" style="min-width:200px;">
+                <input type="text" id="searchPlan" placeholder="🔍 Szukaj pracownika..." onkeyup="renderPlanner()" style="min-width:200px;">
                 <select id="aMonth" style="font-weight:600;" onchange="renderPlanner()">
                     <option value="2">Marzec 2026</option>
-                    <option value="3" selected>KwiecieÅ„ 2026</option>
+                    <option value="3" selected>Kwiecień 2026</option>
                     <option value="4">Maj 2026</option>
                     <option value="5">Czerwiec 2026</option>
                 </select>
@@ -653,20 +666,19 @@
                 </select>
                 <select id="plannerAvailabilitySort" onchange="renderPlanner()" style="font-weight:600; min-width:170px;">
                     <option value="name">Sortuj: nazwisko</option>
-                    <option value="availability">Sortuj: dostÄ™pnoÅ›Ä‡ od</option>
+                    <option value="availability">Sortuj: dostępność od</option>
                 </select>
                 <select id="plannerZoom" onchange="setPlannerZoom()" style="font-weight:600; min-width:100px;">
                     <option value="0.8">80%</option>
                     <option value="1" selected>100%</option>
                     <option value="1.2">120%</option>
                 </select>
-                <label style="font-size:12px; font-weight:800; display:flex; gap:6px; align-items:center;"><input type="checkbox" id="showRatingsPlan" checked onchange="renderPlanner()" style="width:16px;"> PokaÅ¼ oceny</label>
                 <div style="background:rgba(0,0,0,0.03); padding:5px; border-radius:14px; display:flex; gap:5px; align-items:center;">
                     <select id="brushAct" style="background:transparent; border:none; font-weight:700; color:var(--ios-blue); min-width:120px;"></select>
                     <input type="text" id="brushHrs" list="dlShifts" placeholder="Godziny..." style="width:100px;">
-                    <button id="bBtn" onclick="toggleBrush()" style="background:white; border:1px solid rgba(0,0,0,0.1); padding:10px 15px; border-radius:10px; font-weight:800; font-size:12px;">PÄ˜DZEL: WYÅ</button>
+                    <button id="bBtn" onclick="toggleBrush()" style="background:white; border:1px solid rgba(0,0,0,0.1); padding:10px 15px; border-radius:10px; font-weight:800; font-size:12px;">PĘDZEL: WYŁ</button>
                 </div>
-                <button class="btn-main" style="background:var(--ios-purple);" onclick="openM('massModal')">ðŸš€ Masowo</button>
+                <button class="btn-main" style="background:var(--ios-purple);" onclick="openM('massModal')">🚀 Masowo</button>
             </div>
             <div class="planner-scroll">
                 <table><thead><tr id="pHead"></tr></thead><tbody id="pBody"></tbody></table>
@@ -676,92 +688,52 @@
         <!-- 4. PLANNER DZIENNY LIVE (KOMPAKTOWA SZACHOWNICA) -->
         <div id="vDaily" class="admin-view active">
             <div class="tools">
-                <div class="toolbar-field"><label>Zestaw aktywnoÅ›ci</label><select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); min-width:250px;">
-                    <option value="" selected disabled>ðŸ‘‡ AktywnoÅ›ci wg grupy...</option>
-                </select></div>
-                <div class="toolbar-field"><label>Osoby</label><select id="dailyPeopleFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-purple); min-width:250px;">
-                    <option value="ALL">Osoby: wszystkie dostÄ™pne grupy</option>
-                </select></div>
-                <div class="toolbar-field"><label>Szukaj osoby</label><input type="text" id="dailySearch" placeholder="Szukaj osoby..." onkeyup="renderDaily()" style="font-weight:700; min-width:220px;"></div>
-                <div class="toolbar-field"><label>Data</label><div style="display:flex; align-items:center; gap:5px; background:white; border-radius:12px; padding:4px; border:1px solid var(--border);">
-                    <button class="btn-main" onclick="changeDailyDate(-1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">â†</button>
+                <select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); min-width:250px;">
+                    <option value="" selected disabled>👇 Aktywności wg grupy...</option>
+                </select>
+                <select id="dailyPeopleFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-purple); min-width:250px;">
+                    <option value="ALL">Osoby: wszystkie dostępne grupy</option>
+                </select>
+                <div style="display:flex; align-items:center; gap:5px; background:white; border-radius:12px; padding:4px; border:1px solid var(--border);">
+                    <button class="btn-main" onclick="changeDailyDate(-1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">←</button>
                     <input type="date" id="dailyDate" onchange="renderDaily()" style="font-weight:800; border:none; background:transparent;">
-                    <button class="btn-main" onclick="changeDailyDate(1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">â†’</button>
-                </div></div>
-                <button class="btn-main" style="background:var(--ios-orange);" onclick="openCopyDaily()">ðŸ“‹ Kopiuj DzieÅ„</button>
+                    <button class="btn-main" onclick="changeDailyDate(1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">→</button>
+                </div>
+                <button class="btn-main" style="background:var(--ios-orange);" onclick="openCopyDaily()">📋 Kopiuj Dzień</button>
             </div>
             
             <div style="display:flex; flex:1; overflow:hidden;" id="dailyContainer">
-                <div class="kanban-col" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, 'WyczyÅ›Ä‡')">
+                <div class="kanban-col" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, 'Wyczyść')">
                     <h3 style="margin-top:0; border-bottom:1px solid var(--border); padding-bottom:10px;">
                         Wolni <span id="availCount" style="background:var(--ios-blue); color:white; padding:2px 8px; border-radius:8px; font-size:12px;">0</span>
                     </h3>
                     <div id="dailyAvailableList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
                 </div>
                 
-                <!-- TUTAJ ZADZIAÅA FLEX-WRAP (SZACHOWNICA) -->
+                <!-- TUTAJ ZADZIAŁA FLEX-WRAP (SZACHOWNICA) -->
                 <div id="dailyGrid">
                     <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600;">
-                        ðŸ‘† Wybierz grupÄ™ z menu, aby zaÅ‚adowaÄ‡ dostÄ™pne dla niej akcje.
+                        👆 Wybierz grupę z menu, aby załadować dostępne dla niej akcje.
                     </div>
-                </div>
-                <div class="kanban-col" style="max-width:310px; min-width:280px; border-left:1px solid var(--border);">
-                    <h3 style="margin-top:0;">Kontrola obecnoÅ›ci / V-MAX</h3>
-                    <div id="dailyPresencePanel" style="display:flex; flex-direction:column; gap:10px; overflow-y:auto;"></div>
                 </div>
             </div>
         </div>
 
-        <!-- 5. ZESPÃ“Å I DOSSIER HR -->
+        <!-- 5. ZESPÓŁ I DOSSIER HR -->
         <div id="vMatrix" class="admin-view" style="padding:20px; overflow-y:auto;">
-            <h2>ZarzÄ…dzanie SkÅ‚adem Grup</h2>
+            <h2>Zarządzanie Składem Grup</h2>
             <div id="groupBubbles" class="group-bubbles-container"></div>
             
             <hr style="margin:40px 0; border:none; border-top:2px dashed var(--border);">
 
             <h2>Karty HR (Dossier i Absencje)</h2>
             <div class="input-group">
-                <input type="text" id="hrSearchInput" placeholder="ðŸ” Szukaj pracownika..." onkeyup="renderHrCards()">
-                <select id="hrMasterSelect" onchange="syncHrGroupFilter(); renderHrCards()" style="font-weight:600;">
-                    <option value="ALL">Wszystkie master grupy</option>
-                </select>
+                <input type="text" id="hrSearchInput" placeholder="🔍 Szukaj pracownika..." onkeyup="renderHrCards()">
                 <select id="hrGroupSelect" onchange="renderHrCards()" style="font-weight:600;">
                     <option value="ALL">Wszystkie Grupy</option>
                 </select>
             </div>
-            <div class="glass-card" style="text-align:left; padding:14px; margin-bottom:14px;">
-                <b>Skala ocen 1-4:</b> 1/4 - wymaga opieki, 2/4 - podstawy pod nadzorem, 3/4 - samodzielny, 4/4 - moÅ¼e szkoliÄ‡ innych.
-            </div>
             <div id="hrCardsContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;"></div>
-
-            <hr style="margin:40px 0; border:none; border-top:2px dashed var(--border);">
-            <details class="accordion-card" open>
-                <summary>Oceny okresowe <span id="hBadge" class="badge" style="background:var(--ios-purple); display:none;">0</span></summary>
-                <div class="accordion-body">
-                    <div class="input-group">
-                        <select id="hrAlertMasterFilt" onchange="syncHrAlertGroupFilter(); renderHrAlertsTable()" style="font-weight:600;"><option value="ALL">Wszystkie master grupy</option></select>
-                        <select id="hrAlertGroupFilt" onchange="renderHrAlertsTable()" style="font-weight:600;"><option value="ALL">Wszystkie grupy</option></select>
-                        <select id="hrAlertStatusFilt" onchange="renderHrAlertsTable()" style="font-weight:600;">
-                            <option value="ALL">Wszystkie statusy</option>
-                            <option value="due">Po terminie</option>
-                            <option value="upcoming">NadchodzÄ…ce</option>
-                            <option value="never">Nigdy nieocenieni</option>
-                        </select>
-                        <select id="hrAlertSort" onchange="renderHrAlertsTable()" style="font-weight:600;">
-                            <option value="never">Nigdy nieocenieni najpierw</option>
-                            <option value="next">NajbliÅ¼sza ewaluacja</option>
-                            <option value="group">Grupa</option>
-                            <option value="name">Nazwisko</option>
-                        </select>
-                    </div>
-                    <div class="excel-table-wrapper">
-                        <table class="excel-table">
-                            <thead><tr><th>Pracownik</th><th>Global ID</th><th>Master</th><th>Grupa</th><th>Data rozpoczÄ™cia</th><th>Ostatnia</th><th>NastÄ™pna</th><th>Liczba</th><th>Status</th><th>Akcja</th></tr></thead>
-                            <tbody id="hrAlertsTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-            </details>
         </div>
 
         <!-- 6. CMS I USTAWIENIA -->
@@ -770,9 +742,9 @@
                 
                 <!-- KARTA 1: PRACOWNICY -->
                 <div class="glass-card" style="text-align:left;">
-                    <h3 style="margin-top:0;">ðŸ‘¥ Dodaj Pracownika</h3>
+                    <h3 style="margin-top:0;">👥 Dodaj Pracownika</h3>
                     <div class="input-group">
-                        <input type="text" id="sEmp" placeholder="ImiÄ™ Nazwisko">
+                        <input type="text" id="sEmp" placeholder="Imię Nazwisko">
                         <select id="sEmpRole" style="font-weight:700;">
                             <option value="EMPLOYEE">Pracownik</option>
                             <option value="TEAM_LEADER">Team Leader</option>
@@ -787,7 +759,7 @@
 
                 <!-- KARTA 2: GRUPY -->
                 <div class="glass-card" style="text-align:left;">
-                    <h3 style="margin-top:0;">ðŸ¢ Tworzenie Grup</h3>
+                    <h3 style="margin-top:0;">🏢 Tworzenie Grup</h3>
                     <div class="input-group">
                         <input type="text" id="sMasterGroup" placeholder="Nowa master grupa">
                         <button class="btn-main" onclick="saveMasterGroup()">Master</button>
@@ -796,13 +768,13 @@
                         <input type="text" id="sGroup" placeholder="Nazwa grupy">
                         <select id="sGroupMaster" style="font-weight:700;"></select>
                         <select id="sGroupType">
-                            <option value="StaÅ‚y">Stali</option>
+                            <option value="Stały">Stali</option>
                             <option value="Dodatkowy">Dodatkowi</option>
                         </select>
-                        <button class="btn-main" onclick="saveGroup()">UtwÃ³rz</button>
+                        <button class="btn-main" onclick="saveGroup()">Utwórz</button>
                     </div>
                     <label style="font-size:12px; font-weight:600; color:var(--ios-blue); display:flex; align-items:center; gap:6px; margin-bottom:20px;">
-                        <input type="checkbox" id="sGroupFlex" style="width:16px; height:16px;"> Grupa elastyczna (Omija reguÅ‚Ä™ 20. dnia)
+                        <input type="checkbox" id="sGroupFlex" style="width:16px; height:16px;"> Grupa elastyczna (Omija regułę 20. dnia)
                     </label>
                     <div id="cmsGroupList" style="max-height:300px; overflow-y:auto;"></div>
                 </div>
@@ -814,12 +786,11 @@
                     <div id="cmsAccessList" style="max-height:300px; overflow-y:auto;"></div>
                 </div>
 
-                <!-- KARTA 3: AKTYWNOÅšCI I ZMIANY -->
+                <!-- KARTA 3: AKTYWNOŚCI I ZMIANY -->
                 <div class="glass-card" style="text-align:left;">
-                    <h3 style="margin-top:0;">ðŸ“‹ AktywnoÅ›ci i Zmiany</h3>
+                    <h3 style="margin-top:0;">📋 Aktywności i Zmiany</h3>
                     <div class="input-group">
                         <input type="text" id="sAct" placeholder="Nazwa zadania">
-                        <select id="sActParent" style="font-weight:700;"><option value="">AktywnoÅ›Ä‡ gÅ‚Ã³wna</option></select>
                         <input type="color" id="sActColor" value="#0A84FF" style="padding:0; width:44px; height:44px;">
                         <button class="btn-main" onclick="saveAct()">Zadanie</button>
                     </div>
@@ -834,19 +805,19 @@
 
                 <!-- KARTA 4: BAZA, SYMULACJA I ROOT -->
                 <div class="glass-card" style="text-align:left; height:fit-content;">
-                    <h3 style="margin-top:0; color:var(--ios-green);">ðŸ’¾ Zrzut Bazy & Testy</h3>
-                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Pobierz kopiÄ™ bezpieczeÅ„stwa SQLite lub wygeneruj sztuczny ruch.</p>
+                    <h3 style="margin-top:0; color:var(--ios-green);">💾 Zrzut Bazy & Testy</h3>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Pobierz kopię bezpieczeństwa SQLite lub wygeneruj sztuczny ruch.</p>
                     
-                    <button class="btn-main" style="width:100%; margin-bottom:10px; background:var(--ios-green);" onclick="downloadBackup()">ðŸ“¥ Pobierz plik test.db</button>
-                    <button class="btn-main" style="width:100%; background:var(--ios-orange);" onclick="runSimulation()">ðŸ¤– Uruchom SymulacjÄ™ (Sty - Maj 2026)</button>
+                    <button class="btn-main" style="width:100%; margin-bottom:10px; background:var(--ios-green);" onclick="downloadBackup()">📥 Pobierz plik test.db</button>
+                    <button class="btn-main" style="width:100%; background:var(--ios-orange);" onclick="runSimulation()">🤖 Uruchom Symulację (Sty - Maj 2026)</button>
                     <button class="btn-main" style="width:100%; margin-top:10px; background:var(--ios-red);" onclick="importExcelReset()">Import Excel + reset pracownikow</button>
                     
                     <hr style="margin:25px 0; border-top:1px solid var(--border);">
 
-                    <h3 style="margin-top:0; color:var(--ios-red);">ðŸ‘‘ GÅ‚Ã³wne Konto (Root)</h3>
+                    <h3 style="margin-top:0; color:var(--ios-red);">👑 Główne Konto (Root)</h3>
                     <div class="input-group" style="margin-bottom:10px;">
                         <input type="text" id="sRootLogin" placeholder="Nowy login">
-                        <input type="password" id="sRootPass" placeholder="Nowe hasÅ‚o">
+                        <input type="password" id="sRootPass" placeholder="Nowe hasło">
                     </div>
                     <button class="btn-main" style="width:100%; background:var(--ios-red);" onclick="changeRootAdmin()">Zapisz Root Admina</button>
                 </div>
@@ -856,7 +827,7 @@
     </div>
 
     <!-- =========================================================
-         MODALE WYSKAKUJÄ„CE (OVERLAYS)
+         MODALE WYSKAKUJĄCE (OVERLAYS)
          ========================================================= -->
     <div class="overlay" id="overlay" onclick="closeM()"></div>
 
@@ -867,10 +838,10 @@
                 <h2 id="matrixTitle" style="font-size:26px; margin:0; color:var(--ios-blue);">Dossier HR</h2>
                 <div id="matrixSubtitle" style="font-weight:600; font-size:13px; color:var(--text-muted); margin-top:5px;"></div>
             </div>
-            <button class="btn-main" onclick="closeM()" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">âœ• Zamknij</button>
+            <button class="btn-main" onclick="closeM()" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">✕ Zamknij</button>
         </div>
 
-        <h3 style="font-size:16px; margin:0 0 15px 0;">ðŸ“Š Analiza Absencji w wybranym okresie</h3>
+        <h3 style="font-size:16px; margin:0 0 15px 0;">📊 Analiza Absencji w wybranym okresie</h3>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:15px;">
             <input type="date" id="hrDateFrom" style="font-size:12px;">
             <span style="font-weight:800;">do</span>
@@ -878,38 +849,27 @@
             <button onclick="refreshHrStats()" class="btn-main" style="padding:10px 15px; font-size:12px;">Przelicz</button>
         </div>
 
-        <div class="glass-card" style="text-align:left; padding:14px; margin-bottom:16px;">
-            <h3 style="font-size:15px; margin:0 0 10px 0;">Identyfikatory i importy</h3>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
-                <label style="font-size:12px; font-weight:700;">Data rozpoczÄ™cia pracy<input type="date" id="hrHireDate" style="margin-top:5px; width:100%;"></label>
-                <label style="font-size:12px; font-weight:700;">Login panelu<input type="text" id="hrLoginPanelu" style="margin-top:5px; width:100%;"></label>
-                <label style="font-size:12px; font-weight:700;">Login magazynu<input type="text" id="hrLoginMagazynu" style="margin-top:5px; width:100%;"></label>
-                <label style="font-size:12px; font-weight:700;">ID punktualnika<input type="text" id="hrIdPunktualnika" style="margin-top:5px; width:100%;"></label>
-                <label style="font-size:12px; font-weight:700;">ID zewnÄ™trzne / import<input type="text" id="hrExternalId" style="margin-top:5px; width:100%;"></label>
-            </div>
-        </div>
-
         <div class="hr-stats-container" id="hrStatsGrid">
-            <div class="hr-stat-box box-w"><span class="hr-stat-title">W Pracy ðŸ’¼</span><span class="hr-stat-num" id="hrStatW" style="color:var(--ios-blue);">0</span></div>
-            <div class="hr-stat-box box-c"><span class="hr-stat-title">Chory ðŸ¤’</span><span class="hr-stat-num" id="hrStatC" style="color:var(--ios-red);">0</span></div>
-            <div class="hr-stat-box box-u"><span class="hr-stat-title">Urlop ðŸŒ´</span><span class="hr-stat-num" id="hrStatU" style="color:var(--ios-orange);">0</span></div>
-            <div class="hr-stat-box box-wo"><span class="hr-stat-title">Wolne ðŸ </span><span class="hr-stat-num" id="hrStatWo" style="color:var(--text-muted);">0</span></div>
-            <div class="hr-stat-box box-ns"><span class="hr-stat-title">No Show âŒ</span><span class="hr-stat-num" id="hrStatNoShow" style="color:#8B0000;">0</span></div>
+            <div class="hr-stat-box box-w"><span class="hr-stat-title">W Pracy 💼</span><span class="hr-stat-num" id="hrStatW" style="color:var(--ios-blue);">0</span></div>
+            <div class="hr-stat-box box-c"><span class="hr-stat-title">Chory 🤒</span><span class="hr-stat-num" id="hrStatC" style="color:var(--ios-red);">0</span></div>
+            <div class="hr-stat-box box-u"><span class="hr-stat-title">Urlop 🌴</span><span class="hr-stat-num" id="hrStatU" style="color:var(--ios-orange);">0</span></div>
+            <div class="hr-stat-box box-wo"><span class="hr-stat-title">Wolne 🏠</span><span class="hr-stat-num" id="hrStatWo" style="color:var(--text-muted);">0</span></div>
+            <div class="hr-stat-box box-ns"><span class="hr-stat-title">No Show ❌</span><span class="hr-stat-num" id="hrStatNoShow" style="color:#8B0000;">0</span></div>
         </div>
 
         <div style="display:flex; gap:20px; flex-wrap:wrap;">
             <div style="flex:1; min-width:300px;">
-                <h3 style="font-size:16px;">â­ Kompetencje Grupy</h3>
+                <h3 style="font-size:16px;">⭐ Kompetencje Grupy</h3>
                 <div id="matrixGrid" style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto; padding-right:5px;"></div>
             </div>
             
             <div style="flex:1; min-width:300px; display:flex; flex-direction:column;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                    <h3 style="font-size:16px; margin:0;">ðŸ“ Nowa Ewaluacja</h3>
+                    <h3 style="font-size:16px; margin:0;">📝 Nowa Ewaluacja</h3>
                     <div style="background:rgba(10,132,255,0.1); padding:4px 8px; border-radius:8px;">
-                        <span style="font-size:11px; font-weight:800; color:var(--ios-blue);">OgÃ³lna:</span>
+                        <span style="font-size:11px; font-weight:800; color:var(--ios-blue);">Ogólna:</span>
                         <select id="hrOverallRating" style="padding:0; border:none; background:transparent; font-weight:800; color:var(--ios-blue);">
-                            <option value="4">4 â­</option><option value="3" selected>3 â­</option><option value="2">2 â­</option><option value="1">1 â­</option>
+                            <option value="4">4 ⭐</option><option value="3" selected>3 ⭐</option><option value="2">2 ⭐</option><option value="1">1 ⭐</option>
                         </select>
                     </div>
                 </div>
@@ -919,18 +879,18 @@
                 </label>
                 <textarea id="hrNotes" placeholder="Wpisz uwagi o pracowniku..." style="flex:1; min-height:100px; margin-bottom:10px; resize:none;"></textarea>
                 <label style="font-size:12px; font-weight:700; color:var(--ios-orange); display:flex; align-items:center; gap:6px; margin-bottom:10px; cursor:pointer;">
-                    <input type="checkbox" id="hrIsEval" style="width:16px; height:16px; accent-color:var(--ios-orange);"> ZatwierdÅº jako OficjalnÄ… OcenÄ™ OkresowÄ…
+                    <input type="checkbox" id="hrIsEval" style="width:16px; height:16px; accent-color:var(--ios-orange);"> Zatwierdź jako Oficjalną Ocenę Okresową
                 </label>
-                <button class="btn-main" onclick="saveHrNotes()" style="background:var(--ios-green);">ðŸ’¾ Zapisz w Dossier</button>
+                <button class="btn-main" onclick="saveHrNotes()" style="background:var(--ios-green);">💾 Zapisz w Dossier</button>
             </div>
         </div>
 
         <hr style="margin:20px 0; border-top:1px solid var(--border);">
-        <h3 style="font-size:16px; margin-bottom:10px;">ðŸ•°ï¸ Historia Ocen Okresowych</h3>
+        <h3 style="font-size:16px; margin-bottom:10px;">🕰️ Historia Ocen Okresowych</h3>
         <div id="hrHistoryList" style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
     </div>
 
-    <!-- POZOSTAÅE MODALE (SkÅ‚ad Grupy, Sugestie, Kopiowanie) - Struktura zachowana z poprzednich wersji -->
+    <!-- POZOSTAŁE MODALE (Skład Grupy, Sugestie, Kopiowanie) - Struktura zachowana z poprzednich wersji -->
     <div id="evalDetailsModal" class="modal" style="width:720px; padding:25px;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--border); padding-bottom:14px; margin-bottom:15px;">
             <div>
@@ -959,11 +919,11 @@
     </div>
 
     <div id="groupManagerModal" class="modal" style="width:800px; padding:25px;">
-        <h2 id="gmTitle" style="margin-top:0;">SkÅ‚ad Grupy</h2>
+        <h2 id="gmTitle" style="margin-top:0;">Skład Grupy</h2>
         <div id="gmSubtitle" style="font-weight:700; font-size:12px; color:var(--text-muted); margin:-10px 0 15px 0;"></div>
         <div class="gm-columns-wrapper" style="display:flex; gap:15px;">
             <div style="flex:1; background:var(--bg-color); padding:15px; border-radius:16px;">
-                <h4>Obecny skÅ‚ad <span id="gmInCount" class="badge" style="position:static; display:inline-block;">0</span></h4>
+                <h4>Obecny skład <span id="gmInCount" class="badge" style="position:static; display:inline-block;">0</span></h4>
                 <div id="gmInGroup" style="max-height:250px; overflow-y:auto;"></div>
             </div>
             <div style="flex:1; background:var(--bg-color); padding:15px; border-radius:16px;">
@@ -986,13 +946,13 @@
     </div>
 
     <div id="copyDayModal" class="modal">
-        <h2 style="color:var(--ios-orange);">Skopiuj ukÅ‚ad dnia</h2>
-        <p>Å¹rÃ³dÅ‚o: <b id="copySourceDateStr"></b></p>
+        <h2 style="color:var(--ios-orange);">Skopiuj układ dnia</h2>
+        <p>Źródło: <b id="copySourceDateStr"></b></p>
         <div class="input-group">
             <input type="date" id="copyOd">
             <input type="date" id="copyDo">
         </div>
-        <button class="btn-main" onclick="applyCopyDay()" style="width:100%; background:var(--ios-orange);">Wklej ukÅ‚ad</button>
+        <button class="btn-main" onclick="applyCopyDay()" style="width:100%; background:var(--ios-orange);">Wklej układ</button>
     </div>
 
     <div id="suggestionModal" class="modal">
@@ -1009,117 +969,8 @@
     <div id="toast" class="toast">Wykonano!</div>
 
 <script>
-    async function setDailyHours(empName, dateStr, activity, inputEl) {
-        const hours = inputEl.value.trim();
-        if(hours && !/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(hours)) {
-            showT("Format godzin powinien wyglÄ…daÄ‡ np. 07:00-15:00");
-        }
-        dbAdmin.planMap[`${empName}_${dateStr}`] = `${activity}||${hours}||1`;
-        await apiCall('/admin/planner/save', 'POST', { names:[empName], start:dateStr, end:dateStr, activity, hours });
-    }
-
-    async function markScheduleStatus(empName, dateStr, status) {
-        const p = scheduleParts(empName, dateStr);
-        await apiCall('/admin/planner/status', 'POST', { username:empName, date:dateStr, status, activity:p.activity || "Ad-Hoc", hours:p.hours || "", updated_by:currentAdminName });
-        if(!dbAdmin.scheduleStatusMap) dbAdmin.scheduleStatusMap = {};
-        dbAdmin.scheduleStatusMap[`${empName}_${dateStr}`] = { status };
-        renderDaily(); renderPlanner();
-    }
-
-    function renderPresencePanel(pool, dStr) {
-        const el = document.getElementById('dailyPresencePanel');
-        if(!el) return;
-        const planned = pool.filter(e => scheduleParts(e.name, dStr).activity);
-        const adHoc = pool.filter(e => scheduleStatus(e.name, dStr).status === "AD_HOC");
-        el.innerHTML = `
-            <div style="background:var(--bg-color); padding:10px; border-radius:12px;"><b>Nie rozpoczÄ™li pracy mimo planu</b><br><span style="font-size:12px; color:var(--text-muted);">Automatyka V-MAX: placeholder</span></div>
-            <div style="background:var(--bg-color); padding:10px; border-radius:12px;"><b>SpÃ³Åºnienie</b><br><span style="font-size:12px; color:var(--text-muted);">UÅ¼yj przycisku na kafelku osoby.</span></div>
-            <div style="background:var(--bg-color); padding:10px; border-radius:12px;"><b>Ad-Hoc / Bez planu</b><br><span style="font-size:12px;">${adHoc.map(e => escapeHtml(e.name)).join('<br>') || 'Brak rÄ™cznych oznaczeÅ„.'}</span></div>
-            <div style="background:var(--bg-color); padding:10px; border-radius:12px;"><b>No Show</b><br><span style="font-size:12px; color:var(--text-muted);">${planned.length} osÃ³b z planem. Oznacz rÄ™cznie z kafelka.</span></div>`;
-    }
-
-    function renderDaily() {
-        const rawDate = document.getElementById('dailyDate').value;
-        if(!rawDate) return;
-        const dObj = new Date(rawDate);
-        const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
-        const selectedGroup = document.getElementById('dailyGroupFilter').value || "ALL";
-        const selectedPeopleFilter = document.getElementById('dailyPeopleFilter') ? document.getElementById('dailyPeopleFilter').value : "ALL";
-        const q = (document.getElementById('dailySearch')?.value || '').toLowerCase();
-        const gridContainer = document.getElementById('dailyGrid');
-
-        let colsToRender = dbAdmin.plannerActivities || [];
-        const groupObj = selectedGroup !== "ALL" ? (dbAdmin.groups || []).find(g => g.name === selectedGroup) : null;
-        if(groupObj && groupObj.activities && groupObj.activities.length > 0) colsToRender = groupObj.activities.filter(a => (dbAdmin.plannerActivities || []).includes(a));
-        let dailyData = {}; colsToRender.forEach(a => dailyData[a] = []);
-        let assignedSet = new Set();
-
-        const dailyEmployeePool = (dbAdmin.employees || []).filter(e => {
-            if(!canSeeEmp(e)) return false;
-            if(q && !employeeSearchText(e).includes(q)) return false;
-            const g = groupByName(e.group || "Nieprzypisani");
-            if(selectedPeopleFilter.startsWith("MASTER:")) return g && (g.master || "Bez master grupy") === decodeValue(selectedPeopleFilter.replace("MASTER:", ""));
-            if(selectedPeopleFilter.startsWith("GROUP:")) return (e.group || "Nieprzypisani") === decodeValue(selectedPeopleFilter.replace("GROUP:", ""));
-            return true;
-        });
-
-        dailyEmployeePool.forEach(empObj => {
-            const p = scheduleParts(empObj.name, dStr);
-            if(p.activity && p.activity !== "WyczyÅ›Ä‡") {
-                if(dailyData[p.activity] !== undefined) dailyData[p.activity].push(empObj);
-                assignedSet.add(empObj.name);
-            }
-        });
-
-        const avail = dailyEmployeePool.filter(e => !assignedSet.has(e.name)).sort((a,b) => availabilityStart(dbAdmin.availMap[`${a.name}_${dStr}`]) - availabilityStart(dbAdmin.availMap[`${b.name}_${dStr}`]) || a.name.localeCompare(b.name));
-        document.getElementById('availCount').innerText = avail.length;
-        document.getElementById('dailyAvailableList').innerHTML = avail.map(e => {
-            const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`] || scheduleParts(e.name, dStr).hours;
-            return `<div class="emp-card ${statusClass(scheduleStatus(e.name, dStr).status)}" draggable="true" ondragstart="dragDaily(event, '${escapeHtml(e.name)}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${escapeHtml(e.name)}')">
-                <span><b style="font-size:14px;">${escapeHtml(e.name)}</b><span style="font-size:10px; color:gray; display:block;">${escapeHtml(e.id || '')} | ${escapeHtml(e.group || 'Nieprzypisani')}</span></span>
-                ${aHrs ? `<span style="background:rgba(52,199,89,.1); color:var(--ios-green); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">${escapeHtml(aHrs)}</span>` : ''}
-            </div>`;
-        }).join('');
-
-        gridContainer.innerHTML = colsToRender.map(act => {
-            const col = getTileColor(act);
-            const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
-            const currCount = dailyData[act].length;
-            const list = dailyData[act].map(e => {
-                const p = scheduleParts(e.name, dStr);
-                const st = scheduleStatus(e.name, dStr).status || "NORMAL";
-                return `<div class="emp-card ${statusClass(st)}" draggable="true" ondragstart="dragDaily(event, '${escapeHtml(e.name)}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${escapeHtml(e.name)}')" title="${escapeHtml(e.name)} | ${escapeHtml(act)} | ${escapeHtml(p.hours || '-') } | ${escapeHtml(st)}">
-                    <span style="display:flex; flex-direction:column; gap:4px;">
-                        <b style="font-size:14px;">${escapeHtml(e.name)}</b>
-                        <input onclick="event.stopPropagation()" onchange="setDailyHours('${escapeHtml(e.name)}','${dStr}','${escapeHtml(act)}', this)" value="${escapeHtml(p.hours || '')}" placeholder="HH:MM-HH:MM" style="font-size:11px; padding:5px; max-width:115px;">
-                    </span>
-                    <span style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
-                        ${ratingBadge(e.name, act)}
-                        <span style="display:flex; gap:4px;">
-                            <button onclick="event.stopPropagation(); markScheduleStatus('${escapeHtml(e.name)}','${dStr}','LATE')" title="SpÃ³Åºnienie" style="border:none; border-radius:7px; padding:4px;">â±ï¸</button>
-                            <button onclick="event.stopPropagation(); markScheduleStatus('${escapeHtml(e.name)}','${dStr}','NO_SHOW')" title="No Show" style="border:none; border-radius:7px; padding:4px;">âŒ</button>
-                            <button onclick="event.stopPropagation(); markScheduleStatus('${escapeHtml(e.name)}','${dStr}','AD_HOC')" title="Ad-Hoc" style="border:none; border-radius:7px; padding:4px;">ðŸŸ£</button>
-                        </span>
-                    </span>
-                </div>`;
-            }).join('');
-            return `<div class="kanban-col" style="border-top:5px solid ${col.c};" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, '${escapeHtml(act)}')">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                    <div style="color:${col.c}; font-weight:800;">${escapeHtml(act)} <button onclick="openSuggestions('${escapeHtml(act)}')" style="background:transparent; border:none; cursor:pointer;">ðŸ’¡</button></div>
-                    <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:800;">${currCount} os.</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:white; padding:8px; border-radius:10px;">
-                    <span style="font-size:11px; font-weight:700; color:gray;">Zapotrzebowanie:</span>
-                    <input type="number" min="0" value="${reqCap}" onchange="saveCapacity('${escapeHtml(act)}', this)" style="width:60px; padding:4px; text-align:center; font-weight:800; border-radius:6px; font-size:12px;">
-                </div>
-                <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:5px;">${list}</div>
-            </div>`;
-        }).join('');
-        renderPresencePanel(dailyEmployeePool, dStr);
-    }
-
     // ==========================================
-    // 1. KONFIGURACJA API I NARZÄ˜DZIA POMOCNICZE
+    // 1. KONFIGURACJA API I NARZĘDZIA POMOCNICZE
     // ==========================================
     const API_URL = "/api"; 
     
@@ -1134,11 +985,11 @@
             const res = await fetch(API_URL + endpoint, opt);
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.detail || "BÅ‚Ä…d serwera API");
+                throw new Error(err.detail || "Błąd serwera API");
             }
             return await res.json();
         } catch(e) {
-            showT("âŒ " + e.message);
+            showT("❌ " + e.message);
             console.error("Fetch API Error:", e);
             return null;
         }
@@ -1151,6 +1002,8 @@
     let isEmpBrush = false; 
     let empChanges = {}; 
     let currentAlertGroup = "";
+    let currentAlertEmployee = "";
+    let adminPollingId = null;
     let currentGroupManager = "";
     let currentHrEmp = "";
     let currentAdminName = "";
@@ -1185,8 +1038,7 @@
     }
 
     function clearPlannerLoginInputs() {
-        const ids = ['elName', 'elPin', 'lUser', 'lPass', 'pOld', 'pNew'];
-        ids.forEach(id => {
+        ['elName', 'elPin', 'lUser', 'lPass', 'pOld', 'pNew'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
         });
@@ -1198,6 +1050,7 @@
         currEmp = '';
         currentAdminName = '';
         currentAdminRole = '';
+        stopAdminPolling();
         clearPlannerLoginInputs();
         openScreen('screen-landing');
         showT('Wylogowano.');
@@ -1212,7 +1065,7 @@
             if (!currEmp) return false;
             empMonthOffset = 0;
             empChanges = {};
-            document.getElementById('empWelcomeTitle').innerText = `Witaj, ${currEmp}! 👋`;
+            document.getElementById('empWelcomeTitle').innerText = `Witaj, ${currEmp}!`;
             clearPlannerLoginInputs();
             openScreen('screen-emp-dash');
             loadEmpDash();
@@ -1225,6 +1078,7 @@
             clearPlannerLoginInputs();
             openScreen('screen-admin');
             loadAdminData();
+            startAdminPolling();
             return true;
         }
 
@@ -1238,7 +1092,7 @@ function hexToRgba(hex, alpha) {
     }
 
     function getTileColor(str) {
-        if(!str || str === "Brak planu" || str === "WyczyÅ›Ä‡") {
+        if(!str || str === "Brak planu" || str === "Wyczyść") {
             return { bg: 'rgba(0,0,0,0.02)', c: '#8e8e93', shadow: 'none' };
         }
         let hex = (dbAdmin.activityColors && dbAdmin.activityColors[str]) ? dbAdmin.activityColors[str] : '#0A84FF';
@@ -1259,41 +1113,7 @@ function hexToRgba(hex, alpha) {
 
     function renderRatingOptions(selected, fallback = 3) {
         const current = clampRating(selected, fallback);
-        return [1,2,3,4].map(v => `<option value="${v}" ${v === current ? 'selected' : ''}>${v} â­</option>`).join('');
-    }
-
-    function encodeValue(value) { return encodeURIComponent(String(value ?? '')); }
-    function decodeValue(value) { try { return decodeURIComponent(value); } catch(e) { return value; } }
-
-    function employeeSearchText(emp) {
-        return `${emp.name || ''} ${emp.id || ''} ${emp.global_id || ''} ${emp.group || ''} ${emp.master_group || ''} ${emp.login_panelu || ''} ${emp.login_magazynu || ''} ${emp.id_punktualnika || ''} ${emp.external_id || ''}`.toLowerCase();
-    }
-
-    function scheduleParts(empName, dateStr) {
-        const raw = (dbAdmin.planMap || {})[`${empName}_${dateStr}`] || "";
-        const parts = raw.split("||");
-        return { activity: parts[0] || "", hours: parts[1] || "", override: parts[2] || "" };
-    }
-
-    function scheduleStatus(empName, dateStr) {
-        return ((dbAdmin.scheduleStatusMap || {})[`${empName}_${dateStr}`] || { status: "NORMAL" });
-    }
-
-    function statusClass(status) {
-        return ["NO_SHOW", "LATE", "AD_HOC"].includes(status) ? `status-${status} status-pulse` : "";
-    }
-
-    function ratingBadge(empName, act) {
-        const rating = dbAdmin.ratingsMap ? dbAdmin.ratingsMap[`${empName}_${act}`] : null;
-        if(!rating) return `<span class="rating-badge rating-empty">brak oceny</span>`;
-        const r = clampRating(rating, 3);
-        return `<span class="rating-badge rating-${r}">Ã¢Â­Â ${r}/4</span>`;
-    }
-
-    function avgRating(empName) {
-        const vals = Object.entries(dbAdmin.ratingsMap || {}).filter(([k]) => k.startsWith(empName + "_")).map(([,v]) => clampRating(v, 0)).filter(Boolean);
-        if(!vals.length) return "Åšr. -";
-        return `Åšr. ${(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1)}/4`;
+        return [1,2,3,4].map(v => `<option value="${v}" ${v === current ? 'selected' : ''}>${v} ⭐</option>`).join('');
     }
 
     function groupByName(name) {
@@ -1321,27 +1141,6 @@ function hexToRgba(hex, alpha) {
         return groups.filter(g => (g.master || "Bez master grupy") === masterName);
     }
 
-    function fillMasterGroupSelect(id) {
-        const el = document.getElementById(id);
-        if(!el) return;
-        const current = el.value || "ALL";
-        el.innerHTML = '<option value="ALL">Wszystkie master grupy</option>' + (dbAdmin.masterGroups || []).map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
-        el.value = current;
-        if(!el.value) el.value = "ALL";
-    }
-
-    function fillGroupSelect(id, masterName = "ALL") {
-        const el = document.getElementById(id);
-        if(!el) return;
-        const current = el.value || "ALL";
-        el.innerHTML = '<option value="ALL">Wszystkie grupy</option>' + getGroupsForMaster(masterName).map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
-        el.value = current;
-        if(!el.value) el.value = "ALL";
-    }
-
-    function syncHrGroupFilter() { fillGroupSelect('hrGroupSelect', document.getElementById('hrMasterSelect')?.value || 'ALL'); }
-    function syncHrAlertGroupFilter() { fillGroupSelect('hrAlertGroupFilt', document.getElementById('hrAlertMasterFilt')?.value || 'ALL'); }
-
     function availabilityStart(hrs) {
         const match = String(hrs || '').match(/(\d{1,2}):(\d{2})/);
         return match ? parseInt(match[1], 10) * 60 + parseInt(match[2], 10) : 99999;
@@ -1361,6 +1160,24 @@ function hexToRgba(hex, alpha) {
     function openScreen(id) { 
         document.querySelectorAll('.app-screen').forEach(s => s.classList.remove('active')); 
         document.getElementById(id).classList.add('active'); 
+        if(id !== 'screen-admin') stopAdminPolling();
+    }
+
+    function startAdminPolling() {
+        stopAdminPolling();
+        if (!currentAdminName) return;
+        adminPollingId = setInterval(() => {
+            const adminScreenActive = document.getElementById('screen-admin')?.classList.contains('active');
+            if (!adminScreenActive) return;
+            loadAdminData(true);
+        }, 45000);
+    }
+
+    function stopAdminPolling() {
+        if (adminPollingId) {
+            clearInterval(adminPollingId);
+            adminPollingId = null;
+        }
     }
     
     function showT(m) { 
@@ -1383,7 +1200,6 @@ function hexToRgba(hex, alpha) {
 
     window.onload = async () => {
         document.getElementById('dailyDate').valueAsDate = new Date();
-        initMonthOptions();
         const data = await apiCall('/public');
         if(data && data.employees) {
             document.getElementById('dlEmployees').innerHTML = data.employees.map(e => `<option value="${e}">`).join('');
@@ -1395,20 +1211,6 @@ function hexToRgba(hex, alpha) {
         }
     };
 
-    function initMonthOptions() {
-        const sel = document.getElementById('aMonth');
-        if(!sel) return;
-        const now = new Date();
-        const names = ['StyczeÅ„','Luty','Marzec','KwiecieÅ„','Maj','Czerwiec','Lipiec','SierpieÅ„','WrzesieÅ„','PaÅºdziernik','Listopad','GrudzieÅ„'];
-        let html = '';
-        for(let offset=-2; offset<=5; offset++) {
-            const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-            const val = `${d.getFullYear()}-${d.getMonth()}`;
-            html += `<option value="${val}" ${offset === 0 ? 'selected' : ''}>${names[d.getMonth()]} ${d.getFullYear()}</option>`;
-        }
-        sel.innerHTML = html;
-    }
-
     // ==========================================
     // 2. LOGIKA PRACOWNIKA
     // ==========================================
@@ -1416,19 +1218,19 @@ function hexToRgba(hex, alpha) {
         currEmp = document.getElementById('elName').value; 
         const pin = document.getElementById('elPin').value;
         
-        if(!currEmp || !pin) return showT("âš ï¸ UzupeÅ‚nij dane!");
+        if(!currEmp || !pin) return showT("⚠️ Uzupełnij dane!");
         
         const res = await apiCall('/auth/login', 'POST', { username: currEmp, pin: pin, role: 'EMPLOYEE' });
         
         if(res && res.ok) { 
             empMonthOffset = 0; 
             empChanges = {}; 
-            let welcomePrefix = (res.role === "ADMIN" || res.role === "SUPER_ADMIN" || res.role === "MANAGER") ? "ðŸ‘‘ Witaj, " : "Witaj, ";
-            document.getElementById('empWelcomeTitle').innerText = `${welcomePrefix}${currEmp}! ðŸ‘‹`;
+            let welcomePrefix = (res.role === "ADMIN" || res.role === "SUPER_ADMIN" || res.role === "MANAGER") ? "👑 Witaj, " : "Witaj, ";
+            document.getElementById('empWelcomeTitle').innerText = `${welcomePrefix}${currEmp}! 👋`;
             openScreen('screen-emp-dash'); 
             loadEmpDash(); 
         } else {
-            showT("âŒ Niepoprawny PIN lub HasÅ‚o!");
+            showT("❌ Niepoprawny PIN lub Hasło!");
         }
     }
     
@@ -1448,7 +1250,7 @@ function hexToRgba(hex, alpha) {
     function toggleEmpBrush() { 
         isEmpBrush = !isEmpBrush; 
         const b = document.getElementById('eBtn'); 
-        b.innerText = isEmpBrush ? "PÄ˜DZEL: WÅ" : "PÄ˜DZEL: WYÅ"; 
+        b.innerText = isEmpBrush ? "PĘDZEL: WŁ" : "PĘDZEL: WYŁ"; 
         b.style.background = isEmpBrush ? "linear-gradient(135deg, var(--ios-blue), #005ecb)" : "transparent"; 
         b.style.color = isEmpBrush ? "white" : "var(--ios-blue)"; 
         b.style.borderStyle = isEmpBrush ? "solid" : "dashed"; 
@@ -1468,8 +1270,8 @@ function hexToRgba(hex, alpha) {
         el.style.border = "3px dashed var(--ios-blue)";
         el.innerHTML = `
             <div style="font-weight:800; font-size:18px; margin-bottom:8px;">${dObj.getDate()}</div>
-            <div style="font-size:12px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${act==='WyczyÅ›Ä‡'?'Pusto':act}</div>
-            ${hrs && act!=='WyczyÅ›Ä‡' ? `<div style="font-size:11px; font-weight:800; margin-top:6px;">âŒš ${hrs}</div>` : ''}
+            <div style="font-size:12px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${act==='Wyczyść'?'Pusto':act}</div>
+            ${hrs && act!=='Wyczyść' ? `<div style="font-size:11px; font-weight:800; margin-top:6px;">⌚ ${hrs}</div>` : ''}
             <div style="background:rgba(10,132,255,0.1); color:var(--ios-blue); font-size:9px; font-weight:800; margin-top:6px; padding:4px; border-radius:6px;">ZMIENIONE</div>
         `;
     }
@@ -1478,12 +1280,12 @@ function hexToRgba(hex, alpha) {
         const updates = Object.keys(empChanges).map(d => ({ date: d, act: empChanges[d].act, hrs: empChanges[d].hrs }));
         if(updates.length === 0) return;
         
-        showT("â³ WysyÅ‚anie zmian...");
+        showT("⏳ Wysyłanie zmian...");
         const res = await apiCall('/emp/request-batch', 'POST', { name: currEmp, updates: updates });
         if(res) { 
             empChanges = {}; 
             document.getElementById('empSubmitBox').style.display = 'none'; 
-            showT("âœ… " + res.msg); 
+            showT("✅ " + res.msg); 
             loadEmpDash(); 
         }
     }
@@ -1494,22 +1296,22 @@ function hexToRgba(hex, alpha) {
         
         const d = new Date(); 
         d.setMonth(d.getMonth() + empMonthOffset);
-        const monthNames = ["StyczeÅ„", "Luty", "Marzec", "KwiecieÅ„", "Maj", "Czerwiec", "Lipiec", "SierpieÅ„", "WrzesieÅ„", "PaÅºdziernik", "Listopad", "GrudzieÅ„"];
+        const monthNames = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"];
         document.getElementById('empMonthTitle').innerText = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
 
-        document.getElementById('empGrid').innerHTML = '<p style="font-weight:600; color:gray; text-align:center; width:100%; grid-column:1/-1;">Åadowanie kalendarza...</p>';
+        document.getElementById('empGrid').innerHTML = '<p style="font-weight:600; color:gray; text-align:center; width:100%; grid-column:1/-1;">Ładowanie kalendarza...</p>';
 
         const data = await apiCall('/emp/dashboard', 'POST', { name: currEmp, year: d.getFullYear(), month: d.getMonth() });
         if(!data) return;
         
         dbAdmin.activityColors = data.activityColors || {};
-        const acts = ["DostÄ™pny", "Urlop ðŸŒ´", "Chory ðŸ¤’", "Wolne ðŸ ", "WyczyÅ›Ä‡"];
+        const acts = ["Dostępny", "Urlop 🌴", "Chory 🤒", "Wolne 🏠", "Wyczyść"];
         document.getElementById('empBrushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">`).join('');
 
         let calHtml = `
             <div class="cal-header">Wk</div>
-            <div class="cal-header">PN</div><div class="cal-header">WT</div><div class="cal-header">ÅšR</div>
+            <div class="cal-header">PN</div><div class="cal-header">WT</div><div class="cal-header">ŚR</div>
             <div class="cal-header">CZ</div><div class="cal-header">PT</div><div class="cal-header">SB</div><div class="cal-header">ND</div>
         `;
 
@@ -1534,21 +1336,21 @@ function hexToRgba(hex, alpha) {
 
             let reqBox = "";
             if(s.req && s.req.status === "Oczekuje") {
-                reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">â³ Oczekuje</div>`;
+                reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF9500; font-size:10px; font-weight:700; color:#FF9500;">⏳ Oczekuje</div>`;
             } else if (s.req && s.req.status === "Odrzucono") {
-                reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">âŒ Odrzucono</div>`;
+                reqBox = `<div style="background:rgba(255,255,255,0.9); padding:4px; border-radius:6px; margin-top:6px; border:1px dashed #FF3B30; font-size:10px; font-weight:700; color:#FF3B30;">❌ Odrzucono</div>`;
             }
             
             let overrideBadge = "";
             if (s.override === 1 && s.act !== "Brak planu") {
-                overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px;">âš ï¸ MGR</div>`;
+                overrideBadge = `<div style="background:#FF3B30; color:white; padding:4px; border-radius:6px; font-size:9px; font-weight:800; margin-top:6px;">⚠️ MGR</div>`;
             }
 
             calHtml += `
                 <div class="day-row ${s.act==='Brak planu'?'no-plan':''}" style="border-top:6px solid ${col.c};" onclick="empClickDay('${s.date}', this)">
                     <div style="font-weight:800; font-size:16px; margin-bottom:8px;">${dt.getDate()}</div>
                     <div style="font-size:11px; font-weight:800; background:${col.bg}; color:${col.c}; padding:6px; border-radius:8px; line-height:1.2;">${s.act}</div>
-                    ${s.hrs ? `<div style="color:var(--text-muted); font-size:10px; font-weight:800; margin-top:6px;">âŒš ${s.hrs}</div>` : ''}
+                    ${s.hrs ? `<div style="color:var(--text-muted); font-size:10px; font-weight:800; margin-top:6px;">⌚ ${s.hrs}</div>` : ''}
                     ${overrideBadge} ${reqBox}
                 </div>`;
         });
@@ -1559,7 +1361,7 @@ function hexToRgba(hex, alpha) {
     async function empChangePin() {
         const o = document.getElementById('pOld').value; 
         const n = document.getElementById('pNew').value;
-        if(!o || !n) return showT("âš ï¸ WypeÅ‚nij oba pola");
+        if(!o || !n) return showT("⚠️ Wypełnij oba pola");
         
         const res = await apiCall('/auth/change-pin', 'POST', { name: currEmp, oldPin: o, newPin: n, isAdmin: false });
         if(res) { 
@@ -1575,7 +1377,7 @@ function hexToRgba(hex, alpha) {
     async function doAdminLogin() { 
         const u = document.getElementById('lUser').value;
         const p = document.getElementById('lPass').value;
-        if(!u || !p) return showT("âš ï¸ UzupeÅ‚nij dane!");
+        if(!u || !p) return showT("⚠️ Uzupełnij dane!");
         
         const res = await apiCall('/auth/login', 'POST', { username: u, pin: p, role: 'ADMIN' });
         if(res && res.ok) { 
@@ -1583,8 +1385,9 @@ function hexToRgba(hex, alpha) {
             currentAdminRole = res.role;
             openScreen('screen-admin'); 
             loadAdminData(); 
+            startAdminPolling();
         } else { 
-            showT("âŒ Nieautoryzowany dostÄ™p lub zÅ‚e hasÅ‚o!"); 
+            showT("❌ Nieautoryzowany dostęp lub złe hasło!"); 
         }
     }
     
@@ -1596,19 +1399,71 @@ function hexToRgba(hex, alpha) {
         
         if(id === 'vDaily') renderDaily(); 
         if(id === 'vPlanner') renderPlanner();
-        if(id === 'vMatrix') { renderMatrix(); renderHrCards(); renderHrAlertsTable(); }
-        if(id === 'vAlerts') renderAlertsGroupView();
+        if(id === 'vMatrix') { renderMatrix(); renderHrCards(); }
+        if(id === 'vAlerts') loadAdminData();
         if(id === 'vHrAlerts') renderHrAlertsTable();
         if(id === 'vSettings') renderCMS(); 
     }
 
-    async function loadAdminData() {
+    function getEmpMasterGroup(empName) {
+        const emp = dbAdmin.employees?.find(e => e.name === empName);
+        if (!emp) return "Bez master grupy";
+        const grp = dbAdmin.groups?.find(g => g.name === emp.group);
+        return grp?.master || "Bez master grupy";
+    }
+
+    function syncAlertsFilters() {
+        const masterSel = document.getElementById('alertsMasterGroupFilter');
+        const groupSel = document.getElementById('alertsGroupFilter');
+        if (!masterSel || !groupSel) return;
+        const currentMaster = masterSel.value || "ALL";
+        const currentGroup = groupSel.value || "ALL";
+        const masters = ["ALL", ...(dbAdmin.masterGroups || [])];
+        masterSel.innerHTML = masters.map(m => `<option value="${escapeHtml(m)}">${m === "ALL" ? "Master grupa: wszystkie" : "Master grupa: " + escapeHtml(m)}</option>`).join('');
+        masterSel.value = currentMaster;
+        if(!masterSel.value) masterSel.value = "ALL";
+
+        const selectedMaster = masterSel.value;
+        const groupsPool = selectedMaster === "ALL"
+            ? getManagedGroups()
+            : getManagedGroups().filter(g => (g.master || "Bez master grupy") === selectedMaster);
+        groupSel.innerHTML = '<option value="ALL">Grupa: wszystkie</option>' + groupsPool.map(g => `<option value="${escapeHtml(g.name)}">Grupa: ${escapeHtml(g.name)}</option>`).join('');
+        groupSel.value = currentGroup;
+        if(!groupSel.value) groupSel.value = "ALL";
+    }
+
+    function getFilteredAlertItems() {
+        const masterFilter = document.getElementById('alertsMasterGroupFilter')?.value || "ALL";
+        const groupFilter = document.getElementById('alertsGroupFilter')?.value || "ALL";
+        const typeFilter = document.getElementById('alertsTypeFilter')?.value || "ALL";
+        const sortFilter = document.getElementById('alertsSortFilter')?.value || "ts_desc";
+        let allItems = [];
+        (dbAdmin.alerts || []).forEach(a => allItems.push({...a, notificationType: "NORMAL"}));
+        (dbAdmin.flexAlerts || []).forEach(a => allItems.push({...a, notificationType: "FLEXIBLE"}));
+        if(typeFilter === "NORMAL") allItems = allItems.filter(a => a.notificationType === "NORMAL");
+        else if(typeFilter === "FLEXIBLE") allItems = allItems.filter(a => a.notificationType === "FLEXIBLE");
+        else if(typeFilter === "HR") allItems = [];
+        else if(typeFilter === "SYSTEM") allItems = [];
+        if(masterFilter !== "ALL") allItems = allItems.filter(a => getEmpMasterGroup(a.name) === masterFilter);
+        if(groupFilter !== "ALL") allItems = allItems.filter(a => getEmpGroup(a.name) === groupFilter);
+
+        allItems.sort((a, b) => {
+            if (sortFilter === "name_asc") return String(a.name).localeCompare(String(b.name));
+            if (sortFilter === "name_desc") return String(b.name).localeCompare(String(a.name));
+            const da = new Date(a.ts || `${a.date} 00:00`);
+            const db = new Date(b.ts || `${b.date} 00:00`);
+            return sortFilter === "ts_asc" ? da - db : db - da;
+        });
+        return allItems;
+    }
+
+    async function loadAdminData(isSilent = false) {
         const data = await apiCall('/admin/data');
         if(!data) return; 
         dbAdmin = data;
         
-        // Åadowanie opcji CMS
-        const acts = ["WyczyÅ›Ä‡", ...data.plannerActivities];
+        // Ładowanie opcji CMS
+        const acts = ["Wyczyść", ...data.plannerActivities];
         document.getElementById('brushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('massAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">${s}</option>`).join('');
@@ -1617,29 +1472,22 @@ function hexToRgba(hex, alpha) {
         const dailyFilter = document.getElementById('dailyGroupFilter');
         if (dailyFilter) {
             let currentFilterValue = dailyFilter.value;
-            dailyFilter.innerHTML = '<option value="ALL">Wszystkie aktywnoÅ›ci</option>' + 
+            dailyFilter.innerHTML = '<option value="" selected disabled>Wybierz zestaw aktywnosci...</option>' + 
                 getManagedGroups().map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
-            dailyFilter.value = currentFilterValue || "ALL"; 
+            if(currentFilterValue) dailyFilter.value = currentFilterValue; 
         }
 
         const dailyPeopleFilter = document.getElementById('dailyPeopleFilter');
         if(dailyPeopleFilter) {
             let currentDailyPeople = dailyPeopleFilter.value || "ALL";
-            dailyPeopleFilter.innerHTML = '<option value="ALL">Wszystkie osoby</option>' +
-                (dbAdmin.masterGroups || []).map(m => `<option value="MASTER:${encodeValue(m)}">Master: ${escapeHtml(m)}</option>`).join('') +
-                getManagedGroups().map(g => `<option value="GROUP:${encodeValue(g.name)}">Grupa: ${escapeHtml(g.name)}</option>`).join('');
+            dailyPeopleFilter.innerHTML = '<option value="ALL">Osoby: wszystkie dostepne grupy</option>' +
+                (dbAdmin.masterGroups || []).map(m => `<option value="MASTER:${escapeHtml(m)}">Master: ${escapeHtml(m)}</option>`).join('') +
+                getManagedGroups().map(g => `<option value="GROUP:${escapeHtml(g.name)}">Grupa: ${escapeHtml(g.name)}</option>`).join('');
             dailyPeopleFilter.value = currentDailyPeople;
             if(!dailyPeopleFilter.value) dailyPeopleFilter.value = "ALL";
         }
 
         syncPlannerFilters();
-
-        fillMasterGroupSelect('alertMasterFilter');
-        fillGroupSelect('alertGroupFilter', document.getElementById('alertMasterFilter')?.value || 'ALL');
-        fillMasterGroupSelect('hrMasterSelect');
-        fillGroupSelect('hrGroupSelect', document.getElementById('hrMasterSelect')?.value || 'ALL');
-        fillMasterGroupSelect('hrAlertMasterFilt');
-        fillGroupSelect('hrAlertGroupFilt', document.getElementById('hrAlertMasterFilt')?.value || 'ALL');
 
         // Dropdowny HR
         const hrFilter = document.getElementById('hrGroupSelect');
@@ -1657,29 +1505,24 @@ function hexToRgba(hex, alpha) {
                 getManagedGroups().map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
             alertHrFilter.value = currentHrAlertVal || "ALL";
         }
+        syncAlertsFilters();
 
-        fillMasterGroupSelect('alertMasterFilter');
-        fillGroupSelect('alertGroupFilter', document.getElementById('alertMasterFilter')?.value || 'ALL');
-        fillMasterGroupSelect('hrMasterSelect');
-        fillGroupSelect('hrGroupSelect', document.getElementById('hrMasterSelect')?.value || 'ALL');
-        fillMasterGroupSelect('hrAlertMasterFilt');
-        fillGroupSelect('hrAlertGroupFilt', document.getElementById('hrAlertMasterFilt')?.value || 'ALL');
-
-        // Odznaki powiadomieÅ„
+        // Odznaki powiadomień
         const aBadge = document.getElementById('aBadge');
-        if(data.alerts.length > 0) { aBadge.innerText = data.alerts.length; aBadge.style.display = 'inline-block'; } 
+        const plannerAlertsCount = (data.alerts?.length || 0) + (data.flexAlerts?.length || 0);
+        if(plannerAlertsCount > 0) { aBadge.innerText = plannerAlertsCount; aBadge.style.display = 'inline-block'; } 
         else { aBadge.style.display = 'none'; }
 
         const hBadge = document.getElementById('hBadge');
-        if(hBadge && data.hrAlerts && data.hrAlerts.length > 0) { hBadge.innerText = data.hrAlerts.length; hBadge.style.display = 'inline-block'; } 
-        else if(hBadge) { hBadge.style.display = 'none'; }
+        if(data.hrAlerts && data.hrAlerts.length > 0) { hBadge.innerText = data.hrAlerts.length; hBadge.style.display = 'inline-block'; } 
+        else { hBadge.style.display = 'none'; }
         
-        // OdÅ›wieÅ¼anie aktywnego widoku
+        // Odświeżanie aktywnego widoku
         if(document.getElementById('vAlerts').classList.contains('active')) renderAlertsGroupView();
-        if(document.getElementById('vHrAlerts') && document.getElementById('vHrAlerts').classList.contains('active')) renderHrAlertsTable();
+        if(document.getElementById('vHrAlerts').classList.contains('active')) renderHrAlertsTable();
         if(document.getElementById('vPlanner').classList.contains('active')) renderPlanner(); 
         if(document.getElementById('vDaily').classList.contains('active')) renderDaily();
-        if(document.getElementById('vMatrix').classList.contains('active')) { renderMatrix(); renderHrCards(); renderHrAlertsTable(); }
+        if(document.getElementById('vMatrix').classList.contains('active')) { renderMatrix(); renderHrCards(); }
         if(document.getElementById('vSettings').classList.contains('active')) renderCMS();
     }
 
@@ -1693,21 +1536,25 @@ function hexToRgba(hex, alpha) {
     }
 
     function renderAlertsGroupView() {
+        currentAlertEmployee = "";
         document.getElementById('alertBackBtn').style.display = 'none';
         document.getElementById('alertsGroupView').style.display = 'grid';
         document.getElementById('alertsEmpView').style.display = 'none';
         document.getElementById('alertsDetailView').style.display = 'none';
         
-        if(dbAdmin.alerts.length === 0) {
-            document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column: 1 / -1;">Brak nowych wnioskÃ³w o wolne. Operujesz na 100%! ðŸŽ‰</p>'; 
+        const filteredAlerts = getFilteredAlertItems();
+        if(filteredAlerts.length === 0) {
+            document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column: 1 / -1;">Brak powiadomień dla wybranych filtrów.</p>'; 
             return;
         }
 
         let groupedAlerts = {};
-        dbAdmin.alerts.forEach(a => {
+        filteredAlerts.forEach(a => {
             let g = getEmpGroup(a.name);
-            if(!groupedAlerts[g]) groupedAlerts[g] = 0;
-            groupedAlerts[g]++;
+            if(!groupedAlerts[g]) groupedAlerts[g] = { total: 0, normal: 0, flex: 0 };
+            groupedAlerts[g].total++;
+            if(a.notificationType === "FLEXIBLE") groupedAlerts[g].flex++;
+            else groupedAlerts[g].normal++;
         });
 
         let html = "";
@@ -1715,8 +1562,9 @@ function hexToRgba(hex, alpha) {
             html += `
             <div class="group-bubble" onclick="renderAlertsEmpView('${gName}')">
                 <h3 style="margin-top:0; font-size:20px; color:var(--text-main);">${gName}</h3>
-                <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:10px 0;">${count} <span style="font-size:16px; color:var(--text-muted);">wnioskÃ³w</span></div>
-                <span style="color:var(--ios-blue); font-size:13px; font-weight:700;">Zobacz szczegÃ³Å‚y â†’</span>
+                <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:10px 0;">${count.total} <span style="font-size:16px; color:var(--text-muted);">powiadomień</span></div>
+                <div style="font-size:12px; color:var(--text-muted); font-weight:700;">Normalne: ${count.normal} | Elastyczne: ${count.flex}</div>
+                <span style="color:var(--ios-blue); font-size:13px; font-weight:700;">Zobacz szczegóły →</span>
             </div>`;
         }
         document.getElementById('alertsGroupView').innerHTML = html;
@@ -1732,19 +1580,24 @@ function hexToRgba(hex, alpha) {
 
         let empsInGroup = {};
         let alertIdsToResolve = [];
+        const filteredAlerts = getFilteredAlertItems();
 
-        dbAdmin.alerts.forEach(a => {
+        filteredAlerts.forEach(a => {
             if(getEmpGroup(a.name) === groupName) {
-                if(!empsInGroup[a.name]) empsInGroup[a.name] = 0;
-                empsInGroup[a.name]++;
-                alertIdsToResolve.push(a.id);
+                if(!empsInGroup[a.name]) empsInGroup[a.name] = { total: 0, normal: 0, flex: 0 };
+                empsInGroup[a.name].total++;
+                if(a.notificationType === "FLEXIBLE") empsInGroup[a.name].flex++;
+                else {
+                    empsInGroup[a.name].normal++;
+                    alertIdsToResolve.push(a.id);
+                }
             }
         });
 
         let html = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
             <h3 style="margin:0; font-size:22px;">Grupa: ${groupName}</h3>
-            <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">âœ… Zaakceptuj masowo grupÄ™</button>
+            <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">✅ Zaakceptuj masowo grupę</button>
         </div>
         <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">`;
 
@@ -1752,7 +1605,8 @@ function hexToRgba(hex, alpha) {
             html += `
             <div style="background:white; padding:20px; border-radius:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03); cursor:pointer; transition:0.3s; border:1px solid rgba(0,0,0,0.05);" onclick="renderAlertsDetailView('${eName}')" onmouseover="this.style.borderColor='var(--ios-blue)'" onmouseout="this.style.borderColor='rgba(0,0,0,0.05)'">
                 <h4 style="margin:0 0 10px 0; font-size:18px;">${eName}</h4>
-                <div style="color:var(--ios-orange); font-weight:800;">${count} oczekujÄ…cych wnioskÃ³w</div>
+                <div style="color:var(--ios-orange); font-weight:800;">${count.total} powiadomień</div>
+                <div style="font-size:12px; color:var(--text-muted); font-weight:700;">Normalne: ${count.normal} | Elastyczne: ${count.flex}</div>
             </div>`;
         }
         html += `</div>`;
@@ -1760,22 +1614,37 @@ function hexToRgba(hex, alpha) {
     }
 
     function renderAlertsDetailView(empName) {
+        currentAlertEmployee = empName;
         document.getElementById('alertBackBtn').style.display = 'block';
         document.getElementById('alertBackBtn').onclick = () => renderAlertsEmpView(currentAlertGroup);
         document.getElementById('alertsGroupView').style.display = 'none';
         document.getElementById('alertsEmpView').style.display = 'none';
         document.getElementById('alertsDetailView').style.display = 'block';
 
-        let empAlerts = dbAdmin.alerts.filter(a => a.name === empName);
-        let alertIdsToResolve = empAlerts.map(a => a.id);
+        let empAlerts = getFilteredAlertItems().filter(a => a.name === empName);
+        const pendingNormal = empAlerts.filter(a => a.notificationType !== "FLEXIBLE");
+        const flexAlerts = empAlerts.filter(a => a.notificationType === "FLEXIBLE");
+        let alertIdsToResolve = pendingNormal.map(a => a.id);
 
         let html = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-            <h3 style="margin:0; font-size:22px;">Wnioski: ${empName}</h3>
-            <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">âœ… Zaakceptuj wszystko pracownika</button>
+            <h3 style="margin:0; font-size:22px;">Powiadomienia: ${empName}</h3>
+            <button onclick="resolveMassAlerts('${alertIdsToResolve.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">✅ Zaakceptuj wszystkie wnioski pracownika</button>
         </div>`;
+        html += `<div class="alerts-two-col">
+            <div class="alerts-sticky-card" style="background:white; border-radius:16px; padding:16px; box-shadow:0 4px 15px rgba(0,0,0,0.03); border:1px solid var(--border);">
+                <h4 style="margin:0 0 8px 0;">Karta pracy pracownika</h4>
+                <div style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+                    <div><b>Nazwisko:</b> ${escapeHtml(empName)}</div>
+                    <div><b>Grupa:</b> ${escapeHtml(getEmpGroup(empName))}</div>
+                    <div><b>Master grupa:</b> ${escapeHtml(getEmpMasterGroup(empName))}</div>
+                    <div><b>Normalne oczekujące:</b> ${pendingNormal.length}</div>
+                    <div><b>Alerty z grup elastycznych:</b> ${flexAlerts.length}</div>
+                </div>
+            </div>
+            <div class="alerts-right-list">`;
 
-        html += empAlerts.map(a => {
+        html += pendingNormal.map(a => {
             const col = getTileColor(a.type);
             return `
             <div class="alert-card" style="padding:20px; border-radius:16px; border-left:6px solid ${col.c}; background:white; margin-bottom:15px; box-shadow:0 4px 15px rgba(0,0,0,0.03); display:flex; justify-content:space-between; align-items:center;">
@@ -1785,10 +1654,22 @@ function hexToRgba(hex, alpha) {
                 </div>
                 <div style="display:flex; gap:10px;">
                     <button onclick="resolveAlert('${a.id}','Zatwierdzono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-green); padding:10px 20px; font-size:13px; box-shadow:none;">Zaakceptuj</button>
-                    <button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-red); padding:10px 20px; font-size:13px; box-shadow:none;">OdrzuÄ‡</button>
+                    <button onclick="resolveAlert('${a.id}','Odrzucono','${a.name}','${a.date}','${a.type}','${a.hrs}')" class="btn-main" style="background:var(--ios-red); padding:10px 20px; font-size:13px; box-shadow:none;">Odrzuć</button>
                 </div>
             </div>`;
         }).join('');
+
+        if (flexAlerts.length > 0) {
+            html += `<h4 style="margin:10px 0 12px 0; color:var(--ios-orange);">Alerty z grup elastycznych</h4>`;
+            html += flexAlerts.map(a => `
+                <div class="alert-card" style="padding:16px; border-radius:14px; border-left:6px solid var(--ios-orange); background:rgba(255,149,0,0.08); margin-bottom:12px;">
+                    <div style="font-size:12px; color:var(--text-muted); font-weight:700;">Data: ${a.date}</div>
+                    <div style="font-size:14px; font-weight:800; color:var(--ios-orange);">${a.type} ${a.hrs ? `(${a.hrs})` : ''}</div>
+                    <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Status: ${a.status || 'Informacyjne'}</div>
+                </div>
+            `).join('');
+        }
+        html += `</div></div>`;
         document.getElementById('alertsDetailView').innerHTML = html;
     }
 
@@ -1810,7 +1691,7 @@ function hexToRgba(hex, alpha) {
         });
 
         if(alerts.length === 0) {
-            document.getElementById('hrAlertsTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:gray;">Brak powiadomieÅ„ HR dla tej grupy.</td></tr>';
+            document.getElementById('hrAlertsTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:gray;">Brak powiadomień HR dla tej grupy.</td></tr>';
             return;
         }
 
@@ -1821,192 +1702,20 @@ function hexToRgba(hex, alpha) {
                 <td><span style="color:var(--ios-purple); font-weight:800; background:rgba(94,92,230,0.1); padding:4px 10px; border-radius:8px;">${a.type}</span></td>
                 <td>${a.date}</td>
                 <td style="text-align:right;">
-                    <button class="btn-main" style="background:var(--ios-purple); padding:6px 12px; font-size:11px; display:inline-block;">ðŸ“ OtwÃ³rz Dossier</button>
+                    <button class="btn-main" style="background:var(--ios-purple); padding:6px 12px; font-size:11px; display:inline-block;">📝 Otwórz Dossier</button>
                 </td>
             </tr>`).join('');
-    }
-
-    function getFilteredAlerts() {
-        const m = document.getElementById('alertMasterFilter')?.value || "ALL";
-        const g = document.getElementById('alertGroupFilter')?.value || "ALL";
-        const t = document.getElementById('alertTypeFilter')?.value || "ALL";
-        const sort = document.getElementById('alertSortFilter')?.value || "newest";
-        let alerts = [...(dbAdmin.alerts || [])];
-        if(m !== "ALL") alerts = alerts.filter(a => (a.master_group || groupByName(getEmpGroup(a.name))?.master || "Bez master grupy") === m);
-        if(g !== "ALL") alerts = alerts.filter(a => (a.group || getEmpGroup(a.name)) === g);
-        if(t !== "ALL") alerts = alerts.filter(a => (a.category || a.notification_type || "NORMAL") === t);
-        alerts.sort((a,b) => {
-            if(sort === "oldest") return String(a.ts || "").localeCompare(String(b.ts || ""));
-            if(sort === "date") return String(a.date || "").localeCompare(String(b.date || ""));
-            if(sort === "employee") return String(a.name || "").localeCompare(String(b.name || ""));
-            if(sort === "group") return String(a.group || getEmpGroup(a.name)).localeCompare(String(b.group || getEmpGroup(b.name)));
-            return String(b.ts || "").localeCompare(String(a.ts || ""));
-        });
-        return alerts;
-    }
-
-    function renderAlertsGroupView() {
-        document.getElementById('alertBackBtn').style.display = 'none';
-        document.getElementById('alertsGroupView').style.display = 'grid';
-        document.getElementById('alertsEmpView').style.display = 'none';
-        document.getElementById('alertsDetailView').style.display = 'none';
-        fillGroupSelect('alertGroupFilter', document.getElementById('alertMasterFilter')?.value || 'ALL');
-        const alerts = getFilteredAlerts();
-        if(alerts.length === 0) {
-            document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column:1/-1;">Brak powiadomieÅ„ dla wybranych filtrÃ³w.</p>';
-            return;
-        }
-        const grouped = {};
-        alerts.forEach(a => {
-            const master = a.master_group || groupByName(getEmpGroup(a.name))?.master || "Bez master grupy";
-            const group = a.group || getEmpGroup(a.name);
-            const key = `${master}|||${group}`;
-            if(!grouped[key]) grouped[key] = { master, group, normal:0, flexible:0, total:0 };
-            grouped[key].total++;
-            if((a.category || a.notification_type) === "FLEXIBLE") grouped[key].flexible++; else grouped[key].normal++;
-        });
-        document.getElementById('alertsGroupView').innerHTML = Object.values(grouped).map(g => `
-            <div class="group-bubble" onclick="renderAlertsEmpView('${escapeHtml(g.group)}')">
-                <div style="font-size:11px; font-weight:800; color:var(--text-muted);">${escapeHtml(g.master)}</div>
-                <h3 style="margin:6px 0 10px 0; font-size:20px;">${escapeHtml(g.group)}</h3>
-                <div style="font-size:34px; font-weight:900; color:var(--ios-blue);">${g.total}</div>
-                <div style="font-size:12px; color:var(--text-muted);">Normalne: ${g.normal} | Elastyczne: ${g.flexible}</div>
-            </div>`).join('');
-    }
-
-    function renderAlertsEmpView(groupName) {
-        currentAlertGroup = groupName;
-        document.getElementById('alertBackBtn').style.display = 'block';
-        document.getElementById('alertBackBtn').onclick = renderAlertsGroupView;
-        document.getElementById('alertsGroupView').style.display = 'none';
-        document.getElementById('alertsEmpView').style.display = 'block';
-        document.getElementById('alertsDetailView').style.display = 'none';
-        const alerts = getFilteredAlerts().filter(a => (a.group || getEmpGroup(a.name)) === groupName);
-        const byEmp = {};
-        alerts.forEach(a => { if(!byEmp[a.name]) byEmp[a.name] = []; byEmp[a.name].push(a); });
-        const ids = alerts.filter(a => (a.category || a.notification_type) !== "FLEXIBLE").map(a => a.id);
-        document.getElementById('alertsEmpView').innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
-                <h3 style="margin:0; font-size:22px;">Grupa: ${escapeHtml(groupName)}</h3>
-                ${ids.length ? `<button onclick="resolveMassAlerts('${ids.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">Zaakceptuj masowo grupÄ™</button>` : ''}
-            </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">
-                ${Object.entries(byEmp).map(([name, list]) => `<div class="glass-card" style="text-align:left; cursor:pointer;" onclick="renderAlertsDetailView('${escapeHtml(name)}')">
-                    <h4 style="margin:0 0 8px 0;">${escapeHtml(name)}</h4>
-                    <div style="font-weight:800; color:var(--ios-orange);">${list.length} powiadomieÅ„</div>
-                    <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(list[0].master_group || '')} / ${escapeHtml(list[0].group || '')}</div>
-                </div>`).join('')}
-            </div>`;
-    }
-
-    async function renderEmployeeWorkCard(username, date) {
-        const holder = document.getElementById('alertWorkCard');
-        if(!holder) return;
-        holder.innerHTML = '<div style="color:var(--text-muted); font-weight:700;">Åadowanie karty pracy...</div>';
-        const res = await apiCall('/admin/employee/workday', 'POST', { username, date });
-        if(!res || !res.ok) { holder.innerHTML = '<div>Brak danych karty pracy.</div>'; return; }
-        const e = res.employee || {};
-        const s = res.schedule || {};
-        holder.innerHTML = `
-            <h3 style="margin-top:0;">Karta pracy / podglÄ…d dnia</h3>
-            <div style="font-size:13px; display:grid; gap:7px;">
-                <b>${escapeHtml(e.name)}</b>
-                <span>Global ID: <b>${escapeHtml(e.global_id || e.id || '')}</b></span>
-                <span>${escapeHtml(e.master_group || '')} / ${escapeHtml(e.group || '')}</span>
-                <span>Data: <b>${escapeHtml(date)}</b></span>
-                <span>Plan: <b>${escapeHtml(s.activity || 'Brak planu')}</b></span>
-                <span>Godziny: <b>${escapeHtml(s.hours || '-')}</b></span>
-                <span>Status: <b>${escapeHtml(s.status || 'NORMAL')}</b></span>
-                <span>Start V-MAX: <b>${escapeHtml(res.actual_start || '-')}</b></span>
-                <span>Aktualna czynnoÅ›Ä‡: <b>${escapeHtml(res.current_task?.task || '-')}</b></span>
-                <span>Koniec: <b>${escapeHtml(res.actual_end || '-')}</b></span>
-            </div>
-            <hr style="margin:12px 0; border-top:1px solid var(--border);">
-            <div style="display:grid; gap:6px;">${(res.work_logs || []).map(l => `<div style="background:var(--bg-color); padding:8px; border-radius:10px; font-size:12px;"><b>${escapeHtml(l.task)}</b><br>${escapeHtml(l.start)}-${escapeHtml(l.end || 'Trwa')} | ${escapeHtml(l.skaner || '-')} / ${escapeHtml(l.wozek || '-')}</div>`).join('') || '<span style="font-size:12px; color:var(--text-muted);">Brak logÃ³w V-MAX.</span>'}</div>`;
-    }
-
-    async function renderAlertsDetailView(empName) {
-        document.getElementById('alertBackBtn').style.display = 'block';
-        document.getElementById('alertBackBtn').onclick = () => renderAlertsEmpView(currentAlertGroup);
-        document.getElementById('alertsGroupView').style.display = 'none';
-        document.getElementById('alertsEmpView').style.display = 'none';
-        document.getElementById('alertsDetailView').style.display = 'block';
-        const empAlerts = getFilteredAlerts().filter(a => a.name === empName);
-        const firstDate = empAlerts[0]?.date || document.getElementById('dailyDate')?.value || new Date().toISOString().slice(0,10);
-        document.getElementById('alertsDetailView').innerHTML = `
-            <div style="display:grid; grid-template-columns:minmax(260px, 340px) 1fr; gap:18px;">
-                <div id="alertWorkCard" class="glass-card" style="text-align:left; height:fit-content;"></div>
-                <div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px; flex-wrap:wrap;">
-                        <h3 style="margin:0;">Powiadomienia: ${escapeHtml(empName)}</h3>
-                    </div>
-                    ${empAlerts.map(a => {
-                        const col = getTileColor(a.type);
-                        const isFlex = (a.category || a.notification_type) === "FLEXIBLE";
-                        return `<div class="alert-card" style="padding:18px; border-radius:16px; border-left:6px solid ${col.c}; background:white; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
-                            <div>
-                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;">${escapeHtml(a.master_group || '')} / ${escapeHtml(a.group || '')} | wysÅ‚ano: ${escapeHtml(a.ts || '')}</div>
-                                <div style="font-weight:900; margin:5px 0;">${escapeHtml(a.date)} | ${escapeHtml(a.type)} ${a.hrs ? `(${escapeHtml(a.hrs)})` : ''}</div>
-                                ${isFlex ? '<span style="font-size:11px; font-weight:900; color:var(--ios-purple);">Alert z grupy elastycznej - informacyjny</span>' : ''}
-                            </div>
-                            ${isFlex ? '' : `<div style="display:flex; gap:8px;"><button onclick="resolveAlert('${a.id}','Zatwierdzono','${escapeHtml(a.name)}','${escapeHtml(a.date)}','${escapeHtml(a.type)}','${escapeHtml(a.hrs || '')}')" class="btn-main" style="background:var(--ios-green); padding:9px 14px; font-size:12px;">Akceptuj</button><button onclick="resolveAlert('${a.id}','Odrzucono','${escapeHtml(a.name)}','${escapeHtml(a.date)}','${escapeHtml(a.type)}','${escapeHtml(a.hrs || '')}')" class="btn-main" style="background:var(--ios-red); padding:9px 14px; font-size:12px;">OdrzuÄ‡</button></div>`}
-                        </div>`;
-                    }).join('')}
-                </div>
-            </div>`;
-        renderEmployeeWorkCard(empName, firstDate);
-    }
-
-    function renderHrAlertsTable() {
-        const tbody = document.getElementById('hrAlertsTableBody');
-        if(!tbody) return;
-        const master = document.getElementById('hrAlertMasterFilt')?.value || "ALL";
-        const group = document.getElementById('hrAlertGroupFilt')?.value || "ALL";
-        const status = document.getElementById('hrAlertStatusFilt')?.value || "ALL";
-        const sort = document.getElementById('hrAlertSort')?.value || "never";
-        const today = new Date().toISOString().slice(0,10);
-        let rows = (dbAdmin.employees || []).filter(e => canSeeEmp(e));
-        rows = rows.map(e => {
-            const g = groupByName(e.group || "Nieprzypisani") || {};
-            const never = !e.eval_count || parseInt(e.eval_count) === 0;
-            const due = e.next_eval_date && e.next_eval_date <= today;
-            return {...e, master_group: g.master || e.master_group || "Bez master grupy", never, due, evalStatus: never ? "Nigdy nie oceniany" : (due ? "Po terminie" : (e.next_eval_date ? "NadchodzÄ…ca" : "Brak daty"))};
-        });
-        if(master !== "ALL") rows = rows.filter(e => e.master_group === master);
-        if(group !== "ALL") rows = rows.filter(e => (e.group || "Nieprzypisani") === group);
-        if(status === "never") rows = rows.filter(e => e.never);
-        if(status === "due") rows = rows.filter(e => e.due);
-        if(status === "upcoming") rows = rows.filter(e => !e.never && !e.due && e.next_eval_date);
-        rows.sort((a,b) => {
-            if(sort === "next") return String(a.next_eval_date || "9999").localeCompare(String(b.next_eval_date || "9999"));
-            if(sort === "group") return String(a.group || "").localeCompare(String(b.group || ""));
-            if(sort === "name") return String(a.name || "").localeCompare(String(b.name || ""));
-            return (b.never - a.never) || String(a.next_eval_date || "9999").localeCompare(String(b.next_eval_date || "9999"));
-        });
-        tbody.innerHTML = rows.map(e => `
-            <tr style="${e.never ? 'background:rgba(255,149,0,0.08);' : ''}">
-                <td><b>${escapeHtml(e.name)}</b></td>
-                <td>${escapeHtml(e.id || e.global_id || '')}</td>
-                <td>${escapeHtml(e.master_group || '')}</td>
-                <td>${escapeHtml(e.group || '')}</td>
-                <td>${escapeHtml(e.hire_date || '')}</td>
-                <td>${escapeHtml(e.last_eval_date || '-')}</td>
-                <td>${escapeHtml(e.next_eval_date || '-')}</td>
-                <td>${escapeHtml(e.eval_count || 0)}</td>
-                <td><span style="font-weight:900; color:${e.never || e.due ? 'var(--ios-orange)' : 'var(--ios-green)'};">${escapeHtml(e.evalStatus)}</span></td>
-                <td><button class="btn-main" style="padding:6px 12px; font-size:11px;" onclick="openMatrix('${escapeHtml(e.name)}')">OtwÃ³rz Dossier</button></td>
-            </tr>`).join('') || '<tr><td colspan="10" style="text-align:center; padding:20px;">Brak osÃ³b dla filtrÃ³w.</td></tr>';
     }
 
     async function resolveAlert(id, stat, n, d, t, h) { 
         const res = await apiCall('/admin/alerts/resolve', 'POST', { id, status: stat, name: n, date: d, type: t, hrs: h });
         if(res) { 
             if(res.ok) showT(res.msg); 
-            else return showT("âš ï¸ " + res.msg);
+            else return showT("⚠️ " + res.msg);
             
             await loadAdminData();
-            if(dbAdmin.alerts.filter(a => a.name === n).length > 0) renderAlertsDetailView(n);
-            else if(dbAdmin.alerts.filter(a => getEmpGroup(a.name) === currentAlertGroup).length > 0) renderAlertsEmpView(currentAlertGroup);
+            if(getFilteredAlertItems().filter(a => a.name === n).length > 0) renderAlertsDetailView(n);
+            else if(getFilteredAlertItems().filter(a => getEmpGroup(a.name) === currentAlertGroup).length > 0) renderAlertsEmpView(currentAlertGroup);
             else renderAlertsGroupView();
         }
     }
@@ -2014,14 +1723,16 @@ function hexToRgba(hex, alpha) {
     async function resolveMassAlerts(idsString, stat) {
         if(!idsString) return;
         const ids = idsString.split(',');
-        if(!confirm(`Czy na pewno chcesz zatwierdziÄ‡ masowo te zmiany grafiku? (Alerty HR i tak zostanÄ… pominiÄ™te)`)) return;
+        if(!confirm(`Czy na pewno chcesz zatwierdzić masowo te zmiany grafiku? (Alerty HR i tak zostaną pominięte)`)) return;
         
-        showT("â³ Przetwarzanie...");
+        showT("⏳ Przetwarzanie...");
         const res = await apiCall('/admin/alerts/resolve-mass', 'POST', { ids: ids, status: stat });
         if(res) { 
-            showT("âœ… " + res.msg); 
+            showT("✅ " + res.msg); 
             await loadAdminData(); 
-            renderAlertsGroupView(); 
+            if(currentAlertEmployee && getFilteredAlertItems().some(a => a.name === currentAlertEmployee)) renderAlertsDetailView(currentAlertEmployee);
+            else if(currentAlertGroup && getFilteredAlertItems().some(a => getEmpGroup(a.name) === currentAlertGroup)) renderAlertsEmpView(currentAlertGroup);
+            else renderAlertsGroupView(); 
         }
     }
 
@@ -2074,7 +1785,7 @@ function hexToRgba(hex, alpha) {
             }
         }
 
-        let html = `<button onclick="assignFromMobile('${empName}', 'WyczyÅ›Ä‡')" class="btn-main" style="background:rgba(0,0,0,0.05); color:var(--text-main); box-shadow:none;">WyczyÅ›Ä‡ przydziaÅ‚</button>`;
+        let html = `<button onclick="assignFromMobile('${empName}', 'Wyczyść')" class="btn-main" style="background:rgba(0,0,0,0.05); color:var(--text-main); box-shadow:none;">Wyczyść przydział</button>`;
         html += allowedActs.map(act => {
             const col = getTileColor(act);
             return `<button onclick="assignFromMobile('${empName}', '${act}')" class="btn-main" style="background:${col.bg}; color:${col.c}; border:2px solid ${col.c}; box-shadow:none;">${act}</button>`;
@@ -2119,7 +1830,7 @@ function hexToRgba(hex, alpha) {
         if (!selectedGroup) {
             gridContainer.innerHTML = `
                 <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600; font-size:18px;">
-                    ðŸ‘† Najpierw wybierz grupÄ™ z menu u gÃ³ry, aby zaÅ‚adowaÄ‡ kolumny planowania.
+                    👆 Najpierw wybierz grupę z menu u góry, aby załadować kolumny planowania.
                 </div>`;
             return; 
         }
@@ -2150,7 +1861,7 @@ function hexToRgba(hex, alpha) {
         
         dailyEmployeePool.forEach(empObj => {
             const valStr = dbAdmin.planMap[`${empObj.name}_${dStr}`];
-            if(valStr && valStr.split("||")[0] && valStr.split("||")[0] !== "WyczyÅ›Ä‡") { 
+            if(valStr && valStr.split("||")[0] && valStr.split("||")[0] !== "Wyczyść") { 
                 const act = valStr.split("||")[0]; 
                 if(dailyData[act] !== undefined) { 
                     dailyData[act].push(empObj); 
@@ -2159,7 +1870,7 @@ function hexToRgba(hex, alpha) {
             }
         });
         
-        // Zabezpieczenie przed bÅ‚Ä™dem u pracownikÃ³w bez przypisanej grupy
+        // Zabezpieczenie przed błędem u pracowników bez przypisanej grupy
         const avail = dailyEmployeePool.filter(e => !assignedSet.has(e.name)).sort((a, b) => availabilityStart(dbAdmin.availMap[`${a.name}_${dStr}`]) - availabilityStart(dbAdmin.availMap[`${b.name}_${dStr}`]) || a.name.localeCompare(b.name)); 
         document.getElementById('availCount').innerText = avail.length;
         document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
@@ -2192,7 +1903,7 @@ function hexToRgba(hex, alpha) {
                 return `
                     <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
                         <span style="font-size:14px; font-weight:600; color:var(--text-main);">${e.name}</span>
-                        <span style="background:rgba(0,0,0,0.04); color:${starColor}; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">â­ ${rating}</span>
+                        <span style="background:rgba(0,0,0,0.04); color:${starColor}; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">⭐ ${rating}</span>
                     </div>`;
             }).join('');
 
@@ -2201,7 +1912,7 @@ function hexToRgba(hex, alpha) {
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                     <div style="color:${col.c}; font-weight:800; font-size:15px; display:flex; align-items:center; gap:5px;">
                         ${act} 
-                        <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:14px;" title="Podpowiedz pracownikÃ³w">ðŸ’¡</button>
+                        <button onclick="openSuggestions('${act}')" style="background:transparent; border:none; cursor:pointer; font-size:14px;" title="Podpowiedz pracowników">💡</button>
                     </div>
                     <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:800;">${currCount} os.</span>
                 </div>
@@ -2235,7 +1946,7 @@ function hexToRgba(hex, alpha) {
         availableEmps.sort((a, b) => b.rating - a.rating);
 
         let html = availableEmps.map(e => {
-            let statusText = (!e.currentAct || e.currentAct === 'WyczyÅ›Ä‡') 
+            let statusText = (!e.currentAct || e.currentAct === 'Wyczyść') 
                              ? `<span style="color:var(--ios-green); font-weight:700;">Wolny</span>` 
                              : `<span style="color:var(--ios-orange); font-weight:700;">Robi: ${e.currentAct}</span>`;
             let starColor = e.rating === 1 ? 'var(--ios-red)' : (e.rating >= 4 ? 'var(--ios-green)' : 'var(--ios-blue)');
@@ -2244,8 +1955,8 @@ function hexToRgba(hex, alpha) {
             <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid var(--border);">
                 <div><b style="font-size:15px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px;">${statusText}</span></div>
                 <div style="display:flex; align-items:center; gap:15px;">
-                    <span style="font-weight:800; color:${starColor}; background:rgba(0,0,0,0.03); padding:4px 8px; border-radius:8px;">â­ ${e.rating}</span>
-                    <button onclick="assignFromSuggestion('${e.name}', '${act}')" class="btn-main" style="padding:8px 16px; font-size:13px; box-shadow:none;">âž• Przypisz</button>
+                    <span style="font-weight:800; color:${starColor}; background:rgba(0,0,0,0.03); padding:4px 8px; border-radius:8px;">⭐ ${e.rating}</span>
+                    <button onclick="assignFromSuggestion('${e.name}', '${act}')" class="btn-main" style="padding:8px 16px; font-size:13px; box-shadow:none;">➕ Przypisz</button>
                 </div>
             </div>`;
         }).join('');
@@ -2262,13 +1973,13 @@ function hexToRgba(hex, alpha) {
         renderDaily(); 
         openSuggestions(targetAct); 
         await apiCall('/admin/planner/save', 'POST', { names: [empName], start: dStr, end: dStr, activity: targetAct, hours: "" });
-        showT(`âœ… Przypisano: ${empName}`);
+        showT(`✅ Przypisano: ${empName}`);
     }
 
     function toggleBrush() { 
         isBrush = !isBrush; 
         const b = document.getElementById('bBtn'); 
-        b.innerText = isBrush ? "TRYB MALOWANIA: WÅ" : "TRYB MALOWANIA: WYÅ"; 
+        b.innerText = isBrush ? "TRYB MALOWANIA: WŁ" : "TRYB MALOWANIA: WYŁ"; 
         b.style.background = isBrush ? "var(--ios-blue)" : "white"; 
         b.style.color = isBrush ? "white" : "var(--text-main)"; 
     }
@@ -2306,24 +2017,22 @@ function hexToRgba(hex, alpha) {
     
     function renderPlanner() {
         const q = document.getElementById('searchPlan').value.toLowerCase(); 
-        const rawMonth = document.getElementById('aMonth').value;
-        const [planYear, planMonth] = rawMonth.includes('-') ? rawMonth.split('-').map(v => parseInt(v, 10)) : [new Date().getFullYear(), parseInt(rawMonth, 10)];
-        const m = planMonth;
-        const days = new Date(planYear, m+1, 0).getDate();
+        const m = parseInt(document.getElementById('aMonth').value);
+        const days = new Date(2026, m+1, 0).getDate();
         const masterFilter = document.getElementById('plannerMasterFilter') ? document.getElementById('plannerMasterFilter').value : "ALL";
         const groupFilter = document.getElementById('plannerGroupFilter') ? document.getElementById('plannerGroupFilter').value : "ALL";
         const sortMode = document.getElementById('plannerAvailabilitySort') ? document.getElementById('plannerAvailabilitySort').value : "name";
         
         let hHtml = '<th class="sticky-col sticky-row" style="z-index:30;">Pracownik</th>';
         for(let d=1; d<=days; d++) { 
-            let isW = new Date(planYear,m,d).getDay() % 6 === 0; 
+            let isW = new Date(2026,m,d).getDay() % 6 === 0; 
             hHtml += `<th class="sticky-row ${isW ? 'weekend-col' : ''}">${d}.${m+1}</th>`; 
         }
         document.getElementById('pHead').innerHTML = hHtml;
         
         let plannerEmployees = dbAdmin.employees.filter(e => {
             if(!canSeeEmp(e)) return false;
-            if(q && !employeeSearchText(e).includes(q)) return false;
+            if(!e.name.toLowerCase().includes(q)) return false;
             const g = groupByName(e.group || "Nieprzypisani");
             if(masterFilter !== "ALL" && (!g || (g.master || "Bez master grupy") !== masterFilter)) return false;
             if(groupFilter !== "ALL" && e.group !== groupFilter) return false;
@@ -2331,8 +2040,8 @@ function hexToRgba(hex, alpha) {
         });
         if(sortMode === "availability") {
             plannerEmployees.sort((a, b) => {
-                const aBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${a.name}_${formatDateKey(planYear, m, i + 1)}`])));
-                const bBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${b.name}_${formatDateKey(planYear, m, i + 1)}`])));
+                const aBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${a.name}_${formatDateKey(2026, m, i + 1)}`])));
+                const bBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${b.name}_${formatDateKey(2026, m, i + 1)}`])));
                 return aBest - bBest || a.name.localeCompare(b.name);
             });
         } else {
@@ -2347,41 +2056,34 @@ function hexToRgba(hex, alpha) {
                 <div style="margin-left:8px; text-align:left; overflow:hidden;">
                     <span style="font-size:10px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span>
                     <span style="font-weight:600; white-space:nowrap; text-overflow:ellipsis; display:block; width:100%;" title="${emp}">${emp}</span>
-                    <span style="font-size:10px; color:var(--text-muted); display:block;">${escapeHtml(empObj.group || '')} | ${avgRating(emp)}</span>
                 </div>
             </td>`;
             
             for(let d=1; d<=days; d++) {
-                let isW = new Date(planYear,m,d).getDay() % 6 === 0; 
-                const dateStr = formatDateKey(planYear, m, d);
+                let isW = new Date(2026,m,d).getDay() % 6 === 0; 
+                const dateStr = formatDateKey(2026, m, d);
                 const key = `${emp}_${dateStr}`;
                 
-                // Zabezpieczenie przed bÅ‚Ä™dem, gdy pracownik nie ma wpisu
+                // Zabezpieczenie przed błędem, gdy pracownik nie ma wpisu
                 const valStr = dbAdmin.planMap[key] || "||"; 
                 const parts = valStr.split("||");
-                const act = parts[0] || "WyczyÅ›Ä‡";
+                const act = parts[0] || "Wyczyść";
                 const hrs = parts[1] || "";
                 
                 const col = getTileColor(act);
-                const st = scheduleStatus(emp, dateStr).status || "NORMAL";
-                const showRatings = document.getElementById('showRatingsPlan') ? document.getElementById('showRatingsPlan').checked : true;
-                const rBadge = showRatings && act !== "WyczyÃ…â€ºÃ„â€¡" ? ratingBadge(emp, act) : "";
-                const title = `Pracownik: ${emp}\nAktywnoÅ›Ä‡: ${act}\nOcena: ${(dbAdmin.ratingsMap || {})[`${emp}_${act}`] || 'brak'}/4\nGodziny: ${hrs || '-'}\nStatus: ${st}`;
                 
                 let availHint = ""; 
                 const req = dbAdmin.requestMap ? dbAdmin.requestMap[key] : null;
                 if(req) {
-                    const reqColor = req.type === "DostÄ™pny" ? "var(--ios-green)" : "var(--ios-orange)";
+                    const reqColor = req.type === "Dostępny" ? "var(--ios-green)" : "var(--ios-orange)";
                     availHint = `<div style="font-size:9px; color:${reqColor}; margin-top:3px; font-weight:800; background:rgba(52,199,89,0.1); padding:2px 4px; border-radius:4px;">${escapeHtml(req.type)} ${escapeHtml(req.hrs || '')} (${escapeHtml(req.status)})</div>`;
                 }
                 
                 rHtml += `
                 <td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${dateStr}',this)">
-                    <div class="tile ${statusClass(st)}" title="${escapeHtml(title)}" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">
-                        ${act === 'WyczyÅ›Ä‡' ? '' : act}
-                        <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'WyczyÅ›Ä‡' ? '' : hrs}</div>
-                        ${rBadge}
-                        ${st !== "NORMAL" ? `<div style="font-size:9px; font-weight:900; margin-top:3px;">${escapeHtml(st)}</div>` : ''}
+                    <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">
+                        ${act === 'Wyczyść' ? '' : act}
+                        <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
                         ${availHint}
                     </div>
                 </td>`;
@@ -2399,15 +2101,15 @@ function hexToRgba(hex, alpha) {
         let act = document.getElementById('brushAct').value; 
         let hrs = document.getElementById('brushHrs').value;
         const key = `${n}_${dateStr}`;
-        if(dbAdmin.availMap[key] && act !== "WyczyÅ›Ä‡" && !hrs) hrs = dbAdmin.availMap[key];
+        if(dbAdmin.availMap[key] && act !== "Wyczyść" && !hrs) hrs = dbAdmin.availMap[key];
         
         dbAdmin.planMap[key] = act + "||" + hrs + "||1"; 
         const col = getTileColor(act); 
         
         td.innerHTML = `
             <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow}; transform:scale(0.9);">
-                ${act === 'WyczyÅ›Ä‡' ? '' : act}
-                <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'WyczyÅ›Ä‡' ? '' : hrs}</div>
+                ${act === 'Wyczyść' ? '' : act}
+                <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
             </div>`;
         setTimeout(() => td.querySelector('.tile').style.transform = 'scale(1)', 50); 
         await apiCall('/admin/planner/save', 'POST', { names: [n], start: dateStr, end: dateStr, activity: act, hours: hrs });
@@ -2417,24 +2119,24 @@ function hexToRgba(hex, alpha) {
     
     async function applyMass() {
         const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
-        if(sel.length === 0) return showT("âš ï¸ Zaznacz pracownikÃ³w w tabeli w tle!");
+        if(sel.length === 0) return showT("⚠️ Zaznacz pracowników w tabeli w tle!");
         
         const act = document.getElementById('massAct').value;
         const hrs = document.getElementById('massHrs').value;
         const odRaw = document.getElementById('mOd').value;
         const dooRaw = document.getElementById('mDo').value;
         
-        if(!odRaw || !dooRaw) return showT("âš ï¸ Wybierz zakres dat!");
+        if(!odRaw || !dooRaw) return showT("⚠️ Wybierz zakres dat!");
         
         closeM(); 
-        showT("â³ Zapisywanie..."); 
+        showT("⏳ Zapisywanie..."); 
         const res = await apiCall('/admin/planner/save', 'POST', { names: sel, start: odRaw, end: dooRaw, activity: act, hours: hrs });
-        if(res) { showT("âœ… Gotowe!"); loadAdminData(); }
+        if(res) { showT("✅ Gotowe!"); loadAdminData(); }
     }
 
     function openCopyDaily() {
         const src = document.getElementById('dailyDate').value; 
-        if(!src) return showT("âš ï¸ Wybierz dzieÅ„ z kalendarza!");
+        if(!src) return showT("⚠️ Wybierz dzień z kalendarza!");
         
         document.getElementById('copySourceDateStr').innerText = src;
         document.getElementById('copyOd').value = src; 
@@ -2447,22 +2149,22 @@ function hexToRgba(hex, alpha) {
         const od = document.getElementById('copyOd').value;
         const doo = document.getElementById('copyDo').value;
         
-        if(!od || !doo) return showT("âš ï¸ Podaj daty docelowe!");
+        if(!od || !doo) return showT("⚠️ Podaj daty docelowe!");
         
         closeM(); 
-        showT("ðŸš€ Klonowanie ukÅ‚adu...");
+        showT("🚀 Klonowanie układu...");
         const res = await apiCall('/admin/planner/copy-day', 'POST', { sourceDate: src, targetStart: od, targetEnd: doo });
-        if(res) { showT("âœ… Skopiowano pomyÅ›lnie!"); loadAdminData(); }
+        if(res) { showT("✅ Skopiowano pomyślnie!"); loadAdminData(); }
     }
 
     // ==========================================
-    // 7. ZESPÃ“Å I KARTOTEKI HR (DOSSIER)
+    // 7. ZESPÓŁ I KARTOTEKI HR (DOSSIER)
     // ==========================================
     function renderMatrix() { 
         const container = document.getElementById('groupBubbles');
         container.innerHTML = getManagedGroups().map(g => {
             const emps = dbAdmin.employees.filter(e => e.group === g.name && e.name !== dbAdmin.rootAdmin);
-            const isFlex = g.is_flexible === 1 ? `<span style="color:var(--ios-orange); font-size:12px; font-weight:800; background:rgba(255,149,0,0.1); padding:4px 8px; border-radius:8px;">âš¡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:8px;">ðŸ”’ Sztywna</span>`;
+            const isFlex = g.is_flexible === 1 ? `<span style="color:var(--ios-orange); font-size:12px; font-weight:800; background:rgba(255,149,0,0.1); padding:4px 8px; border-radius:8px;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:8px;">🔒 Sztywna</span>`;
             return `
             <div class="group-bubble" data-group="${escapeHtml(g.name)}">
                 <h3 style="margin-top:0; font-size:18px; color:var(--text-main);">${escapeHtml(g.name)}</h3>
@@ -2478,7 +2180,7 @@ function hexToRgba(hex, alpha) {
     function openGroupManager(gName) {
         currentGroupManager = gName;
         const groupInfo = dbAdmin.groups.find(g => g.name === gName);
-        document.getElementById('gmTitle').innerText = `SkÅ‚ad Grupy: ${gName}`;
+        document.getElementById('gmTitle').innerText = `Skład Grupy: ${gName}`;
         document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo ? groupInfo.type : '-'}`;
         document.getElementById('gmSearch').value = '';
         renderGroupManagerLists();
@@ -2544,16 +2246,13 @@ function hexToRgba(hex, alpha) {
 
         let filteredEmps = dbAdmin.employees.filter(e => {
             if (!canSeeEmp(e)) return false;
-            const masterFilt = document.getElementById('hrMasterSelect') ? document.getElementById('hrMasterSelect').value : "ALL";
-            const groupObj = groupByName(e.group || "Nieprzypisani");
-            let matchS = !search || employeeSearchText(e).includes(search);
-            let matchM = (masterFilt === "ALL" || (groupObj && (groupObj.master || "Bez master grupy") === masterFilt));
+            let matchS = e.name.toLowerCase().includes(search);
             let matchG = (groupFilt === "ALL" || e.group === groupFilt);
-            return matchS && matchM && matchG;
+            return matchS && matchG;
         });
 
         if (filteredEmps.length === 0) {
-            container.innerHTML = '<p style="color:gray; grid-column:1/-1;">Brak pracownikÃ³w pasujÄ…cych do filtrÃ³w.</p>'; 
+            container.innerHTML = '<p style="color:gray; grid-column:1/-1;">Brak pracowników pasujących do filtrów.</p>'; 
             return;
         }
 
@@ -2561,9 +2260,8 @@ function hexToRgba(hex, alpha) {
             <div class="hr-card-mini" data-emp="${escapeHtml(e.name)}">
                 <h4 style="margin:0 0 5px 0; font-size:18px;">${escapeHtml(e.name)}</h4>
                 <span style="font-size:12px; color:gray; font-weight:600; background:rgba(0,0,0,0.04); padding:4px 10px; border-radius:10px;">${escapeHtml(e.group || 'Nieprzypisani')}</span>
-                <div style="font-size:11px; color:var(--text-muted); margin-top:8px;">ID: ${escapeHtml(e.id || '')} | ${avgRating(e.name)}</div>
                 <div style="margin-top:15px; width:100%; border-top:1px solid var(--border); padding-top:10px;">
-                    <span style="color:var(--ios-blue); font-weight:700; font-size:13px;">Oceny & Dossier â†’</span>
+                    <span style="color:var(--ios-blue); font-weight:700; font-size:13px;">Oceny & Dossier →</span>
                 </div>
             </div>
         `).join('');
@@ -2580,7 +2278,7 @@ function hexToRgba(hex, alpha) {
         document.getElementById('matrixTitle').innerText = `Dossier: ${empName}`;
         document.getElementById('matrixSubtitle').innerText = `ID: ${emp.id} | Grupa: ${emp.group || 'Nieprzypisani'}`;
         
-        // Ustawienie domyÅ›lnych dat filtra absencji (ostatnie 30 dni)
+        // Ustawienie domyślnych dat filtra absencji (ostatnie 30 dni)
         const dzis = new Date();
         const przed30 = new Date();
         przed30.setDate(dzis.getDate() - 30);
@@ -2588,22 +2286,15 @@ function hexToRgba(hex, alpha) {
         document.getElementById('hrDateFrom').value = formatDateKey(przed30.getFullYear(), przed30.getMonth(), przed30.getDate());
         document.getElementById('hrDateTo').valueAsDate = dzis;
 
-        document.getElementById('hrNotes').value = 'Åadowanie...';
+        document.getElementById('hrNotes').value = 'Ładowanie...';
         document.getElementById('hrIsEval').checked = false;
         document.getElementById('hrOverallRating').value = '3';
         document.getElementById('hrNextEvalDate').value = emp.next_eval_date || '';
-        document.getElementById('hrHireDate').value = emp.hire_date || '';
-        document.getElementById('hrLoginPanelu').value = emp.login_panelu || '';
-        document.getElementById('hrLoginMagazynu').value = emp.login_magazynu || '';
-        document.getElementById('hrIdPunktualnika').value = emp.id_punktualnika || '';
-        document.getElementById('hrExternalId').value = emp.external_id || '';
         document.getElementById('hrHistoryList').innerHTML = '';
         
         await refreshHrStats();
         openM('matrixModal');
     }
-
-    function openMatrix(empName) { openHrDossier(empName); }
 
     async function refreshHrStats() {
         const d_from = document.getElementById('hrDateFrom').value;
@@ -2617,26 +2308,21 @@ function hexToRgba(hex, alpha) {
 
         if(res && res.ok) {
             document.getElementById('hrStatW').innerText = res.stats["Praca"];
-            document.getElementById('hrStatC').innerText = res.stats["Chory ðŸ¤’"];
-            document.getElementById('hrStatU').innerText = res.stats["Urlop ðŸŒ´"];
-            document.getElementById('hrStatWo').innerText = res.stats["Wolne ðŸ "];
-            document.getElementById('hrStatNoShow').innerText = res.stats["No Show âŒ"];
+            document.getElementById('hrStatC').innerText = res.stats["Chory 🤒"];
+            document.getElementById('hrStatU').innerText = res.stats["Urlop 🌴"];
+            document.getElementById('hrStatWo').innerText = res.stats["Wolne 🏠"];
+            document.getElementById('hrStatNoShow').innerText = res.stats["No Show ❌"];
             
             document.getElementById('hrNotes').value = res.notes;
             document.getElementById('hrNextEvalDate').value = res.next_eval_date || '';
-            document.getElementById('hrHireDate').value = res.hire_date || '';
-            document.getElementById('hrLoginPanelu').value = res.login_panelu || '';
-            document.getElementById('hrLoginMagazynu').value = res.login_magazynu || '';
-            document.getElementById('hrIdPunktualnika').value = res.id_punktualnika || '';
-            document.getElementById('hrExternalId').value = res.external_id || '';
 
             // Renderowanie Historii z klikalnymi elementami
             if (res.history && res.history.length > 0) {
                 document.getElementById('hrHistoryList').innerHTML = res.history.map(h => `
                     <div style="background:rgba(0,0,0,0.02); padding:12px; border-radius:12px; border:1px solid var(--border); cursor:pointer; transition:0.2s;" onclick="openEvalDetails(${h.id})" onmouseover="this.style.background='rgba(10,132,255,0.05)'" onmouseout="this.style.background='rgba(0,0,0,0.02)'">
                         <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                            <span style="font-size:11px; font-weight:800; color:var(--ios-blue);">ðŸ“… ${escapeHtml(h.date)}</span>
-                            <span style="font-size:11px; font-weight:800; color:var(--ios-orange);">Ocena: ${clampRating(h.rating)} â­</span>
+                            <span style="font-size:11px; font-weight:800; color:var(--ios-blue);">📅 ${escapeHtml(h.date)}</span>
+                            <span style="font-size:11px; font-weight:800; color:var(--ios-orange);">Ocena: ${clampRating(h.rating)} ⭐</span>
                         </div>
                         <div style="font-size:12px; color:var(--text-main); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${escapeHtml(h.notes || '')}"</div>
                     </div>
@@ -2669,27 +2355,27 @@ function hexToRgba(hex, alpha) {
         }
     }
     
-    // --- NOWOÅšÄ†: POBIERANIE DETALI HISTORYCZNEJ OCENY ---
+    // --- NOWOŚĆ: POBIERANIE DETALI HISTORYCZNEJ OCENY ---
     async function openEvalDetails(evalId) {
-        showT("â³ Åadowanie detali...");
+        showT("⏳ Ładowanie detali...");
         const res = await apiCall('/admin/employee/eval_details', 'POST', { eval_id: evalId });
         
         if(res && res.ok) {
             document.getElementById('edPeriod').innerText = "Okres analizy: " + res.period;
             document.getElementById('edStatW').innerText = res.stats["Praca"] || 0;
-            document.getElementById('edStatC').innerText = res.stats["Chory ðŸ¤’"] || 0;
-            document.getElementById('edStatU').innerText = res.stats["Urlop ðŸŒ´"] || 0;
-            document.getElementById('edStatWo').innerText = res.stats["Wolne ðŸ "] || 0;
-            document.getElementById('edStatNs').innerText = res.stats["No Show âŒ"] || 0;
+            document.getElementById('edStatC').innerText = res.stats["Chory 🤒"] || 0;
+            document.getElementById('edStatU').innerText = res.stats["Urlop 🌴"] || 0;
+            document.getElementById('edStatWo').innerText = res.stats["Wolne 🏠"] || 0;
+            document.getElementById('edStatNs').innerText = res.stats["No Show ❌"] || 0;
             
-            document.getElementById('edRating').innerText = "Ocena: " + clampRating(res.rating) + " â­";
+            document.getElementById('edRating').innerText = "Ocena: " + clampRating(res.rating) + " ⭐";
             document.getElementById('edNotes').innerText = res.notes ? `"${res.notes}"` : "Brak notatki.";
             const taskRatings = res.task_ratings || {};
             const taskEntries = Object.entries(taskRatings);
             document.getElementById('edTaskRatings').innerHTML = taskEntries.length ? taskEntries.map(([task, rating]) => `
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; background:white; border-radius:10px; padding:10px;">
                     <span style="font-size:13px; font-weight:700; color:var(--text-main);">${escapeHtml(task)}</span>
-                    <span style="font-size:12px; font-weight:900; color:var(--ios-blue);">${clampRating(rating)} â­</span>
+                    <span style="font-size:12px; font-weight:900; color:var(--ios-blue);">${clampRating(rating)} ⭐</span>
                 </div>
             `).join('') : '<span style="font-size:12px; color:gray;">Brak ocen czastkowych.</span>';
             
@@ -2720,45 +2406,32 @@ function hexToRgba(hex, alpha) {
         const isEval = document.getElementById('hrIsEval').checked;
         const ratingVal = clampRating(document.getElementById('hrOverallRating').value);
         const nextEvalDate = document.getElementById('hrNextEvalDate').value;
-        const hireDate = document.getElementById('hrHireDate').value;
         const taskRatings = {};
         document.querySelectorAll('#matrixGrid .task-rating-select').forEach(sel => {
             if(sel.dataset.activity) taskRatings[sel.dataset.activity] = clampRating(sel.value, 2);
         });
 
-        if(isEval && !confirm("Oznaczenie jako 'Ocena Okresowa' zresetuje licznik czasu do kolejnej oceny i wyczyÅ›ci ewentualny alert HR. KontynuowaÄ‡?")) {
+        if(isEval && !confirm("Oznaczenie jako 'Ocena Okresowa' zresetuje licznik czasu do kolejnej oceny i wyczyści ewentualny alert HR. Kontynuować?")) {
             return;
         }
 
-        showT("â³ Zapisywanie Dossier...");
+        showT("⏳ Zapisywanie Dossier...");
         const res = await apiCall('/admin/employee/hr_save', 'POST', { 
             username: currentHrEmp, 
             notes: notes, 
             is_evaluation: isEval,
             rating: ratingVal,
             next_eval_date: nextEvalDate,
-            hire_date: hireDate,
-            login_panelu: document.getElementById('hrLoginPanelu').value,
-            login_magazynu: document.getElementById('hrLoginMagazynu').value,
-            id_punktualnika: document.getElementById('hrIdPunktualnika').value,
-            external_id: document.getElementById('hrExternalId').value,
             task_ratings: taskRatings
         });
         
         if(res && res.ok) {
-            showT("âœ… " + res.msg);
+            showT("✅ " + res.msg);
             Object.entries(taskRatings).forEach(([act, rating]) => {
                 dbAdmin.ratingsMap[currentHrEmp+"_"+act] = rating;
             });
             const emp = dbAdmin.employees.find(e => e.name === currentHrEmp);
-            if(emp) {
-                emp.next_eval_date = nextEvalDate;
-                emp.hire_date = hireDate;
-                emp.login_panelu = document.getElementById('hrLoginPanelu').value;
-                emp.login_magazynu = document.getElementById('hrLoginMagazynu').value;
-                emp.id_punktualnika = document.getElementById('hrIdPunktualnika').value;
-                emp.external_id = document.getElementById('hrExternalId').value;
-            }
+            if(emp) emp.next_eval_date = nextEvalDate;
             await loadAdminData(); 
             await refreshHrStats();
             document.getElementById('hrIsEval').checked = false;
@@ -2777,7 +2450,8 @@ function hexToRgba(hex, alpha) {
             const q = searchEmpInput ? searchEmpInput.value.toLowerCase() : "";
             
             const filteredEmps = dbAdmin.employees.filter(e => {
-                return employeeSearchText(e).includes(q) || `${e.role || ''}`.toLowerCase().includes(q);
+                const haystack = `${e.name || ''} ${e.group || ''} ${e.role || ''} ${e.id || ''}`.toLowerCase();
+                return haystack.includes(q);
             });
             const masterSelect = document.getElementById('sGroupMaster');
             if(masterSelect) {
@@ -2813,7 +2487,7 @@ function hexToRgba(hex, alpha) {
                     </div> 
                     <div style="display:flex; gap:8px;">
                         <button onclick="rstPin('${escapeHtml(e.name)}')" style="background:rgba(255,149,0,0.1); color:var(--ios-orange); border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:700; font-size:12px;">Reset PIN</button>
-                        ${!isSuper ? `<button onclick="delSet('employee','${escapeHtml(e.name)}')" style="${bS}">UsuÅ„</button>` : ''}
+                        ${!isSuper ? `<button onclick="delSet('employee','${escapeHtml(e.name)}')" style="${bS}">Usuń</button>` : ''}
                     </div>
                 </div>`;
             }).join('');
@@ -2844,14 +2518,14 @@ function hexToRgba(hex, alpha) {
                                 <input type="checkbox" onchange="liveEditGroupFlex('${g.name}', this.checked)" ${isFlexChecked} style="accent-color:var(--ios-orange);"> Elastyczna
                             </label>
                         </div> 
-                        <button onclick="delSet('group','${g.name}')" style="${bS}">UsuÅ„</button>
+                        <button onclick="delSet('group','${g.name}')" style="${bS}">Usuń</button>
                     </div>
                     <div style="background:rgba(0,0,0,0.02); padding:15px; border-radius:16px; border:1px solid var(--border);">
-                        <div style="font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase;">Dozwolone aktywnoÅ›ci:</div>
+                        <div style="font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:10px; text-transform:uppercase;">Dozwolone aktywności:</div>
                         <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:15px;">
-                            ${actsHtml || '<span style="font-size:12px; color:gray; font-style:italic;">Brak aktywnoÅ›ci</span>'}
+                            ${actsHtml || '<span style="font-size:12px; color:gray; font-style:italic;">Brak aktywności</span>'}
                         </div>
-                        <button onclick="saveGroupActs('${g.name}', '${safeName}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:10px 20px; border-radius:12px; font-weight:800; cursor:pointer; font-size:13px; transition:0.2s;">ðŸ’¾ Zapisz uprawnienia</button>
+                        <button onclick="saveGroupActs('${g.name}', '${safeName}')" style="background:rgba(10,132,255,0.1); color:var(--ios-blue); border:none; padding:10px 20px; border-radius:12px; font-weight:800; cursor:pointer; font-size:13px; transition:0.2s;">💾 Zapisz uprawnienia</button>
                     </div>
                 </div>`
             }).join('');
@@ -2864,8 +2538,8 @@ function hexToRgba(hex, alpha) {
                 groupedByMaster[master].push(g);
             });
             document.getElementById('cmsGroupList').innerHTML = Object.entries(groupedByMaster).map(([master, groups]) => `
-                <details open style="border-bottom:1px solid var(--border); padding:12px 0;" ondragover="event.preventDefault()" ondrop="dropGroupOnMaster(event, '${escapeHtml(master)}')">
-                    <summary style="font-weight:900; cursor:pointer; color:var(--ios-blue);">${escapeHtml(master)} <span style="color:gray; font-size:11px;">${groups.length} grup</span> ${master !== 'Bez master grupy' ? `<button onclick="event.preventDefault(); promptRenameMaster('${escapeHtml(master)}')" style="margin-left:8px; padding:5px 8px; border:none; border-radius:8px; font-weight:800;">Zmien nazwe</button>` : ''}</summary>
+                <details open style="border-bottom:1px solid var(--border); padding:12px 0;">
+                    <summary style="font-weight:900; cursor:pointer; color:var(--ios-blue);">${escapeHtml(master)} <span style="color:gray; font-size:11px;">${groups.length} grup</span></summary>
                     ${groups.map(g => {
                         const isFlexChecked = g.is_flexible === 1 ? 'checked' : '';
                         const safeName = g.name.replace(/[^a-zA-Z0-9_-]/g, '-');
@@ -2873,11 +2547,10 @@ function hexToRgba(hex, alpha) {
                             const isChecked = (g.activities && g.activities.includes(a)) ? 'checked' : '';
                             return `<label style="font-size:11px; display:inline-flex; align-items:center; gap:4px; background:rgba(0,0,0,0.03); padding:6px 10px; border-radius:8px; border:1px solid var(--border); margin-bottom:4px;"><input type="checkbox" class="act-chk-${safeName}" value="${escapeHtml(a)}" ${isChecked} style="width:16px; height:16px; margin:0; accent-color:var(--ios-blue);"> ${escapeHtml(a)}</label>`;
                         }).join('');
-                        return `<details draggable="true" ondragstart="dragGroupTile(event, '${escapeHtml(g.name)}')" style="margin-top:10px; background:rgba(0,0,0,0.02); border-radius:14px; padding:12px;">
+                        return `<details style="margin-top:10px; background:rgba(0,0,0,0.02); border-radius:14px; padding:12px;">
                             <summary style="cursor:pointer; font-weight:800;">${escapeHtml(g.name)} <span style="font-size:11px; color:gray;">${escapeHtml(g.type || '')}</span></summary>
                             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0;">
                                 <select onchange="liveEditGroupMaster('${escapeHtml(g.name)}', this.value)" style="font-weight:700;">${(dbAdmin.masterGroups || []).map(m => `<option value="${escapeHtml(m)}" ${m === (g.master || 'Bez master grupy') ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select>
-                                <button onclick="promptRenameGroup('${escapeHtml(g.name)}')" style="padding:7px 10px; border:none; border-radius:9px; font-weight:800;">Zmien nazwe</button>
                                 <label style="font-size:11px; font-weight:700; color:var(--ios-orange); display:inline-flex; align-items:center; gap:4px;"><input type="checkbox" onchange="liveEditGroupFlex('${escapeHtml(g.name)}', this.checked)" ${isFlexChecked} style="accent-color:var(--ios-orange);"> Elastyczna</label>
                                 <button onclick="delSet('group','${escapeHtml(g.name)}')" style="${bS}">Usun</button>
                             </div>
@@ -2903,14 +2576,7 @@ function hexToRgba(hex, alpha) {
                 }).join('') || '<span style="font-size:12px; color:gray;">Brak Team Leaderow / Managerow.</span>';
             }
 
-            const actParentSelect = document.getElementById('sActParent');
-            if(actParentSelect) {
-                const currentParent = actParentSelect.value || "";
-                const parentActs = (dbAdmin.activityTree || []).filter(a => !a.is_system);
-                actParentSelect.innerHTML = '<option value="">AktywnoÅ›Ä‡ gÅ‚Ã³wna</option>' + parentActs.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
-                actParentSelect.value = currentParent;
-            }
-            // AKTYWNOÅšCI
+            // AKTYWNOŚCI
             document.getElementById('cmsActList').innerHTML = dbAdmin.activityNames.map(a => {
                 const cColor = (dbAdmin.activityColors && dbAdmin.activityColors[a]) ? dbAdmin.activityColors[a] : '#0A84FF';
                 return `
@@ -2919,7 +2585,7 @@ function hexToRgba(hex, alpha) {
                         <input type="color" value="${cColor}" onchange="liveEditActivityColor('${a}', this.value)" style="width:30px; height:30px; padding:0; border:none; border-radius:8px; cursor:pointer;">
                         <b style="font-size:15px;">${a}</b>
                     </div> 
-                    <button onclick="delSet('activity','${a}')" style="${bS}">UsuÅ„</button>
+                    <button onclick="delSet('activity','${a}')" style="${bS}">Usuń</button>
                 </div>`
             }).join('');
                 
@@ -2927,34 +2593,29 @@ function hexToRgba(hex, alpha) {
             document.getElementById('cmsShiftList').innerHTML = dbAdmin.shifts.map(s => `
                 <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center;">
                     <b style="font-size:15px;">${s}</b>
-                    <button onclick="delSet('shift','${s}')" style="${bS}">UsuÅ„</button>
+                    <button onclick="delSet('shift','${s}')" style="${bS}">Usuń</button>
                 </div>`).join('');
                 
         } catch (err) { 
-            console.error("BÅ‚Ä…d CMS:", err); 
+            console.error("Błąd CMS:", err); 
         }
     }
 
     async function liveEditUserRole(empName, newRole) { 
-        const res = await apiCall('/admin/settings', 'POST', { action: 'EDIT_USER_ROLE', value: empName, role: newRole }); 
-        if(res && res.ok) {
-            const emp = dbAdmin.employees.find(e => e.name === empName);
-            if(emp) emp.role = newRole;
-            showT("Zmieniono role.");
-            await loadAdminData();
-        }
+        await apiCall('/admin/settings', 'POST', { action: 'EDIT_USER_ROLE', value: empName, role: newRole }); 
+        showT("✅ Zmieniono rolę!"); 
     }
     
     async function liveEditActivityColor(actName, newColor) { 
         dbAdmin.activityColors[actName] = newColor; 
         await apiCall('/admin/settings', 'POST', { action: 'EDIT_ACTIVITY_COLOR', value: actName, color: newColor }); 
-        showT("âœ… Zapisano kolor!"); 
+        showT("✅ Zapisano kolor!"); 
     }
     
     async function liveEditGroupFlex(grpName, isChecked) { 
         const flexVal = isChecked ? 1 : 0; 
         await apiCall('/admin/settings', 'POST', { action: 'EDIT_GROUP_FLEX', value: grpName, is_flexible: flexVal }); 
-        showT("âœ… Zmieniono reguÅ‚Ä™ grupy!"); 
+        showT("✅ Zmieniono regułę grupy!"); 
     }
 
     async function liveEditGroupMaster(grpName, masterName) {
@@ -2963,30 +2624,6 @@ function hexToRgba(hex, alpha) {
             showT("Zmieniono master grupe.");
             loadAdminData();
         }
-    }
-
-    function dragGroupTile(ev, groupName) { ev.dataTransfer.setData('groupName', groupName); }
-    async function dropGroupOnMaster(ev, masterName) {
-        ev.preventDefault();
-        const groupName = ev.dataTransfer.getData('groupName');
-        if(!groupName || !confirm(`PrzenieÅ›Ä‡ grupÄ™ ${groupName} do master grupy ${masterName}?`)) return;
-        await liveEditGroupMaster(groupName, masterName);
-    }
-
-    async function promptRenameGroup(oldName) {
-        const newName = prompt("Nowa nazwa grupy", oldName);
-        if(!newName || newName === oldName) return;
-        const res = await apiCall('/admin/settings', 'POST', { action:'EDIT_GROUP_NAME', value:oldName, new_value:newName.trim() });
-        if(res && res.ok) { showT("Zmieniono nazwe grupy."); await loadAdminData(); }
-        else if(res) showT(res.msg || "Nie udalo sie zmienic nazwy.");
-    }
-
-    async function promptRenameMaster(oldName) {
-        const newName = prompt("Nowa nazwa master grupy", oldName);
-        if(!newName || newName === oldName) return;
-        const res = await apiCall('/admin/settings', 'POST', { action:'EDIT_MASTER_GROUP_NAME', value:oldName, new_value:newName.trim() });
-        if(res && res.ok) { showT("Zmieniono nazwe master grupy."); await loadAdminData(); }
-        else if(res) showT(res.msg || "Nie udalo sie zmienic nazwy.");
     }
 
     async function saveMasterGroup() {
@@ -3012,11 +2649,11 @@ function hexToRgba(hex, alpha) {
     async function changeRootAdmin() {
         const login = document.getElementById('sRootLogin').value;
         const pass = document.getElementById('sRootPass').value;
-        if(!login && !pass) return showT("âš ï¸ WypeÅ‚nij chociaÅ¼ jedno pole!");
+        if(!login && !pass) return showT("⚠️ Wypełnij chociaż jedno pole!");
         
         const res = await apiCall('/admin/settings', 'POST', { action: 'EDIT_ROOT_ADMIN', login: login, pass: pass });
         if(res && res.ok) { 
-            showT("âœ… Konto GÅ‚Ã³wne zaktualizowane!"); 
+            showT("✅ Konto Główne zaktualizowane!"); 
             document.getElementById('sRootLogin').value = ''; 
             document.getElementById('sRootPass').value = ''; 
             loadAdminData(); 
@@ -3035,9 +2672,8 @@ function hexToRgba(hex, alpha) {
     async function saveAct() {
         const v = document.getElementById('sAct').value;
         const c = document.getElementById('sActColor').value;
-        const parentId = document.getElementById('sActParent') ? document.getElementById('sActParent').value : "";
         if(v) { 
-            await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'activity', value: v, color: c, parent_id: parentId ? parseInt(parentId, 10) : null }); 
+            await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'activity', value: v, color: c }); 
             document.getElementById('sAct').value = ''; 
             loadAdminData(); 
         }
@@ -3061,10 +2697,10 @@ function hexToRgba(hex, alpha) {
         const chks = document.querySelectorAll(`.act-chk-${safeName}:checked`);
         const selectedActs = Array.from(chks).map(c => c.value);
         
-        showT("â³ Zapisywanie uprawnieÅ„...");
+        showT("⏳ Zapisywanie uprawnień...");
         const res = await apiCall('/admin/settings', 'POST', { action: 'UPDATE_GROUP_ACTS', type: 'group', value: gName, activities: selectedActs });
         if(res && res.ok) { 
-            showT("âœ… Zapisano uprawnienia dla: " + gName); 
+            showT("✅ Zapisano uprawnienia dla: " + gName); 
             loadAdminData(); 
         }
     }
@@ -3077,23 +2713,23 @@ function hexToRgba(hex, alpha) {
             const res = await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'employee', value: n, role: r, group: "Nieprzypisani" }); 
             if(res && res.ok) { 
                 document.getElementById('sEmp').value = ''; 
-                showT("âœ… Dodano pracownika!"); 
+                showT("✅ Dodano pracownika!"); 
                 loadAdminData(); 
             } else { 
-                showT("âŒ " + res.msg); 
+                showT("❌ " + res.msg); 
             }
         } 
     }
     
     async function delSet(t, v) { 
-        if(confirm(`UsunÄ…Ä‡ trwale rekord: ${v}?`)) { 
+        if(confirm(`Usunąć trwale rekord: ${v}?`)) { 
             await apiCall('/admin/settings', 'POST', { action: 'DELETE', type: t, value: v }); 
             loadAdminData(); 
         } 
     }
     
     async function rstPin(n) { 
-        if(confirm(`ZresetowaÄ‡ PIN pracownika ${n} na 1111?`)) { 
+        if(confirm(`Zresetować PIN pracownika ${n} na 1111?`)) { 
             await apiCall('/auth/change-pin', 'POST', { name: n, oldPin: "", newPin: "1111", isAdmin: true }); 
             showT("PIN zresetowany do 1111"); 
         } 
@@ -3110,14 +2746,12 @@ function hexToRgba(hex, alpha) {
         if(res && res.ok) {
             alert(res.msg);
             loadAdminData();
-        } else if(res) {
-            alert("Import nieudany: " + (res.msg || "brak szczegolow"));
         }
     }
 
     async function runSimulation() {
-        if(confirm("To wygeneruje tysiÄ…ce rekordÃ³w historii pracy od stycznia do maja 2026. Stare dane z tego okresu zostanÄ… nadpisane. KontynuowaÄ‡?")) {
-            showT("ðŸ¤– Symulacja w toku. To moÅ¼e potrwaÄ‡ kilka sekund...");
+        if(confirm("To wygeneruje tysiące rekordów historii pracy od stycznia do maja 2026. Stare dane z tego okresu zostaną nadpisane. Kontynuować?")) {
+            showT("🤖 Symulacja w toku. To może potrwać kilka sekund...");
             const res = await apiCall('/admin/simulate', 'POST');
             if(res && res.ok) {
                 alert(res.msg);
