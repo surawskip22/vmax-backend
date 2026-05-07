@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>WorkFlow V-MAX 11.0 Enterprise</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root { --primary: #0b57d0; --success: #188038; --warning: #f29900; --danger: #b3261e; --bg: #f0f4f9; --card-bg: #ffffff; --text: #1f1f1f; --border: #d1d5db; }
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg); margin: 0; padding: 10px; color: var(--text); }
+    .card { background: var(--card-bg); padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; border: 1px solid var(--border); transition: 0.2s; }
+    .main-title { color: var(--primary); text-align: center; font-size: 26px; font-weight: 800; margin-bottom: 30px; text-transform: uppercase; letter-spacing: 1px; }
+    button, select, input { width: 100%; padding: 16px; margin-bottom: 12px; border-radius: 12px; border: 1px solid var(--border); font-size: 16px; outline: none; transition: 0.2s; }
+    button { font-weight: bold; cursor: pointer; border: none; }
+    button:active { transform: scale(0.97); }
+    button:disabled, select:disabled, input:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; border-color: #e5e7eb; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-success { background: var(--success); color: white; height: 65px; font-size: 19px; box-shadow: 0 4px 0 #0d5423; }
+    .btn-danger { background: #fff; color: var(--danger); border: 2px solid var(--danger); }
+    .btn-warn { background: #fff8e1; color: #b26a00; border: 1px solid var(--warning); font-size: 14px; }
+    .btn-admin { background: #333; color: white; }
+    .swal2-select, .swal2-input { box-sizing: border-box !important; max-width: 100% !important; width: 80% !important; margin: 15px auto !important; }
+    .status-box { padding: 18px; border-radius: 14px; text-align: center; font-weight: bold; margin-bottom: 20px; border: 1px solid #eee; background: #f1f3f4; color: #5f6368; font-size: 17px; transition: 0.3s; }
+    .status-on { background: #e6f4ea; color: var(--success); border-color: #ceead6; animation: pulse 2s infinite; }
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th { text-align: left; background: #f8fafd; padding: 14px 10px; font-size: 12px; color: #666; text-transform: uppercase; border-bottom: 2px solid #eee; }
+    td { padding: 14px 10px; border-bottom: 1px solid #f1f3f4; font-size: 15px; }
+    .col-time { white-space: nowrap; font-family: 'Roboto Mono', monospace; font-weight: 700; color: #333; }
+    .total-pill { background: var(--primary); color: white; padding: 8px 18px; border-radius: 25px; font-size: 14px; font-weight: bold; display: inline-block; }
+    .day-sep-row td { background: #f1f3f4; font-weight: bold; padding: 12px; border-top: 2px solid #ccc; color: #333; font-size: 14px; }
+    .day-sep-admin { background: #eff6ff; color: var(--primary); font-weight: bold; padding: 12px 15px; margin-top: 15px; border-radius: 10px; border-left: 6px solid var(--primary); display: flex; justify-content: space-between; font-size: 15px; }
+    #userView, #adminView { display: none; max-width: 1000px; margin: 0 auto; }
+    .tabs { display: flex; gap: 8px; background: #e2e8f0; padding: 6px; border-radius: 14px; margin-bottom: 20px; overflow-x: auto; }
+    .tab { flex: 1; text-align: center; padding: 14px; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 14px; color: #4a5568; transition: 0.3s; min-width: 120px;}
+    .tab.active { background: white; color: var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .equipment-block { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+    .eq-log-item { background: #f8fafc; border-left: 4px solid var(--primary); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+    .chart-container { background: #fff; padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-top: 20px; display: none; text-align: center; }
+    .chart-wrapper { position: relative; height: 350px; width: 100%; max-width: 100%; margin: 0 auto; }
+    .headcount-badge { background: #e8f0fe; color: var(--primary); padding: 8px 15px; border-radius: 20px; font-size: 13px; font-weight: bold; display: inline-block; margin: 5px; border: 1px solid #c3d4f2;}
+    .efficiency-card { background: #fff; border: 1px solid #ddd; border-radius: 12px; padding: 18px; margin-bottom: 15px; }
+    .efficiency-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; }
+    .efficiency-grid label { font-size: 12px; color: #666; font-weight: bold; display: block; margin-bottom: 5px; text-transform: uppercase;}
+    .efficiency-input { padding: 12px; margin: 0; font-size: 16px; text-align: center; border: 2px solid #e2e8f0; }
+    .efficiency-input:focus { border-color: var(--primary); }
+    .efficiency-stats { font-size: 14px; font-weight: bold; color: var(--primary); background: #eff6ff; padding: 12px; border-radius: 8px; text-align: center; grid-column: span 2; margin-top: 10px;}
+    .admin-report-worker-block { border: 1px solid var(--border); border-radius: 16px; margin-bottom: 30px; overflow: hidden; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 100%; }
+    summary { padding: 20px; background: #f8fafc; cursor: pointer; font-weight: bold; list-style: none; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #edf2f7; font-size: 18px; }
+    summary::-webkit-details-marker { display: none; }
+    .bulk-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .bulk-actions button { flex: 1; font-size: 13px; padding: 12px; border-radius: 8px; min-width: 140px; }
+    .db-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+    .admin-edit-row { background: #fff; padding: 18px; border: 1px solid #ddd; border-radius: 14px; margin-bottom: 18px; border-left: 6px solid var(--warning); }
+    .inline-loader { text-align: center; padding: 30px; color: #666; font-weight: bold; font-size: 16px; }
+    .alert-card { background: #fff5f5; border: 1px solid #feb2b2; border-left: 6px solid var(--danger); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; display:flex; justify-content:space-between; align-items:center; }
+    .live-session-card { background: #e6f4ea; border: 1px solid #ceead6; border-left: 6px solid var(--success); padding: 15px; margin-bottom: 10px; border-radius: 8px; font-size: 14px; display:flex; justify-content:space-between; align-items:center; }
+    .msg-checkbox { transform: scale(1.5); margin-right: 15px; cursor: pointer;}
+  </style>
+</head>
+<body>
+
+<!-- EKRAN LOGOWANIA -->
+<div id="loginModal">
+  <div class="card" style="max-width:450px; margin: 40px auto;">
+    <div class="main-title">WorkFlow V-MAX</div>
+    <input list="usersList" id="userSelectInput" placeholder="Wybierz lub wpisz imię..." style="text-align:center; font-weight:bold;">
+    <datalist id="usersList"></datalist>
+    <input type="password" id="pinInput" placeholder="KOD PIN" style="text-align:center; letter-spacing:10px; font-size: 24px;">
+    <button class="btn-primary" onclick="login()">ZALOGUJ SIĘ</button>
+  </div>
+</div>
+
+<!-- EKRAN PRACOWNIKA -->
+<div id="userView">
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h3 id="userNameDisplay" style="color:var(--primary); margin:0;">Pracownik</h3>
+      <button onclick="logout()" style="width:auto; padding:8px 15px; background:#eee;">Wyloguj</button>
+    </div>
+
+    <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <button class="btn-warn" style="flex:1; background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2; margin:0;" onclick="togglePlanning()">📅 ZOBACZ GRAFIK</button>
+        <button class="btn-danger" style="flex:1; background:#fff5f5; border:1px solid #feb2b2; margin:0; padding:10px;" onclick="reportProblem()">⚠️ ZGŁOŚ PROBLEM</button>
+    </div>
+    
+    <div id="planningSection" class="card" style="display:none; background:#f8fafd; border:1px solid var(--primary); font-size:14px; margin-bottom:20px;">
+      <h4 style="margin-top:0;">📋 Twój grafik</h4>
+      <div id="planningContent">Ładowanie...</div>
+    </div>
+    
+    <div id="statusBanner" class="status-box">Status...</div>
+    
+    <div class="equipment-block">
+        <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">🛠️ Twój Sprzęt</h4>
+        <div style="display:flex; gap:10px;">
+           <select id="eqSkaner" style="margin:0; padding:10px;" disabled><option value="">-- Skaner --</option></select>
+           <select id="eqWozek" style="margin:0; padding:10px;" disabled><option value="">-- Wózek --</option></select>
+           <button id="eqBtn" class="btn-primary" style="width:auto; margin:0;" onclick="updateMyEquipment()" disabled>ZAPISZ</button>
+        </div>
+    </div>
+    
+    <div id="mainControls">
+      <div id="startSection" style="display:none;">
+        <button class="btn-success" onclick="action('START', 'Rozpoczęcie pracy')">▶ ROZPOCZNIJ DZIEŃ</button>
+      </div>
+      <div id="taskSection" style="display:none;">
+        <select id="taskSelect"></select>
+        <button class="btn-warn" style="background:#fff; color:var(--warning); border:1px solid var(--warning);" onclick="correctLastTask()">✏️ Popraw aktywność</button>
+        <button class="btn-primary" onclick="action('TASK')">ZATWIERDŹ ZMIANĘ</button>
+        <button class="btn-danger" style="margin-top:12px;" onclick="action('STOP')">🛑 ZAKOŃCZ PRACĘ</button>
+      </div>
+    </div>
+    <button onclick="changeMyPin()" style="background:none; border:none; text-decoration:underline; font-size:13px; margin-top:25px; width:100%; cursor:pointer; color:#666;">🔐 Zmień swój kod PIN</button>
+  </div>
+  
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h4 style="margin:0;">📅 TWOJA HISTORIA</h4>
+      <div id="monthTotalBadge" class="total-pill">Suma: 0h 0m</div>
+    </div>
+    <input type="month" id="histMonth" onchange="loadUserData()">
+    <table id="histTable">
+      <thead><tr><th>Zadanie</th><th>Godziny</th><th style="text-align:right">Suma</th></tr></thead>
+      <tbody id="histTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- EKRAN ADMINA -->
+<div id="adminView">
+  <div class="card" style="background:#1f2937; color:white; display:flex; justify-content:space-between; align-items:center;">
+    <h2 style="font-size:18px; margin:0;">👑 PANEL ADMINA <span id="adminNameDisplay" style="color:#f29900; font-size:14px; margin-left:10px;"></span></h2>
+    <div>
+      <button onclick="changeMyPinAdmin()" style="width:auto; background:#f29900; color:#333; padding:8px 15px; margin-right:10px; font-size: 13px;">Hasło</button>
+      <button onclick="logout()" style="width:auto; background:var(--danger); color:white; padding:8px 15px; font-size: 13px;">Wyloguj</button>
+    </div>
+  </div>
+  
+  <div class="card" style="padding:10px;">
+    <div class="tabs">
+      <div class="tab active" onclick="switchAdminTab('live', this)">🟢 Live Sesje</div>
+      <div class="tab" onclick="switchAdminTab('alerty', this)">⚠️ Powiadomienia</div>
+      <div class="tab" onclick="switchAdminTab('raporty', this)">📊 Raporty</div>
+      <div class="tab" onclick="switchAdminTab('produkcja', this)">📦 Analityka</div>
+      <div class="tab" onclick="switchAdminTab('sprzet', this)">🛠️ Sprzęt</div>
+      <div class="tab" onclick="switchAdminTab('edycja', this)">✏️ Edycja</div>
+      <div class="tab" onclick="switchAdminTab('backup', this)">💾 Kopia Bazy</div>
+      <div class="tab" onclick="switchAdminTab('baza', this)">⚙️ Ustawienia</div>
+    </div>
+
+    <!-- RADIOWĘZEŁ I LIVE SESSIONS -->
+    <div id="tab-live" class="tab-content active" style="padding:10px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h4 style="color:var(--success); margin:0;">Zarządzaj zespołem</h4>
+            <button class="btn-danger" style="width:auto; padding:10px; font-size:13px; background:#b3261e; color:white; border:none;" onclick="closeAllLiveSessions()">🛑 ZAMKNIJ WSZYSTKIE</button>
+        </div>
+        <div class="bulk-actions" style="margin-bottom:10px;">
+            <button class="btn-primary" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadActiveSessions()">🔄 Odśwież Statusy</button>
+            <button class="btn-success" onclick="sendAdminMessage()">✉️ WYŚLIJ KOMUNIKAT</button>
+        </div>
+        <div id="activeSessionsResults" style="margin-top:15px;"></div>
+    </div>
+
+    <!-- POWIADOMIENIA I PROBLEMY -->
+    <div id="tab-alerty" class="tab-content" style="padding:10px;">
+        <h4 style="color:var(--danger); margin-top:0;">Centrum Zgłoszeń i Alertów</h4>
+        <div class="bulk-actions" style="margin-bottom:15px;">
+            <button class="btn-primary" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadAdminAlerts()">🔄 Odśwież</button>
+            <button class="btn-warn" style="background:#fff8e1; color:#b26a00; border:1px solid var(--warning);" onclick="dismissSelectedAlerts()">🗑️ Usuń zaznaczone</button>
+            <button class="btn-danger" onclick="dismissAllAlerts()">🧹 Wyczyść wszystko</button>
+        </div>
+        <div id="adminAlertsResults" style="margin-top:15px;"></div>
+    </div>
+
+    <!-- RAPORTY -->
+    <div id="tab-raporty" class="tab-content" style="padding:10px;">
+      <div style="display:flex; gap:12px;">
+        <div style="flex:1"><label>OD</label><input type="date" id="ad1"></div>
+        <div style="flex:1"><label>DO</label><input type="date" id="ad2"></div>
+      </div>
+      <select id="adUser"><option value="Wszyscy">Wszyscy pracownicy</option></select>
+      <div class="bulk-actions">
+        <button class="btn-success" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadAdminReports()">👀 PODGLĄD JSON</button>
+        <button class="btn-success" style="background:#0f9d58;" onclick="promptExport('FULL', document.getElementById('ad1').value, document.getElementById('ad2').value, {user: document.getElementById('adUser').value})">📊 POBIERZ PLIK RAPORTU</button>
+        <button class="btn-success" style="background:#b3261e;" onclick="promptExport('HR', document.getElementById('ad1').value, document.getElementById('ad2').value)">📁 POBIERZ PLIK HR</button>
+      </div>
+      <div id="adminResults" style="margin-top:20px;"></div>
+    </div>
+
+    <!-- ANALITYKA -->
+    <div id="tab-produkcja" class="tab-content" style="padding:10px;">
+       <div style="display:flex; gap:12px; margin-bottom:12px;">
+         <div style="flex:1"><label>OD daty:</label><input type="date" id="prodDate1"></div>
+         <div style="flex:1"><label>DO daty:</label><input type="date" id="prodDate2"></div>
+       </div>
+       <button class="btn-success" style="margin-bottom:20px;" onclick="loadEfficiency()">POKAŻ RAPORT ANALITYCZNY</button>
+       <div id="chartContainer" class="chart-container">
+          <h4 style="margin-top:0; color:#333; font-size:16px;">Podział Pracy Zespołu</h4>
+          <div class="chart-wrapper"><canvas id="prodChart"></canvas></div>
+          <div id="headcountBadges" style="margin-top:15px; text-align:center;"></div>
+          <div id="prodDailyTotals" style="margin-top:15px; text-align:center; background:#e8f0fe; padding:15px; border-radius:10px; border: 1px solid #c3d4f2; display:none;"></div>
+          <button class="btn-success" style="margin-top:15px; height: 50px; font-size: 15px;" onclick="promptExport('PROD', document.getElementById('prodDate1').value, document.getElementById('prodDate2').value)">📊 POBIERZ ARKUSZ WYDAJNOŚCI</button>
+       </div>
+       <select id="prodActivitySelect" onchange="renderEfficiencyList()" style="margin-top:20px; display:none;"></select>
+       <div id="efficiencyList"></div>
+       <div id="efficiencyActions" style="display:none; margin-top:20px;">
+         <button class="btn-success" style="height:70px; font-size:18px;" onclick="saveAllEfficiency()">💾 ZAPISZ WYNIKI PAKOWANIA</button>
+       </div>
+    </div>
+
+    <!-- SPRZĘT -->
+    <div id="tab-sprzet" class="tab-content" style="padding:10px;">
+       <div style="display:flex; gap:12px; margin-bottom:12px;">
+         <div style="flex:1"><label>OD daty:</label><input type="date" id="eqDate1"></div>
+         <div style="flex:1"><label>DO daty:</label><input type="date" id="eqDate2"></div>
+       </div>
+       <div style="display:flex; gap:12px; margin-bottom:12px;">
+         <div style="flex:1">
+             <label>Szukaj Skanera:</label>
+             <select id="eqFilterSkaner" style="margin:0;"><option value="">Wszystkie</option></select>
+         </div>
+         <div style="flex:1">
+             <label>Szukaj Wózka:</label>
+             <select id="eqFilterWozek" style="margin:0;"><option value="">Wszystkie</option></select>
+         </div>
+       </div>
+       <div class="bulk-actions">
+         <button class="btn-success" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;" onclick="loadEqLog()">👀 PODGLĄD JSON</button>
+         <button class="btn-success" style="background:#0f9d58;" onclick="promptExport('EQ', document.getElementById('eqDate1').value, document.getElementById('eqDate2').value, {skaner: document.getElementById('eqFilterSkaner').value, wozek: document.getElementById('eqFilterWozek').value})">📊 POBIERZ ARKUSZ SPRZĘTU</button>
+       </div>
+       <div id="eqLogResults" style="margin-top:15px;"></div>
+    </div>
+
+    <!-- EDYCJA WPISÓW -->
+    <div id="tab-edycja" class="tab-content" style="padding:10px;">
+      <select id="adEditUser"><option value="">-- Pracownik --</option></select>
+      <input type="date" id="adEditDate">
+      <button class="btn-primary" onclick="loadAdminEditLogs()">POBIERZ WPISY DO EDYCJI</button>
+      <div id="adminEditResults" style="margin-top:15px;"></div>
+    </div>
+
+    <!-- BACKUP -->
+    <div id="tab-backup" class="tab-content" style="padding:10px; text-align:center;">
+        <h3 style="color:var(--primary);">Kopia Zapasowa Bazy Danych</h3>
+        <p style="color:#666; font-size:14px;">Zrzut absolutnie wszystkich surowych logów w formacie gotowym do odzyskania.</p>
+        <div style="display:flex; gap:12px; margin:20px 0;">
+            <div style="flex:1"><label style="font-size:12px; font-weight:bold;">Zakres OD:</label><input type="date" id="backupD1"></div>
+            <div style="flex:1"><label style="font-size:12px; font-weight:bold;">Zakres DO:</label><input type="date" id="backupD2"></div>
+        </div>
+        <button class="btn-success" style="height:70px; width:100%; font-size:18px;" onclick="promptBackupExport(document.getElementById('backupD1').value, document.getElementById('backupD2').value)">💾 GENERUJ KOPIĘ BAZY</button>
+    </div>
+
+    <!-- USTAWIENIA -->
+    <div id="tab-baza" class="tab-content" style="padding:10px;">
+       <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px;">Konta Administratorów</h4>
+       <div id="db-admins"></div>
+       <button class="btn-admin" onclick="dbAdd('ADMIN')" style="margin-top:12px;">+ Dodaj Admina</button>
+       
+       <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Pracownicy</h4>
+       <div id="db-employees"></div>
+       <button class="btn-primary" onclick="dbAdd('EMPLOYEE')" style="margin-top:12px;">+ Dodaj Pracownika</button>
+       
+       <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Aktywności</h4>
+       <div id="db-activities"></div>
+       <button class="btn-primary" onclick="dbAdd('ACTIVITY')" style="margin-top:12px;">+ Dodaj Aktywność</button>
+
+       <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Skanery</h4>
+       <div id="db-scanners"></div>
+       <button class="btn-primary" onclick="dbAdd('SCANNER')" style="margin-top:12px;">+ Dodaj Skaner</button>
+
+       <h4 style="border-bottom: 2px solid var(--primary); padding-bottom:8px; margin-top:25px;">Wózki</h4>
+       <div id="db-trolleys"></div>
+       <button class="btn-primary" onclick="dbAdd('TROLLEY')" style="margin-top:12px;">+ Dodaj Wózek</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // WAŻNE: Podmień ten adres, na ten z Twojego serwera Render!
+  const BASE_URL = "https://vmax-api.onrender.com"; 
+  const API_URL = BASE_URL + "/api";
+
+  async function apiCall(endpoint, method = 'GET', body = null) {
+    try {
+      let options = { method: method, headers: { 'Content-Type': 'application/json' } };
+      if (body) options.body = JSON.stringify(body);
+      const response = await fetch(API_URL + endpoint, options);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.detail || `Błąd serwera: ${response.status}`);
+      }
+      return await response.json();
+    } catch (err) {
+      console.error("Błąd API:", err); notify.error("Błąd połączenia", err.message); return null;
+    }
+  }
+
+  let currentUser = ""; let currentAdminName = ""; let allAktywnosci = []; 
+  let systemScanners = []; let systemTrolleys = [];
+  let usedScanners = []; let usedTrolleys = [];
+  let prodChartInstance = null; let currentProdData = null; let planningLoaded = false;
+  let messagePollingInterval = null; 
+  let currentAlertsData = []; // Zmienna do przechowywania aktualnych alertów
+  
+  const notify = {
+    toast: (t, icon='success') => Swal.fire({ icon: icon, title: t, timer: 1500, showConfirmButton: false, position: 'top-end', toast: true }),
+    success: (t) => Swal.fire({ icon: 'success', title: t, timer: 1500, showConfirmButton: false }),
+    error: (t, txt = "") => Swal.fire({ icon: 'error', title: t, text: txt }),
+    loading: (t) => Swal.fire({ title: t, allowOutsideClick: false, didOpen: () => Swal.showLoading() }),
+    close: () => Swal.close()
+  };
+
+  const parseTime = (s) => { 
+      if(!s || s === "-") return 0;
+      let m = s.match(/(\d+)h\s*(\d+)m/); 
+      return m ? (parseInt(m[1])*60 + parseInt(m[2])) : 0; 
+  };
+  const formatMins = (m) => `${Math.floor(m/60)}h ${m%60}m`;
+
+  window.onload = () => {
+    let tzOffset = (new Date()).getTimezoneOffset() * 60000;
+    let localISOTime = (new Date(Date.now() - tzOffset)).toISOString().slice(0, 10);
+    document.getElementById('ad1').value = localISOTime; document.getElementById('ad2').value = localISOTime;
+    document.getElementById('prodDate1').value = localISOTime; document.getElementById('prodDate2').value = localISOTime; 
+    document.getElementById('eqDate1').value = localISOTime; document.getElementById('eqDate2').value = localISOTime; 
+    document.getElementById('adEditDate').value = localISOTime; document.getElementById('histMonth').value = localISOTime.substring(0, 7);
+    document.getElementById('backupD1').value = localISOTime; document.getElementById('backupD2').value = localISOTime;
+    refreshGlobalConfig();
+  };
+
+  function refreshGlobalConfig() {
+    apiCall('/config', 'GET').then(res => {
+      if(!res) return;
+      allAktywnosci = res.aktywnosci;
+      systemScanners = res.skanery; systemTrolleys = res.wozki;
+      usedScanners = res.zajete_skanery; usedTrolleys = res.zajete_wozki;
+
+      const uList = document.getElementById('usersList'), aS = document.getElementById('adUser'), aeS = document.getElementById('adEditUser'), tS = document.getElementById('taskSelect');
+      const filterSk = document.getElementById('eqFilterSkaner'), filterWz = document.getElementById('eqFilterWozek');
+      
+      let uHtml = ''; let aHtml = '<option value="Wszyscy">Wszyscy pracownicy</option>'; let aeHtml = '<option value="">-- Pracownik --</option>';
+      Object.keys(res.admins).forEach(ad => { uHtml += `<option value="${ad}">👑 Administrator</option>`; });
+      res.pracownicy.forEach(p => { uHtml += `<option value="${p}">Pracownik</option>`; aHtml += `<option value="${p}">${p}</option>`; aeHtml += `<option value="${p}">${p}</option>`; });
+      uList.innerHTML = uHtml; aS.innerHTML = aHtml; aeS.innerHTML = aeHtml;
+
+      let tHtml = ''; res.aktywnosci.forEach(a => { if(a !== "Rozpoczęcie pracy" && a !== "Zakończenie pracy") tHtml += `<option value="${a}">${a}</option>`; });
+      tS.innerHTML = tHtml;
+
+      let fSk = '<option value="">Wszystkie Skanery</option>'; systemScanners.forEach(s => fSk += `<option value="${s}">${s}</option>`); filterSk.innerHTML = fSk;
+      let fWz = '<option value="">Wszystkie Wózki</option>'; systemTrolleys.forEach(w => fWz += `<option value="${w}">${w}</option>`); filterWz.innerHTML = fWz;
+
+      let adminHtml = []; Object.keys(res.admins).forEach(ad => { adminHtml.push(`<div class="db-item"><span>👑 <b>${ad}</b></span><div><button onclick="dbEditPinAdmin('${ad}')" style="width:auto; padding:8px 15px; margin-right:5px;" class="btn-warn">Hasło</button><button onclick="dbDelete('ADMIN','${ad}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div></div>`); });
+      document.getElementById('db-admins').innerHTML = adminHtml.join('') || "<div style='padding:15px; color:#888;'>Brak kont. Zaloguj się domyślnym ADMIN/admin.</div>";
+
+      let empHtml = []; res.pracownicy.forEach(p => { empHtml.push(`<div class="db-item"><span>${p}</span><div><button onclick="dbEditPin('${p}')" style="width:auto; padding:8px 15px; margin-right:5px;" class="btn-warn">PIN</button><button onclick="dbDelete('EMPLOYEE','${p}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div></div>`); });
+      document.getElementById('db-employees').innerHTML = empHtml.join('');
+        
+      let actHtml = []; res.aktywnosci.forEach(a => { actHtml.push(`<div class="db-item"><span>${a}</span><button onclick="dbDelete('ACTIVITY','${a}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div>`); });
+      document.getElementById('db-activities').innerHTML = actHtml.join('');
+
+      let skHtml = []; systemScanners.forEach(s => { skHtml.push(`<div class="db-item"><span>${s}</span><button onclick="dbDelete('SCANNER','${s}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div>`); });
+      document.getElementById('db-scanners').innerHTML = skHtml.join('');
+
+      let wzHtml = []; systemTrolleys.forEach(w => { wzHtml.push(`<div class="db-item"><span>${w}</span><button onclick="dbDelete('TROLLEY','${w}')" style="width:auto; padding:8px 15px;" class="btn-danger">X</button></div>`); });
+      document.getElementById('db-trolleys').innerHTML = wzHtml.join('');
+
+      buildEquipmentSelects();
+    });
+  }
+
+  function buildEquipmentSelects(currentSk = "", currentWz = "") {
+      const skSel = document.getElementById('eqSkaner'), wzSel = document.getElementById('eqWozek');
+      let skH = '<option value="">-- Brak Skanera --</option>';
+      systemScanners.forEach(s => { if (!usedScanners.includes(s) || s === currentSk) skH += `<option value="${s}" ${s === currentSk ? 'selected' : ''}>${s}</option>`; });
+      skSel.innerHTML = skH;
+      let wzH = '<option value="">-- Brak Wózka --</option>';
+      systemTrolleys.forEach(w => { if (!usedTrolleys.includes(w) || w === currentWz) wzH += `<option value="${w}" ${w === currentWz ? 'selected' : ''}>${w}</option>`; });
+      wzSel.innerHTML = wzH;
+  }
+
+  function login() {
+    const u = document.getElementById('userSelectInput').value, p = document.getElementById('pinInput').value;
+    if(!u || !p) return; notify.loading('Weryfikacja...');
+    apiCall('/auth/login', 'POST', { username: u, pin: p }).then(res => {
+      notify.close();
+      if(res && ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"].includes(res.role)) { 
+        currentAdminName = res.name; document.getElementById('adminNameDisplay').innerText = `(${currentAdminName})`;
+        document.getElementById('loginModal').style.display='none'; document.getElementById('adminView').style.display='block'; 
+        loadActiveSessions();
+      } else if(res && res.ok) { 
+        currentUser = res.name; document.getElementById('userNameDisplay').innerText = currentUser; 
+        document.getElementById('userView').style.display='block'; document.getElementById('loginModal').style.display='none'; 
+        loadUserData(); startMessageAgent();
+      }
+    });
+  }
+
+  function logout() {
+    Swal.fire({ title: 'Wylogować?', icon: 'question', showCancelButton: true, confirmButtonText: 'Tak', cancelButtonText: 'Anuluj' }).then(res => {
+      if (res.isConfirmed) {
+        currentUser = ""; currentAdminName = ""; document.getElementById('pinInput').value = ""; document.getElementById('userSelectInput').value = "";
+        document.getElementById('userView').style.display = 'none'; document.getElementById('adminView').style.display = 'none'; document.getElementById('loginModal').style.display = 'block';
+        if(prodChartInstance) { prodChartInstance.destroy(); prodChartInstance = null; } 
+        if(messagePollingInterval) clearInterval(messagePollingInterval);
+        notify.toast('Wylogowano!');
+      }
+    });
+  }
+
+  function startMessageAgent() {
+      if(messagePollingInterval) clearInterval(messagePollingInterval);
+      checkMyMessages(); 
+      messagePollingInterval = setInterval(checkMyMessages, 60000); 
+  }
+
+  function checkMyMessages() {
+      if(!currentUser) return;
+      apiCall('/user/messages/unread', 'POST', {username: currentUser}).then(msgs => {
+          if(msgs && msgs.length > 0) {
+              let m = msgs[0];
+              Swal.fire({
+                  title: '⚠️ KOMUNIKAT OD SZEFA',
+                  html: `<div style="font-size:18px; padding:15px; background:#fff5f5; border:2px solid red; border-radius:10px; margin-bottom:15px;"><b>${m.content}</b></div>`,
+                  input: 'text',
+                  inputPlaceholder: 'Wpisz odpowiedź...',
+                  confirmButtonText: 'Potwierdź i Odpisz',
+                  allowOutsideClick: false,
+                  allowEscapeKey: false
+              }).then(res => {
+                  if(res.isConfirmed) { apiCall('/user/messages/reply', 'POST', {msg_id: m.id, reply: res.value || "Przeczytano (Brak treści)"}); }
+              });
+          }
+      });
+  }
+
+  function reportProblem() {
+      Swal.fire({
+          title: '⚠️ Zgłoś Problem',
+          input: 'textarea',
+          inputPlaceholder: 'Opisz awarię (np. Brak internetu, pusty wózek...)',
+          showCancelButton: true,
+          confirmButtonText: 'Wyślij Zgłoszenie',
+          confirmButtonColor: '#b3261e'
+      }).then(res => {
+          if(res.isConfirmed && res.value) {
+              notify.loading('Wysyłanie...');
+              apiCall('/user/problem', 'POST', {username: currentUser, description: res.value}).then(()=>notify.success('Wysłano do Admina!'));
+          }
+      });
+  }
+
+  function renderUserHistory(res) {
+    const b = document.getElementById('statusBanner'), sInp = document.getElementById('eqSkaner'), wInp = document.getElementById('eqWozek'), btnEq = document.getElementById('eqBtn');
+    
+    buildEquipmentSelects(res.currentTask ? res.currentTask.skaner : "", res.currentTask ? res.currentTask.wozek : "");
+
+    if(res.currentTask) { 
+      b.className = "status-box status-on"; b.innerText = `🟢 TRWA: ${res.currentTask.name}`; 
+      document.getElementById('taskSection').style.display='block'; document.getElementById('startSection').style.display='none';
+      sInp.disabled = false; wInp.disabled = false; btnEq.disabled = false;
+    } else { 
+      b.className = "status-box"; b.innerText = "⚪ Offline"; 
+      document.getElementById('startSection').style.display='block'; document.getElementById('taskSection').style.display='none'; 
+      sInp.disabled = true; wInp.disabled = true; btnEq.disabled = true;
+    }
+    
+    let hArray = []; let grouped = {}; let totalMins = 0;
+    res.hist.forEach(r => { if(!grouped[r.data]) grouped[r.data] = []; grouped[r.data].push(r); totalMins += parseTime(r.czas); });
+
+    Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(date => {
+      let dayMins = 0; grouped[date].forEach(r => dayMins += parseTime(r.czas));
+      hArray.push(`<tr class="day-sep-row"><td colspan="2">📅 ${date}</td><td style="text-align:right; color:var(--primary);">Σ ${formatMins(dayMins)}</td></tr>`);
+      grouped[date].forEach(r => {
+        let eq = (r.skaner || r.wozek) ? `<br><small style="color:#888;">Sk: ${r.skaner||'-'} | Wó: ${r.wozek||'-'}</small>` : "";
+        hArray.push(`<tr><td><b>${r.zadanie}</b>${eq}</td><td class="col-time">${r.start}-${r.koniec}</td><td style="text-align:right">${r.czas}</td></tr>`);
+      });
+    });
+    document.getElementById("histTableBody").innerHTML = hArray.join('') || '<tr><td colspan="3" style="text-align:center;">Brak wpisów</td></tr>';
+    document.getElementById('monthTotalBadge').innerText = `Suma: ${formatMins(totalMins)}`;
+  }
+
+  function loadUserData() {
+    if(!currentUser) return;
+    refreshGlobalConfig();
+    document.getElementById("histTableBody").innerHTML = '<tr><td colspan="3" class="inline-loader">Pobieranie danych...</td></tr>';
+    apiCall('/user/history', 'POST', { username: currentUser, month: document.getElementById('histMonth').value }).then(res => { if(res) renderUserHistory(res); });
+  }
+
+  function action(type, specific = null) {
+    if(type === 'STOP' && !confirm("Zakończyć pracę?")) return;
+    const s = document.getElementById('eqSkaner').value, w = document.getElementById('eqWozek').value, taskName = specific || document.getElementById('taskSelect').value, mStr = document.getElementById('histMonth').value;
+    const b = document.getElementById('statusBanner'); const tbody = document.getElementById("histTableBody");
+    let now = new Date(); let h = ("0"+now.getHours()).slice(-2) + ":" + ("0"+now.getMinutes()).slice(-2);
+    
+    if (type !== 'STOP') {
+        b.className = "status-box status-on"; b.innerText = `🟢 TRWA: ${taskName} (Zapisuję...)`; 
+        document.getElementById('taskSection').style.display='block'; document.getElementById('startSection').style.display='none';
+        let eq = (s || w) ? `<br><small style="color:#888;">Sk: ${s||'-'} | Wó: ${w||'-'}</small>` : "";
+        tbody.insertAdjacentHTML('afterbegin', `<tr style="opacity:0.5; background:#fffdf2;" id="tempRow"><td><b>${taskName}</b>${eq}</td><td class="col-time">${h}-Trwa...</td><td style="text-align:right">Zapis...</td></tr>`);
+    } else {
+        b.className = "status-box"; b.innerText = "⚪ Zapisywanie..."; 
+        document.getElementById('startSection').style.display='block'; document.getElementById('taskSection').style.display='none';
+        document.getElementById('eqSkaner').disabled = true; document.getElementById('eqWozek').disabled = true; document.getElementById('eqBtn').disabled = true;
+    }
+    notify.toast('Zapisuję...', 'info'); 
+    apiCall('/user/action', 'POST', { username: currentUser, type: type, task: taskName, skaner: s, wozek: w, month: mStr }).then(res => { 
+      if(!res) { document.getElementById("tempRow").remove(); return; } 
+      notify.toast('Zapisano!'); renderUserHistory(res); 
+    });
+  }
+
+  function updateMyEquipment() {
+    const s = document.getElementById('eqSkaner').value, w = document.getElementById('eqWozek').value, mStr = document.getElementById('histMonth').value; notify.toast('Zapisuję...', 'info');
+    apiCall('/user/equipment', 'POST', { username: currentUser, skaner: s, wozek: w, month: mStr }).then(res => { 
+      if(res) { notify.toast('Zapisano sprzęt!'); renderUserHistory(res); }
+    });
+  }
+
+  function correctLastTask() { 
+    let opts = {}; allAktywnosci.forEach(a => { if(a !== "Rozpoczęcie pracy" && a !== "Zakończenie pracy") opts[a] = a; }); 
+    Swal.fire({ title: 'Popraw aktywność', input: 'select', inputOptions: opts, showCancelButton: true, confirmButtonText: 'Zmień' }).then(res => { 
+      if(res.isConfirmed && res.value) { 
+        notify.toast('Zmiana...', 'info'); 
+        apiCall('/user/correct-task', 'POST', { username: currentUser, task: res.value, month: document.getElementById('histMonth').value }).then(resData => { 
+          if(resData){ notify.toast('Poprawiono!'); renderUserHistory(resData); }
+        }); 
+      } 
+    }); 
+  }
+  
+  function togglePlanning() {
+    const section = document.getElementById('planningSection');
+    if (section.style.display === 'none') { section.style.display = 'block'; if (!planningLoaded) loadPlanningData(); } 
+    else { section.style.display = 'none'; }
+  }
+
+  function loadPlanningData() {
+    document.getElementById('planningContent').innerHTML = "<div class='inline-loader'>⏳ Sprawdzam grafik...</div>";
+    apiCall('/planning', 'GET').then(data => {
+      if (!data) return;
+      let html = "<div style='display:grid; gap:8px;'>";
+      data.forEach(day => {
+        if (day.found) { html += `<a href="${day.url}" target="_blank" style="text-decoration:none;"><button style="width:100%; margin:0; background:#0f9d58; color:white; border:none; padding:16px; border-radius:8px; font-weight:bold; cursor:pointer;">📅 ${day.date} (Otwórz arkusz)</button></a>`; } 
+      });
+      html += "</div>"; document.getElementById('planningContent').innerHTML = html; planningLoaded = true;
+    });
+  }
+
+  function changeMyPin() { 
+    Swal.fire({ title: 'Zmień swój PIN', input: 'password', showCancelButton: true, confirmButtonText: 'Zmień' }).then(res => { 
+      if(res.isConfirmed && res.value) apiCall('/user/change-pin', 'POST', { username: currentUser, newPin: res.value }).then(resp => { if(resp) notify.success('PIN zmieniony!'); }); 
+    }); 
+  }
+  function changeMyPinAdmin() { 
+    if(currentAdminName === "ADMIN") { notify.error("Nie możesz zmienić hasła konta domyślnego."); return; } 
+    Swal.fire({ title: 'Zmień swoje hasło', input: 'password', showCancelButton: true, confirmButtonText: 'Zmień' }).then(res => { 
+      if(res.isConfirmed && res.value) apiCall('/admin/db', 'POST', { type: 'ADMIN', action: 'EDIT_PIN', name: currentAdminName, val: res.value }).then(resp => { if(resp) notify.success('Hasło zmienione!'); }); 
+    }); 
+  }
+
+  /* --- SYSTEM EKSPORTU PLIKÓW (EXCEL/CSV MODAL) --- */
+  function promptExport(exportType, d1, d2, extraPayload = {}) {
+      if(!d1 || !d2) { notify.error("Wybierz zakres dat!"); return; }
+      Swal.fire({
+          title: 'Wybierz format pliku',
+          text: 'Plik z Excela jest gotowy do druku i analizy.',
+          icon: 'question',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: '📗 EXCEL (.xlsx)',
+          denyButtonText: '📄 CSV',
+          cancelButtonText: 'Anuluj'
+      }).then((result) => {
+          let fmt = '';
+          if (result.isConfirmed) fmt = 'xls';
+          else if (result.isDenied) fmt = 'csv';
+          else return;
+
+          notify.loading('Tworzenie pliku...');
+          let payload = { export_type: exportType, format: fmt, d1: d1, d2: d2, ...extraPayload };
+          apiCall('/admin/export', 'POST', payload).then(data => {
+              if(data && data.url) window.location.href = BASE_URL + data.url;
+              notify.close();
+          });
+      });
+  }
+
+  function promptBackupExport(d1, d2) {
+      if(!d1 || !d2) { notify.error("Wybierz zakres dat!"); return; }
+      Swal.fire({
+          title: 'Eksport Bazy Danych',
+          text: 'Pobierz pełną kopię bezpieczeństwa. Format JSON służy do wgrania na nowy serwer.',
+          icon: 'warning',
+          showDenyButton: true,
+          showCancelButton: true,
+          confirmButtonText: '💾 Snapshot (JSON)',
+          denyButtonText: '📗 Excel (.xlsx)',
+          cancelButtonText: 'Anuluj'
+      }).then((result) => {
+          let fmt = '';
+          if (result.isConfirmed) fmt = 'json';
+          else if (result.isDenied) fmt = 'xls';
+          else return;
+
+          notify.loading('Generowanie Zrzutu Bazy...');
+          apiCall('/admin/export', 'POST', { export_type: 'BACKUP', format: fmt, d1: d1, d2: d2 }).then(data => {
+              if(data && data.url) window.location.href = BASE_URL + data.url;
+              notify.close();
+          });
+      });
+  }
+
+  /* --- ADMIN: SESJE LIVE, RADIOWĘZEŁ I ALERTY --- */
+  function loadActiveSessions() {
+    document.getElementById('activeSessionsResults').innerHTML = "<div class='inline-loader'>⏳ Analiza matrycy...</div>";
+    apiCall('/admin/active-sessions', 'GET').then(res => {
+      if(!res) return;
+      let tasks = Object.keys(res);
+      if (tasks.length === 0) { document.getElementById('activeSessionsResults').innerHTML = "<div class='card' style='text-align:center;'>Magazyn pusty. Brak zalogowanych.</div>"; return; }
+      let h = '';
+      tasks.forEach(task => {
+        h += `<div style="margin-bottom:15px;">
+                <div style="background:#e8f0fe; color:var(--primary); padding:10px; border-radius:8px; font-weight:bold; margin-bottom:5px; display:flex; align-items:center;">
+                    <input type="checkbox" class="msg-checkbox" onchange="toggleGroup(this, '${task.replace(/\s+/g, '')}')">
+                    Grupa: ${task} (${res[task].length} osób)
+                </div>`;
+        res[task].forEach(emp => {
+            let eqStr = (emp.skaner || emp.wozek) ? ` | Sk: ${emp.skaner||'-'} | Wó: ${emp.wozek||'-'}` : "";
+            h += `<div class="live-session-card">
+                    <div style="display:flex; align-items:center;">
+                        <input type="checkbox" class="msg-checkbox cb-group-${task.replace(/\s+/g, '')}" value="${emp.user}">
+                        <div>👤 <b>${emp.user}</b> <br><small style="color:#666;">Od: ${emp.start}${eqStr}</small></div>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                      <button onclick="editLiveSession('${emp.user}', '${task}', '${emp.start}', '${emp.skaner}', '${emp.wozek}')" class="btn-warn" style="margin:0; padding:8px 12px; font-size:12px; width:auto;">✏️ Edytuj</button>
+                      <button onclick="closeLiveSession('${emp.user}')" class="btn-danger" style="margin:0; padding:8px 12px; font-size:12px; width:auto;">🛑 Zamknij</button>
+                    </div>
+                  </div>`;
+        });
+        h += `</div>`;
+      });
+      document.getElementById('activeSessionsResults').innerHTML = h;
+    });
+  }
+
+  function toggleGroup(checkbox, groupClass) { document.querySelectorAll('.cb-group-' + groupClass).forEach(cb => cb.checked = checkbox.checked); }
+
+  function sendAdminMessage() {
+      let selected = [];
+      document.querySelectorAll('.msg-checkbox[value]:checked').forEach(cb => selected.push(cb.value));
+      if (selected.length === 0) { notify.error("Zaznacz co najmniej jednego pracownika!"); return; }
+      
+      Swal.fire({
+          title: 'Wyślij Komunikat',
+          input: 'textarea',
+          inputPlaceholder: 'Treść wiadomości do zespołu...',
+          showCancelButton: true,
+          confirmButtonText: 'Wyślij'
+      }).then(res => {
+          if (res.isConfirmed && res.value) {
+              notify.loading("Wysyłanie...");
+              apiCall('/admin/messages/send', 'POST', {receivers: selected, content: res.value}).then(() => {
+                  notify.success("Wysłano komunikat!");
+                  document.querySelectorAll('.msg-checkbox').forEach(cb => cb.checked = false);
+              });
+          }
+      });
+  }
+
+  function closeLiveSession(user) {
+      Swal.fire({title: `Zamknąć sesję: ${user}?`, text: 'Spowoduje to wylogowanie pracownika.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Zamknij'}).then(res => {
+          if(res.isConfirmed) { notify.loading('Zamykanie...'); apiCall('/admin/live-session/close', 'POST', {username: user}).then(() => { notify.toast('Sesja zamknięta'); loadActiveSessions(); }); }
+      });
+  }
+
+  function closeAllLiveSessions() {
+      Swal.fire({title: `Zamknąć WSZYSTKIE sesje?`, text: 'Masowe zakończenie pracy wszystkich osób online.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Zamknij', confirmButtonColor: '#b3261e'}).then(res => {
+          if(res.isConfirmed) { notify.loading('Zamykanie...'); apiCall('/admin/live-session/close-all', 'POST').then(() => { notify.success('Zamknięto!'); loadActiveSessions(); }); }
+      });
+  }
+
+  function editLiveSession(user, task, start, skaner, wozek) {
+      let opts = ''; allAktywnosci.forEach(a => { if(a!=="Rozpoczęcie pracy" && a!=="Zakończenie pracy") opts += `<option value="${a}" ${a===task?'selected':''}>${a}</option>`; });
+      let skH = '<option value="">-- Brak Skanera --</option>'; systemScanners.forEach(s => { skH += `<option value="${s}" ${s === skaner ? 'selected' : ''}>${s}</option>`; });
+      let wzH = '<option value="">-- Brak Wózka --</option>'; systemTrolleys.forEach(w => { wzH += `<option value="${w}" ${w === wozek ? 'selected' : ''}>${w}</option>`; });
+
+      Swal.fire({
+          title: `Edytuj sesję: ${user}`,
+          html: `<label style="font-size:12px; text-align:left; display:block; font-weight:bold;">Zadanie:</label>
+                 <select id="ls_task" class="swal2-input" style="width:95%; margin:5px auto 15px auto;">${opts}</select>
+                 <label style="font-size:12px; text-align:left; display:block; font-weight:bold;">Godzina startu:</label>
+                 <input type="time" id="ls_start" class="swal2-input" style="width:95%; margin:5px auto 15px auto;" value="${start}">
+                 <div style="display:flex; gap:10px; width:95%; margin:0 auto;">
+                     <div style="flex:1"><label style="font-size:12px; text-align:left; display:block; font-weight:bold;">Skaner:</label><select id="ls_skaner" class="swal2-input" style="width:100%; margin:5px 0 0 0;">${skH}</select></div>
+                     <div style="flex:1"><label style="font-size:12px; text-align:left; display:block; font-weight:bold;">Wózek:</label><select id="ls_wozek" class="swal2-input" style="width:100%; margin:5px 0 0 0;">${wzH}</select></div>
+                 </div>`,
+          showCancelButton: true, confirmButtonText: 'Zapisz',
+          preConfirm: () => { return { task: document.getElementById('ls_task').value, start_time: document.getElementById('ls_start').value, skaner: document.getElementById('ls_skaner').value, wozek: document.getElementById('ls_wozek').value } }
+      }).then(res => {
+          if (res.isConfirmed) { notify.loading('Zapisywanie...'); apiCall('/admin/live-session/edit', 'POST', { username: user, ...res.value }).then(resp => { if(resp) { notify.toast('Zapisano!'); loadActiveSessions(); } }); }
+      });
+  }
+
+  // SYSTEM POWIADOMIEŃ Z GRUPOWANIEM
+  function loadAdminAlerts() {
+    document.getElementById('adminAlertsResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie logów...</div>";
+    apiCall('/admin/alerts', 'GET').then(res => {
+      if(!res) return;
+      currentAlertsData = res;
+      renderAlerts();
+    });
+  }
+
+  function renderAlerts() {
+      if (currentAlertsData.length === 0) { document.getElementById('adminAlertsResults').innerHTML = "<div class='card' style='text-align:center; color:green; font-weight:bold;'>✅ Skrzynka pusta. Brak ostrzeżeń.</div>"; return; }
+      
+      let grouped = {};
+      currentAlertsData.forEach(a => {
+          if (!grouped[a.date]) grouped[a.date] = { prob: [], msg: [], sys: [] };
+          grouped[a.date][a.type].push(a);
+      });
+
+      let h = '';
+      Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(date => {
+          h += `<div class="day-sep-admin" style="margin-top:20px;">📅 Data: ${date}</div>`;
+          
+          if(grouped[date].prob.length > 0) {
+              h += `<h5 style="color:var(--danger); margin:10px 0 5px 0;">🚨 AWARIE / PROBLEMY</h5>`;
+              grouped[date].prob.forEach(a => {
+                  h += `<div class="alert-card" style="border-left-color:var(--danger); background:#fff5f5;">
+                          <div style="display:flex; align-items:center;">
+                              <input type="checkbox" class="alert-checkbox" data-type="${a.type}" value="${a.id}">
+                              <div>${a.text}</div>
+                          </div>
+                        </div>`;
+              });
+          }
+          if(grouped[date].msg.length > 0) {
+              h += `<h5 style="color:var(--primary); margin:10px 0 5px 0;">✉️ ODPOWIEDZI Z RADIOWĘZŁA</h5>`;
+              grouped[date].msg.forEach(a => {
+                  h += `<div class="alert-card" style="border-left-color:var(--primary); background:#e8f0fe;">
+                          <div style="display:flex; align-items:center;">
+                              <input type="checkbox" class="alert-checkbox" data-type="${a.type}" value="${a.id}">
+                              <div>${a.text}</div>
+                          </div>
+                        </div>`;
+              });
+          }
+          if(grouped[date].sys.length > 0) {
+              h += `<h5 style="color:var(--warning); margin:10px 0 5px 0;">⚙️ SYSTEMOWE OSTRZEŻENIA</h5>`;
+              grouped[date].sys.forEach(a => {
+                  h += `<div class="alert-card" style="border-left-color:var(--warning); background:#fff8e1;">
+                          <div style="display:flex; align-items:center;">
+                              <input type="checkbox" class="alert-checkbox" data-type="${a.type}" value="${a.id}">
+                              <div>${a.text}</div>
+                          </div>
+                        </div>`;
+              });
+          }
+      });
+      document.getElementById('adminAlertsResults').innerHTML = h;
+  }
+
+  function dismissSelectedAlerts() {
+      let selected = [];
+      document.querySelectorAll('.alert-checkbox:checked').forEach(cb => { selected.push({type: cb.getAttribute('data-type'), id: cb.value}); });
+      if (selected.length === 0) { notify.error("Zaznacz alerty do usunięcia!"); return; }
+      
+      notify.loading('Usuwanie...');
+      apiCall('/admin/alerts/dismiss-all', 'POST', {alerts: selected}).then(res => { if(res) { notify.success('Usunięto!'); loadAdminAlerts(); } });
+  }
+
+  function dismissAllAlerts() {
+      if (currentAlertsData.length === 0) return;
+      Swal.fire({title: 'Jesteś pewien?', text: 'To ukryje / oznaczy jako rozwiązane WSZYSTKIE widoczne alerty ze wszystkich dni.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#b3261e', confirmButtonText: 'Tak, wyczyść wszystko'}).then(res => {
+          if (res.isConfirmed) {
+              notify.loading('Czyszczenie...');
+              let all = currentAlertsData.map(a => ({type: a.type, id: a.id}));
+              apiCall('/admin/alerts/dismiss-all', 'POST', {alerts: all}).then(resp => { if(resp) { notify.success('Wyzerowano skrzynkę!'); loadAdminAlerts(); } });
+          }
+      });
+  }
+
+  /* --- ADMIN PODGLĄDY DANYCH --- */
+  function toggleAllDetails(state) { document.querySelectorAll('#adminResults details').forEach(d => d.open = state); }
+
+  function loadAdminReports() {
+    document.getElementById('adminResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie logów...</div>";
+    apiCall('/admin/reports', 'POST', { d1: document.getElementById('ad1').value, d2: document.getElementById('ad2').value, user: document.getElementById('adUser').value }).then(res => {
+      if(!res) return;
+      let hArray = []; if (Object.keys(res).length > 0) { hArray.push(`<div class="bulk-actions"><button onclick="toggleAllDetails(true)" style="background:#e8f0fe; color:var(--primary); border:1px solid #c3d4f2;">↔ ROZWIŃ WSZYSTKICH</button><button onclick="toggleAllDetails(false)" style="background:#f1f3f4; color:#5f6368; border:1px solid #ddd;">↕ ZWIŃ WSZYSTKICH</button></div>`); }
+      for (let u in res) {
+        let card = `<div class="admin-report-worker-block"><details><summary><span>👤 ${u}</span><span class="total-pill">${res[u].totalStr}</span></summary><div style="padding:15px;">`;
+        let grouped = {}; res[u].logi.forEach(l => { if(!grouped[l.data]) grouped[l.data] = []; grouped[l.data].push(l); });
+        Object.keys(grouped).sort((a,b) => b.localeCompare(a)).forEach(d => {
+          let dayMins = 0; grouped[d].forEach(l => dayMins += parseTime(l.czas)); card += `<div class="day-sep-admin"><span>📅 ${d}</span><span>Σ ${formatMins(dayMins)}</span></div><table style="margin-bottom:15px;">`;
+          grouped[d].forEach(l => { let eq = (l.skaner || l.wozek) ? `<br><small style="color:#888;">Sk: ${l.skaner||'-'} | Wó: ${l.wozek||'-'}</small>` : ""; card += `<tr><td style="width:45%"><b>${l.zadanie}</b>${eq}</td><td class="col-time">${l.start}-${l.koniec}</td><td style="text-align:right">${l.czas}</td></tr>`; }); card += `</table>`;
+        }); card += `</div></details></div>`; hArray.push(card);
+      } document.getElementById('adminResults').innerHTML = hArray.join('') || "<div style='text-align:center;'>Brak danych w wybranym okresie.</div>";
+    });
+  }
+
+  function loadEfficiency() {
+    const d1 = document.getElementById('prodDate1').value, d2 = document.getElementById('prodDate2').value;
+    document.getElementById('efficiencyList').innerHTML = "<div class='inline-loader'>⏳ Analizowanie...</div>"; document.getElementById('chartContainer').style.display='none'; document.getElementById('efficiencyActions').style.display='none'; document.getElementById('prodActivitySelect').style.display='none';
+    apiCall('/admin/productivity', 'POST', { d1: d1, d2: d2 }).then(res => {
+      if(!res) return;
+      currentProdData = res; let acts = Object.keys(res.chartData);
+      if (acts.length === 0) { document.getElementById('efficiencyList').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów produkcyjnych w tym okresie.</div>"; return; }
+      document.getElementById('chartContainer').style.display='block'; document.getElementById('prodActivitySelect').style.display='block';
+      let badgesArray = []; for(let a in res.headcount) { badgesArray.push(`<span class="headcount-badge">${a}: ${res.headcount[a]} os.</span>`); } document.getElementById('headcountBadges').innerHTML = badgesArray.join('');
+      
+      let totalPaczki = 0; let totalProdukty = 0;
+      for (let u in res.packingStats) { totalPaczki += (parseInt(res.packingStats[u].paczki) || 0); totalProdukty += (parseInt(res.packingStats[u].produkty) || 0); }
+      const totalsDiv = document.getElementById('prodDailyTotals'); 
+      if (totalPaczki > 0 || totalProdukty > 0) { totalsDiv.innerHTML = `📦 Calkowita wydajność zespołu:<br>Spakowano paczek: <b>${totalPaczki}</b> &nbsp;|&nbsp; Spakowano produktów: <b>${totalProdukty}</b>`; totalsDiv.style.display = 'block'; } else { totalsDiv.style.display = 'none'; }
+
+      let totalMinsAll = 0; acts.forEach(a => totalMinsAll += res.chartData[a]);
+      let richLabels = acts.map(a => { let m = res.chartData[a]; let pct = ((m / totalMinsAll) * 100).toFixed(1); let hStr = Math.floor(m/60) + "h " + (m%60) + "m"; return `${a} — ${hStr} (${pct}%)`; });
+      if(prodChartInstance) prodChartInstance.destroy();
+      prodChartInstance = new Chart(document.getElementById('prodChart'), { type:'doughnut', data: { labels: richLabels, datasets: [{ data: acts.map(a => (res.chartData[a]/60).toFixed(2)), backgroundColor: ['#0b57d0','#188038','#f29900','#8e24aa','#b3261e','#009688','#3f51b5','#e91e63'] }] }, options: { maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 13, family: 'system-ui' }, padding: 15 } } } } });
+      let sel = document.getElementById('prodActivitySelect'); sel.innerHTML = ""; acts.forEach(a => sel.add(new Option(a, a))); if(acts.includes("Pakowanie Paczek")) sel.value = "Pakowanie Paczek"; renderEfficiencyList();
+    });
+  }
+
+  function renderEfficiencyList() {
+    if(!currentProdData) return;
+    const act = document.getElementById('prodActivitySelect').value, d1 = document.getElementById('prodDate1').value, d2 = document.getElementById('prodDate2').value, isSingleDay = (d1 === d2); let hArray = [];
+    for(let u in currentProdData.workerDetails) {
+      let mins = currentProdData.workerDetails[u][act];
+      if(mins) {
+        if(act === "Pakowanie Paczek") {
+          let s = currentProdData.packingStats[u] || {paczki:0, produkty:0}; let safeId = u.replace(/\s+/g,'');
+          if(isSingleDay) { hArray.push(`<div class="efficiency-card worker-prod-card" data-worker="${u}" data-mins="${mins}"><div style="margin-bottom: 10px; font-weight:bold;">👤 ${u} (${(mins/60).toFixed(1)}h)</div><div class="efficiency-grid"><div><label>Paczki</label><input type="number" id="paczki_${safeId}" value="${s.paczki}" class="efficiency-input" oninput="document.getElementById('stats_${safeId}').innerText='📦 Wydajność: '+(this.value/(${mins}/60)).toFixed(1)+' pacz/h'"></div><div><label>Produkty</label><input type="number" id="prod_${safeId}" value="${s.produkty}" class="efficiency-input" oninput="document.getElementById('stats_${safeId}').innerText='🛒 '+(this.value/(${mins}/60)).toFixed(1)+' prod/h'"></div><div id="stats_${safeId}" class="efficiency-stats">📦 Wydajność: ${mins > 0 ? (s.paczki/(mins/60)).toFixed(1) : 0} pacz/h | 🛒 ${mins > 0 ? (s.produkty/(mins/60)).toFixed(1) : 0} prod/h</div></div></div>`); } 
+          else { hArray.push(`<div class="efficiency-card"><div style="margin-bottom: 10px; font-weight:bold; font-size:16px;">👤 ${u} (${(mins/60).toFixed(1)}h)</div><div class="efficiency-grid"><div><label>Spakowano paczek</label><div style="font-size:22px; font-weight:900; text-align:center; padding:10px; background:#f8fafc; border-radius:8px;">${s.paczki}</div></div><div><label>Spakowano produktów</label><div style="font-size:22px; font-weight:900; text-align:center; padding:10px; background:#f8fafc; border-radius:8px;">${s.produkty}</div></div><div class="efficiency-stats">📦 Wydajność: ${mins > 0 ? (s.paczki/(mins/60)).toFixed(1) : 0} pacz/h | 🛒 ${mins > 0 ? (s.produkty/(mins/60)).toFixed(1) : 0} prod/h</div></div></div>`); }
+        } else hArray.push(`<div class="efficiency-card"><b>👤 ${u}</b>: ${Math.floor(mins/60)}h ${mins%60}m</div>`);
+      }
+    }
+    document.getElementById('efficiencyList').innerHTML = hArray.join(''); document.getElementById('efficiencyActions').style.display = (act === "Pakowanie Paczek" && isSingleDay) ? 'block' : 'none';
+  }
+
+  function saveAllEfficiency() { 
+    const d1 = document.getElementById('prodDate1').value; let updates = []; 
+    document.querySelectorAll('.worker-prod-card').forEach(c => { let u = c.getAttribute('data-worker'), m = c.getAttribute('data-mins'), sId = u.replace(/\s+/g,''); updates.push({ worker: u, paczki: document.getElementById('paczki_' + sId).value || 0, produkty: document.getElementById('prod_' + sId).value || 0, mins: m }); }); 
+    notify.toast('Zapisuję...', 'info'); apiCall('/admin/save-productivity', 'POST', { date: d1, updates: updates }).then(res => { if(res) { notify.toast('Zapisano!'); loadEfficiency(); } }); 
+  }
+
+  function loadEqLog() {
+    apiCall('/admin/equipment-log', 'POST', { d1: document.getElementById('eqDate1').value, d2: document.getElementById('eqDate2').value, skaner: document.getElementById('eqFilterSkaner').value, wozek: document.getElementById('eqFilterWozek').value }).then(res => { 
+      if(!res) return;
+      let hArray = []; res.forEach(r => { hArray.push(`<div class="eq-log-item"><b>${r.worker}</b> (${r.data} | ${r.start}-${r.koniec})<br>Zadanie: ${r.task} | Skaner: <b>${r.skaner||'-'}</b> | Wózek: <b>${r.wozek||'-'}</b></div>`); }); 
+      document.getElementById('eqLogResults').innerHTML = hArray.join('') || "<div class='card' style='text-align:center;'>Brak wpisów z danym sprzętem w tym okresie.</div>"; 
+    });
+  }
+
+  function loadAdminEditLogs() {
+      const u = document.getElementById('adEditUser').value, d = document.getElementById('adEditDate').value; 
+      if(!u || !d) { notify.error("Wybierz pracownika i datę"); return; }
+      document.getElementById('adminEditResults').innerHTML = "<div class='inline-loader'>⏳ Pobieranie wpisów...</div>";
+      apiCall('/admin/edit-logs', 'POST', { username: u, date: d }).then(res => {
+          if(!res) return;
+          if(res.length === 0) { document.getElementById('adminEditResults').innerHTML = "<div class='card' style='text-align:center;'>Brak wpisów dla tego pracownika.</div>"; return; } 
+          let h = '';
+          res.forEach(r => { 
+              h += `<div class="admin-edit-row" id="edit_row_${r.id}"><div style="font-size:12px; color:#666; margin-bottom:5px;">ID wpisu: ${r.id}</div><div style="display:flex; gap:10px; margin-bottom:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Zadanie</label><input type="text" id="edit_task_${r.id}" value="${r.zadanie}" style="margin:0;"></div></div><div style="display:flex; gap:10px;"><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Start</label><input type="time" id="edit_start_${r.id}" value="${r.start}" style="margin:0;"></div><div style="flex:1"><label style="font-size:12px; color:#666; font-weight:bold;">Koniec</label><input type="time" id="edit_end_${r.id}" value="${r.koniec}" style="margin:0;"></div></div></div>`; 
+          });
+          h += `<button class="btn-success" style="height:60px; font-size:16px;" onclick="saveAdminEdits('${d}')">💾 ZAPISZ ZMIANY W TYM DNIU</button>`; 
+          document.getElementById('adminEditResults').innerHTML = h;
+      });
+  }
+
+  function saveAdminEdits(dateStr) {
+      let updates = []; 
+      document.querySelectorAll('.admin-edit-row').forEach(row => { 
+          let id = row.id.replace('edit_row_', ''); 
+          updates.push({ id: id, task: document.getElementById('edit_task_' + id).value, start: document.getElementById('edit_start_' + id).value, end: document.getElementById('edit_end_' + id).value }); 
+      });
+      notify.toast('Zapisywanie...', 'info'); 
+      apiCall('/admin/update-batch', 'POST', { updates: updates, date: dateStr }).then(res => { 
+          if(res) { notify.success('Zapisano pomyślnie!'); loadAdminEditLogs(); }
+      });
+  }
+
+  function switchAdminTab(id, el) { 
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active')); 
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active')); 
+      el.classList.add('active'); document.getElementById('tab-'+id).classList.add('active'); 
+      if(id === 'sprzet') loadEqLog(); 
+      if(id === 'live') loadActiveSessions();
+      if(id === 'alerty') loadAdminAlerts();
+  }
+
+  function dbDelete(t, n) { 
+    Swal.fire({ title: `Usunąć ${n}?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Tak' }).then(res => { 
+      if (res.isConfirmed) { notify.loading('Usuwanie...'); apiCall('/admin/db', 'POST', { type: t, action: 'DELETE', name: n }).then(resp => { if(resp) { notify.toast('Usunięto'); refreshGlobalConfig(); } }); } 
+    }); 
+  }
+  
+  function dbAdd(t) { 
+    let title = t === 'ADMIN' ? 'Dodaj Administratora' : (t === 'EMPLOYEE' ? 'Dodaj Pracownika' : (t === 'ACTIVITY' ? 'Dodaj Aktywność' : 'Dodaj Sprzęt')); 
+    let html = (t === 'ACTIVITY' || t === 'SCANNER' || t === 'TROLLEY') ? '<input id="sw_n" class="swal2-input" placeholder="Nazwa / Numer">' : '<input id="sw_n" class="swal2-input" placeholder="Login/Imię"><input id="sw_p" class="swal2-input" placeholder="Hasło/PIN">'; 
+    Swal.fire({ title: title, html: html, showCancelButton: true, preConfirm: () => [document.getElementById('sw_n').value, document.getElementById('sw_p') ? document.getElementById('sw_p').value : ""] }).then(r => { 
+      if(r.isConfirmed && r.value[0]) { notify.loading('Zapisuję...'); apiCall('/admin/db', 'POST', { type: t, action: 'ADD', name: r.value[0], val: r.value[1] }).then(resp => { if(resp) { notify.toast('Dodano'); refreshGlobalConfig(); } }); } 
+    }); 
+  }
+
+  function dbEditPin(name) { 
+    Swal.fire({ title: `Zmień PIN: ${name}`, input: 'password', showCancelButton: true, confirmButtonText: 'Zapisz' }).then(res => { 
+      if(res.isConfirmed && res.value) { notify.loading('Zapisywanie...'); apiCall('/admin/db', 'POST', { type: 'EMPLOYEE', action: 'EDIT_PIN', name: name, val: res.value }).then(resp => { if(resp) { notify.toast('Zmieniono PIN'); refreshGlobalConfig(); } }); } 
+    }); 
+  }
+
+  function dbEditPinAdmin(name) { 
+    Swal.fire({ title: `Zmień Hasło: ${name}`, input: 'password', showCancelButton: true, confirmButtonText: 'Zapisz' }).then(res => { 
+      if(res.isConfirmed && res.value) { notify.loading('Zapisywanie...'); apiCall('/admin/db', 'POST', { type: 'ADMIN', action: 'EDIT_PIN', name: name, val: res.value }).then(resp => { if(resp) { notify.toast('Zmieniono Hasło'); refreshGlobalConfig(); } }); } 
+    }); 
+  }
+</script>
+</body>
+</html>
