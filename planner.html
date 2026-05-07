@@ -132,12 +132,11 @@
             flex-direction: column;
         }
 
-        /* NAPRAWA ROZJEŻDŻAJĄCYCH SIĘ GUZIKÓW CMS (ZDJĘCIE) */
         .input-group {
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
-            flex-wrap: wrap; /* To naprawia ucinanie przycisków */
+            flex-wrap: wrap; 
             align-items: center;
         }
 
@@ -195,7 +194,7 @@
             grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
             gap: 25px;
             width: 100%;
-            max-width: 1200px; /* Ogranicza rozrost, max 2 na wiersz na PC */
+            max-width: 1200px;
             margin: 0 auto;
         }
 
@@ -265,7 +264,7 @@
            ========================================== */
         #dailyGrid {
             display: flex;
-            flex-wrap: wrap; /* Wymuszenie szachownicy zamiast scrolla */
+            flex-wrap: wrap;
             gap: 15px;
             padding: 15px;
             align-content: flex-start;
@@ -274,7 +273,7 @@
         }
 
         .kanban-col {
-            flex: 1 1 240px; /* Minimalnie 240px, ładnie się dopasowuje */
+            flex: 1 1 240px; 
             max-width: 320px;
             background: rgba(255,255,255,0.7);
             border-radius: 16px;
@@ -406,9 +405,6 @@
     <datalist id="dlShifts"></datalist>
     <datalist id="dlEmployees"></datalist>
 
-    <!-- =========================================================
-         EKRAN STARTOWY
-         ========================================================= -->
     <div id="screen-landing" class="app-screen active">
         <div class="landing-wrapper">
             <div style="text-align:center; margin-bottom: 30px;">
@@ -430,9 +426,6 @@
         </div>
     </div>
 
-    <!-- =========================================================
-         LOGOWANIE PRACOWNIK
-         ========================================================= -->
     <div id="screen-emp-login" class="app-screen">
         <div style="padding: 15px 20px;">
             <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
@@ -448,9 +441,6 @@
         </div>
     </div>
 
-    <!-- =========================================================
-         LOGOWANIE ADMINISTRACJA
-         ========================================================= -->
     <div id="screen-admin-login" class="app-screen">
         <div style="padding: 15px 20px;">
             <button onclick="openScreen('screen-landing')" style="border:none; background:none; color:var(--ios-blue); font-size:15px; cursor:pointer; font-weight:700;">← Wróć</button>
@@ -466,9 +456,6 @@
         </div>
     </div>
 
-    <!-- =========================================================
-         PANEL PRACOWNIKA (DASHBOARD)
-         ========================================================= -->
     <div id="screen-emp-dash" class="app-screen">
         <div class="nav">
             <div class="nav-btn active" onclick="switchEmpTab('eGrafik')">📅 Mój Kalendarz</div>
@@ -497,8 +484,7 @@
             </div>
 
             <div id="empGrid" style="display:grid; grid-template-columns: 30px repeat(7, 1fr); gap:8px; width:100%;">
-                <!-- Kalendarz -->
-            </div>
+                </div>
         </div>
 
         <div id="eUstawienia" style="display:none; padding:20px; max-width:500px; margin:0 auto; width:100%;">
@@ -511,9 +497,6 @@
         </div>
     </div>
 
-    <!-- =========================================================
-         PANEL ADMINISTRACJI / ZARZĄDZANIA
-         ========================================================= -->
     <div id="screen-admin" class="app-screen">
         <div class="nav">
             <div class="nav-btn" onclick="showAdminView('vAlerts')">🔔 Wnioski Grafiku <span class="badge" id="aBadge">0</span></div>
@@ -525,7 +508,6 @@
             <div class="nav-btn" onclick="openScreen('screen-landing')" style="color:var(--ios-red);">Wyloguj</div>
         </div>
 
-        <!-- 1. WNIOSKI Z GRAFIKU -->
         <div id="vAlerts" class="admin-view" style="padding:20px; max-width:900px; margin:0 auto; width:100%;">
             <h2 style="display:flex; justify-content:space-between; align-items:center;">
                 Wnioski o wolne / dostępność
@@ -536,7 +518,6 @@
             <div id="alertsDetailView" style="display:none;"></div>
         </div>
 
-        <!-- 2. NOWOŚĆ: TABELA ALERTÓW HR -->
         <div id="vHrAlerts" class="admin-view" style="padding:20px; max-width:1100px; margin:0 auto; width:100%;">
             <h2 style="color:var(--ios-purple);">Terminarz Ocen Okresowych (HR)</h2>
             <div class="input-group">
@@ -566,7 +547,6 @@
             </div>
         </div>
 
-        <!-- 3. PLANNER TYGODNIOWY -->
         <div id="vPlanner" class="admin-view">
             <div class="tools">
                 <input type="text" id="searchPlan" placeholder="🔍 Szukaj pracownika..." onkeyup="renderPlanner()" style="min-width:200px;">
@@ -588,7 +568,6 @@
             </div>
         </div>
 
-        <!-- 4. PLANNER DZIENNY LIVE (KOMPAKTOWA SZACHOWNICA) -->
         <div id="vDaily" class="admin-view active">
             <div class="tools">
                 <select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); min-width:250px;">
@@ -610,7 +589,6 @@
                     <div id="dailyAvailableList" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:6px;"></div>
                 </div>
                 
-                <!-- TUTAJ ZADZIAŁA FLEX-WRAP (SZACHOWNICA) -->
                 <div id="dailyGrid">
                     <div style="width:100%; text-align:center; padding:40px; color:var(--text-muted); font-weight:600;">
                         👆 Wybierz grupę z menu, aby załadować dostępne dla niej akcje.
@@ -619,7 +597,6 @@
             </div>
         </div>
 
-        <!-- 5. ZESPÓŁ I DOSSIER HR -->
         <div id="vMatrix" class="admin-view" style="padding:20px; overflow-y:auto;">
             <h2>Zarządzanie Składem Grup</h2>
             <div id="groupBubbles" class="group-bubbles-container"></div>
@@ -636,11 +613,9 @@
             <div id="hrCardsContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;"></div>
         </div>
 
-        <!-- 6. CMS I USTAWIENIA -->
         <div id="vSettings" class="admin-view" style="padding:30px 20px; overflow-y:auto;">
             <div class="cms-grid">
                 
-                <!-- KARTA 1: PRACOWNICY -->
                 <div class="glass-card" style="text-align:left;">
                     <h3 style="margin-top:0;">👥 Dodaj Pracownika</h3>
                     <div class="input-group">
@@ -656,7 +631,6 @@
                     <div id="cmsEmpList" style="max-height:300px; overflow-y:auto;"></div>
                 </div>
 
-                <!-- KARTA 2: GRUPY -->
                 <div class="glass-card" style="text-align:left;">
                     <h3 style="margin-top:0;">🏢 Tworzenie Grup</h3>
                     <div class="input-group">
@@ -673,7 +647,6 @@
                     <div id="cmsGroupList" style="max-height:300px; overflow-y:auto;"></div>
                 </div>
 
-                <!-- KARTA 3: AKTYWNOŚCI I ZMIANY -->
                 <div class="glass-card" style="text-align:left;">
                     <h3 style="margin-top:0;">📋 Aktywności i Zmiany</h3>
                     <div class="input-group">
@@ -690,14 +663,19 @@
                     <div id="cmsShiftList" style="max-height:150px; overflow-y:auto;"></div>
                 </div>
 
-                <!-- KARTA 4: BAZA, SYMULACJA I ROOT -->
                 <div class="glass-card" style="text-align:left; height:fit-content;">
                     <h3 style="margin-top:0; color:var(--ios-green);">💾 Zrzut Bazy & Testy</h3>
-                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Pobierz kopię bezpieczeństwa SQLite lub wygeneruj sztuczny ruch.</p>
+                    <p style="font-size:12px; color:var(--text-muted); margin-bottom:15px;">Pobierz kopię bezpieczeństwa SQLite, wygeneruj ruch lub wgraj Excela.</p>
                     
                     <button class="btn-main" style="width:100%; margin-bottom:10px; background:var(--ios-green);" onclick="downloadBackup()">📥 Pobierz plik test.db</button>
-                    <button class="btn-main" style="width:100%; background:var(--ios-orange);" onclick="runSimulation()">🤖 Uruchom Symulację (Sty - Maj 2026)</button>
+                    <button class="btn-main" style="width:100%; margin-bottom:10px; background:var(--ios-orange);" onclick="runSimulation()">🤖 Uruchom Symulację (Sty - Maj 2026)</button>
                     
+                    <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:12px; margin-bottom:15px; border:1px dashed var(--border);">
+                        <label style="font-size:12px; font-weight:800; color:var(--ios-blue); display:block; margin-bottom:5px;">Wgraj z pliku Excel (Nadpisuje strukturę!)</label>
+                        <input type="file" id="excelUpload" accept=".xlsx" style="font-size:12px; margin-bottom:10px; width:100%;">
+                        <button class="btn-main" style="width:100%; padding:8px;" onclick="uploadExcel()">Wgraj Excela</button>
+                    </div>
+
                     <hr style="margin:25px 0; border-top:1px solid var(--border);">
 
                     <h3 style="margin-top:0; color:var(--ios-red);">👑 Główne Konto (Root)</h3>
@@ -712,12 +690,8 @@
         </div>
     </div>
 
-    <!-- =========================================================
-         MODALE WYSKAKUJĄCE (OVERLAYS)
-         ========================================================= -->
     <div class="overlay" id="overlay" onclick="closeM()"></div>
 
-    <!-- MODAL: KARTOTEKA HR DOSSIER (Z KALENDARZEM ABSENCJI) -->
     <div id="matrixModal" class="modal" style="width:900px; padding:30px;">
         <div style="display:flex; justify-content:space-between; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:15px; flex-wrap:wrap; gap:10px;">
             <div>
@@ -746,11 +720,11 @@
         <div style="display:flex; gap:20px; flex-wrap:wrap;">
             <div style="flex:1; min-width:300px;">
                 <h3 style="font-size:16px;">⭐ Kompetencje Grupy</h3>
-                <div id="matrixGrid" style="display:flex; flex-direction:column; gap:8px; max-height:200px; overflow-y:auto; padding-right:5px;"></div>
+                <div id="matrixGrid" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto; padding-right:5px;"></div>
             </div>
             
             <div style="flex:1; min-width:300px; display:flex; flex-direction:column;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:5px; flex-wrap:wrap;">
                     <h3 style="font-size:16px; margin:0;">📝 Nowa Ewaluacja</h3>
                     <div style="background:rgba(10,132,255,0.1); padding:4px 8px; border-radius:8px;">
                         <span style="font-size:11px; font-weight:800; color:var(--ios-blue);">Ogólna:</span>
@@ -759,10 +733,12 @@
                         </select>
                     </div>
                 </div>
-                <label style="font-size:12px; font-weight:700; color:var(--text-muted); display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
-                    Nastepna ocena
-                    <input type="date" id="hrNextEvalDate" style="font-size:12px;">
-                </label>
+                
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; background:rgba(0,0,0,0.02); padding:8px; border-radius:8px; border:1px dashed var(--border);">
+                    <span style="font-size:12px; font-weight:700;">Data kolejnego przeglądu:</span>
+                    <input type="date" id="hrNextEvalDate" style="font-size:12px; padding:4px 8px;">
+                </div>
+                
                 <textarea id="hrNotes" placeholder="Wpisz uwagi o pracowniku..." style="flex:1; min-height:100px; margin-bottom:10px; resize:none;"></textarea>
                 <label style="font-size:12px; font-weight:700; color:var(--ios-orange); display:flex; align-items:center; gap:6px; margin-bottom:10px; cursor:pointer;">
                     <input type="checkbox" id="hrIsEval" style="width:16px; height:16px; accent-color:var(--ios-orange);"> Zatwierdź jako Oficjalną Ocenę Okresową
@@ -776,37 +752,32 @@
         <div id="hrHistoryList" style="max-height:150px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
     </div>
 
-    <!-- POZOSTAŁE MODALE (Skład Grupy, Sugestie, Kopiowanie) - Struktura zachowana z poprzednich wersji -->
-    <div id="evalDetailsModal" class="modal" style="width:720px; padding:25px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:1px solid var(--border); padding-bottom:14px; margin-bottom:15px;">
-            <div>
-                <h2 style="margin:0; color:var(--ios-blue);">Szczegoly Oceny</h2>
-                <div id="edPeriod" style="font-weight:700; font-size:12px; color:var(--text-muted); margin-top:5px;">Okres analizy: -</div>
-            </div>
-            <button class="btn-main" onclick="closeM()" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">Zamknij</button>
+    <div id="evalDetailsModal" class="modal" style="width:600px; padding:25px;">
+        <h2 style="color:var(--ios-blue); margin-top:0;">Szczegóły Oceny Okresowej</h2>
+        <div id="edPeriod" style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;"></div>
+        
+        <div class="hr-stats-container">
+            <div class="hr-stat-box box-w" style="padding:10px;"><span class="hr-stat-title">Praca</span><span class="hr-stat-num" id="edStatW" style="font-size:18px;">0</span></div>
+            <div class="hr-stat-box box-c" style="padding:10px;"><span class="hr-stat-title">Chory</span><span class="hr-stat-num" id="edStatC" style="font-size:18px;">0</span></div>
+            <div class="hr-stat-box box-u" style="padding:10px;"><span class="hr-stat-title">Urlop</span><span class="hr-stat-num" id="edStatU" style="font-size:18px;">0</span></div>
+            <div class="hr-stat-box box-wo" style="padding:10px;"><span class="hr-stat-title">Wolne</span><span class="hr-stat-num" id="edStatWo" style="font-size:18px;">0</span></div>
+            <div class="hr-stat-box box-ns" style="padding:10px;"><span class="hr-stat-title">No Show</span><span class="hr-stat-num" id="edStatNs" style="font-size:18px;">0</span></div>
         </div>
-        <div class="hr-stats-container" style="margin-bottom:15px;">
-            <div class="hr-stat-box box-w"><span class="hr-stat-title">Praca</span><span class="hr-stat-num" id="edStatW" style="color:var(--ios-blue);">0</span></div>
-            <div class="hr-stat-box box-c"><span class="hr-stat-title">Chory</span><span class="hr-stat-num" id="edStatC" style="color:var(--ios-red);">0</span></div>
-            <div class="hr-stat-box box-u"><span class="hr-stat-title">Urlop</span><span class="hr-stat-num" id="edStatU" style="color:var(--ios-orange);">0</span></div>
-            <div class="hr-stat-box box-wo"><span class="hr-stat-title">Wolne</span><span class="hr-stat-num" id="edStatWo" style="color:var(--text-muted);">0</span></div>
-            <div class="hr-stat-box box-ns"><span class="hr-stat-title">No Show</span><span class="hr-stat-num" id="edStatNs" style="color:#8B0000;">0</span></div>
+        
+        <div style="margin:20px 0; padding:15px; background:rgba(0,0,0,0.02); border-radius:12px; border:1px solid var(--border);">
+            <h3 id="edRating" style="margin-top:0; color:var(--ios-orange);"></h3>
+            <p id="edNotes" style="font-style:italic; font-size:13px; color:gray; margin-bottom:0;"></p>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
-            <div style="background:var(--bg-color); border-radius:14px; padding:15px;">
-                <h3 id="edRating" style="font-size:16px; margin:0 0 10px 0; color:var(--ios-orange);">Ocena: -</h3>
-                <div id="edNotes" style="font-size:13px; line-height:1.45; color:var(--text-main); white-space:pre-wrap;">Brak notatki.</div>
-            </div>
-            <div style="background:var(--bg-color); border-radius:14px; padding:15px;">
-                <h3 style="font-size:16px; margin:0 0 10px 0;">Oceny zadan</h3>
-                <div id="edTaskRatings" style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;"></div>
-            </div>
-        </div>
+        
+        <h4 style="margin-bottom:10px;">Oceny z zadań zarejestrowane w tamtym momencie:</h4>
+        <div id="edTaskRatings" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-height:150px; overflow-y:auto;"></div>
+        
+        <button class="btn-main" onclick="openM('matrixModal')" style="width:100%; margin-top:20px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">Wróć do Dossier</button>
     </div>
 
     <div id="groupManagerModal" class="modal" style="width:800px; padding:25px;">
         <h2 id="gmTitle" style="margin-top:0;">Skład Grupy</h2>
-        <div id="gmSubtitle" style="font-weight:700; font-size:12px; color:var(--text-muted); margin:-10px 0 15px 0;"></div>
+        <div id="gmSubtitle" style="font-size:12px; color:gray; font-weight:700; margin-bottom:15px; border-bottom:1px solid var(--border); padding-bottom:10px;"></div>
         <div class="gm-columns-wrapper" style="display:flex; gap:15px;">
             <div style="flex:1; background:var(--bg-color); padding:15px; border-radius:16px;">
                 <h4>Obecny skład <span id="gmInCount" class="badge" style="position:static; display:inline-block;">0</span></h4>
@@ -818,6 +789,7 @@
                 <div id="gmOutGroup" style="max-height:200px; overflow-y:auto;"></div>
             </div>
         </div>
+        <button class="btn-main" onclick="closeM()" style="width:100%; margin-top:20px;">Zamknij</button>
     </div>
 
     <div id="massModal" class="modal">
@@ -903,23 +875,6 @@
         }
         let hex = (dbAdmin.activityColors && dbAdmin.activityColors[str]) ? dbAdmin.activityColors[str] : '#0A84FF';
         return { bg: hexToRgba(hex, 0.1), c: hex, shadow: `0 4px 12px ${hexToRgba(hex, 0.2)}` };
-    }
-
-    function escapeHtml(value) {
-        return String(value ?? '').replace(/[&<>"']/g, ch => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-        }[ch]));
-    }
-
-    function clampRating(value, fallback = 3) {
-        const parsed = parseInt(value, 10);
-        if (Number.isNaN(parsed)) return fallback;
-        return Math.max(1, Math.min(4, parsed));
-    }
-
-    function renderRatingOptions(selected, fallback = 3) {
-        const current = clampRating(selected, fallback);
-        return [1,2,3,4].map(v => `<option value="${v}" ${v === current ? 'selected' : ''}>${v} ⭐</option>`).join('');
     }
 
     function formatDateKey(year, jsMonth, date) {
@@ -1241,7 +1196,7 @@
         for (const [gName, count] of Object.entries(groupedAlerts)) {
             html += `
             <div class="group-bubble" onclick="renderAlertsEmpView('${gName}')">
-                <h3 style="margin-top:0; font-size:20px; color:var(--text-main);">${gName}</h3>
+                <h3 style="margin:top:0; font-size:20px; color:var(--text-main);">${gName}</h3>
                 <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:10px 0;">${count} <span style="font-size:16px; color:var(--text-muted);">wniosków</span></div>
                 <span style="color:var(--ios-blue); font-size:13px; font-weight:700;">Zobacz szczegóły →</span>
             </div>`;
@@ -1503,7 +1458,6 @@
             }
         });
         
-        // Zabezpieczenie przed błędem u pracowników bez przypisanej grupy
         const avail = dbAdmin.employees.filter(e => !assignedSet.has(e.name) && e.name !== dbAdmin.rootAdmin); 
         document.getElementById('availCount').innerText = avail.length;
         document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
@@ -1531,8 +1485,9 @@
             }
 
             const list = dailyData[act].map(e => {
-                const rating = clampRating(dbAdmin.ratingsMap[`${e.name}_${act}`], 2);
-                let starColor = rating === 1 ? 'var(--ios-red)' : (rating >= 4 ? 'var(--ios-green)' : 'var(--ios-blue)');
+                let rating = dbAdmin.ratingsMap[`${e.name}_${act}`] || 2;
+                if(rating > 4) rating = 4;
+                let starColor = rating === 1 ? 'var(--ios-red)' : (rating >= 3 ? 'var(--ios-green)' : 'var(--ios-blue)');
                 return `
                     <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
                         <span style="font-size:14px; font-weight:600; color:var(--text-main);">${e.name}</span>
@@ -1572,7 +1527,8 @@
             const currentAct = valStr ? valStr.split("||")[0] : "";
             
             if(currentAct !== act) { 
-                let rating = clampRating(dbAdmin.ratingsMap[`${e.name}_${act}`], 2);
+                let rating = dbAdmin.ratingsMap[`${e.name}_${act}`] || 2;
+                if(rating > 4) rating = 4;
                 availableEmps.push({ name: e.name, rating: rating, currentAct: currentAct });
             }
         });
@@ -1582,7 +1538,7 @@
             let statusText = (!e.currentAct || e.currentAct === 'Wyczyść') 
                              ? `<span style="color:var(--ios-green); font-weight:700;">Wolny</span>` 
                              : `<span style="color:var(--ios-orange); font-weight:700;">Robi: ${e.currentAct}</span>`;
-            let starColor = e.rating === 1 ? 'var(--ios-red)' : (e.rating >= 4 ? 'var(--ios-green)' : 'var(--ios-blue)');
+            let starColor = e.rating === 1 ? 'var(--ios-red)' : (e.rating >= 3 ? 'var(--ios-green)' : 'var(--ios-blue)');
 
             return `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid var(--border);">
@@ -1645,7 +1601,6 @@
                 const dateStr = formatDateKey(2026, m, d);
                 const key = `${emp}_${dateStr}`;
                 
-                // Zabezpieczenie przed błędem, gdy pracownik nie ma wpisu
                 const valStr = dbAdmin.planMap[key] || "||"; 
                 const parts = valStr.split("||");
                 const act = parts[0] || "Wyczyść";
@@ -1744,22 +1699,19 @@
             const emps = dbAdmin.employees.filter(e => e.group === g.name && e.name !== dbAdmin.rootAdmin);
             const isFlex = g.is_flexible === 1 ? `<span style="color:var(--ios-orange); font-size:12px; font-weight:800; background:rgba(255,149,0,0.1); padding:4px 8px; border-radius:8px;">⚡ Elastyczna</span>` : `<span style="color:gray; font-size:12px; font-weight:700; background:rgba(0,0,0,0.05); padding:4px 8px; border-radius:8px;">🔒 Sztywna</span>`;
             return `
-            <div class="group-bubble" data-group="${escapeHtml(g.name)}">
-                <h3 style="margin-top:0; font-size:18px; color:var(--text-main);">${escapeHtml(g.name)}</h3>
+            <div class="group-bubble" onclick="openGroupManager('${g.name}')">
+                <h3 style="margin-top:0; font-size:18px; color:var(--text-main);">${g.name}</h3>
                 <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:15px 0;">${emps.length} <span style="font-size:14px; color:var(--text-muted);">os.</span></div>
                 ${isFlex}
             </div>`;
         }).join('');
-        container.querySelectorAll('.group-bubble[data-group]').forEach(card => {
-            card.addEventListener('click', () => openGroupManager(card.dataset.group));
-        });
     }
 
     function openGroupManager(gName) {
         currentGroupManager = gName;
-        const groupInfo = dbAdmin.groups.find(g => g.name === gName);
+        const groupInfo = dbAdmin.groups.find(g => g.name === gName) || {type: 'Brak'};
         document.getElementById('gmTitle').innerText = `Skład Grupy: ${gName}`;
-        document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo ? groupInfo.type : '-'}`;
+        document.getElementById('gmSubtitle').innerText = `Typ: ${groupInfo.type}`;
         document.getElementById('gmSearch').value = '';
         renderGroupManagerLists();
         openM('groupManagerModal');
@@ -1771,44 +1723,29 @@
         const outGroup = dbAdmin.employees.filter(e => e.group !== currentGroupManager && e.name.toLowerCase().includes(q) && e.name !== dbAdmin.rootAdmin);
 
         document.getElementById('gmInCount').innerText = inGroup.length;
-        document.getElementById('gmInGroup').innerHTML = inGroup.length ? inGroup.map(e => `
+        document.getElementById('gmInGroup').innerHTML = inGroup.map(e => `
             <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div><b style="font-size:14px; color:var(--text-main);">${escapeHtml(e.name)}</b><br><span style="font-size:11px; color:gray; font-weight:700;">ID: ${escapeHtml(e.id)}</span></div>
-                ${currentGroupManager !== 'Nieprzypisani' ? `<button data-emp="${escapeHtml(e.name)}" data-group="Nieprzypisani" class="gm-move-btn" style="background:rgba(255,59,48,0.1); color:var(--ios-red); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuc do Nieprzypisanych</button>` : ''}
+                <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:700;">ID: ${e.id}</span></div>
+                ${currentGroupManager !== 'Nieprzypisani' ? `<button onclick="moveEmpGroup('${e.name}', 'Nieprzypisani')" style="background:rgba(255,59,48,0.1); color:var(--ios-red); border:none; padding:8px 12px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s;">Wyrzuć do Nieprzypisanych</button>` : ''}
             </div>
-        `).join('') : '<span style="font-size:12px; color:gray;">Brak pracownikow w tej grupie.</span>';
+        `).join('');
 
-        document.getElementById('gmOutGroup').innerHTML = outGroup.length ? outGroup.map(e => `
+        document.getElementById('gmOutGroup').innerHTML = outGroup.map(e => `
             <div style="background:white; padding:12px; border-radius:12px; box-shadow:0 2px 5px rgba(0,0,0,0.02); display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <div><b style="font-size:14px; color:var(--text-main);">${escapeHtml(e.name)}</b><br><span style="font-size:11px; color:gray; font-weight:600;">Z: ${escapeHtml(e.group || 'Nieprzypisani')}</span></div>
-                <button data-emp="${escapeHtml(e.name)}" data-group="${escapeHtml(currentGroupManager)}" class="gm-move-btn" style="background:linear-gradient(135deg, var(--ios-green), #28a745); color:white; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s; box-shadow:0 4px 10px rgba(52,199,89,0.2);">Dodaj</button>
+                <div><b style="font-size:14px; color:var(--text-main);">${e.name}</b><br><span style="font-size:11px; color:gray; font-weight:600;">Z: ${e.group || 'Nieprzypisani'}</span></div>
+                <button onclick="moveEmpGroup('${e.name}', '${currentGroupManager}')" style="background:linear-gradient(135deg, var(--ios-green), #28a745); color:white; border:none; padding:8px 16px; border-radius:10px; cursor:pointer; font-weight:800; transition:0.2s; box-shadow:0 4px 10px rgba(52,199,89,0.2);">➕ Dodaj</button>
             </div>
-        `).join('') : '<span style="font-size:12px; color:gray;">Brak pozostalych pracownikow.</span>';
-
-        document.querySelectorAll('#groupManagerModal .gm-move-btn').forEach(btn => {
-            btn.addEventListener('click', () => moveEmpGroup(btn.dataset.emp, btn.dataset.group));
-        });
+        `).join('');
     }
 
     async function moveEmpGroup(empName, newGroup) {
         const emp = dbAdmin.employees.find(e => e.name === empName);
         if(emp) {
-            const oldGroup = emp.group || "Nieprzypisani";
-            emp.group = newGroup;
+            emp.group = newGroup; 
             renderGroupManagerLists(); 
             renderMatrix(); 
             renderHrCards();
-            const res = await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
-            if(!res || !res.ok) {
-                emp.group = oldGroup;
-                renderGroupManagerLists();
-                renderMatrix();
-                renderHrCards();
-                showT("Blad zmiany grupy.");
-                await loadAdminData();
-                return;
-            }
-            showT(res.msg || "Zmieniono grupe.");
+            await apiCall('/admin/employee/group', 'POST', { name: empName, group: newGroup });
         }
     }
 
@@ -1835,28 +1772,23 @@
         }
 
         container.innerHTML = filteredEmps.map(e => `
-            <div class="hr-card-mini" data-emp="${escapeHtml(e.name)}">
-                <h4 style="margin:0 0 5px 0; font-size:18px;">${escapeHtml(e.name)}</h4>
-                <span style="font-size:12px; color:gray; font-weight:600; background:rgba(0,0,0,0.04); padding:4px 10px; border-radius:10px;">${escapeHtml(e.group || 'Nieprzypisani')}</span>
+            <div class="hr-card-mini" style="background:white; padding:20px; border-radius:16px; border:1px solid rgba(0,0,0,0.05); cursor:pointer;" onclick="openHrDossier('${e.name}')">
+                <h4 style="margin:0 0 5px 0; font-size:18px;">${e.name}</h4>
+                <span style="font-size:12px; color:gray; font-weight:600; background:rgba(0,0,0,0.04); padding:4px 10px; border-radius:10px;">${e.group || 'Nieprzypisani'}</span>
                 <div style="margin-top:15px; width:100%; border-top:1px solid var(--border); padding-top:10px;">
                     <span style="color:var(--ios-blue); font-weight:700; font-size:13px;">Oceny & Dossier →</span>
                 </div>
             </div>
         `).join('');
-        container.querySelectorAll('.hr-card-mini[data-emp]').forEach(card => {
-            card.addEventListener('click', () => openHrDossier(card.dataset.emp));
-        });
     }
 
     async function openHrDossier(empName) {
         currentHrEmp = empName;
         const emp = dbAdmin.employees.find(e => e.name === empName);
-        if(!emp) return showT("Nie znaleziono pracownika.");
         
         document.getElementById('matrixTitle').innerText = `Dossier: ${empName}`;
         document.getElementById('matrixSubtitle').innerText = `ID: ${emp.id} | Grupa: ${emp.group || 'Nieprzypisani'}`;
         
-        // Ustawienie domyślnych dat filtra absencji (ostatnie 30 dni)
         const dzis = new Date();
         const przed30 = new Date();
         przed30.setDate(dzis.getDate() - 30);
@@ -1865,9 +1797,8 @@
         document.getElementById('hrDateTo').valueAsDate = dzis;
 
         document.getElementById('hrNotes').value = 'Ładowanie...';
+        document.getElementById('hrNextEvalDate').value = '';
         document.getElementById('hrIsEval').checked = false;
-        document.getElementById('hrOverallRating').value = '3';
-        document.getElementById('hrNextEvalDate').value = emp.next_eval_date || '';
         document.getElementById('hrHistoryList').innerHTML = '';
         
         await refreshHrStats();
@@ -1892,17 +1823,18 @@
             document.getElementById('hrStatNoShow').innerText = res.stats["No Show ❌"];
             
             document.getElementById('hrNotes').value = res.notes;
-            document.getElementById('hrNextEvalDate').value = res.next_eval_date || '';
+            if (res.next_eval_date) {
+                document.getElementById('hrNextEvalDate').value = res.next_eval_date;
+            }
 
-            // Renderowanie Historii z klikalnymi elementami
             if (res.history && res.history.length > 0) {
                 document.getElementById('hrHistoryList').innerHTML = res.history.map(h => `
                     <div style="background:rgba(0,0,0,0.02); padding:12px; border-radius:12px; border:1px solid var(--border); cursor:pointer; transition:0.2s;" onclick="openEvalDetails(${h.id})" onmouseover="this.style.background='rgba(10,132,255,0.05)'" onmouseout="this.style.background='rgba(0,0,0,0.02)'">
                         <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                            <span style="font-size:11px; font-weight:800; color:var(--ios-blue);">📅 ${escapeHtml(h.date)}</span>
-                            <span style="font-size:11px; font-weight:800; color:var(--ios-orange);">Ocena: ${clampRating(h.rating)} ⭐</span>
+                            <span style="font-size:11px; font-weight:800; color:var(--ios-blue);">📅 ${h.date}</span>
+                            <span style="font-size:11px; font-weight:800; color:var(--ios-orange);">Ocena: ${h.rating} ⭐</span>
                         </div>
-                        <div style="font-size:12px; color:var(--text-main); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${escapeHtml(h.notes || '')}"</div>
+                        <div style="font-size:12px; color:var(--text-main); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${h.notes}"</div>
                     </div>
                 `).join('');
             } else {
@@ -1910,7 +1842,6 @@
             }
             
             const emp = dbAdmin.employees.find(e => e.name === currentHrEmp);
-            if(!emp) return;
             const groupObj = dbAdmin.groups.find(g => g.name === emp.group);
             
             let allowedActs = dbAdmin.activityNames; 
@@ -1919,21 +1850,22 @@
             }
 
             document.getElementById('matrixGrid').innerHTML = allowedActs.map(act => {
-                const v = clampRating(dbAdmin.ratingsMap[currentHrEmp+"_"+act], 2); 
+                let v = dbAdmin.ratingsMap[currentHrEmp+"_"+act] || 2; 
+                if(v > 4) v = 4;
                 return `
-                <div style="background:rgba(0,0,0,0.02); padding:10px 15px; border-radius:12px; border:1px solid var(--border);">
-                    <strong style="font-size:13px; display:block; margin-bottom:8px; color:var(--text-main);">${escapeHtml(act)}</strong>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <select class="task-rating-select" data-activity="${escapeHtml(act)}" onchange="svR(currentHrEmp, this.dataset.activity, this.value, this)" style="width:100%; padding:8px; font-weight:800; border-radius:10px;">
-                            ${renderRatingOptions(v, 2)}
-                        </select>
-                    </div>
+                <div style="background:rgba(0,0,0,0.02); padding:10px 15px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="font-size:13px; display:block; color:var(--text-main);">${act}</strong>
+                    <select class="hr-task-rating" data-act="${act}" style="padding:4px 8px; font-weight:800; border-radius:8px; border:1px solid rgba(0,0,0,0.1); color:var(--ios-blue); outline:none;">
+                        <option value="4" ${v===4 ? 'selected' : ''}>4 ⭐</option>
+                        <option value="3" ${v===3 ? 'selected' : ''}>3 ⭐</option>
+                        <option value="2" ${v===2 ? 'selected' : ''}>2 ⭐</option>
+                        <option value="1" ${v===1 ? 'selected' : ''}>1 ⭐</option>
+                    </select>
                 </div>`;
             }).join('');
         }
     }
     
-    // --- NOWOŚĆ: POBIERANIE DETALI HISTORYCZNEJ OCENY ---
     async function openEvalDetails(evalId) {
         showT("⏳ Ładowanie detali...");
         const res = await apiCall('/admin/employee/eval_details', 'POST', { eval_id: evalId });
@@ -1946,50 +1878,37 @@
             document.getElementById('edStatWo').innerText = res.stats["Wolne 🏠"] || 0;
             document.getElementById('edStatNs').innerText = res.stats["No Show ❌"] || 0;
             
-            document.getElementById('edRating').innerText = "Ocena: " + clampRating(res.rating) + " ⭐";
-            document.getElementById('edNotes').innerText = res.notes ? `"${res.notes}"` : "Brak notatki.";
-            const taskRatings = res.task_ratings || {};
-            const taskEntries = Object.entries(taskRatings);
-            document.getElementById('edTaskRatings').innerHTML = taskEntries.length ? taskEntries.map(([task, rating]) => `
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; background:white; border-radius:10px; padding:10px;">
-                    <span style="font-size:13px; font-weight:700; color:var(--text-main);">${escapeHtml(task)}</span>
-                    <span style="font-size:12px; font-weight:900; color:var(--ios-blue);">${clampRating(rating)} ⭐</span>
-                </div>
-            `).join('') : '<span style="font-size:12px; color:gray;">Brak ocen czastkowych.</span>';
+            document.getElementById('edRating').innerText = "Ocena Ogólna: " + res.rating + " ⭐";
+            document.getElementById('edNotes').innerText = res.notes ? `Notatka HR: "${res.notes}"` : "Brak notatki HR z tego okresu.";
             
+            let ratingsHtml = '';
+            for (const [act, rating] of Object.entries(res.task_ratings)) {
+                ratingsHtml += `
+                <div style="background:white; border:1px solid var(--border); padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; font-size:12px;">
+                    <span style="font-weight:600;">${act}</span>
+                    <span style="font-weight:800; color:var(--ios-blue);">⭐ ${rating}</span>
+                </div>`;
+            }
+            if(!ratingsHtml) ratingsHtml = '<span style="font-size:12px; color:gray;">Brak zarchiwizowanych ocen z zadań.</span>';
+            
+            document.getElementById('edTaskRatings').innerHTML = ratingsHtml;
             openM('evalDetailsModal');
         }
-    }
-
-    async function svR(u, a, v, btn) { 
-        const rating = clampRating(v, 2);
-        if(btn && btn.tagName !== 'SELECT' && btn.parentElement) {
-            btn.parentElement.querySelectorAll('button').forEach(b => { 
-                b.style.background = 'rgba(0,0,0,0.05)'; 
-                b.style.color = 'var(--text-muted)'; 
-                b.style.boxShadow = 'none'; 
-            }); 
-            btn.style.background = 'var(--ios-blue)'; 
-            btn.style.color = 'white'; 
-            btn.style.boxShadow = '0 4px 10px rgba(10,132,255,0.3)';
-        }
-        if(btn && btn.tagName === 'SELECT') btn.value = String(rating);
-        
-        const res = await apiCall('/admin/matrix/update', 'POST', { name: u, activity: a, rating: rating }); 
-        if(res && res.ok) dbAdmin.ratingsMap[u+"_"+a] = rating; 
     }
 
     async function saveHrNotes() {
         const notes = document.getElementById('hrNotes').value;
         const isEval = document.getElementById('hrIsEval').checked;
-        const ratingVal = clampRating(document.getElementById('hrOverallRating').value);
-        const nextEvalDate = document.getElementById('hrNextEvalDate').value;
-        const taskRatings = {};
-        document.querySelectorAll('#matrixGrid .task-rating-select').forEach(sel => {
-            if(sel.dataset.activity) taskRatings[sel.dataset.activity] = clampRating(sel.value, 2);
+        const ratingVal = document.getElementById('hrOverallRating').value;
+        const nextDate = document.getElementById('hrNextEvalDate').value;
+        
+        const taskRatingSelects = document.querySelectorAll('.hr-task-rating');
+        let taskRatings = {};
+        taskRatingSelects.forEach(select => {
+            taskRatings[select.getAttribute('data-act')] = select.value;
         });
 
-        if(isEval && !confirm("Oznaczenie jako 'Ocena Okresowa' zresetuje licznik czasu do kolejnej oceny i wyczyści ewentualny alert HR. Kontynuować?")) {
+        if(isEval && !confirm("Oznaczenie jako 'Ocena Okresowa' zarchiwizuje oceny cząstkowe i notatkę w historii. Kontynuować?")) {
             return;
         }
 
@@ -1999,20 +1918,22 @@
             notes: notes, 
             is_evaluation: isEval,
             rating: ratingVal,
-            next_eval_date: nextEvalDate,
-            task_ratings: taskRatings
+            task_ratings: taskRatings,
+            next_eval_date: nextDate
         });
         
         if(res && res.ok) {
             showT("✅ " + res.msg);
-            Object.entries(taskRatings).forEach(([act, rating]) => {
-                dbAdmin.ratingsMap[currentHrEmp+"_"+act] = rating;
-            });
-            const emp = dbAdmin.employees.find(e => e.name === currentHrEmp);
-            if(emp) emp.next_eval_date = nextEvalDate;
-            await loadAdminData(); 
-            await refreshHrStats();
-            document.getElementById('hrIsEval').checked = false;
+            
+            // Ręczna aktualizacja stanu dbAdmin dla kompetencji
+            for (const [act, r] of Object.entries(taskRatings)) {
+                dbAdmin.ratingsMap[`${currentHrEmp}_${act}`] = parseInt(r);
+            }
+            
+            if (isEval) { 
+                await loadAdminData(); 
+                openHrDossier(currentHrEmp); 
+            }
         }
     }
 
@@ -2023,10 +1944,8 @@
         try {
             const bS = "background:rgba(255,59,48,0.1); color:var(--ios-red); border:none; padding:8px 16px; border-radius:10px; font-weight:700; cursor:pointer; transition:0.2s; font-size:12px;";
             
-            // Wyszukiwarka CMS
             const searchEmpInput = document.getElementById('cmsEmpSearch');
             const q = searchEmpInput ? searchEmpInput.value.toLowerCase() : "";
-            
             const filteredEmps = dbAdmin.employees.filter(e => e.name.toLowerCase().includes(q));
 
             // PRACOWNICY I ROLE
@@ -2238,6 +2157,39 @@
                 location.reload(); 
             }
         }
+    }
+
+    // Nowa funkcja uploader'a bez zewnętrznych zależności po stronie serwera
+    async function uploadExcel() {
+        const fileInput = document.getElementById('excelUpload');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            return showT("⚠️ Wybierz plik Excel przed wgrywaniem!");
+        }
+        
+        if(!confirm("Wgranie pliku Excel spowoduje usunięcie wszystkich istniejących pracowników i grup (poza kontami ADMIN). Jesteś pewien?")) {
+            return;
+        }
+
+        showT("⏳ Trwa importowanie bazy z pliku...");
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            // Pobieramy tylko część danych po przecinku (czysty base64)
+            const base64Data = e.target.result.split(',')[1];
+            
+            const res = await apiCall('/admin/import-excel', 'POST', { file_b64: base64Data });
+            
+            if (res && res.ok) {
+                alert("✅ Sukces: " + res.msg);
+                fileInput.value = "";
+                loadAdminData();
+            } else {
+                showT("❌ Błąd: " + (res ? res.msg : "Nieznany błąd"));
+            }
+        };
+        reader.readAsDataURL(file);
     }
 </script>
 </body>
