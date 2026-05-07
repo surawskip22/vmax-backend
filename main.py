@@ -50,6 +50,7 @@ class UserGroup(Base):
     emp_type = Column(String) 
     allowed_activities = Column(String, default="[]") 
     is_flexible = Column(Integer, default=0)
+    master_group = Column(String, default="") # NOWE POLE: Nadrzędna grupa (np. Magazyn Kajla)
 
 class User(Base):
     __tablename__ = "users"
@@ -184,68 +185,38 @@ def generate_global_id(db: Session):
             max_id = max(max_id, int(u.global_id))
     return f"{max_id + 1:05d}"
 
-# MIGRACJE BEZPIECZNE (Z UWZGLĘDNIENIEM NOWYCH PÓL I KONWERSJI SKALI)
+# MIGRACJE BEZPIECZNE 
 with engine.connect() as conn:
-    try: conn.execute(text("ALTER TABLE evaluation_logs ADD COLUMN rating INTEGER DEFAULT 3")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE evaluation_logs ADD COLUMN task_ratings VARCHAR DEFAULT '{}'")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN hire_date TIMESTAMP")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN last_eval_date TIMESTAMP")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN next_eval_date TIMESTAMP")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN eval_count INTEGER DEFAULT 0")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN notes VARCHAR DEFAULT ''")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE users ADD COLUMN global_id VARCHAR")); conn.commit()
-    except: conn.rollback()
-    try: 
-        conn.execute(text("ALTER TABLE users ADD COLUMN group_name VARCHAR"))
-        conn.commit()
-        conn.execute(text("UPDATE users SET group_name = 'Nieprzypisani' WHERE group_name IS NULL"))
-        conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE schedules ADD COLUMN is_override INTEGER DEFAULT 0")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE user_groups ADD COLUMN is_flexible INTEGER DEFAULT 0")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("ALTER TABLE activities ADD COLUMN color VARCHAR DEFAULT '#0A84FF'")); conn.commit()
-    except: conn.rollback()
+    cols = [
+        ("evaluation_logs", "rating", "INTEGER DEFAULT 3"),
+        ("evaluation_logs", "task_ratings", "VARCHAR DEFAULT '{}'"),
+        ("users", "hire_date", "TIMESTAMP"),
+        ("users", "last_eval_date", "TIMESTAMP"),
+        ("users", "next_eval_date", "TIMESTAMP"),
+        ("users", "eval_count", "INTEGER DEFAULT 0"),
+        ("users", "notes", "VARCHAR DEFAULT ''"),
+        ("users", "global_id", "VARCHAR"),
+        ("users", "group_name", "VARCHAR DEFAULT 'Nieprzypisani'"),
+        ("schedules", "is_override", "INTEGER DEFAULT 0"),
+        ("user_groups", "is_flexible", "INTEGER DEFAULT 0"),
+        ("user_groups", "master_group", "VARCHAR DEFAULT ''"), # Nowe pole dla nadrzędnej grupy
+        ("activities", "color", "VARCHAR DEFAULT '#0A84FF'")
+    ]
+    for table, col, typedef in cols:
+        try: conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {typedef}")); conn.commit()
+        except: conn.rollback()
     
-    # Przymusowa konwersja do skali 4-stopniowej
-    try: conn.execute(text("UPDATE evaluation_logs SET rating = 4 WHERE rating > 4")); conn.commit()
-    except: conn.rollback()
-    try: conn.execute(text("UPDATE competences SET rating = 4 WHERE rating > 4")); conn.commit()
+    try:
+        conn.execute(text("UPDATE evaluation_logs SET rating = 4 WHERE rating > 4"))
+        conn.execute(text("UPDATE competences SET rating = 4 WHERE rating > 4"))
+        conn.commit()
     except: conn.rollback()
 
 with SessionLocal() as db:
-    users_to_fix = db.query(User).filter(User.hire_date == None).all()
-    for u in users_to_fix: u.hire_date = get_now() - timedelta(days=90)
-    db.commit()
-
     if not db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_login").first():
         db.add(GlobalSetting(setting_type="admin_login", value="ADMIN"))
     if not db.query(GlobalSetting).filter(GlobalSetting.setting_type == "admin_pass").first():
         db.add(GlobalSetting(setting_type="admin_pass", value="admin"))
-
-    default_groups = [
-        {"name": "Nieprzypisani", "type": "Stały", "flex": 0},
-        {"name": "Magazyn osoby stałe", "type": "Stały", "flex": 0},
-        {"name": "Magazyn osoby dodatkowe", "type": "Dodatkowy", "flex": 1},
-        {"name": "Hydry", "type": "Dodatkowy", "flex": 1}
-    ]
-    for g in default_groups:
-        if not db.query(UserGroup).filter(UserGroup.name == g["name"]).first():
-            db.add(UserGroup(name=g["name"], emp_type=g["type"], allowed_activities="[]", is_flexible=g["flex"]))
-    
-    all_users = db.query(User).all()
-    for u in all_users:
-        if not u.global_id or not re.match(r'^[0-9]{5}$', str(u.global_id)):
-            u.global_id = generate_global_id(db)
-    db.commit()
 
 app = FastAPI(title="WMS Enterprise Platform")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -268,54 +239,6 @@ def format_dur(mins: int):
     if mins < 0: mins = 0
     return f"{mins//60}h {mins%60}m"
 
-# ==========================================
-# 3. SYMULATOR HR
-# ==========================================
-@app.post("/api/admin/simulate")
-def run_simulation(db: Session = Depends(get_db)):
-    start_date = datetime(2026, 1, 1).date()
-    end_date = datetime(2026, 5, 15).date()
-    
-    db.query(Schedule).filter(Schedule.date_str >= "2026-01-01", Schedule.date_str <= "2026-05-15").delete()
-    users = db.query(User).filter(User.role == "EMPLOYEE").all()
-    groups = {g.name: json.loads(g.allowed_activities) if g.allowed_activities else [] for g in db.query(UserGroup).all()}
-    all_activities = [a.name for a in db.query(Activity).all()]
-    
-    db.query(Competence).delete() 
-    
-    for u in users:
-        u.hire_date = datetime(2025, 12, 1) 
-        u.eval_count = 2 
-        u.last_eval_date = datetime(2026, 2, 15) 
-        
-        acts = groups.get(u.group_name, all_activities)
-        if not acts: acts = all_activities
-            
-        for a in acts:
-            db.add(Competence(username=u.name, activity=a, rating=3))
-            
-        curr_d = start_date
-        while curr_d <= end_date:
-            d_str = curr_d.strftime("%Y-%m-%d")
-            if curr_d.weekday() >= 5:
-                db.add(Schedule(username=u.name, date_str=d_str, activity="Wolne 🏠", hours="", is_override=1))
-            else:
-                rand_val = random.randint(1, 100)
-                if rand_val <= 5: db.add(Schedule(username=u.name, date_str=d_str, activity="Chory 🤒", hours="", is_override=1))
-                elif rand_val <= 10: db.add(Schedule(username=u.name, date_str=d_str, activity="Urlop 🌴", hours="", is_override=1))
-                elif rand_val <= 12: db.add(Schedule(username=u.name, date_str=d_str, activity="No Show ❌", hours="", is_override=1))
-                else:
-                    if acts:
-                        assigned_act = random.choice(acts)
-                        db.add(Schedule(username=u.name, date_str=d_str, activity=assigned_act, hours="07:00-15:00", is_override=1))
-            curr_d += timedelta(days=1)
-            
-    db.commit()
-    return {"ok": True, "msg": "Zakończono generowanie historii pracy. Pracownicy otrzymali alerty HR o ocenie (3 mc)."}
-
-# ==========================================
-# 4. MODUŁ 1: PLANNER I HR
-# ==========================================
 @app.get("/")
 def serve_vmax():
     return FileResponse("index.html")
@@ -332,13 +255,9 @@ def get_public_data(db: Session = Depends(get_db)):
     if root_login not in employees: employees.append(root_login)
     return {"employees": employees}
 
-# ---------------------------------------------------------
-# NUKLEARNY IMPORT Z EXCELA Z PLIKU LOKALNEGO NA SERWERZE
-# ---------------------------------------------------------
 @app.post("/api/admin/import-excel")
 def import_excel_local(db: Session = Depends(get_db)):
     file_path = "imiona i nazwiska.xlsx"
-    
     if not os.path.exists(file_path):
         return {"ok": False, "msg": f"Błąd: Nie znaleziono pliku '{file_path}' na serwerze! Upewnij się, że plik leży w głównym katalogu."}
         
@@ -359,7 +278,6 @@ def import_excel_local(db: Session = Depends(get_db)):
         db.query(Message).delete()
         db.commit() 
         
-        # Pobieramy MAX ID z kont, które przetrwały czyszczenie (np. Admin)
         users_left = db.query(User).all()
         max_id = 0
         seen_names = set()
@@ -372,7 +290,7 @@ def import_excel_local(db: Session = Depends(get_db)):
         headers = [cell.value for cell in ws[1] if cell.value]
         for col_idx, group_name in enumerate(headers, start=1):
             group_name = str(group_name).strip()
-            db.add(UserGroup(name=group_name, emp_type="Stały", allowed_activities="[]", is_flexible=0))
+            db.add(UserGroup(name=group_name, emp_type="Stały", allowed_activities="[]", is_flexible=0, master_group="Magazyn Główny"))
             db.commit() 
             
             for row_idx in range(2, ws.max_row + 1):
@@ -380,12 +298,11 @@ def import_excel_local(db: Session = Depends(get_db)):
                 if emp_name:
                     emp_name = str(emp_name).strip()
                     
-                    # Zabezpieczenie przed duplikatami w Excelu
                     if emp_name.lower() in seen_names:
-                        continue # Pomijamy osobę, jeśli już ją dodaliśmy
+                        continue 
                         
                     seen_names.add(emp_name.lower())
-                    max_id += 1 # Ręcznie podbijamy ID w pętli
+                    max_id += 1 
                     new_global_id = f"{max_id:05d}"
                     
                     db.add(User(
@@ -409,9 +326,12 @@ def login(req: dict, db: Session = Depends(get_db)):
     root_login, root_pass = get_root_admin(db)
     
     if r == "ADMIN":
-        if u == root_login and p == root_pass: return {"ok": True, "name": root_login, "role": "SUPER_ADMIN"}
+        if u == root_login and p == root_pass: 
+            return {"ok": True, "name": root_login, "role": "SUPER_ADMIN", "group": "ALL"}
         user = db.query(User).filter(User.name == u, User.pin == p).first()
-        if user and user.role in ["ADMIN", "MANAGER", "TEAM_LEADER", "SUPER_ADMIN"]: return {"ok": True, "name": user.name, "role": user.role}
+        if user and user.role in ["ADMIN", "MANAGER", "TEAM_LEADER", "SUPER_ADMIN"]: 
+            # Zwracamy również grupę, by frontend wiedział co TL/Manager może edytować
+            return {"ok": True, "name": user.name, "role": user.role, "group": user.group_name}
         raise HTTPException(status_code=401, detail="Błędny Login/PIN lub brak uprawnień!")
     else:
         if u == root_login and p == root_pass: return {"ok": True, "name": root_login, "role": "SUPER_ADMIN"}
@@ -443,14 +363,16 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     name, year, month = req.get("name"), int(req.get("year")), int(req.get("month"))
     schedules = db.query(Schedule).filter(Schedule.username == name).all()
     requests = db.query(Request).filter(Request.username == name).all()
-    shifts = [s.value for s in db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift").all()]
-    if not shifts: shifts = ["07:00-15:00", "08:00-16:00"]
     
-    db_acts = db.query(Activity).all()
-    activityColors = {a.name: a.color for a in db_acts}
-    activityColors["Chory 🤒"] = "#FF3B30"; activityColors["Urlop 🌴"] = "#FFCC00"
-    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["Wolne na żądanie 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#8B0000"
-    activityColors["Dostępny ✅"] = "#34C759"
+    # Tylko te aktywności dla pracownika, zeby nie widział zadań!
+    activityColors = {
+        "Dostępny ✅": "#34C759",
+        "Chory 🤒": "#FF3B30", 
+        "Urlop 🌴": "#FFCC00",
+        "Wolne 🏠": "#8E8E93", 
+        "Wolne na żądanie 🏠": "#8E8E93", 
+        "No Show ❌": "#8B0000"
+    }
     
     plan_map = {s.date_str: s for s in schedules}
     req_map = {r.date_str: r for r in requests}
@@ -468,7 +390,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
         req_obj = {"type": r.req_type, "hrs": r.hours, "status": r.status} if r else None
         schedule_list.append({"date": iso_date, "date_key": date_str, "act": p.activity if p and p.activity else "Brak planu", "hrs": p.hours if p else "", "req": req_obj, "override": p.is_override if p else 0})
         
-    return {"schedule": schedule_list, "shifts": shifts, "activities": [], "activityColors": activityColors}
+    return {"schedule": schedule_list, "activityColors": activityColors}
 
 @app.post("/api/emp/request-batch")
 def submit_request_batch(req: dict, db: Session = Depends(get_db)):
@@ -510,7 +432,7 @@ def submit_request_batch(req: dict, db: Session = Depends(get_db)):
 def get_admin_data(db: Session = Depends(get_db)):
     db_users = db.query(User).order_by(User.global_id).all()
     employees = [{"id": u.global_id, "name": u.name, "group": u.group_name, "role": u.role} for u in db_users]
-    groups = [{"name": g.name, "type": g.emp_type, "is_flexible": g.is_flexible, "activities": json.loads(g.allowed_activities) if g.allowed_activities else []} for g in db.query(UserGroup).all()]
+    groups = [{"name": g.name, "type": g.emp_type, "is_flexible": g.is_flexible, "master_group": g.master_group, "activities": json.loads(g.allowed_activities) if g.allowed_activities else []} for g in db.query(UserGroup).all()]
     
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
@@ -563,7 +485,6 @@ def get_hr_details(req: dict, db: Session = Depends(get_db)):
     d_from = datetime.strptime(d_from_str, "%Y-%m-%d") if d_from_str else (now - timedelta(days=30))
     d_to = datetime.strptime(d_to_str, "%Y-%m-%d") if d_to_str else now
 
-    tracked_acts = ["Chory 🤒", "Urlop 🌴", "Wolne na żądanie 🏠", "Wolne 🏠", "No Show ❌"]
     schedules = db.query(Schedule).filter(Schedule.username == username, Schedule.date_str >= d_from.strftime("%Y-%m-%d"), Schedule.date_str <= d_to.strftime("%Y-%m-%d")).all()
     stats = {"Praca/Dostępny": 0, "Chory 🤒": 0, "Urlop 🌴/Na żądanie": 0, "Wolne 🏠": 0, "No Show ❌": 0}
     for s in schedules:
@@ -771,7 +692,7 @@ def cms_settings(req: dict, db: Session = Depends(get_db)):
                 else: db.add(Activity(name=val, color=req.get("color", "#0A84FF")))
             elif t == "group": 
                 if not db.query(UserGroup).filter(UserGroup.name == val).first():
-                    db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), allowed_activities="[]"))
+                    db.add(UserGroup(name=val, emp_type=req.get("emp_type", "Stały"), is_flexible=req.get("is_flexible", 0), master_group=req.get("master_group", ""), allowed_activities="[]"))
         elif action == "EDIT_USER_ROLE":
             user = db.query(User).filter(User.name == val).first()
             if user: user.role = req.get("role", "EMPLOYEE")
