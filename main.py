@@ -333,6 +333,7 @@ def get_public_data(db: Session = Depends(get_db)):
     if root_login not in employees: employees.append(root_login)
     return {"employees": employees}
 
+# NUKLEARNY IMPORT Z EXCELA (HARD RESET)
 @app.post("/api/admin/import-excel")
 def import_excel(req: dict, db: Session = Depends(get_db)):
     try:
@@ -344,9 +345,21 @@ def import_excel(req: dict, db: Session = Depends(get_db)):
         wb = openpyxl.load_workbook(io.BytesIO(contents))
         ws = wb.active
         
-        # Bezpieczne czyszczenie bazy dla pracowników i grup, zachowujemy ADMINA
+        # ---------------------------------------------------------
+        # CZYSZCZENIE TOTALNE (Zostaje tylko główne konto Admin)
+        # ---------------------------------------------------------
         db.query(User).filter(User.role != "SUPER_ADMIN", User.name != "ADMIN").delete()
         db.query(UserGroup).delete()
+        db.query(Schedule).delete()
+        db.query(WorkLog).delete()
+        db.query(Request).delete()
+        db.query(EvaluationLog).delete()
+        db.query(Competence).delete()
+        db.query(Productivity).delete()
+        db.query(Problem).delete()
+        db.query(Message).delete()
+        db.commit() 
+        # ---------------------------------------------------------
         
         headers = [cell.value for cell in ws[1] if cell.value]
         for col_idx, group_name in enumerate(headers, start=1):
@@ -368,7 +381,7 @@ def import_excel(req: dict, db: Session = Depends(get_db)):
                         eval_count=0
                     ))
         db.commit()
-        return {"ok": True, "msg": "Zaimportowano bazę i utworzono grupy pomyślnie!"}
+        return {"ok": True, "msg": "Baza została zresetowana i zaimportowana na nowo! (Hard Reset ukończony)"}
     except Exception as e:
         db.rollback()
         return {"ok": False, "msg": f"Błąd importu pliku Excel: {str(e)}"}
@@ -419,15 +432,9 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
     activityColors["Chory 🤒"] = "#FF3B30"; activityColors["Urlop 🌴"] = "#FFCC00"
-    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#8B0000"
+    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["Wolne na żądanie 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#8B0000"
+    activityColors["Dostępny ✅"] = "#34C759"
     
-    user_db = db.query(User).filter(User.name == name).first()
-    allowed_acts = []
-    if user_db:
-        group_db = db.query(UserGroup).filter(UserGroup.name == user_db.group_name).first()
-        if group_db and group_db.allowed_activities: allowed_acts = json.loads(group_db.allowed_activities)
-            
-    activities = [a.name for a in db_acts if a.name in allowed_acts] if allowed_acts else [a.name for a in db_acts]
     plan_map = {s.date_str: s for s in schedules}
     req_map = {r.date_str: r for r in requests}
     
@@ -444,7 +451,7 @@ def get_emp_dash(req: dict, db: Session = Depends(get_db)):
         req_obj = {"type": r.req_type, "hrs": r.hours, "status": r.status} if r else None
         schedule_list.append({"date": iso_date, "date_key": date_str, "act": p.activity if p and p.activity else "Brak planu", "hrs": p.hours if p else "", "req": req_obj, "override": p.is_override if p else 0})
         
-    return {"schedule": schedule_list, "shifts": shifts, "activities": activities, "activityColors": activityColors}
+    return {"schedule": schedule_list, "shifts": shifts, "activities": [], "activityColors": activityColors}
 
 @app.post("/api/emp/request-batch")
 def submit_request_batch(req: dict, db: Session = Depends(get_db)):
@@ -491,10 +498,11 @@ def get_admin_data(db: Session = Depends(get_db)):
     db_acts = db.query(Activity).all()
     activityColors = {a.name: a.color for a in db_acts}
     activityColors["Chory 🤒"] = "#FF3B30"; activityColors["Urlop 🌴"] = "#FFCC00"
-    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["No Show ❌"] = "#8B0000"
+    activityColors["Wolne 🏠"] = "#8E8E93"; activityColors["Wolne na żądanie 🏠"] = "#8E8E93"
+    activityColors["No Show ❌"] = "#8B0000"; activityColors["Dostępny ✅"] = "#34C759"
 
     activities = [a.name for a in db_acts]
-    planner_activities = list(set(activities + ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"]))
+    planner_activities = list(set(activities + ["Chory 🤒", "Urlop 🌴", "Wolne na żądanie 🏠", "Wolne 🏠", "No Show ❌", "Dostępny ✅"]))
     shifts = [s.value for s in db.query(GlobalSetting).filter(GlobalSetting.setting_type == "shift").all()]
     if not shifts: shifts = ["07:00-15:00", "08:00-16:00"]
     
@@ -509,7 +517,7 @@ def get_admin_data(db: Session = Depends(get_db)):
     alerts, avail_map = [], {}
     for r in reversed(reqs):
         if r.status == "Oczekuje": alerts.append({"id": r.id, "name": r.username, "date": r.date_str, "type": r.req_type, "hrs": r.hours, "ts": r.timestamp.strftime("%Y-%m-%d %H:%M")})
-        elif r.status == "Zatwierdzono" and r.req_type == "Dostępny": avail_map[f"{r.username}_{r.date_str}"] = r.hours
+        elif r.status == "Zatwierdzono" and r.req_type == "Dostępny ✅": avail_map[f"{r.username}_{r.date_str}"] = r.hours
 
     now = get_now()
     hr_alerts = []
@@ -538,12 +546,15 @@ def get_hr_details(req: dict, db: Session = Depends(get_db)):
     d_from = datetime.strptime(d_from_str, "%Y-%m-%d") if d_from_str else (now - timedelta(days=30))
     d_to = datetime.strptime(d_to_str, "%Y-%m-%d") if d_to_str else now
 
-    tracked_acts = ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"]
+    tracked_acts = ["Chory 🤒", "Urlop 🌴", "Wolne na żądanie 🏠", "Wolne 🏠", "No Show ❌"]
     schedules = db.query(Schedule).filter(Schedule.username == username, Schedule.date_str >= d_from.strftime("%Y-%m-%d"), Schedule.date_str <= d_to.strftime("%Y-%m-%d")).all()
-    stats = {"Praca": 0, "Chory 🤒": 0, "Urlop 🌴": 0, "Wolne 🏠": 0, "No Show ❌": 0}
+    stats = {"Praca/Dostępny": 0, "Chory 🤒": 0, "Urlop 🌴/Na żądanie": 0, "Wolne 🏠": 0, "No Show ❌": 0}
     for s in schedules:
-        if s.activity in stats: stats[s.activity] += 1
-        elif s.activity and s.activity not in ["Brak planu", "Wyczyść"]: stats["Praca"] += 1
+        if s.activity in ["Urlop 🌴", "Wolne na żądanie 🏠"]: stats["Urlop 🌴/Na żądanie"] += 1
+        elif s.activity == "Chory 🤒": stats["Chory 🤒"] += 1
+        elif s.activity == "Wolne 🏠": stats["Wolne 🏠"] += 1
+        elif s.activity == "No Show ❌": stats["No Show ❌"] += 1
+        elif s.activity and s.activity not in ["Brak planu", "Wyczyść"]: stats["Praca/Dostępny"] += 1
         
     eval_logs = db.query(EvaluationLog).filter(EvaluationLog.username == username).order_by(desc(EvaluationLog.eval_date)).all()
     history = [{"id": l.id, "date": l.eval_date.strftime("%Y-%m-%d"), "rating": l.rating, "notes": l.notes_snapshot} for l in eval_logs]
@@ -561,10 +572,13 @@ def get_eval_details(req: dict, db: Session = Depends(get_db)):
     end_date = eval_log.eval_date
     
     schedules = db.query(Schedule).filter(Schedule.username == eval_log.username, Schedule.date_str >= start_date.strftime("%Y-%m-%d"), Schedule.date_str <= end_date.strftime("%Y-%m-%d")).all()
-    stats = {"Praca": 0, "Chory 🤒": 0, "Urlop 🌴": 0, "Wolne 🏠": 0, "No Show ❌": 0}
+    stats = {"Praca/Dostępny": 0, "Chory 🤒": 0, "Urlop 🌴/Na żądanie": 0, "Wolne 🏠": 0, "No Show ❌": 0}
     for s in schedules:
-        if s.activity in stats: stats[s.activity] += 1
-        elif s.activity and s.activity not in ["Brak planu", "Wyczyść"]: stats["Praca"] += 1
+        if s.activity in ["Urlop 🌴", "Wolne na żądanie 🏠"]: stats["Urlop 🌴/Na żądanie"] += 1
+        elif s.activity == "Chory 🤒": stats["Chory 🤒"] += 1
+        elif s.activity == "Wolne 🏠": stats["Wolne 🏠"] += 1
+        elif s.activity == "No Show ❌": stats["No Show ❌"] += 1
+        elif s.activity and s.activity not in ["Brak planu", "Wyczyść"]: stats["Praca/Dostępny"] += 1
         
     task_ratings_dict = json.loads(eval_log.task_ratings) if eval_log.task_ratings else {}
         
@@ -575,7 +589,6 @@ def save_hr_details(req: dict, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.name == req.get("username")).first()
     if user:
         user.notes = req.get("notes", "")
-        
         if req.get("next_eval_date"):
             try: user.next_eval_date = datetime.strptime(req.get("next_eval_date"), "%Y-%m-%d")
             except: pass
@@ -585,27 +598,16 @@ def save_hr_details(req: dict, db: Session = Depends(get_db)):
         if req.get("is_evaluation"):
             user.eval_count += 1
             user.last_eval_date = get_now()
-            user.next_eval_date = None # Reset custom next date after evaluation
-            
+            user.next_eval_date = None 
             rating = min(int(req.get("rating", 3)), 4)
             task_ratings = req.get("task_ratings", {})
+            db.add(EvaluationLog(username=user.name, rating=rating, notes_snapshot=user.notes, task_ratings=json.dumps(task_ratings)))
             
-            db.add(EvaluationLog(
-                username=user.name, 
-                rating=rating, 
-                notes_snapshot=user.notes,
-                task_ratings=json.dumps(task_ratings)
-            ))
-            
-            # Aktualizacja pojedynczych kompetencji
             for act, r in task_ratings.items():
                 r = min(int(r), 4)
                 comp = db.query(Competence).filter(Competence.username == user.name, Competence.activity == act).first()
-                if not comp:
-                    comp = Competence(username=user.name, activity=act, rating=r)
-                    db.add(comp)
-                else:
-                    comp.rating = r
+                if not comp: db.add(Competence(username=user.name, activity=act, rating=r))
+                else: comp.rating = r
                     
         db.commit()
     return {"ok": True, "msg": "Zapisano ewaluację i zaktualizowano alerty!" if req.get("is_evaluation") else "Zapisano notatki HR i datę przeglądu."}
