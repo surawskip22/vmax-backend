@@ -399,6 +399,24 @@
             .modal { width: 95vw; padding: 20px; }
             .excel-table th, .excel-table td { padding: 10px; font-size: 11px; }
         }
+        .scroll-panel { max-height: calc(100vh - 180px); overflow-y: auto; padding-right: 6px; }
+        .toolbar-field { display:flex; flex-direction:column; gap:5px; min-width:160px; }
+        .toolbar-field label { font-size:11px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; }
+        .accordion-card { background:white; border:1px solid var(--border); border-radius:18px; margin-bottom:16px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.04); }
+        .accordion-card > summary { cursor:pointer; list-style:none; padding:18px 22px; font-size:18px; font-weight:900; display:flex; justify-content:space-between; align-items:center; }
+        .accordion-card > summary::-webkit-details-marker { display:none; }
+        .accordion-body { padding:0 22px 22px; }
+        .status-pulse { animation: statusPulse 1.6s ease-in-out infinite; }
+        @keyframes statusPulse { 0%,100% { box-shadow:0 0 0 0 rgba(255,149,0,.25); } 50% { box-shadow:0 0 0 7px rgba(255,149,0,.08); } }
+        .status-NO_SHOW { border:2px solid #8B0000 !important; background:#fff5f5 !important; }
+        .status-LATE { border:2px solid var(--ios-orange) !important; background:#fff8ed !important; }
+        .status-AD_HOC { border:2px solid var(--ios-purple) !important; background:#f8f2ff !important; }
+        .rating-badge { padding:3px 7px; border-radius:8px; font-size:10px; font-weight:900; display:inline-block; }
+        .rating-1 { background:rgba(255,59,48,.12); color:var(--ios-red); }
+        .rating-2 { background:rgba(255,149,0,.14); color:var(--ios-orange); }
+        .rating-3 { background:rgba(10,132,255,.12); color:var(--ios-blue); }
+        .rating-4 { background:rgba(52,199,89,.14); color:var(--ios-green); }
+        .rating-empty { background:rgba(0,0,0,.05); color:var(--text-muted); }
     </style>
 </head>
 <body>
@@ -516,8 +534,7 @@
          ========================================================= -->
     <div id="screen-admin" class="app-screen">
         <div class="nav">
-            <div class="nav-btn" onclick="showAdminView('vAlerts')">🔔 Wnioski Grafiku <span class="badge" id="aBadge">0</span></div>
-            <div class="nav-btn" onclick="showAdminView('vHrAlerts')">⚠️ Oceny Okresowe <span class="badge" id="hBadge" style="background:var(--ios-purple);">0</span></div>
+            <div class="nav-btn" onclick="showAdminView('vAlerts')">🔔 Powiadomienia od pracowników <span class="badge" id="aBadge">0</span></div>
             <div class="nav-btn" onclick="showAdminView('vPlanner')">📅 Tygodniowy</div>
             <div class="nav-btn active" onclick="showAdminView('vDaily')">☀️ Dzienny Live</div>
             <div class="nav-btn" onclick="showAdminView('vMatrix')">👥 Zespół & Dossier</div>
@@ -526,14 +543,32 @@
         </div>
 
         <!-- 1. WNIOSKI Z GRAFIKU -->
-        <div id="vAlerts" class="admin-view" style="padding:20px; max-width:900px; margin:0 auto; width:100%;">
+        <div id="vAlerts" class="admin-view" style="padding:20px; max-width:1180px; margin:0 auto; width:100%; overflow:hidden;">
             <h2 style="display:flex; justify-content:space-between; align-items:center;">
                 Wnioski o wolne / dostępność
                 <button id="alertBackBtn" onclick="renderAlertsGroupView()" class="btn-main" style="display:none; padding:8px 16px; font-size:12px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">← Wróć do Grup</button>
             </h2>
-            <div id="alertsGroupView" class="group-bubbles-container"></div>
-            <div id="alertsEmpView" style="display:none;"></div>
-            <div id="alertsDetailView" style="display:none;"></div>
+            <div class="tools" style="margin-bottom:15px;">
+                <select id="alertMasterFilter" onchange="renderAlertsGroupView()"><option value="ALL">Wszystkie master grupy</option></select>
+                <select id="alertGroupFilter" onchange="renderAlertsGroupView()"><option value="ALL">Wszystkie grupy</option></select>
+                <select id="alertTypeFilter" onchange="renderAlertsGroupView()">
+                    <option value="ALL">Wszystkie typy</option>
+                    <option value="NORMAL">Normalne</option>
+                    <option value="FLEXIBLE">Grupa elastyczna</option>
+                    <option value="HR">HR</option>
+                    <option value="SYSTEM">Systemowe</option>
+                </select>
+                <select id="alertSortFilter" onchange="renderAlertsGroupView()">
+                    <option value="newest">Najnowsze</option>
+                    <option value="oldest">Najstarsze</option>
+                    <option value="date">Data grafiku</option>
+                    <option value="employee">Pracownik</option>
+                    <option value="group">Grupa</option>
+                </select>
+            </div>
+            <div id="alertsGroupView" class="group-bubbles-container scroll-panel"></div>
+            <div id="alertsEmpView" class="scroll-panel" style="display:none;"></div>
+            <div id="alertsDetailView" class="scroll-panel" style="display:none;"></div>
         </div>
 
         <!-- 2. NOWOŚĆ: TABELA ALERTÓW HR -->
@@ -561,7 +596,7 @@
                             <th style="text-align:right;">Akcja</th>
                         </tr>
                     </thead>
-                    <tbody id="hrAlertsTableBody"></tbody>
+                    <tbody id="hrAlertsTableBodyLegacy"></tbody>
                 </table>
             </div>
         </div>
@@ -591,6 +626,7 @@
                     <option value="1" selected>100%</option>
                     <option value="1.2">120%</option>
                 </select>
+                <label style="font-size:12px; font-weight:800; display:flex; gap:6px; align-items:center;"><input type="checkbox" id="showRatingsPlan" checked onchange="renderPlanner()" style="width:16px;"> Pokaż oceny</label>
                 <div style="background:rgba(0,0,0,0.03); padding:5px; border-radius:14px; display:flex; gap:5px; align-items:center;">
                     <select id="brushAct" style="background:transparent; border:none; font-weight:700; color:var(--ios-blue); min-width:120px;"></select>
                     <input type="text" id="brushHrs" list="dlShifts" placeholder="Godziny..." style="width:100px;">
@@ -606,17 +642,18 @@
         <!-- 4. PLANNER DZIENNY LIVE (KOMPAKTOWA SZACHOWNICA) -->
         <div id="vDaily" class="admin-view active">
             <div class="tools">
-                <select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); min-width:250px;">
+                <div class="toolbar-field"><label>Zestaw aktywności</label><select id="dailyGroupFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-blue); min-width:250px;">
                     <option value="" selected disabled>👇 Aktywności wg grupy...</option>
-                </select>
-                <select id="dailyPeopleFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-purple); min-width:250px;">
+                </select></div>
+                <div class="toolbar-field"><label>Osoby</label><select id="dailyPeopleFilter" onchange="renderDaily()" style="font-weight:800; color:var(--ios-purple); min-width:250px;">
                     <option value="ALL">Osoby: wszystkie dostępne grupy</option>
-                </select>
-                <div style="display:flex; align-items:center; gap:5px; background:white; border-radius:12px; padding:4px; border:1px solid var(--border);">
+                </select></div>
+                <div class="toolbar-field"><label>Szukaj osoby</label><input type="text" id="dailySearch" placeholder="Szukaj osoby..." onkeyup="renderDaily()" style="font-weight:700; min-width:220px;"></div>
+                <div class="toolbar-field"><label>Data</label><div style="display:flex; align-items:center; gap:5px; background:white; border-radius:12px; padding:4px; border:1px solid var(--border);">
                     <button class="btn-main" onclick="changeDailyDate(-1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">←</button>
                     <input type="date" id="dailyDate" onchange="renderDaily()" style="font-weight:800; border:none; background:transparent;">
                     <button class="btn-main" onclick="changeDailyDate(1)" style="padding:10px; background:var(--bg-color); color:var(--text-main); box-shadow:none;">→</button>
-                </div>
+                </div></div>
                 <button class="btn-main" style="background:var(--ios-orange);" onclick="openCopyDaily()">📋 Kopiuj Dzień</button>
             </div>
             
@@ -634,6 +671,10 @@
                         👆 Wybierz grupę z menu, aby załadować dostępne dla niej akcje.
                     </div>
                 </div>
+                <div class="kanban-col" style="max-width:310px; min-width:280px; border-left:1px solid var(--border);">
+                    <h3 style="margin-top:0;">Kontrola obecności / V-MAX</h3>
+                    <div id="dailyPresencePanel" style="display:flex; flex-direction:column; gap:10px; overflow-y:auto;"></div>
+                </div>
             </div>
         </div>
 
@@ -647,11 +688,46 @@
             <h2>Karty HR (Dossier i Absencje)</h2>
             <div class="input-group">
                 <input type="text" id="hrSearchInput" placeholder="🔍 Szukaj pracownika..." onkeyup="renderHrCards()">
+                <select id="hrMasterSelect" onchange="syncHrGroupFilter(); renderHrCards()" style="font-weight:600;">
+                    <option value="ALL">Wszystkie master grupy</option>
+                </select>
                 <select id="hrGroupSelect" onchange="renderHrCards()" style="font-weight:600;">
                     <option value="ALL">Wszystkie Grupy</option>
                 </select>
             </div>
+            <div class="glass-card" style="text-align:left; padding:14px; margin-bottom:14px;">
+                <b>Skala ocen 1-4:</b> 1/4 - wymaga opieki, 2/4 - podstawy pod nadzorem, 3/4 - samodzielny, 4/4 - może szkolić innych.
+            </div>
             <div id="hrCardsContainer" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap:15px;"></div>
+
+            <hr style="margin:40px 0; border:none; border-top:2px dashed var(--border);">
+            <details class="accordion-card" open>
+                <summary>Oceny okresowe <span id="hBadge" class="badge" style="background:var(--ios-purple); display:none;">0</span></summary>
+                <div class="accordion-body">
+                    <div class="input-group">
+                        <select id="hrAlertMasterFilt" onchange="syncHrAlertGroupFilter(); renderHrAlertsTable()" style="font-weight:600;"><option value="ALL">Wszystkie master grupy</option></select>
+                        <select id="hrAlertGroupFilt" onchange="renderHrAlertsTable()" style="font-weight:600;"><option value="ALL">Wszystkie grupy</option></select>
+                        <select id="hrAlertStatusFilt" onchange="renderHrAlertsTable()" style="font-weight:600;">
+                            <option value="ALL">Wszystkie statusy</option>
+                            <option value="due">Po terminie</option>
+                            <option value="upcoming">Nadchodzące</option>
+                            <option value="never">Nigdy nieocenieni</option>
+                        </select>
+                        <select id="hrAlertSort" onchange="renderHrAlertsTable()" style="font-weight:600;">
+                            <option value="never">Nigdy nieocenieni najpierw</option>
+                            <option value="next">Najbliższa ewaluacja</option>
+                            <option value="group">Grupa</option>
+                            <option value="name">Nazwisko</option>
+                        </select>
+                    </div>
+                    <div class="excel-table-wrapper">
+                        <table class="excel-table">
+                            <thead><tr><th>Pracownik</th><th>Global ID</th><th>Master</th><th>Grupa</th><th>Data rozpoczęcia</th><th>Ostatnia</th><th>Następna</th><th>Liczba</th><th>Status</th><th>Akcja</th></tr></thead>
+                            <tbody id="hrAlertsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
         </div>
 
         <!-- 6. CMS I USTAWIENIA -->
@@ -709,6 +785,7 @@
                     <h3 style="margin-top:0;">📋 Aktywności i Zmiany</h3>
                     <div class="input-group">
                         <input type="text" id="sAct" placeholder="Nazwa zadania">
+                        <select id="sActParent" style="font-weight:700;"><option value="">Aktywność główna</option></select>
                         <input type="color" id="sActColor" value="#0A84FF" style="padding:0; width:44px; height:44px;">
                         <button class="btn-main" onclick="saveAct()">Zadanie</button>
                     </div>
@@ -765,6 +842,17 @@
             <span style="font-weight:800;">do</span>
             <input type="date" id="hrDateTo" style="font-size:12px;">
             <button onclick="refreshHrStats()" class="btn-main" style="padding:10px 15px; font-size:12px;">Przelicz</button>
+        </div>
+
+        <div class="glass-card" style="text-align:left; padding:14px; margin-bottom:16px;">
+            <h3 style="font-size:15px; margin:0 0 10px 0;">Identyfikatory i importy</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px;">
+                <label style="font-size:12px; font-weight:700;">Data rozpoczęcia pracy<input type="date" id="hrHireDate" style="margin-top:5px; width:100%;"></label>
+                <label style="font-size:12px; font-weight:700;">Login panelu<input type="text" id="hrLoginPanelu" style="margin-top:5px; width:100%;"></label>
+                <label style="font-size:12px; font-weight:700;">Login magazynu<input type="text" id="hrLoginMagazynu" style="margin-top:5px; width:100%;"></label>
+                <label style="font-size:12px; font-weight:700;">ID punktualnika<input type="text" id="hrIdPunktualnika" style="margin-top:5px; width:100%;"></label>
+                <label style="font-size:12px; font-weight:700;">ID zewnętrzne / import<input type="text" id="hrExternalId" style="margin-top:5px; width:100%;"></label>
+            </div>
         </div>
 
         <div class="hr-stats-container" id="hrStatsGrid">
@@ -887,6 +975,115 @@
     <div id="toast" class="toast">Wykonano!</div>
 
 <script>
+    async function setDailyHours(empName, dateStr, activity, inputEl) {
+        const hours = inputEl.value.trim();
+        if(hours && !/^\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2}$/.test(hours)) {
+            showT("Format godzin powinien wyglądać np. 07:00-15:00");
+        }
+        dbAdmin.planMap[`${empName}_${dateStr}`] = `${activity}||${hours}||1`;
+        await apiCall('/admin/planner/save', 'POST', { names:[empName], start:dateStr, end:dateStr, activity, hours });
+    }
+
+    async function markScheduleStatus(empName, dateStr, status) {
+        const p = scheduleParts(empName, dateStr);
+        await apiCall('/admin/planner/status', 'POST', { username:empName, date:dateStr, status, activity:p.activity || "Ad-Hoc", hours:p.hours || "", updated_by:currentAdminName });
+        if(!dbAdmin.scheduleStatusMap) dbAdmin.scheduleStatusMap = {};
+        dbAdmin.scheduleStatusMap[`${empName}_${dateStr}`] = { status };
+        renderDaily(); renderPlanner();
+    }
+
+    function renderPresencePanel(pool, dStr) {
+        const el = document.getElementById('dailyPresencePanel');
+        if(!el) return;
+        const planned = pool.filter(e => scheduleParts(e.name, dStr).activity);
+        const adHoc = pool.filter(e => scheduleStatus(e.name, dStr).status === "AD_HOC");
+        el.innerHTML = `
+            <div style="background:var(--bg-color); padding:10px; border-radius:12px;"><b>Nie rozpoczęli pracy mimo planu</b><br><span style="font-size:12px; color:var(--text-muted);">Automatyka V-MAX: placeholder</span></div>
+            <div style="background:var(--bg-color); padding:10px; border-radius:12px;"><b>Spóźnienie</b><br><span style="font-size:12px; color:var(--text-muted);">Użyj przycisku na kafelku osoby.</span></div>
+            <div style="background:var(--bg-color); padding:10px; border-radius:12px;"><b>Ad-Hoc / Bez planu</b><br><span style="font-size:12px;">${adHoc.map(e => escapeHtml(e.name)).join('<br>') || 'Brak ręcznych oznaczeń.'}</span></div>
+            <div style="background:var(--bg-color); padding:10px; border-radius:12px;"><b>No Show</b><br><span style="font-size:12px; color:var(--text-muted);">${planned.length} osób z planem. Oznacz ręcznie z kafelka.</span></div>`;
+    }
+
+    function renderDaily() {
+        const rawDate = document.getElementById('dailyDate').value;
+        if(!rawDate) return;
+        const dObj = new Date(rawDate);
+        const dStr = formatDateKey(dObj.getFullYear(), dObj.getMonth(), dObj.getDate());
+        const selectedGroup = document.getElementById('dailyGroupFilter').value || "ALL";
+        const selectedPeopleFilter = document.getElementById('dailyPeopleFilter') ? document.getElementById('dailyPeopleFilter').value : "ALL";
+        const q = (document.getElementById('dailySearch')?.value || '').toLowerCase();
+        const gridContainer = document.getElementById('dailyGrid');
+
+        let colsToRender = dbAdmin.plannerActivities || [];
+        const groupObj = selectedGroup !== "ALL" ? (dbAdmin.groups || []).find(g => g.name === selectedGroup) : null;
+        if(groupObj && groupObj.activities && groupObj.activities.length > 0) colsToRender = groupObj.activities.filter(a => (dbAdmin.plannerActivities || []).includes(a));
+        let dailyData = {}; colsToRender.forEach(a => dailyData[a] = []);
+        let assignedSet = new Set();
+
+        const dailyEmployeePool = (dbAdmin.employees || []).filter(e => {
+            if(!canSeeEmp(e)) return false;
+            if(q && !employeeSearchText(e).includes(q)) return false;
+            const g = groupByName(e.group || "Nieprzypisani");
+            if(selectedPeopleFilter.startsWith("MASTER:")) return g && (g.master || "Bez master grupy") === decodeValue(selectedPeopleFilter.replace("MASTER:", ""));
+            if(selectedPeopleFilter.startsWith("GROUP:")) return (e.group || "Nieprzypisani") === decodeValue(selectedPeopleFilter.replace("GROUP:", ""));
+            return true;
+        });
+
+        dailyEmployeePool.forEach(empObj => {
+            const p = scheduleParts(empObj.name, dStr);
+            if(p.activity && p.activity !== "Wyczyść") {
+                if(dailyData[p.activity] !== undefined) dailyData[p.activity].push(empObj);
+                assignedSet.add(empObj.name);
+            }
+        });
+
+        const avail = dailyEmployeePool.filter(e => !assignedSet.has(e.name)).sort((a,b) => availabilityStart(dbAdmin.availMap[`${a.name}_${dStr}`]) - availabilityStart(dbAdmin.availMap[`${b.name}_${dStr}`]) || a.name.localeCompare(b.name));
+        document.getElementById('availCount').innerText = avail.length;
+        document.getElementById('dailyAvailableList').innerHTML = avail.map(e => {
+            const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`] || scheduleParts(e.name, dStr).hours;
+            return `<div class="emp-card ${statusClass(scheduleStatus(e.name, dStr).status)}" draggable="true" ondragstart="dragDaily(event, '${escapeHtml(e.name)}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${escapeHtml(e.name)}')">
+                <span><b style="font-size:14px;">${escapeHtml(e.name)}</b><span style="font-size:10px; color:gray; display:block;">${escapeHtml(e.id || '')} | ${escapeHtml(e.group || 'Nieprzypisani')}</span></span>
+                ${aHrs ? `<span style="background:rgba(52,199,89,.1); color:var(--ios-green); padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">${escapeHtml(aHrs)}</span>` : ''}
+            </div>`;
+        }).join('');
+
+        gridContainer.innerHTML = colsToRender.map(act => {
+            const col = getTileColor(act);
+            const reqCap = dbAdmin.capacityMap[`${dStr}_${act}`] || 0;
+            const currCount = dailyData[act].length;
+            const list = dailyData[act].map(e => {
+                const p = scheduleParts(e.name, dStr);
+                const st = scheduleStatus(e.name, dStr).status || "NORMAL";
+                return `<div class="emp-card ${statusClass(st)}" draggable="true" ondragstart="dragDaily(event, '${escapeHtml(e.name)}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${escapeHtml(e.name)}')" title="${escapeHtml(e.name)} | ${escapeHtml(act)} | ${escapeHtml(p.hours || '-') } | ${escapeHtml(st)}">
+                    <span style="display:flex; flex-direction:column; gap:4px;">
+                        <b style="font-size:14px;">${escapeHtml(e.name)}</b>
+                        <input onclick="event.stopPropagation()" onchange="setDailyHours('${escapeHtml(e.name)}','${dStr}','${escapeHtml(act)}', this)" value="${escapeHtml(p.hours || '')}" placeholder="HH:MM-HH:MM" style="font-size:11px; padding:5px; max-width:115px;">
+                    </span>
+                    <span style="display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                        ${ratingBadge(e.name, act)}
+                        <span style="display:flex; gap:4px;">
+                            <button onclick="event.stopPropagation(); markScheduleStatus('${escapeHtml(e.name)}','${dStr}','LATE')" title="Spóźnienie" style="border:none; border-radius:7px; padding:4px;">⏱️</button>
+                            <button onclick="event.stopPropagation(); markScheduleStatus('${escapeHtml(e.name)}','${dStr}','NO_SHOW')" title="No Show" style="border:none; border-radius:7px; padding:4px;">❌</button>
+                            <button onclick="event.stopPropagation(); markScheduleStatus('${escapeHtml(e.name)}','${dStr}','AD_HOC')" title="Ad-Hoc" style="border:none; border-radius:7px; padding:4px;">🟣</button>
+                        </span>
+                    </span>
+                </div>`;
+            }).join('');
+            return `<div class="kanban-col" style="border-top:5px solid ${col.c};" ondragover="allowDropDaily(event)" ondragleave="dragLeaveDaily(event)" ondrop="dropDaily(event, '${escapeHtml(act)}')">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div style="color:${col.c}; font-weight:800;">${escapeHtml(act)} <button onclick="openSuggestions('${escapeHtml(act)}')" style="background:transparent; border:none; cursor:pointer;">💡</button></div>
+                    <span style="background:${col.bg}; color:${col.c}; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:800;">${currCount} os.</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; background:white; padding:8px; border-radius:10px;">
+                    <span style="font-size:11px; font-weight:700; color:gray;">Zapotrzebowanie:</span>
+                    <input type="number" min="0" value="${reqCap}" onchange="saveCapacity('${escapeHtml(act)}', this)" style="width:60px; padding:4px; text-align:center; font-weight:800; border-radius:6px; font-size:12px;">
+                </div>
+                <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding-right:5px;">${list}</div>
+            </div>`;
+        }).join('');
+        renderPresencePanel(dailyEmployeePool, dStr);
+    }
+
     // ==========================================
     // 1. KONFIGURACJA API I NARZĘDZIA POMOCNICZE
     // ==========================================
@@ -956,6 +1153,40 @@
         return [1,2,3,4].map(v => `<option value="${v}" ${v === current ? 'selected' : ''}>${v} ⭐</option>`).join('');
     }
 
+    function encodeValue(value) { return encodeURIComponent(String(value ?? '')); }
+    function decodeValue(value) { try { return decodeURIComponent(value); } catch(e) { return value; } }
+
+    function employeeSearchText(emp) {
+        return `${emp.name || ''} ${emp.id || ''} ${emp.global_id || ''} ${emp.group || ''} ${emp.master_group || ''} ${emp.login_panelu || ''} ${emp.login_magazynu || ''} ${emp.id_punktualnika || ''} ${emp.external_id || ''}`.toLowerCase();
+    }
+
+    function scheduleParts(empName, dateStr) {
+        const raw = (dbAdmin.planMap || {})[`${empName}_${dateStr}`] || "";
+        const parts = raw.split("||");
+        return { activity: parts[0] || "", hours: parts[1] || "", override: parts[2] || "" };
+    }
+
+    function scheduleStatus(empName, dateStr) {
+        return ((dbAdmin.scheduleStatusMap || {})[`${empName}_${dateStr}`] || { status: "NORMAL" });
+    }
+
+    function statusClass(status) {
+        return ["NO_SHOW", "LATE", "AD_HOC"].includes(status) ? `status-${status} status-pulse` : "";
+    }
+
+    function ratingBadge(empName, act) {
+        const rating = dbAdmin.ratingsMap ? dbAdmin.ratingsMap[`${empName}_${act}`] : null;
+        if(!rating) return `<span class="rating-badge rating-empty">brak oceny</span>`;
+        const r = clampRating(rating, 3);
+        return `<span class="rating-badge rating-${r}">â­ ${r}/4</span>`;
+    }
+
+    function avgRating(empName) {
+        const vals = Object.entries(dbAdmin.ratingsMap || {}).filter(([k]) => k.startsWith(empName + "_")).map(([,v]) => clampRating(v, 0)).filter(Boolean);
+        if(!vals.length) return "Śr. -";
+        return `Śr. ${(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1)}/4`;
+    }
+
     function groupByName(name) {
         return (dbAdmin.groups || []).find(g => g.name === name);
     }
@@ -980,6 +1211,27 @@
         if(!masterName || masterName === "ALL") return groups;
         return groups.filter(g => (g.master || "Bez master grupy") === masterName);
     }
+
+    function fillMasterGroupSelect(id) {
+        const el = document.getElementById(id);
+        if(!el) return;
+        const current = el.value || "ALL";
+        el.innerHTML = '<option value="ALL">Wszystkie master grupy</option>' + (dbAdmin.masterGroups || []).map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+        el.value = current;
+        if(!el.value) el.value = "ALL";
+    }
+
+    function fillGroupSelect(id, masterName = "ALL") {
+        const el = document.getElementById(id);
+        if(!el) return;
+        const current = el.value || "ALL";
+        el.innerHTML = '<option value="ALL">Wszystkie grupy</option>' + getGroupsForMaster(masterName).map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
+        el.value = current;
+        if(!el.value) el.value = "ALL";
+    }
+
+    function syncHrGroupFilter() { fillGroupSelect('hrGroupSelect', document.getElementById('hrMasterSelect')?.value || 'ALL'); }
+    function syncHrAlertGroupFilter() { fillGroupSelect('hrAlertGroupFilt', document.getElementById('hrAlertMasterFilt')?.value || 'ALL'); }
 
     function availabilityStart(hrs) {
         const match = String(hrs || '').match(/(\d{1,2}):(\d{2})/);
@@ -1022,11 +1274,26 @@
 
     window.onload = async () => {
         document.getElementById('dailyDate').valueAsDate = new Date();
+        initMonthOptions();
         const data = await apiCall('/public');
         if(data && data.employees) {
             document.getElementById('dlEmployees').innerHTML = data.employees.map(e => `<option value="${e}">`).join('');
         }
     };
+
+    function initMonthOptions() {
+        const sel = document.getElementById('aMonth');
+        if(!sel) return;
+        const now = new Date();
+        const names = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+        let html = '';
+        for(let offset=-2; offset<=5; offset++) {
+            const d = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+            const val = `${d.getFullYear()}-${d.getMonth()}`;
+            html += `<option value="${val}" ${offset === 0 ? 'selected' : ''}>${names[d.getMonth()]} ${d.getFullYear()}</option>`;
+        }
+        sel.innerHTML = html;
+    }
 
     // ==========================================
     // 2. LOGIKA PRACOWNIKA
@@ -1215,7 +1482,7 @@
         
         if(id === 'vDaily') renderDaily(); 
         if(id === 'vPlanner') renderPlanner();
-        if(id === 'vMatrix') { renderMatrix(); renderHrCards(); }
+        if(id === 'vMatrix') { renderMatrix(); renderHrCards(); renderHrAlertsTable(); }
         if(id === 'vAlerts') renderAlertsGroupView();
         if(id === 'vHrAlerts') renderHrAlertsTable();
         if(id === 'vSettings') renderCMS(); 
@@ -1236,22 +1503,29 @@
         const dailyFilter = document.getElementById('dailyGroupFilter');
         if (dailyFilter) {
             let currentFilterValue = dailyFilter.value;
-            dailyFilter.innerHTML = '<option value="" selected disabled>Wybierz zestaw aktywnosci...</option>' + 
+            dailyFilter.innerHTML = '<option value="ALL">Wszystkie aktywności</option>' + 
                 getManagedGroups().map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
-            if(currentFilterValue) dailyFilter.value = currentFilterValue; 
+            dailyFilter.value = currentFilterValue || "ALL"; 
         }
 
         const dailyPeopleFilter = document.getElementById('dailyPeopleFilter');
         if(dailyPeopleFilter) {
             let currentDailyPeople = dailyPeopleFilter.value || "ALL";
-            dailyPeopleFilter.innerHTML = '<option value="ALL">Osoby: wszystkie dostepne grupy</option>' +
-                (dbAdmin.masterGroups || []).map(m => `<option value="MASTER:${escapeHtml(m)}">Master: ${escapeHtml(m)}</option>`).join('') +
-                getManagedGroups().map(g => `<option value="GROUP:${escapeHtml(g.name)}">Grupa: ${escapeHtml(g.name)}</option>`).join('');
+            dailyPeopleFilter.innerHTML = '<option value="ALL">Wszystkie osoby</option>' +
+                (dbAdmin.masterGroups || []).map(m => `<option value="MASTER:${encodeValue(m)}">Master: ${escapeHtml(m)}</option>`).join('') +
+                getManagedGroups().map(g => `<option value="GROUP:${encodeValue(g.name)}">Grupa: ${escapeHtml(g.name)}</option>`).join('');
             dailyPeopleFilter.value = currentDailyPeople;
             if(!dailyPeopleFilter.value) dailyPeopleFilter.value = "ALL";
         }
 
         syncPlannerFilters();
+
+        fillMasterGroupSelect('alertMasterFilter');
+        fillGroupSelect('alertGroupFilter', document.getElementById('alertMasterFilter')?.value || 'ALL');
+        fillMasterGroupSelect('hrMasterSelect');
+        fillGroupSelect('hrGroupSelect', document.getElementById('hrMasterSelect')?.value || 'ALL');
+        fillMasterGroupSelect('hrAlertMasterFilt');
+        fillGroupSelect('hrAlertGroupFilt', document.getElementById('hrAlertMasterFilt')?.value || 'ALL');
 
         // Dropdowny HR
         const hrFilter = document.getElementById('hrGroupSelect');
@@ -1270,21 +1544,28 @@
             alertHrFilter.value = currentHrAlertVal || "ALL";
         }
 
+        fillMasterGroupSelect('alertMasterFilter');
+        fillGroupSelect('alertGroupFilter', document.getElementById('alertMasterFilter')?.value || 'ALL');
+        fillMasterGroupSelect('hrMasterSelect');
+        fillGroupSelect('hrGroupSelect', document.getElementById('hrMasterSelect')?.value || 'ALL');
+        fillMasterGroupSelect('hrAlertMasterFilt');
+        fillGroupSelect('hrAlertGroupFilt', document.getElementById('hrAlertMasterFilt')?.value || 'ALL');
+
         // Odznaki powiadomień
         const aBadge = document.getElementById('aBadge');
         if(data.alerts.length > 0) { aBadge.innerText = data.alerts.length; aBadge.style.display = 'inline-block'; } 
         else { aBadge.style.display = 'none'; }
 
         const hBadge = document.getElementById('hBadge');
-        if(data.hrAlerts && data.hrAlerts.length > 0) { hBadge.innerText = data.hrAlerts.length; hBadge.style.display = 'inline-block'; } 
-        else { hBadge.style.display = 'none'; }
+        if(hBadge && data.hrAlerts && data.hrAlerts.length > 0) { hBadge.innerText = data.hrAlerts.length; hBadge.style.display = 'inline-block'; } 
+        else if(hBadge) { hBadge.style.display = 'none'; }
         
         // Odświeżanie aktywnego widoku
         if(document.getElementById('vAlerts').classList.contains('active')) renderAlertsGroupView();
-        if(document.getElementById('vHrAlerts').classList.contains('active')) renderHrAlertsTable();
+        if(document.getElementById('vHrAlerts') && document.getElementById('vHrAlerts').classList.contains('active')) renderHrAlertsTable();
         if(document.getElementById('vPlanner').classList.contains('active')) renderPlanner(); 
         if(document.getElementById('vDaily').classList.contains('active')) renderDaily();
-        if(document.getElementById('vMatrix').classList.contains('active')) { renderMatrix(); renderHrCards(); }
+        if(document.getElementById('vMatrix').classList.contains('active')) { renderMatrix(); renderHrCards(); renderHrAlertsTable(); }
         if(document.getElementById('vSettings').classList.contains('active')) renderCMS();
     }
 
@@ -1429,6 +1710,178 @@
                     <button class="btn-main" style="background:var(--ios-purple); padding:6px 12px; font-size:11px; display:inline-block;">📝 Otwórz Dossier</button>
                 </td>
             </tr>`).join('');
+    }
+
+    function getFilteredAlerts() {
+        const m = document.getElementById('alertMasterFilter')?.value || "ALL";
+        const g = document.getElementById('alertGroupFilter')?.value || "ALL";
+        const t = document.getElementById('alertTypeFilter')?.value || "ALL";
+        const sort = document.getElementById('alertSortFilter')?.value || "newest";
+        let alerts = [...(dbAdmin.alerts || [])];
+        if(m !== "ALL") alerts = alerts.filter(a => (a.master_group || groupByName(getEmpGroup(a.name))?.master || "Bez master grupy") === m);
+        if(g !== "ALL") alerts = alerts.filter(a => (a.group || getEmpGroup(a.name)) === g);
+        if(t !== "ALL") alerts = alerts.filter(a => (a.category || a.notification_type || "NORMAL") === t);
+        alerts.sort((a,b) => {
+            if(sort === "oldest") return String(a.ts || "").localeCompare(String(b.ts || ""));
+            if(sort === "date") return String(a.date || "").localeCompare(String(b.date || ""));
+            if(sort === "employee") return String(a.name || "").localeCompare(String(b.name || ""));
+            if(sort === "group") return String(a.group || getEmpGroup(a.name)).localeCompare(String(b.group || getEmpGroup(b.name)));
+            return String(b.ts || "").localeCompare(String(a.ts || ""));
+        });
+        return alerts;
+    }
+
+    function renderAlertsGroupView() {
+        document.getElementById('alertBackBtn').style.display = 'none';
+        document.getElementById('alertsGroupView').style.display = 'grid';
+        document.getElementById('alertsEmpView').style.display = 'none';
+        document.getElementById('alertsDetailView').style.display = 'none';
+        fillGroupSelect('alertGroupFilter', document.getElementById('alertMasterFilter')?.value || 'ALL');
+        const alerts = getFilteredAlerts();
+        if(alerts.length === 0) {
+            document.getElementById('alertsGroupView').innerHTML = '<p style="color:var(--text-muted); font-weight:600; grid-column:1/-1;">Brak powiadomień dla wybranych filtrów.</p>';
+            return;
+        }
+        const grouped = {};
+        alerts.forEach(a => {
+            const master = a.master_group || groupByName(getEmpGroup(a.name))?.master || "Bez master grupy";
+            const group = a.group || getEmpGroup(a.name);
+            const key = `${master}|||${group}`;
+            if(!grouped[key]) grouped[key] = { master, group, normal:0, flexible:0, total:0 };
+            grouped[key].total++;
+            if((a.category || a.notification_type) === "FLEXIBLE") grouped[key].flexible++; else grouped[key].normal++;
+        });
+        document.getElementById('alertsGroupView').innerHTML = Object.values(grouped).map(g => `
+            <div class="group-bubble" onclick="renderAlertsEmpView('${escapeHtml(g.group)}')">
+                <div style="font-size:11px; font-weight:800; color:var(--text-muted);">${escapeHtml(g.master)}</div>
+                <h3 style="margin:6px 0 10px 0; font-size:20px;">${escapeHtml(g.group)}</h3>
+                <div style="font-size:34px; font-weight:900; color:var(--ios-blue);">${g.total}</div>
+                <div style="font-size:12px; color:var(--text-muted);">Normalne: ${g.normal} | Elastyczne: ${g.flexible}</div>
+            </div>`).join('');
+    }
+
+    function renderAlertsEmpView(groupName) {
+        currentAlertGroup = groupName;
+        document.getElementById('alertBackBtn').style.display = 'block';
+        document.getElementById('alertBackBtn').onclick = renderAlertsGroupView;
+        document.getElementById('alertsGroupView').style.display = 'none';
+        document.getElementById('alertsEmpView').style.display = 'block';
+        document.getElementById('alertsDetailView').style.display = 'none';
+        const alerts = getFilteredAlerts().filter(a => (a.group || getEmpGroup(a.name)) === groupName);
+        const byEmp = {};
+        alerts.forEach(a => { if(!byEmp[a.name]) byEmp[a.name] = []; byEmp[a.name].push(a); });
+        const ids = alerts.filter(a => (a.category || a.notification_type) !== "FLEXIBLE").map(a => a.id);
+        document.getElementById('alertsEmpView').innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+                <h3 style="margin:0; font-size:22px;">Grupa: ${escapeHtml(groupName)}</h3>
+                ${ids.length ? `<button onclick="resolveMassAlerts('${ids.join(',')}', 'Zatwierdzono')" class="btn-main" style="background:var(--ios-green); box-shadow:none;">Zaakceptuj masowo grupę</button>` : ''}
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(250px, 1fr)); gap:15px;">
+                ${Object.entries(byEmp).map(([name, list]) => `<div class="glass-card" style="text-align:left; cursor:pointer;" onclick="renderAlertsDetailView('${escapeHtml(name)}')">
+                    <h4 style="margin:0 0 8px 0;">${escapeHtml(name)}</h4>
+                    <div style="font-weight:800; color:var(--ios-orange);">${list.length} powiadomień</div>
+                    <div style="font-size:12px; color:var(--text-muted);">${escapeHtml(list[0].master_group || '')} / ${escapeHtml(list[0].group || '')}</div>
+                </div>`).join('')}
+            </div>`;
+    }
+
+    async function renderEmployeeWorkCard(username, date) {
+        const holder = document.getElementById('alertWorkCard');
+        if(!holder) return;
+        holder.innerHTML = '<div style="color:var(--text-muted); font-weight:700;">Ładowanie karty pracy...</div>';
+        const res = await apiCall('/admin/employee/workday', 'POST', { username, date });
+        if(!res || !res.ok) { holder.innerHTML = '<div>Brak danych karty pracy.</div>'; return; }
+        const e = res.employee || {};
+        const s = res.schedule || {};
+        holder.innerHTML = `
+            <h3 style="margin-top:0;">Karta pracy / podgląd dnia</h3>
+            <div style="font-size:13px; display:grid; gap:7px;">
+                <b>${escapeHtml(e.name)}</b>
+                <span>Global ID: <b>${escapeHtml(e.global_id || e.id || '')}</b></span>
+                <span>${escapeHtml(e.master_group || '')} / ${escapeHtml(e.group || '')}</span>
+                <span>Data: <b>${escapeHtml(date)}</b></span>
+                <span>Plan: <b>${escapeHtml(s.activity || 'Brak planu')}</b></span>
+                <span>Godziny: <b>${escapeHtml(s.hours || '-')}</b></span>
+                <span>Status: <b>${escapeHtml(s.status || 'NORMAL')}</b></span>
+                <span>Start V-MAX: <b>${escapeHtml(res.actual_start || '-')}</b></span>
+                <span>Aktualna czynność: <b>${escapeHtml(res.current_task?.task || '-')}</b></span>
+                <span>Koniec: <b>${escapeHtml(res.actual_end || '-')}</b></span>
+            </div>
+            <hr style="margin:12px 0; border-top:1px solid var(--border);">
+            <div style="display:grid; gap:6px;">${(res.work_logs || []).map(l => `<div style="background:var(--bg-color); padding:8px; border-radius:10px; font-size:12px;"><b>${escapeHtml(l.task)}</b><br>${escapeHtml(l.start)}-${escapeHtml(l.end || 'Trwa')} | ${escapeHtml(l.skaner || '-')} / ${escapeHtml(l.wozek || '-')}</div>`).join('') || '<span style="font-size:12px; color:var(--text-muted);">Brak logów V-MAX.</span>'}</div>`;
+    }
+
+    async function renderAlertsDetailView(empName) {
+        document.getElementById('alertBackBtn').style.display = 'block';
+        document.getElementById('alertBackBtn').onclick = () => renderAlertsEmpView(currentAlertGroup);
+        document.getElementById('alertsGroupView').style.display = 'none';
+        document.getElementById('alertsEmpView').style.display = 'none';
+        document.getElementById('alertsDetailView').style.display = 'block';
+        const empAlerts = getFilteredAlerts().filter(a => a.name === empName);
+        const firstDate = empAlerts[0]?.date || document.getElementById('dailyDate')?.value || new Date().toISOString().slice(0,10);
+        document.getElementById('alertsDetailView').innerHTML = `
+            <div style="display:grid; grid-template-columns:minmax(260px, 340px) 1fr; gap:18px;">
+                <div id="alertWorkCard" class="glass-card" style="text-align:left; height:fit-content;"></div>
+                <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; gap:10px; flex-wrap:wrap;">
+                        <h3 style="margin:0;">Powiadomienia: ${escapeHtml(empName)}</h3>
+                    </div>
+                    ${empAlerts.map(a => {
+                        const col = getTileColor(a.type);
+                        const isFlex = (a.category || a.notification_type) === "FLEXIBLE";
+                        return `<div class="alert-card" style="padding:18px; border-radius:16px; border-left:6px solid ${col.c}; background:white; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                            <div>
+                                <div style="font-size:12px; color:var(--text-muted); font-weight:700;">${escapeHtml(a.master_group || '')} / ${escapeHtml(a.group || '')} | wysłano: ${escapeHtml(a.ts || '')}</div>
+                                <div style="font-weight:900; margin:5px 0;">${escapeHtml(a.date)} | ${escapeHtml(a.type)} ${a.hrs ? `(${escapeHtml(a.hrs)})` : ''}</div>
+                                ${isFlex ? '<span style="font-size:11px; font-weight:900; color:var(--ios-purple);">Alert z grupy elastycznej - informacyjny</span>' : ''}
+                            </div>
+                            ${isFlex ? '' : `<div style="display:flex; gap:8px;"><button onclick="resolveAlert('${a.id}','Zatwierdzono','${escapeHtml(a.name)}','${escapeHtml(a.date)}','${escapeHtml(a.type)}','${escapeHtml(a.hrs || '')}')" class="btn-main" style="background:var(--ios-green); padding:9px 14px; font-size:12px;">Akceptuj</button><button onclick="resolveAlert('${a.id}','Odrzucono','${escapeHtml(a.name)}','${escapeHtml(a.date)}','${escapeHtml(a.type)}','${escapeHtml(a.hrs || '')}')" class="btn-main" style="background:var(--ios-red); padding:9px 14px; font-size:12px;">Odrzuć</button></div>`}
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>`;
+        renderEmployeeWorkCard(empName, firstDate);
+    }
+
+    function renderHrAlertsTable() {
+        const tbody = document.getElementById('hrAlertsTableBody');
+        if(!tbody) return;
+        const master = document.getElementById('hrAlertMasterFilt')?.value || "ALL";
+        const group = document.getElementById('hrAlertGroupFilt')?.value || "ALL";
+        const status = document.getElementById('hrAlertStatusFilt')?.value || "ALL";
+        const sort = document.getElementById('hrAlertSort')?.value || "never";
+        const today = new Date().toISOString().slice(0,10);
+        let rows = (dbAdmin.employees || []).filter(e => canSeeEmp(e));
+        rows = rows.map(e => {
+            const g = groupByName(e.group || "Nieprzypisani") || {};
+            const never = !e.eval_count || parseInt(e.eval_count) === 0;
+            const due = e.next_eval_date && e.next_eval_date <= today;
+            return {...e, master_group: g.master || e.master_group || "Bez master grupy", never, due, evalStatus: never ? "Nigdy nie oceniany" : (due ? "Po terminie" : (e.next_eval_date ? "Nadchodząca" : "Brak daty"))};
+        });
+        if(master !== "ALL") rows = rows.filter(e => e.master_group === master);
+        if(group !== "ALL") rows = rows.filter(e => (e.group || "Nieprzypisani") === group);
+        if(status === "never") rows = rows.filter(e => e.never);
+        if(status === "due") rows = rows.filter(e => e.due);
+        if(status === "upcoming") rows = rows.filter(e => !e.never && !e.due && e.next_eval_date);
+        rows.sort((a,b) => {
+            if(sort === "next") return String(a.next_eval_date || "9999").localeCompare(String(b.next_eval_date || "9999"));
+            if(sort === "group") return String(a.group || "").localeCompare(String(b.group || ""));
+            if(sort === "name") return String(a.name || "").localeCompare(String(b.name || ""));
+            return (b.never - a.never) || String(a.next_eval_date || "9999").localeCompare(String(b.next_eval_date || "9999"));
+        });
+        tbody.innerHTML = rows.map(e => `
+            <tr style="${e.never ? 'background:rgba(255,149,0,0.08);' : ''}">
+                <td><b>${escapeHtml(e.name)}</b></td>
+                <td>${escapeHtml(e.id || e.global_id || '')}</td>
+                <td>${escapeHtml(e.master_group || '')}</td>
+                <td>${escapeHtml(e.group || '')}</td>
+                <td>${escapeHtml(e.hire_date || '')}</td>
+                <td>${escapeHtml(e.last_eval_date || '-')}</td>
+                <td>${escapeHtml(e.next_eval_date || '-')}</td>
+                <td>${escapeHtml(e.eval_count || 0)}</td>
+                <td><span style="font-weight:900; color:${e.never || e.due ? 'var(--ios-orange)' : 'var(--ios-green)'};">${escapeHtml(e.evalStatus)}</span></td>
+                <td><button class="btn-main" style="padding:6px 12px; font-size:11px;" onclick="openMatrix('${escapeHtml(e.name)}')">Otwórz Dossier</button></td>
+            </tr>`).join('') || '<tr><td colspan="10" style="text-align:center; padding:20px;">Brak osób dla filtrów.</td></tr>';
     }
 
     async function resolveAlert(id, stat, n, d, t, h) { 
@@ -1739,22 +2192,24 @@
     
     function renderPlanner() {
         const q = document.getElementById('searchPlan').value.toLowerCase(); 
-        const m = parseInt(document.getElementById('aMonth').value);
-        const days = new Date(2026, m+1, 0).getDate();
+        const rawMonth = document.getElementById('aMonth').value;
+        const [planYear, planMonth] = rawMonth.includes('-') ? rawMonth.split('-').map(v => parseInt(v, 10)) : [new Date().getFullYear(), parseInt(rawMonth, 10)];
+        const m = planMonth;
+        const days = new Date(planYear, m+1, 0).getDate();
         const masterFilter = document.getElementById('plannerMasterFilter') ? document.getElementById('plannerMasterFilter').value : "ALL";
         const groupFilter = document.getElementById('plannerGroupFilter') ? document.getElementById('plannerGroupFilter').value : "ALL";
         const sortMode = document.getElementById('plannerAvailabilitySort') ? document.getElementById('plannerAvailabilitySort').value : "name";
         
         let hHtml = '<th class="sticky-col sticky-row" style="z-index:30;">Pracownik</th>';
         for(let d=1; d<=days; d++) { 
-            let isW = new Date(2026,m,d).getDay() % 6 === 0; 
+            let isW = new Date(planYear,m,d).getDay() % 6 === 0; 
             hHtml += `<th class="sticky-row ${isW ? 'weekend-col' : ''}">${d}.${m+1}</th>`; 
         }
         document.getElementById('pHead').innerHTML = hHtml;
         
         let plannerEmployees = dbAdmin.employees.filter(e => {
             if(!canSeeEmp(e)) return false;
-            if(!e.name.toLowerCase().includes(q)) return false;
+            if(q && !employeeSearchText(e).includes(q)) return false;
             const g = groupByName(e.group || "Nieprzypisani");
             if(masterFilter !== "ALL" && (!g || (g.master || "Bez master grupy") !== masterFilter)) return false;
             if(groupFilter !== "ALL" && e.group !== groupFilter) return false;
@@ -1762,8 +2217,8 @@
         });
         if(sortMode === "availability") {
             plannerEmployees.sort((a, b) => {
-                const aBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${a.name}_${formatDateKey(2026, m, i + 1)}`])));
-                const bBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${b.name}_${formatDateKey(2026, m, i + 1)}`])));
+                const aBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${a.name}_${formatDateKey(planYear, m, i + 1)}`])));
+                const bBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${b.name}_${formatDateKey(planYear, m, i + 1)}`])));
                 return aBest - bBest || a.name.localeCompare(b.name);
             });
         } else {
@@ -1778,12 +2233,13 @@
                 <div style="margin-left:8px; text-align:left; overflow:hidden;">
                     <span style="font-size:10px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span>
                     <span style="font-weight:600; white-space:nowrap; text-overflow:ellipsis; display:block; width:100%;" title="${emp}">${emp}</span>
+                    <span style="font-size:10px; color:var(--text-muted); display:block;">${escapeHtml(empObj.group || '')} | ${avgRating(emp)}</span>
                 </div>
             </td>`;
             
             for(let d=1; d<=days; d++) {
-                let isW = new Date(2026,m,d).getDay() % 6 === 0; 
-                const dateStr = formatDateKey(2026, m, d);
+                let isW = new Date(planYear,m,d).getDay() % 6 === 0; 
+                const dateStr = formatDateKey(planYear, m, d);
                 const key = `${emp}_${dateStr}`;
                 
                 // Zabezpieczenie przed błędem, gdy pracownik nie ma wpisu
@@ -1793,6 +2249,10 @@
                 const hrs = parts[1] || "";
                 
                 const col = getTileColor(act);
+                const st = scheduleStatus(emp, dateStr).status || "NORMAL";
+                const showRatings = document.getElementById('showRatingsPlan') ? document.getElementById('showRatingsPlan').checked : true;
+                const rBadge = showRatings && act !== "WyczyÅ›Ä‡" ? ratingBadge(emp, act) : "";
+                const title = `Pracownik: ${emp}\nAktywność: ${act}\nOcena: ${(dbAdmin.ratingsMap || {})[`${emp}_${act}`] || 'brak'}/4\nGodziny: ${hrs || '-'}\nStatus: ${st}`;
                 
                 let availHint = ""; 
                 const req = dbAdmin.requestMap ? dbAdmin.requestMap[key] : null;
@@ -1803,9 +2263,11 @@
                 
                 rHtml += `
                 <td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${dateStr}',this)">
-                    <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">
+                    <div class="tile ${statusClass(st)}" title="${escapeHtml(title)}" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">
                         ${act === 'Wyczyść' ? '' : act}
                         <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
+                        ${rBadge}
+                        ${st !== "NORMAL" ? `<div style="font-size:9px; font-weight:900; margin-top:3px;">${escapeHtml(st)}</div>` : ''}
                         ${availHint}
                     </div>
                 </td>`;
@@ -1968,9 +2430,12 @@
 
         let filteredEmps = dbAdmin.employees.filter(e => {
             if (!canSeeEmp(e)) return false;
-            let matchS = e.name.toLowerCase().includes(search);
+            const masterFilt = document.getElementById('hrMasterSelect') ? document.getElementById('hrMasterSelect').value : "ALL";
+            const groupObj = groupByName(e.group || "Nieprzypisani");
+            let matchS = !search || employeeSearchText(e).includes(search);
+            let matchM = (masterFilt === "ALL" || (groupObj && (groupObj.master || "Bez master grupy") === masterFilt));
             let matchG = (groupFilt === "ALL" || e.group === groupFilt);
-            return matchS && matchG;
+            return matchS && matchM && matchG;
         });
 
         if (filteredEmps.length === 0) {
@@ -1982,6 +2447,7 @@
             <div class="hr-card-mini" data-emp="${escapeHtml(e.name)}">
                 <h4 style="margin:0 0 5px 0; font-size:18px;">${escapeHtml(e.name)}</h4>
                 <span style="font-size:12px; color:gray; font-weight:600; background:rgba(0,0,0,0.04); padding:4px 10px; border-radius:10px;">${escapeHtml(e.group || 'Nieprzypisani')}</span>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:8px;">ID: ${escapeHtml(e.id || '')} | ${avgRating(e.name)}</div>
                 <div style="margin-top:15px; width:100%; border-top:1px solid var(--border); padding-top:10px;">
                     <span style="color:var(--ios-blue); font-weight:700; font-size:13px;">Oceny & Dossier →</span>
                 </div>
@@ -2012,11 +2478,18 @@
         document.getElementById('hrIsEval').checked = false;
         document.getElementById('hrOverallRating').value = '3';
         document.getElementById('hrNextEvalDate').value = emp.next_eval_date || '';
+        document.getElementById('hrHireDate').value = emp.hire_date || '';
+        document.getElementById('hrLoginPanelu').value = emp.login_panelu || '';
+        document.getElementById('hrLoginMagazynu').value = emp.login_magazynu || '';
+        document.getElementById('hrIdPunktualnika').value = emp.id_punktualnika || '';
+        document.getElementById('hrExternalId').value = emp.external_id || '';
         document.getElementById('hrHistoryList').innerHTML = '';
         
         await refreshHrStats();
         openM('matrixModal');
     }
+
+    function openMatrix(empName) { openHrDossier(empName); }
 
     async function refreshHrStats() {
         const d_from = document.getElementById('hrDateFrom').value;
@@ -2037,6 +2510,11 @@
             
             document.getElementById('hrNotes').value = res.notes;
             document.getElementById('hrNextEvalDate').value = res.next_eval_date || '';
+            document.getElementById('hrHireDate').value = res.hire_date || '';
+            document.getElementById('hrLoginPanelu').value = res.login_panelu || '';
+            document.getElementById('hrLoginMagazynu').value = res.login_magazynu || '';
+            document.getElementById('hrIdPunktualnika').value = res.id_punktualnika || '';
+            document.getElementById('hrExternalId').value = res.external_id || '';
 
             // Renderowanie Historii z klikalnymi elementami
             if (res.history && res.history.length > 0) {
@@ -2128,6 +2606,7 @@
         const isEval = document.getElementById('hrIsEval').checked;
         const ratingVal = clampRating(document.getElementById('hrOverallRating').value);
         const nextEvalDate = document.getElementById('hrNextEvalDate').value;
+        const hireDate = document.getElementById('hrHireDate').value;
         const taskRatings = {};
         document.querySelectorAll('#matrixGrid .task-rating-select').forEach(sel => {
             if(sel.dataset.activity) taskRatings[sel.dataset.activity] = clampRating(sel.value, 2);
@@ -2144,6 +2623,11 @@
             is_evaluation: isEval,
             rating: ratingVal,
             next_eval_date: nextEvalDate,
+            hire_date: hireDate,
+            login_panelu: document.getElementById('hrLoginPanelu').value,
+            login_magazynu: document.getElementById('hrLoginMagazynu').value,
+            id_punktualnika: document.getElementById('hrIdPunktualnika').value,
+            external_id: document.getElementById('hrExternalId').value,
             task_ratings: taskRatings
         });
         
@@ -2153,7 +2637,14 @@
                 dbAdmin.ratingsMap[currentHrEmp+"_"+act] = rating;
             });
             const emp = dbAdmin.employees.find(e => e.name === currentHrEmp);
-            if(emp) emp.next_eval_date = nextEvalDate;
+            if(emp) {
+                emp.next_eval_date = nextEvalDate;
+                emp.hire_date = hireDate;
+                emp.login_panelu = document.getElementById('hrLoginPanelu').value;
+                emp.login_magazynu = document.getElementById('hrLoginMagazynu').value;
+                emp.id_punktualnika = document.getElementById('hrIdPunktualnika').value;
+                emp.external_id = document.getElementById('hrExternalId').value;
+            }
             await loadAdminData(); 
             await refreshHrStats();
             document.getElementById('hrIsEval').checked = false;
@@ -2172,8 +2663,7 @@
             const q = searchEmpInput ? searchEmpInput.value.toLowerCase() : "";
             
             const filteredEmps = dbAdmin.employees.filter(e => {
-                const haystack = `${e.name || ''} ${e.group || ''} ${e.role || ''} ${e.id || ''}`.toLowerCase();
-                return haystack.includes(q);
+                return employeeSearchText(e).includes(q) || `${e.role || ''}`.toLowerCase().includes(q);
             });
             const masterSelect = document.getElementById('sGroupMaster');
             if(masterSelect) {
@@ -2260,8 +2750,8 @@
                 groupedByMaster[master].push(g);
             });
             document.getElementById('cmsGroupList').innerHTML = Object.entries(groupedByMaster).map(([master, groups]) => `
-                <details open style="border-bottom:1px solid var(--border); padding:12px 0;">
-                    <summary style="font-weight:900; cursor:pointer; color:var(--ios-blue);">${escapeHtml(master)} <span style="color:gray; font-size:11px;">${groups.length} grup</span></summary>
+                <details open style="border-bottom:1px solid var(--border); padding:12px 0;" ondragover="event.preventDefault()" ondrop="dropGroupOnMaster(event, '${escapeHtml(master)}')">
+                    <summary style="font-weight:900; cursor:pointer; color:var(--ios-blue);">${escapeHtml(master)} <span style="color:gray; font-size:11px;">${groups.length} grup</span> ${master !== 'Bez master grupy' ? `<button onclick="event.preventDefault(); promptRenameMaster('${escapeHtml(master)}')" style="margin-left:8px; padding:5px 8px; border:none; border-radius:8px; font-weight:800;">Zmien nazwe</button>` : ''}</summary>
                     ${groups.map(g => {
                         const isFlexChecked = g.is_flexible === 1 ? 'checked' : '';
                         const safeName = g.name.replace(/[^a-zA-Z0-9_-]/g, '-');
@@ -2269,10 +2759,11 @@
                             const isChecked = (g.activities && g.activities.includes(a)) ? 'checked' : '';
                             return `<label style="font-size:11px; display:inline-flex; align-items:center; gap:4px; background:rgba(0,0,0,0.03); padding:6px 10px; border-radius:8px; border:1px solid var(--border); margin-bottom:4px;"><input type="checkbox" class="act-chk-${safeName}" value="${escapeHtml(a)}" ${isChecked} style="width:16px; height:16px; margin:0; accent-color:var(--ios-blue);"> ${escapeHtml(a)}</label>`;
                         }).join('');
-                        return `<details style="margin-top:10px; background:rgba(0,0,0,0.02); border-radius:14px; padding:12px;">
+                        return `<details draggable="true" ondragstart="dragGroupTile(event, '${escapeHtml(g.name)}')" style="margin-top:10px; background:rgba(0,0,0,0.02); border-radius:14px; padding:12px;">
                             <summary style="cursor:pointer; font-weight:800;">${escapeHtml(g.name)} <span style="font-size:11px; color:gray;">${escapeHtml(g.type || '')}</span></summary>
                             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0;">
                                 <select onchange="liveEditGroupMaster('${escapeHtml(g.name)}', this.value)" style="font-weight:700;">${(dbAdmin.masterGroups || []).map(m => `<option value="${escapeHtml(m)}" ${m === (g.master || 'Bez master grupy') ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select>
+                                <button onclick="promptRenameGroup('${escapeHtml(g.name)}')" style="padding:7px 10px; border:none; border-radius:9px; font-weight:800;">Zmien nazwe</button>
                                 <label style="font-size:11px; font-weight:700; color:var(--ios-orange); display:inline-flex; align-items:center; gap:4px;"><input type="checkbox" onchange="liveEditGroupFlex('${escapeHtml(g.name)}', this.checked)" ${isFlexChecked} style="accent-color:var(--ios-orange);"> Elastyczna</label>
                                 <button onclick="delSet('group','${escapeHtml(g.name)}')" style="${bS}">Usun</button>
                             </div>
@@ -2298,6 +2789,13 @@
                 }).join('') || '<span style="font-size:12px; color:gray;">Brak Team Leaderow / Managerow.</span>';
             }
 
+            const actParentSelect = document.getElementById('sActParent');
+            if(actParentSelect) {
+                const currentParent = actParentSelect.value || "";
+                const parentActs = (dbAdmin.activityTree || []).filter(a => !a.is_system);
+                actParentSelect.innerHTML = '<option value="">Aktywność główna</option>' + parentActs.map(a => `<option value="${a.id}">${escapeHtml(a.name)}</option>`).join('');
+                actParentSelect.value = currentParent;
+            }
             // AKTYWNOŚCI
             document.getElementById('cmsActList').innerHTML = dbAdmin.activityNames.map(a => {
                 const cColor = (dbAdmin.activityColors && dbAdmin.activityColors[a]) ? dbAdmin.activityColors[a] : '#0A84FF';
@@ -2324,8 +2822,13 @@
     }
 
     async function liveEditUserRole(empName, newRole) { 
-        await apiCall('/admin/settings', 'POST', { action: 'EDIT_USER_ROLE', value: empName, role: newRole }); 
-        showT("✅ Zmieniono rolę!"); 
+        const res = await apiCall('/admin/settings', 'POST', { action: 'EDIT_USER_ROLE', value: empName, role: newRole }); 
+        if(res && res.ok) {
+            const emp = dbAdmin.employees.find(e => e.name === empName);
+            if(emp) emp.role = newRole;
+            showT("Zmieniono role.");
+            await loadAdminData();
+        }
     }
     
     async function liveEditActivityColor(actName, newColor) { 
@@ -2346,6 +2849,30 @@
             showT("Zmieniono master grupe.");
             loadAdminData();
         }
+    }
+
+    function dragGroupTile(ev, groupName) { ev.dataTransfer.setData('groupName', groupName); }
+    async function dropGroupOnMaster(ev, masterName) {
+        ev.preventDefault();
+        const groupName = ev.dataTransfer.getData('groupName');
+        if(!groupName || !confirm(`Przenieść grupę ${groupName} do master grupy ${masterName}?`)) return;
+        await liveEditGroupMaster(groupName, masterName);
+    }
+
+    async function promptRenameGroup(oldName) {
+        const newName = prompt("Nowa nazwa grupy", oldName);
+        if(!newName || newName === oldName) return;
+        const res = await apiCall('/admin/settings', 'POST', { action:'EDIT_GROUP_NAME', value:oldName, new_value:newName.trim() });
+        if(res && res.ok) { showT("Zmieniono nazwe grupy."); await loadAdminData(); }
+        else if(res) showT(res.msg || "Nie udalo sie zmienic nazwy.");
+    }
+
+    async function promptRenameMaster(oldName) {
+        const newName = prompt("Nowa nazwa master grupy", oldName);
+        if(!newName || newName === oldName) return;
+        const res = await apiCall('/admin/settings', 'POST', { action:'EDIT_MASTER_GROUP_NAME', value:oldName, new_value:newName.trim() });
+        if(res && res.ok) { showT("Zmieniono nazwe master grupy."); await loadAdminData(); }
+        else if(res) showT(res.msg || "Nie udalo sie zmienic nazwy.");
     }
 
     async function saveMasterGroup() {
@@ -2394,8 +2921,9 @@
     async function saveAct() {
         const v = document.getElementById('sAct').value;
         const c = document.getElementById('sActColor').value;
+        const parentId = document.getElementById('sActParent') ? document.getElementById('sActParent').value : "";
         if(v) { 
-            await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'activity', value: v, color: c }); 
+            await apiCall('/admin/settings', 'POST', { action: 'ADD', type: 'activity', value: v, color: c, parent_id: parentId ? parseInt(parentId, 10) : null }); 
             document.getElementById('sAct').value = ''; 
             loadAdminData(); 
         }
@@ -2468,6 +2996,8 @@
         if(res && res.ok) {
             alert(res.msg);
             loadAdminData();
+        } else if(res) {
+            alert("Import nieudany: " + (res.msg || "brak szczegolow"));
         }
     }
 
