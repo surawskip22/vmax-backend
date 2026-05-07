@@ -475,7 +475,7 @@
             <div style="background:white; padding:15px; border-radius:16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; box-shadow:0 5px 15px rgba(0,0,0,0.02); margin-bottom:20px;">
                 <span style="font-size:18px;">🖌️ Zgłoś dyspozycję:</span>
                 <select id="empBrushAct" style="flex:1; min-width:120px; font-weight:700; color:var(--ios-blue); border:none;"></select>
-                <input type="text" id="empBrushHrs" list="dlShifts" placeholder="Godziny..." style="width:120px;">
+                <input type="text" id="empBrushHrs" list="dlShifts" placeholder="np. 06:00-14:00" style="width:140px;">
                 <button id="eBtn" onclick="toggleEmpBrush()" style="background:transparent; border:2px dashed var(--ios-blue); padding:10px 15px; border-radius:12px; cursor:pointer; font-weight:800; color:var(--ios-blue);">PĘDZEL: WYŁ</button>
             </div>
             
@@ -670,20 +670,20 @@
                     <button class="btn-main" style="width:100%; margin-bottom:10px; background:var(--ios-green);" onclick="downloadBackup()">📥 Pobierz plik test.db</button>
                     <button class="btn-main" style="width:100%; margin-bottom:10px; background:var(--ios-orange);" onclick="runSimulation()">🤖 Uruchom Symulację (Sty - Maj 2026)</button>
                     
-                    <div style="background:rgba(0,0,0,0.03); padding:10px; border-radius:12px; margin-bottom:15px; border:1px dashed var(--border);">
-                        <label style="font-size:12px; font-weight:800; color:var(--ios-blue); display:block; margin-bottom:5px;">Wgraj z pliku Excel (Nadpisuje strukturę!)</label>
+                    <div style="background:rgba(255,59,48,0.05); padding:10px; border-radius:12px; margin-bottom:15px; border:1px dashed var(--ios-red);">
+                        <label style="font-size:12px; font-weight:800; color:var(--ios-red); display:block; margin-bottom:5px;">⚠️ HARD RESET: Wgraj z Excela</label>
                         <input type="file" id="excelUpload" accept=".xlsx" style="font-size:12px; margin-bottom:10px; width:100%;">
-                        <button class="btn-main" style="width:100%; padding:8px;" onclick="uploadExcel()">Wgraj Excela</button>
+                        <button class="btn-main" style="width:100%; padding:8px; background:var(--ios-red);" onclick="uploadExcel()">🔥 Wyczyść i Wgraj</button>
                     </div>
 
                     <hr style="margin:25px 0; border-top:1px solid var(--border);">
 
-                    <h3 style="margin-top:0; color:var(--ios-red);">👑 Główne Konto (Root)</h3>
+                    <h3 style="margin-top:0; color:var(--text-main);">👑 Główne Konto (Root)</h3>
                     <div class="input-group" style="margin-bottom:10px;">
                         <input type="text" id="sRootLogin" placeholder="Nowy login">
                         <input type="password" id="sRootPass" placeholder="Nowe hasło">
                     </div>
-                    <button class="btn-main" style="width:100%; background:var(--ios-red);" onclick="changeRootAdmin()">Zapisz Root Admina</button>
+                    <button class="btn-main" style="width:100%; background:var(--text-main);" onclick="changeRootAdmin()">Zapisz Root Admina</button>
                 </div>
 
             </div>
@@ -710,9 +710,9 @@
         </div>
 
         <div class="hr-stats-container" id="hrStatsGrid">
-            <div class="hr-stat-box box-w"><span class="hr-stat-title">W Pracy 💼</span><span class="hr-stat-num" id="hrStatW" style="color:var(--ios-blue);">0</span></div>
+            <div class="hr-stat-box box-w"><span class="hr-stat-title">Praca/Dostępny</span><span class="hr-stat-num" id="hrStatW" style="color:var(--ios-blue);">0</span></div>
             <div class="hr-stat-box box-c"><span class="hr-stat-title">Chory 🤒</span><span class="hr-stat-num" id="hrStatC" style="color:var(--ios-red);">0</span></div>
-            <div class="hr-stat-box box-u"><span class="hr-stat-title">Urlop 🌴</span><span class="hr-stat-num" id="hrStatU" style="color:var(--ios-orange);">0</span></div>
+            <div class="hr-stat-box box-u"><span class="hr-stat-title">Urlop/Żądanie</span><span class="hr-stat-num" id="hrStatU" style="color:var(--ios-orange);">0</span></div>
             <div class="hr-stat-box box-wo"><span class="hr-stat-title">Wolne 🏠</span><span class="hr-stat-num" id="hrStatWo" style="color:var(--text-muted);">0</span></div>
             <div class="hr-stat-box box-ns"><span class="hr-stat-title">No Show ❌</span><span class="hr-stat-num" id="hrStatNoShow" style="color:#8B0000;">0</span></div>
         </div>
@@ -759,7 +759,7 @@
         <div class="hr-stats-container">
             <div class="hr-stat-box box-w" style="padding:10px;"><span class="hr-stat-title">Praca</span><span class="hr-stat-num" id="edStatW" style="font-size:18px;">0</span></div>
             <div class="hr-stat-box box-c" style="padding:10px;"><span class="hr-stat-title">Chory</span><span class="hr-stat-num" id="edStatC" style="font-size:18px;">0</span></div>
-            <div class="hr-stat-box box-u" style="padding:10px;"><span class="hr-stat-title">Urlop</span><span class="hr-stat-num" id="edStatU" style="font-size:18px;">0</span></div>
+            <div class="hr-stat-box box-u" style="padding:10px;"><span class="hr-stat-title">Urlop/Na żądanie</span><span class="hr-stat-num" id="edStatU" style="font-size:18px;">0</span></div>
             <div class="hr-stat-box box-wo" style="padding:10px;"><span class="hr-stat-title">Wolne</span><span class="hr-stat-num" id="edStatWo" style="font-size:18px;">0</span></div>
             <div class="hr-stat-box box-ns" style="padding:10px;"><span class="hr-stat-title">No Show</span><span class="hr-stat-num" id="edStatNs" style="font-size:18px;">0</span></div>
         </div>
@@ -1013,7 +1013,9 @@
         if(!data) return;
         
         dbAdmin.activityColors = data.activityColors || {};
-        const acts = ["Wyczyść", ...data.activities, "Urlop 🌴", "Chory 🤒", "Wolne 🏠"];
+        
+        // KAGANIEC DLA PRACOWNIKA - widzi tylko te konkretne opcje
+        const acts = ["Wyczyść", "Dostępny ✅", "URLOP 🌴", "Wolne na żądanie 🏠", "Chory 🤒"];
         document.getElementById('empBrushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">`).join('');
 
@@ -1196,7 +1198,7 @@
         for (const [gName, count] of Object.entries(groupedAlerts)) {
             html += `
             <div class="group-bubble" onclick="renderAlertsEmpView('${gName}')">
-                <h3 style="margin:top:0; font-size:20px; color:var(--text-main);">${gName}</h3>
+                <h3 style="margin-top:0; font-size:20px; color:var(--text-main);">${gName}</h3>
                 <div style="font-size:36px; font-weight:800; color:var(--ios-blue); margin:10px 0;">${count} <span style="font-size:16px; color:var(--text-muted);">wniosków</span></div>
                 <span style="color:var(--ios-blue); font-size:13px; font-weight:700;">Zobacz szczegóły →</span>
             </div>`;
@@ -1816,9 +1818,9 @@
         });
 
         if(res && res.ok) {
-            document.getElementById('hrStatW').innerText = res.stats["Praca"];
+            document.getElementById('hrStatW').innerText = res.stats["Praca/Dostępny"];
             document.getElementById('hrStatC').innerText = res.stats["Chory 🤒"];
-            document.getElementById('hrStatU').innerText = res.stats["Urlop 🌴"];
+            document.getElementById('hrStatU').innerText = res.stats["Urlop 🌴/Na żądanie"];
             document.getElementById('hrStatWo').innerText = res.stats["Wolne 🏠"];
             document.getElementById('hrStatNoShow').innerText = res.stats["No Show ❌"];
             
@@ -1872,9 +1874,9 @@
         
         if(res && res.ok) {
             document.getElementById('edPeriod').innerText = "Okres analizy: " + res.period;
-            document.getElementById('edStatW').innerText = res.stats["Praca"] || 0;
+            document.getElementById('edStatW').innerText = res.stats["Praca/Dostępny"] || 0;
             document.getElementById('edStatC').innerText = res.stats["Chory 🤒"] || 0;
-            document.getElementById('edStatU').innerText = res.stats["Urlop 🌴"] || 0;
+            document.getElementById('edStatU').innerText = res.stats["Urlop 🌴/Na żądanie"] || 0;
             document.getElementById('edStatWo').innerText = res.stats["Wolne 🏠"] || 0;
             document.getElementById('edStatNs').innerText = res.stats["No Show ❌"] || 0;
             
@@ -2159,7 +2161,7 @@
         }
     }
 
-    // Nowa funkcja uploader'a bez zewnętrznych zależności po stronie serwera
+    // Opcja Nuklearna - Hard Reset z pliku Excel (Base64)
     async function uploadExcel() {
         const fileInput = document.getElementById('excelUpload');
         const file = fileInput.files[0];
@@ -2168,15 +2170,14 @@
             return showT("⚠️ Wybierz plik Excel przed wgrywaniem!");
         }
         
-        if(!confirm("Wgranie pliku Excel spowoduje usunięcie wszystkich istniejących pracowników i grup (poza kontami ADMIN). Jesteś pewien?")) {
+        if(!confirm("🔥 HARD RESET: Wgranie pliku usunie wszystkie konta, grupy, grafiki, logi i historię z systemu (poza kontami ADMIN). Jesteś PEWIEN?")) {
             return;
         }
 
-        showT("⏳ Trwa importowanie bazy z pliku...");
+        showT("⏳ Trwa całkowite resetowanie bazy i wgrywanie nowej struktury...");
 
         const reader = new FileReader();
         reader.onload = async function(e) {
-            // Pobieramy tylko część danych po przecinku (czysty base64)
             const base64Data = e.target.result.split(',')[1];
             
             const res = await apiCall('/admin/import-excel', 'POST', { file_b64: base64Data });
