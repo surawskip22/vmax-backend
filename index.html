@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Workflow Hub</title>
+  <title>WorkFlow Hub</title>
   <style>
     :root { --blue:#0A84FF; --purple:#5E5CE6; --green:#34C759; --red:#FF3B30; --bg:#F2F2F7; --text:#1C1C1E; --muted:#8E8E93; --border:rgba(0,0,0,.08); }
     * { box-sizing:border-box; }
@@ -18,10 +18,10 @@
     input { width:100%; border:1px solid var(--border); border-radius:15px; padding:14px 16px; font-size:16px; font-weight:750; outline:none; background:white; }
     button { border:0; border-radius:16px; padding:15px 20px; font-size:15px; font-weight:900; color:white; cursor:pointer; background:var(--blue); box-shadow:0 10px 22px rgba(10,132,255,.22); }
     .modules { display:none; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
-    .module { text-decoration:none; color:var(--text); background:white; border:1px solid var(--border); border-radius:22px; padding:24px; min-height:160px; display:flex; flex-direction:column; justify-content:space-between; transition:.18s ease; }
+    .module { border:1px solid var(--border); border-radius:22px; padding:24px; min-height:160px; display:flex; flex-direction:column; justify-content:space-between; transition:.18s ease; cursor:pointer; background:white; text-align:left; }
     .module:hover { transform:translateY(-3px); box-shadow:0 18px 34px rgba(0,0,0,.08); }
-    .module strong { font-size:24px; }
-    .module span { color:var(--muted); font-weight:700; line-height:1.35; }
+    .module strong { font-size:22px; }
+    .module span { color:var(--muted); font-weight:700; line-height:1.35; margin-top:8px; }
     .planning { border-top:6px solid var(--blue); }
     .vmax { border-top:6px solid var(--purple); }
     #status { min-height:20px; color:var(--red); font-size:13px; font-weight:800; }
@@ -33,13 +33,16 @@
 <body>
   <main class="shell">
     <section class="hero">
-      <h1>Workflow Hub</h1>
+      <h1>WorkFlow Hub</h1>
       <p>Jeden login, dwa moduły operacyjne.</p>
     </section>
 
     <section class="card">
       <div class="login" id="loginBox">
-        <label>Login / imię i nazwisko<input id="login" autocomplete="username" placeholder="np. ADMIN albo Jan Kowalski"></label>
+        <label>Login / imię i nazwisko
+          <input id="login" list="usersList" autocomplete="username" placeholder="np. ADMIN albo Jan Kowalski">
+          <datalist id="usersList"></datalist>
+        </label>
         <label>PIN / hasło<input id="pin" type="password" autocomplete="current-password" placeholder="PIN"></label>
         <button onclick="login()">Zaloguj</button>
       </div>
@@ -50,54 +53,148 @@
       </div>
     </section>
 
-    <section class="modules" id="modules">
-      <a class="module planning" href="/planner">
-        <strong>Workflow - Planning</strong>
-        <span>Panel pracownika, powiadomienia, planner tygodniowy, dzienny live, zespół, dossier i CMS.</span>
-      </a>
-      <a class="module vmax" href="/vmax">
-        <strong>Workflow V-MAX</strong>
-        <span>Terminal pracy, sesje live, aktywności, sprzęt i raporty V-MAX. Dane pozostają niezależne operacyjnie.</span>
-      </a>
-    </section>
+    <section class="modules" id="modules"></section>
   </main>
 
   <script>
+    const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'TEAM_LEADER'];
+
     async function api(endpoint, body) {
-      const res = await fetch('/api' + endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+      const res = await fetch('/api' + endpoint, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body)
+      });
       if(!res.ok) throw new Error((await res.json()).detail || 'Błąd logowania');
       return res.json();
     }
+
+    async function loadUsersList() {
+      try {
+        const res = await fetch('/api/public');
+        if(!res.ok) return;
+        const data = await res.json();
+        const users = Array.isArray(data.employees) ? data.employees : [];
+        document.getElementById('usersList').innerHTML = users.map(u => `<option value="${u}">`).join('');
+      } catch (_) {}
+    }
+
+    function canUseAdminMode(role) {
+      return ADMIN_ROLES.includes((role || '').toUpperCase());
+    }
+
+    function saveWorkflowUser(payload) {
+      const data = { ...payload, login_time: new Date().toISOString() };
+      localStorage.setItem('workflowUser', JSON.stringify(data));
+      return data;
+    }
+
+    function setEntryModeAndGo(mode, path) {
+      localStorage.setItem('workflowEntryMode', mode);
+      window.location.href = path;
+    }
+
+    function renderModules(user) {
+      const isAdminCapable = canUseAdminMode(user.role);
+      const modules = [
+        {
+          cls: 'planning',
+          title: 'WorkFlow Planner',
+          desc: 'Wejście pracownika: dyspozycje, grafiki i podgląd.',
+          mode: 'EMPLOYEE',
+          path: '/planner'
+        },
+        {
+          cls: 'vmax',
+          title: 'WorkFlow V-Max',
+          desc: 'Wejście pracownika: terminal pracy, sesje i historia.',
+          mode: 'EMPLOYEE',
+          path: '/vmax'
+        }
+      ];
+
+      if (isAdminCapable) {
+        modules.push(
+          {
+            cls: 'planning',
+            title: 'WorkFlow Planner',
+            desc: 'Wejście admina: zarządzanie zespołem, HR i ustawienia.',
+            mode: 'ADMIN',
+            path: '/planner'
+          },
+          {
+            cls: 'vmax',
+            title: 'WorkFlow V-Max',
+            desc: 'Wejście admina: live sesje, alerty, raporty i baza.',
+            mode: 'ADMIN',
+            path: '/vmax'
+          }
+        );
+      }
+
+      document.getElementById('modules').innerHTML = modules.map(m => `
+        <button type="button" class="module ${m.cls}" onclick="setEntryModeAndGo('${m.mode}','${m.path}')">
+          <strong>${m.title}</strong>
+          <span>${m.desc}</span>
+        </button>
+      `).join('');
+    }
+
     function showModules(user) {
       document.getElementById('loginBox').style.display = 'none';
       document.getElementById('modules').style.display = 'grid';
       document.getElementById('whoBox').style.display = 'flex';
       document.getElementById('whoText').innerText = `${user.name} (${user.role})`;
       document.getElementById('status').innerText = '';
+      renderModules(user);
     }
+
     async function login() {
       const username = document.getElementById('login').value.trim();
       const pin = document.getElementById('pin').value.trim();
-      if(!username || !pin) { document.getElementById('status').innerText = 'Podaj login i PIN.'; return; }
+      if(!username || !pin) {
+        document.getElementById('status').innerText = 'Podaj login i PIN.';
+        return;
+      }
       try {
         let user;
-        try { user = await api('/auth/login', { username, pin, role:'ADMIN' }); }
-        catch(e) { user = await api('/auth/login', { username, pin, role:'EMPLOYEE' }); }
-        localStorage.setItem('workflowUser', JSON.stringify(user));
-        showModules(user);
+        try {
+          user = await api('/auth/login', { username, pin, role:'ADMIN' });
+        } catch(_) {
+          user = await api('/auth/login', { username, pin, role:'EMPLOYEE' });
+        }
+        const savedUser = saveWorkflowUser(user);
+        showModules(savedUser);
       } catch(e) {
         document.getElementById('status').innerText = e.message;
       }
     }
+
     function logout() {
       localStorage.removeItem('workflowUser');
+      localStorage.removeItem('workflowEntryMode');
       document.getElementById('loginBox').style.display = 'grid';
       document.getElementById('modules').style.display = 'none';
       document.getElementById('whoBox').style.display = 'none';
+      document.getElementById('status').innerText = '';
+      document.getElementById('login').value = '';
       document.getElementById('pin').value = '';
     }
-    const saved = localStorage.getItem('workflowUser');
-    if(saved) showModules(JSON.parse(saved));
+
+    async function init() {
+      await loadUsersList();
+      const saved = localStorage.getItem('workflowUser');
+      if(!saved) return;
+      try {
+        const user = JSON.parse(saved);
+        showModules(user);
+      } catch(_) {
+        localStorage.removeItem('workflowUser');
+        localStorage.removeItem('workflowEntryMode');
+      }
+    }
+
+    init();
   </script>
 </body>
 </html>
