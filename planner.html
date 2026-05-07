@@ -345,6 +345,23 @@
             flex-direction: column; align-items: center; justify-content: center;
             font-size: 11px; font-weight: 700; cursor: pointer;
         }
+        .status-pill {
+            margin-top: 4px;
+            padding: 2px 6px;
+            border-radius: 8px;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: 0.2px;
+            color: #fff;
+        }
+        .tile-pulse {
+            animation: tilePulse 1.6s infinite;
+        }
+        @keyframes tilePulse {
+            0% { box-shadow: 0 0 0 0 rgba(255,149,0,0.35); }
+            70% { box-shadow: 0 0 0 8px rgba(255,149,0,0); }
+            100% { box-shadow: 0 0 0 0 rgba(255,149,0,0); }
+        }
 
         /* ==========================================
            MODALE
@@ -661,23 +678,35 @@
                 <select id="plannerMasterFilter" onchange="syncPlannerGroupFilter(); renderPlanner();" style="font-weight:600; min-width:170px;">
                     <option value="ALL">Wszystkie master grupy</option>
                 </select>
-                <select id="plannerGroupFilter" onchange="renderPlanner()" style="font-weight:600; min-width:170px;">
+                <select id="plannerGroupFilter" onchange="syncPlannerBrushActivities(false); renderPlanner()" style="font-weight:600; min-width:170px;">
                     <option value="ALL">Wszystkie grupy</option>
                 </select>
-                <select id="plannerAvailabilitySort" onchange="renderPlanner()" style="font-weight:600; min-width:170px;">
-                    <option value="name">Sortuj: nazwisko</option>
-                    <option value="availability">Sortuj: dostępność od</option>
+                <select id="plannerPeopleFilter" onchange="renderPlanner()" style="font-weight:600; min-width:210px;">
+                    <option value="all">Filtr osób: Wszystkie osoby</option>
+                    <option value="planned">Filtr osób: Osoby zaplanowane</option>
+                    <option value="unplanned">Filtr osób: Osoby bez planu</option>
+                    <option value="avail_yes">Filtr osób: Zgłosili dostępność</option>
+                    <option value="avail_no">Filtr osób: Nie zgłosili dostępności</option>
                 </select>
                 <select id="plannerZoom" onchange="setPlannerZoom()" style="font-weight:600; min-width:100px;">
                     <option value="0.8">80%</option>
                     <option value="1" selected>100%</option>
                     <option value="1.2">120%</option>
                 </select>
+                <select id="plannerBrushScope" onchange="syncPlannerBrushActivities(true)" style="font-weight:600; min-width:210px;">
+                    <option value="ALL">Aktywności pędzla: Wszystkie aktywności</option>
+                    <option value="GROUP">Aktywności pędzla: Aktywności wybranej grupy</option>
+                </select>
+                <label style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; background:rgba(0,0,0,0.03); padding:8px 10px; border-radius:10px;">
+                    <input id="plannerShowRatings" type="checkbox" checked onchange="renderPlanner()" style="accent-color:var(--ios-blue);">
+                    Pokaż oceny
+                </label>
                 <div style="background:rgba(0,0,0,0.03); padding:5px; border-radius:14px; display:flex; gap:5px; align-items:center;">
                     <select id="brushAct" style="background:transparent; border:none; font-weight:700; color:var(--ios-blue); min-width:120px;"></select>
                     <input type="text" id="brushHrs" list="dlShifts" placeholder="Godziny..." style="width:100px;">
                     <button id="bBtn" onclick="toggleBrush()" style="background:white; border:1px solid rgba(0,0,0,0.1); padding:10px 15px; border-radius:10px; font-weight:800; font-size:12px;">PĘDZEL: WYŁ</button>
                 </div>
+                <span id="plannerBrushHint" style="font-size:11px; color:var(--ios-orange); font-weight:700;"></span>
                 <button class="btn-main" style="background:var(--ios-purple);" onclick="openM('massModal')">🚀 Masowo</button>
             </div>
             <div class="planner-scroll">
@@ -945,6 +974,55 @@
         <button class="btn-main" onclick="applyMass()" style="width:100%;">Zapisz</button>
     </div>
 
+    <div id="plannerTileModal" class="modal" style="max-width:560px;">
+        <h2 style="margin-top:0;">Edycja kafelka grafiku</h2>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+            <div>
+                <div style="font-size:11px; color:var(--text-muted); font-weight:800;">Pracownik</div>
+                <input id="ptEmp" readonly style="width:100%; font-weight:700;">
+            </div>
+            <div>
+                <div style="font-size:11px; color:var(--text-muted); font-weight:800;">Data</div>
+                <input id="ptDate" readonly style="width:100%; font-weight:700;">
+            </div>
+        </div>
+        <div style="margin-bottom:10px;">
+            <div style="font-size:11px; color:var(--text-muted); font-weight:800;">Aktywność</div>
+            <select id="ptAct" style="width:100%;"></select>
+        </div>
+        <div style="margin-bottom:10px;">
+            <div style="font-size:11px; color:var(--text-muted); font-weight:800;">Godziny</div>
+            <input id="ptHrs" list="dlShifts" placeholder="np. 07:00-15:00" style="width:100%;">
+        </div>
+        <div style="margin-bottom:10px;">
+            <div style="font-size:11px; color:var(--text-muted); font-weight:800;">Status</div>
+            <select id="ptStatus" onchange="toggleLateFields()" style="width:100%;">
+                <option value="NORMAL">NORMAL — Normalny plan</option>
+                <option value="NO_SHOW">NO_SHOW — No Show</option>
+                <option value="LATE">LATE — Spóźnienie</option>
+                <option value="AD_HOC">AD_HOC — Ad-Hoc</option>
+                <option value="CHORY">CHORY — Chory</option>
+                <option value="URLOP">URLOP — Urlop</option>
+                <option value="WOLNE">WOLNE — Wolne</option>
+            </select>
+        </div>
+        <div id="ptLateWrap" style="display:none; margin-bottom:10px; background:rgba(0,0,0,0.03); border-radius:10px; padding:10px;">
+            <div style="font-size:11px; color:var(--text-muted); font-weight:800; margin-bottom:6px;">Dane dla statusu LATE</div>
+            <div class="input-group" style="margin-bottom:0;">
+                <input id="ptLateMinutes" type="number" min="1" placeholder="Minuty spóźnienia">
+                <input id="ptArrivalTime" type="text" placeholder="Godzina przyjścia, np. 07:18">
+            </div>
+        </div>
+        <div style="margin-bottom:14px;">
+            <div style="font-size:11px; color:var(--text-muted); font-weight:800;">Notatka statusu</div>
+            <textarea id="ptNote" rows="3" placeholder="Notatka opcjonalna..." style="width:100%;"></textarea>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-main" onclick="savePlannerTileEdit()" style="flex:1; background:var(--ios-green);">Zapisz zmiany</button>
+            <button class="btn-main" onclick="closeM()" style="background:var(--bg-color); color:var(--text-main); box-shadow:none;">Anuluj</button>
+        </div>
+    </div>
+
     <div id="copyDayModal" class="modal">
         <h2 style="color:var(--ios-orange);">Skopiuj układ dnia</h2>
         <p>Źródło: <b id="copySourceDateStr"></b></p>
@@ -1010,7 +1088,18 @@
     let currentHrEmp = "";
     let currentAdminName = "";
     let currentAdminRole = "";
+    let plannerTileCtx = { name: "", date: "" };
     const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"];
+    const SYSTEM_ACTIVITY_NAMES = ["Chory 🤒", "Urlop 🌴", "Wolne 🏠", "No Show ❌"];
+    const STATUS_META = {
+        NORMAL: { label: "NORMAL", color: "#0A84FF", bg: "rgba(10,132,255,0.12)", pulse: false },
+        NO_SHOW: { label: "NO_SHOW", color: "#FF3B30", bg: "rgba(255,59,48,0.15)", pulse: false },
+        LATE: { label: "LATE", color: "#FF9500", bg: "rgba(255,149,0,0.2)", pulse: true },
+        AD_HOC: { label: "AD_HOC", color: "#34C759", bg: "rgba(52,199,89,0.18)", pulse: true },
+        CHORY: { label: "CHORY", color: "#FF9500", bg: "rgba(255,149,0,0.18)", pulse: false },
+        URLOP: { label: "URLOP", color: "#7D5FFF", bg: "rgba(125,95,255,0.2)", pulse: false },
+        WOLNE: { label: "WOLNE", color: "#8E8E93", bg: "rgba(142,142,147,0.2)", pulse: false }
+    };
 
     function canUseAdminMode(role) {
         return ADMIN_ROLES.includes(String(role || "").toUpperCase());
@@ -1141,6 +1230,87 @@ function hexToRgba(hex, alpha) {
         const groups = getManagedGroups();
         if(!masterName || masterName === "ALL") return groups;
         return groups.filter(g => (g.master || "Bez master grupy") === masterName);
+    }
+
+    function parsePlanValue(raw) {
+        const parts = String(raw || "||").split("||");
+        return {
+            act: parts[0] || "Wyczyść",
+            hrs: parts[1] || "",
+            override: parts[2] || "0"
+        };
+    }
+
+    function isRealActivity(act) {
+        const a = String(act || "").trim();
+        return a !== "" && a !== "Brak planu" && a !== "Wyczyść";
+    }
+
+    function groupAccentColor(groupName) {
+        const g = groupByName(groupName || "Nieprzypisani");
+        return (g && g.color) ? g.color : "#0A84FF";
+    }
+
+    function getStatusByKey(planKey) {
+        const row = (dbAdmin.scheduleStatusMap || {})[planKey];
+        if(!row || !row.status) return { status: "NORMAL", note: "" };
+        const normalized = String(row.status).toUpperCase();
+        return { status: STATUS_META[normalized] ? normalized : "NORMAL", note: row.note || "" };
+    }
+
+    function mapStatusToDefaultActivity(status) {
+        const s = String(status || "").toUpperCase();
+        if(s === "CHORY") return "Chory 🤒";
+        if(s === "URLOP") return "Urlop 🌴";
+        if(s === "WOLNE") return "Wolne 🏠";
+        if(s === "NO_SHOW") return "No Show ❌";
+        return "";
+    }
+
+    function getPlannerScopedActivities() {
+        const allActs = ["Wyczyść", ...(dbAdmin.plannerActivities || [])];
+        const scope = document.getElementById('plannerBrushScope')?.value || "ALL";
+        const master = document.getElementById('plannerMasterFilter')?.value || "ALL";
+        const group = document.getElementById('plannerGroupFilter')?.value || "ALL";
+        if(scope !== "GROUP") return { activities: allActs, fallback: false };
+
+        let pool = [];
+        if(group !== "ALL") {
+            const g = groupByName(group);
+            pool = (g && Array.isArray(g.activities)) ? g.activities.slice() : [];
+        } else if(master !== "ALL") {
+            const groupsInMaster = getGroupsForMaster(master);
+            const uniq = new Set();
+            groupsInMaster.forEach(g => (g.activities || []).forEach(a => uniq.add(a)));
+            pool = Array.from(uniq);
+        } else {
+            pool = [];
+        }
+        const filtered = pool.filter(Boolean);
+        if(filtered.length === 0) {
+            return { activities: allActs, fallback: true };
+        }
+        return { activities: ["Wyczyść", ...filtered], fallback: false };
+    }
+
+    function syncPlannerBrushActivities(showMessage = false) {
+        const brushSel = document.getElementById('brushAct');
+        const massSel = document.getElementById('massAct');
+        if(!brushSel || !massSel) return;
+        const prevBrush = brushSel.value;
+        const prevMass = massSel.value;
+        const scoped = getPlannerScopedActivities();
+        brushSel.innerHTML = scoped.activities.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+        massSel.innerHTML = scoped.activities.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+        if(prevBrush && scoped.activities.includes(prevBrush)) brushSel.value = prevBrush;
+        if(prevMass && scoped.activities.includes(prevMass)) massSel.value = prevMass;
+        const hint = document.getElementById('plannerBrushHint');
+        if(hint) {
+            hint.innerText = scoped.fallback ? "Brak przypisanych aktywności dla wybranego zakresu. Pokazano wszystkie aktywności." : "";
+        }
+        if(showMessage && scoped.fallback) {
+            showT("Brak aktywności dla wybranego zakresu. Użyto wszystkich aktywności.");
+        }
     }
 
     function availabilityStart(hrs) {
@@ -1463,11 +1633,9 @@ function hexToRgba(hex, alpha) {
         const data = await apiCall('/admin/data');
         if(!data) return; 
         dbAdmin = data;
+        if(!dbAdmin.scheduleStatusMap) dbAdmin.scheduleStatusMap = {};
         
         // Ładowanie opcji CMS
-        const acts = ["Wyczyść", ...data.plannerActivities];
-        document.getElementById('brushAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
-        document.getElementById('massAct').innerHTML = acts.map(a => `<option value="${a}">${a}</option>`).join('');
         document.getElementById('dlShifts').innerHTML = data.shifts.map(s => `<option value="${s}">${s}</option>`).join('');
         
         // Dropdown Daily Live
@@ -1490,6 +1658,7 @@ function hexToRgba(hex, alpha) {
         }
 
         syncPlannerFilters();
+        syncPlannerBrushActivities(false);
 
         // Dropdowny HR
         const hrFilter = document.getElementById('hrGroupSelect');
@@ -1878,8 +2047,9 @@ function hexToRgba(hex, alpha) {
         document.getElementById('dailyAvailableList').innerHTML = avail.map(e => { 
             const aHrs = dbAdmin.availMap[`${e.name}_${dStr}`];
             const safeGroup = e.group || "Nieprzypisani";
+            const gColor = groupAccentColor(safeGroup);
             return `
-                <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
+                <div class="emp-card" style="border-left:4px solid ${gColor};" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
                     <span>
                         <b style="font-size:14px; color:var(--text-main);">${e.name}</b> 
                         <span style="font-size:10px; color:gray; display:block;">${safeGroup}</span>
@@ -1902,8 +2072,9 @@ function hexToRgba(hex, alpha) {
             const list = dailyData[act].map(e => {
                 const rating = clampRating(dbAdmin.ratingsMap[`${e.name}_${act}`], 2);
                 let starColor = rating === 1 ? 'var(--ios-red)' : (rating >= 4 ? 'var(--ios-green)' : 'var(--ios-blue)');
+                const gColor = groupAccentColor(e.group || "Nieprzypisani");
                 return `
-                    <div class="emp-card" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
+                    <div class="emp-card" style="border-left:4px solid ${gColor};" draggable="true" ondragstart="dragDaily(event, '${e.name}')" ondragend="dragEndDaily(event)" onclick="openMobileAssign('${e.name}')">
                         <span style="font-size:14px; font-weight:600; color:var(--text-main);">${e.name}</span>
                         <span style="background:rgba(0,0,0,0.04); color:${starColor}; padding:4px 8px; border-radius:8px; font-size:11px; font-weight:800;">⭐ ${rating}</span>
                     </div>`;
@@ -2006,6 +2177,7 @@ function hexToRgba(hex, alpha) {
             getGroupsForMaster(masterSel.value).map(g => `<option value="${escapeHtml(g.name)}">${escapeHtml(g.name)}</option>`).join('');
         groupSel.value = currentGroup;
         if(!groupSel.value) groupSel.value = "ALL";
+        syncPlannerBrushActivities(false);
     }
 
     function setPlannerZoom() {
@@ -2023,7 +2195,8 @@ function hexToRgba(hex, alpha) {
         const days = new Date(2026, m+1, 0).getDate();
         const masterFilter = document.getElementById('plannerMasterFilter') ? document.getElementById('plannerMasterFilter').value : "ALL";
         const groupFilter = document.getElementById('plannerGroupFilter') ? document.getElementById('plannerGroupFilter').value : "ALL";
-        const sortMode = document.getElementById('plannerAvailabilitySort') ? document.getElementById('plannerAvailabilitySort').value : "name";
+        const peopleFilter = document.getElementById('plannerPeopleFilter') ? document.getElementById('plannerPeopleFilter').value : "all";
+        const showRatings = !!document.getElementById('plannerShowRatings')?.checked;
         
         let hHtml = '<th class="sticky-col sticky-row" style="z-index:30;">Pracownik</th>';
         for(let d=1; d<=days; d++) { 
@@ -2040,20 +2213,31 @@ function hexToRgba(hex, alpha) {
             if(groupFilter !== "ALL" && e.group !== groupFilter) return false;
             return true;
         });
-        if(sortMode === "availability") {
-            plannerEmployees.sort((a, b) => {
-                const aBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${a.name}_${formatDateKey(2026, m, i + 1)}`])));
-                const bBest = Math.min(...Array.from({length: days}, (_, i) => availabilityStart((dbAdmin.availMap || {})[`${b.name}_${formatDateKey(2026, m, i + 1)}`])));
-                return aBest - bBest || a.name.localeCompare(b.name);
-            });
-        } else {
-            plannerEmployees.sort((a, b) => a.name.localeCompare(b.name));
-        }
+        plannerEmployees = plannerEmployees.filter(empObj => {
+            let hasRealPlan = false;
+            let hasAvailability = false;
+            for(let d=1; d<=days; d++) {
+                const dateStr = formatDateKey(2026, m, d);
+                const key = `${empObj.name}_${dateStr}`;
+                const plan = parsePlanValue(dbAdmin.planMap[key]);
+                if(isRealActivity(plan.act)) hasRealPlan = true;
+                const req = dbAdmin.requestMap ? dbAdmin.requestMap[key] : null;
+                if((req && req.type === "Dostępny") || ((dbAdmin.availMap || {})[key])) hasAvailability = true;
+                if(hasRealPlan && hasAvailability) break;
+            }
+            if(peopleFilter === "planned") return hasRealPlan;
+            if(peopleFilter === "unplanned") return !hasRealPlan;
+            if(peopleFilter === "avail_yes") return hasAvailability;
+            if(peopleFilter === "avail_no") return !hasAvailability;
+            return true;
+        });
+        plannerEmployees.sort((a, b) => a.name.localeCompare(b.name));
 
         document.getElementById('pBody').innerHTML = plannerEmployees.map(empObj => {
             const emp = empObj.name;
+            const groupColor = groupAccentColor(empObj.group);
             let rHtml = `
-            <td class="sticky-col">
+            <td class="sticky-col" style="border-left:4px solid ${groupColor};">
                 <input type="checkbox" class="chk" data-n="${emp}" style="width:20px;height:20px;accent-color:var(--ios-blue); margin:0; cursor:pointer; flex-shrink:0;"> 
                 <div style="margin-left:8px; text-align:left; overflow:hidden;">
                     <span style="font-size:10px; color:var(--ios-blue); font-weight:800; display:block;">ID: ${empObj.id}</span>
@@ -2066,13 +2250,15 @@ function hexToRgba(hex, alpha) {
                 const dateStr = formatDateKey(2026, m, d);
                 const key = `${emp}_${dateStr}`;
                 
-                // Zabezpieczenie przed błędem, gdy pracownik nie ma wpisu
-                const valStr = dbAdmin.planMap[key] || "||"; 
-                const parts = valStr.split("||");
-                const act = parts[0] || "Wyczyść";
-                const hrs = parts[1] || "";
-                
-                const col = getTileColor(act);
+                const plan = parsePlanValue(dbAdmin.planMap[key]);
+                const act = plan.act || "Wyczyść";
+                const hrs = plan.hrs || "";
+                const statusData = getStatusByKey(key);
+                const statusMeta = STATUS_META[statusData.status] || STATUS_META.NORMAL;
+                const statusActive = statusData.status !== "NORMAL";
+                const baseColor = statusActive
+                    ? { bg: statusMeta.bg, c: statusMeta.color, shadow: `0 4px 12px ${hexToRgba(statusMeta.color, 0.25)}` }
+                    : getTileColor(act);
                 
                 let availHint = ""; 
                 const req = dbAdmin.requestMap ? dbAdmin.requestMap[key] : null;
@@ -2080,12 +2266,31 @@ function hexToRgba(hex, alpha) {
                     const reqColor = req.type === "Dostępny" ? "var(--ios-green)" : "var(--ios-orange)";
                     availHint = `<div style="font-size:9px; color:${reqColor}; margin-top:3px; font-weight:800; background:rgba(52,199,89,0.1); padding:2px 4px; border-radius:4px;">${escapeHtml(req.type)} ${escapeHtml(req.hrs || '')} (${escapeHtml(req.status)})</div>`;
                 }
+
+                let ratingHtml = "";
+                if(showRatings && isRealActivity(act)) {
+                    const ratingRaw = dbAdmin.ratingsMap ? dbAdmin.ratingsMap[`${emp}_${act}`] : undefined;
+                    if(ratingRaw === undefined || ratingRaw === null || ratingRaw === "") {
+                        ratingHtml = `<div style="font-size:9px; font-weight:900; margin-top:3px; background:rgba(142,142,147,0.18); color:var(--text-muted); padding:2px 6px; border-radius:8px;">Ocena: —</div>`;
+                    } else {
+                        const ratingVal = clampRating(ratingRaw, 2);
+                        const rHex = ratingVal <= 1 ? "#FF3B30" : (ratingVal >= 4 ? "#34C759" : "#0A84FF");
+                        ratingHtml = `<div style="font-size:9px; font-weight:900; margin-top:3px; background:${hexToRgba(rHex, 0.16)}; color:${rHex}; padding:2px 6px; border-radius:8px;">Ocena: ${ratingVal}/4</div>`;
+                    }
+                }
+
+                const statusPill = statusActive
+                    ? `<div class="status-pill" style="background:${statusMeta.color};" title="${escapeHtml(statusData.note || '')}">${statusMeta.label}</div>`
+                    : "";
+                const pulseClass = statusActive && statusMeta.pulse ? "tile-pulse" : "";
                 
                 rHtml += `
                 <td class="${isW ? 'weekend-col' : ''}" onclick="cClk('${emp}','${dateStr}',this)">
-                    <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow};">
-                        ${act === 'Wyczyść' ? '' : act}
-                        <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
+                    <div class="tile ${pulseClass}" style="background:${baseColor.bg}; color:${baseColor.c}; box-shadow:${baseColor.shadow}; border:1px solid ${hexToRgba(groupColor, 0.5)};">
+                        ${act === 'Wyczyść' ? '' : escapeHtml(act)}
+                        <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : escapeHtml(hrs)}</div>
+                        ${ratingHtml}
+                        ${statusPill}
                         ${availHint}
                     </div>
                 </td>`;
@@ -2096,7 +2301,10 @@ function hexToRgba(hex, alpha) {
     }
   
     async function cClk(n, dateStr, td) {
-        if(!isBrush) return;
+        if(!isBrush) {
+            openPlannerTileModal(n, dateStr);
+            return;
+        }
         const sel = Array.from(document.querySelectorAll('.chk:checked')).map(c => c.dataset.n); 
         if(sel.length > 0 && !sel.includes(n)) return;
         
@@ -2110,11 +2318,92 @@ function hexToRgba(hex, alpha) {
         
         td.innerHTML = `
             <div class="tile" style="background:${col.bg}; color:${col.c}; box-shadow:${col.shadow}; transform:scale(0.9);">
-                ${act === 'Wyczyść' ? '' : act}
-                <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : hrs}</div>
+                ${act === 'Wyczyść' ? '' : escapeHtml(act)}
+                <div style="font-size:9px; opacity:0.8; margin-top:2px;">${act === 'Wyczyść' ? '' : escapeHtml(hrs)}</div>
             </div>`;
         setTimeout(() => td.querySelector('.tile').style.transform = 'scale(1)', 50); 
-        await apiCall('/admin/planner/save', 'POST', { names: [n], start: dateStr, end: dateStr, activity: act, hours: hrs });
+        const res = await apiCall('/admin/planner/save', 'POST', { names: [n], start: dateStr, end: dateStr, activity: act, hours: hrs });
+        if(res && res.ok) renderPlanner();
+    }
+
+    function openPlannerTileModal(empName, dateStr) {
+        plannerTileCtx = { name: empName, date: dateStr };
+        const key = `${empName}_${dateStr}`;
+        const current = parsePlanValue(dbAdmin.planMap[key]);
+        const statusData = getStatusByKey(key);
+        const acts = ["Wyczyść", ...(dbAdmin.plannerActivities || [])];
+        const actSel = document.getElementById('ptAct');
+        actSel.innerHTML = acts.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+        const statusDefaultAct = mapStatusToDefaultActivity(statusData.status);
+        const initialAct = isRealActivity(current.act) ? current.act : (statusDefaultAct || "Wyczyść");
+        actSel.value = acts.includes(initialAct) ? initialAct : "Wyczyść";
+        if(!actSel.value) actSel.value = "Wyczyść";
+
+        document.getElementById('ptEmp').value = empName;
+        document.getElementById('ptDate').value = dateStr;
+        document.getElementById('ptHrs').value = current.hrs || "";
+        document.getElementById('ptStatus').value = statusData.status || "NORMAL";
+        document.getElementById('ptNote').value = statusData.note || "";
+        document.getElementById('ptLateMinutes').value = "";
+        document.getElementById('ptArrivalTime').value = "";
+        if((statusData.status || "").toUpperCase() === "LATE" && statusData.note) {
+            const m = String(statusData.note).match(/([0-9]{1,3})\s*min/i);
+            const t = String(statusData.note).match(/([0-2]?[0-9]:[0-5][0-9])/);
+            if(m) document.getElementById('ptLateMinutes').value = m[1];
+            if(t) document.getElementById('ptArrivalTime').value = t[1];
+        }
+        toggleLateFields();
+        openM('plannerTileModal');
+    }
+
+    function toggleLateFields() {
+        const status = document.getElementById('ptStatus')?.value || "NORMAL";
+        const wrap = document.getElementById('ptLateWrap');
+        if(!wrap) return;
+        wrap.style.display = status === "LATE" ? "block" : "none";
+    }
+
+    async function savePlannerTileEdit() {
+        const name = plannerTileCtx.name;
+        const date = plannerTileCtx.date;
+        if(!name || !date) return;
+
+        let activity = document.getElementById('ptAct').value || "Wyczyść";
+        let hours = (document.getElementById('ptHrs').value || "").trim();
+        const status = (document.getElementById('ptStatus').value || "NORMAL").toUpperCase();
+        let note = (document.getElementById('ptNote').value || "").trim();
+        const lateMinutes = (document.getElementById('ptLateMinutes').value || "").trim();
+        const arrivalTime = (document.getElementById('ptArrivalTime').value || "").trim();
+
+        if(status === "LATE") {
+            if(lateMinutes) note = `Spóźnienie ${lateMinutes} min`;
+            else if(arrivalTime) note = `Przyszedł o ${arrivalTime}`;
+        }
+        const autoAct = mapStatusToDefaultActivity(status);
+        if(autoAct && (!activity || activity === "Wyczyść")) {
+            activity = autoAct;
+        }
+        if(status === "AD_HOC" && !isRealActivity(activity)) {
+            return showT("Dla statusu AD_HOC wybierz aktywność.");
+        }
+        if(activity === "Wyczyść") {
+            hours = "";
+        }
+
+        showT("⏳ Zapisywanie kafelka...");
+        const resPlan = await apiCall('/admin/planner/save', 'POST', { names: [name], start: date, end: date, activity: activity, hours: hours });
+        if(!resPlan || !resPlan.ok) return;
+        const resStatus = await apiCall('/admin/planner/status', 'POST', { name: name, date: date, status: status, status_note: note, updated_by: currentAdminName || "" });
+        if(!resStatus || !resStatus.ok) return;
+
+        const key = `${name}_${date}`;
+        dbAdmin.planMap[key] = `${activity}||${hours}||1`;
+        dbAdmin.scheduleStatusMap = dbAdmin.scheduleStatusMap || {};
+        if(status === "NORMAL") delete dbAdmin.scheduleStatusMap[key];
+        else dbAdmin.scheduleStatusMap[key] = { status: status, note: note, updated_by: currentAdminName || "" };
+        renderPlanner();
+        closeM();
+        showT("✅ Kafelek zaktualizowany.");
     }
 
     function openMass() { openM('massModal'); }
@@ -2544,6 +2833,7 @@ function hexToRgba(hex, alpha) {
                     <summary style="font-weight:900; cursor:pointer; color:var(--ios-blue);">${escapeHtml(master)} <span style="color:gray; font-size:11px;">${groups.length} grup</span></summary>
                     ${groups.map(g => {
                         const isFlexChecked = g.is_flexible === 1 ? 'checked' : '';
+                        const gColor = g.color || "#0A84FF";
                         const safeName = g.name.replace(/[^a-zA-Z0-9_-]/g, '-');
                         const actsHtml = dbAdmin.activityNames.map(a => {
                             const isChecked = (g.activities && g.activities.includes(a)) ? 'checked' : '';
@@ -2554,6 +2844,7 @@ function hexToRgba(hex, alpha) {
                             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0;">
                                 <select onchange="liveEditGroupMaster('${escapeHtml(g.name)}', this.value)" style="font-weight:700;">${(dbAdmin.masterGroups || []).map(m => `<option value="${escapeHtml(m)}" ${m === (g.master || 'Bez master grupy') ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('')}</select>
                                 <label style="font-size:11px; font-weight:700; color:var(--ios-orange); display:inline-flex; align-items:center; gap:4px;"><input type="checkbox" onchange="liveEditGroupFlex('${escapeHtml(g.name)}', this.checked)" ${isFlexChecked} style="accent-color:var(--ios-orange);"> Elastyczna</label>
+                                <label style="font-size:11px; font-weight:700; color:var(--ios-blue); display:inline-flex; align-items:center; gap:4px;">Kolor grupy <input type="color" value="${gColor}" onchange="liveEditGroupColor('${escapeHtml(g.name)}', this.value)" style="width:28px; height:24px; padding:0; border:none; background:transparent; cursor:pointer;"></label>
                                 <button onclick="delSet('group','${escapeHtml(g.name)}')" style="${bS}">Usun</button>
                             </div>
                             <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px;">${actsHtml || '<span style="font-size:12px; color:gray;">Brak aktywnosci</span>'}</div>
@@ -2579,7 +2870,8 @@ function hexToRgba(hex, alpha) {
             }
 
             // AKTYWNOŚCI
-            document.getElementById('cmsActList').innerHTML = dbAdmin.activityNames.map(a => {
+            const editableActivities = (dbAdmin.activityNames || []).filter(a => !SYSTEM_ACTIVITY_NAMES.includes(a));
+            document.getElementById('cmsActList').innerHTML = editableActivities.map(a => {
                 const cColor = (dbAdmin.activityColors && dbAdmin.activityColors[a]) ? dbAdmin.activityColors[a] : '#0A84FF';
                 return `
                 <div style="display:flex; justify-content:space-between; padding:15px; border-bottom:1px solid var(--border); align-items:center;">
@@ -2589,7 +2881,7 @@ function hexToRgba(hex, alpha) {
                     </div> 
                     <button onclick="delSet('activity','${a}')" style="${bS}">Usuń</button>
                 </div>`
-            }).join('');
+            }).join('') + `<div style="font-size:11px; color:var(--text-muted); padding:10px 0;">Kolory aktywności systemowych (Chory, Urlop, Wolne, No Show) są zablokowane.</div>`;
                 
             // ZMIANY (SHIFTS)
             document.getElementById('cmsShiftList').innerHTML = dbAdmin.shifts.map(s => `
@@ -2609,6 +2901,10 @@ function hexToRgba(hex, alpha) {
     }
     
     async function liveEditActivityColor(actName, newColor) { 
+        if(SYSTEM_ACTIVITY_NAMES.includes(actName)) {
+            showT("Kolor aktywności systemowej jest zablokowany.");
+            return;
+        }
         dbAdmin.activityColors[actName] = newColor; 
         await apiCall('/admin/settings', 'POST', { action: 'EDIT_ACTIVITY_COLOR', value: actName, color: newColor }); 
         showT("✅ Zapisano kolor!"); 
@@ -2625,6 +2921,16 @@ function hexToRgba(hex, alpha) {
         if(res && res.ok) {
             showT("Zmieniono master grupe.");
             loadAdminData();
+        }
+    }
+
+    async function liveEditGroupColor(grpName, colorHex) {
+        const res = await apiCall('/admin/settings', 'POST', { action: 'EDIT_GROUP_COLOR', value: grpName, color: colorHex });
+        if(res && res.ok) {
+            const g = (dbAdmin.groups || []).find(x => x.name === grpName);
+            if(g) g.color = colorHex;
+            showT("Zmieniono kolor grupy.");
+            renderPlanner();
         }
     }
 
