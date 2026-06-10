@@ -356,6 +356,65 @@
       margin: 0 12px 0 0;
       transform: scale(1.35);
     }
+    .demo-info-box {
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 2px solid var(--primary);
+      border-radius: 14px;
+      background: linear-gradient(135deg, #eff6ff 0%, #e8f0fe 100%);
+      color: var(--primary);
+    }
+    .demo-info-box h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      color: var(--primary);
+    }
+    .demo-info-box p {
+      margin: 8px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .demo-account {
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      background: #fff;
+      border-left: 4px solid var(--success);
+    }
+    .demo-account b {
+      color: var(--primary);
+    }
+    .tooltip-icon {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      line-height: 24px;
+      text-align: center;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      font-weight: bold;
+      font-size: 14px;
+      margin-left: 6px;
+      cursor: help;
+      position: relative;
+    }
+    .tooltip-icon:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: normal;
+      white-space: nowrap;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
     @media (max-width: 760px) {
       .card {
         padding: 16px;
@@ -379,8 +438,30 @@
 </head>
 <body>
   <div id="loginModal">
-    <div class="card" style="max-width:450px; margin:40px auto;">
+    <div class="card" style="max-width:500px; margin:20px auto;">
       <div class="main-title">Rejestrator Czasu Pracy</div>
+      
+      <div class="demo-info-box">
+        <h3>🎯 Witaj!</h3>
+        <p><b>Cieszę się, że sprawdzasz moją aplikację webową!</b> Rejestrator to intuicyjny system do śledzenia czasu pracy pracowników, zaprojektowany aby był prosty w obsłudze bez potrzeby szkolenia.</p>
+        <p style="margin-top: 14px; font-size: 13px;"><b>Konta demonstracyjne:</b></p>
+        <div class="demo-account">
+          <b>👤 Pracownik:</b> login: <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">demo</code> | hasło: <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">demo</code>
+        </div>
+        <div class="demo-account">
+          <b>👨‍💼 Admin:</b> login: <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">demo admin</code> | hasło: <code style="background:#f0f0f0; padding:2px 6px; border-radius:4px;">admin</code>
+        </div>
+        <p style="margin-top: 14px; font-size: 13px;"><b>ℹ️ O aplikacji:</b></p>
+        <ul style="margin: 8px 0; padding-left: 20px; font-size: 13px;">
+          <li>Pracownicy mogą śledzić swój czas pracy w czasie rzeczywistym</li>
+          <li>Administratorzy mają dostęp do pełnych raportów i analityki</li>
+          <li>System automatycznie oblicza godziny brutto i netto (minus przerwy)</li>
+          <li>Na kontach demo dostępne są dymki pomocne wyjaśniające każdą funkcję</li>
+          <li>Interfejs jest w pełni responsywny - działa na komputerach, tabletach i telefonach</li>
+          <li><b>💡 Docelowo:</b> Rejestrator może być używany na skanerach (np. Zebra) lub telefonach pracowników (połączenie przez WiFi)</li>
+        </ul>
+      </div>
+
       <div class="login-autocomplete">
         <input id="userSelectInput" autocomplete="off" placeholder="Wpisz login..." style="text-align:center; font-weight:800;" aria-autocomplete="list" aria-controls="loginSuggestions" aria-expanded="false">
         <div id="loginSuggestions" class="login-suggestions hidden" role="listbox"></div>
@@ -402,9 +483,10 @@
       <div id="statusBanner" class="status-box">Status...</div>
 
       <div id="startSection" style="display:none;">
-        <button class="btn-success" style="height:65px; font-size:19px;" onclick="action('START')">ROZPOCZNIJ DZIEŃ</button>
+        <button class="btn-success" style="height:65px; font-size:19px;" onclick="action('START')">ROZPOCZNIJ DZIEŃ <span class="tooltip-icon" data-tooltip="Kliknij aby zacząć dzień pracy">?</span></button>
       </div>
       <div id="taskSection" style="display:none;">
+        <label>Wybierz aktywność: <span class="tooltip-icon" data-tooltip="Zmień na bieżącą aktywność">?</span></label>
         <select id="taskSelect"></select>
         <button class="btn-warn" onclick="correctLastTask()">Popraw ostatnią aktywność</button>
         <button class="btn-primary" onclick="action('TASK')">ZATWIERDŹ ZMIANĘ</button>
@@ -415,13 +497,13 @@
 
     <div class="card">
       <div class="section-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-        <h4 style="margin:0;">TWOJA HISTORIA</h4>
+        <h4 style="margin:0;">TWOJA HISTORIA <span class="tooltip-icon" data-tooltip="Brutto - całkowity czas, Netto - bez przerw">?</span></h4>
         <div id="monthTotalBadge" class="total-pill">Suma: 0h 0m</div>
       </div>
       <input type="month" id="histMonth" onchange="loadUserData()" style="margin-top:15px;">
       <table>
         <thead>
-          <tr><th>Zadanie</th><th>Godziny</th><th style="text-align:right;">Suma</th></tr>
+          <tr><th>Zadanie</th><th>Godziny</th><th style="text-align:right;">Brutto</th></tr>
         </thead>
         <tbody id="histTableBody"></tbody>
       </table>
@@ -450,7 +532,7 @@
 
       <div id="tab-live" class="tab-content active" style="padding:10px;">
         <div class="section-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px;">
-          <h4 style="margin:0; color:var(--success);">Zarządzaj zespołem</h4>
+          <h4 style="margin:0; color:var(--success);">Zarządzaj zespołem <span class="tooltip-icon" data-tooltip="Podgląd aktywnych pracowników">?</span></h4>
           <button class="btn-danger" style="width:auto; margin:0; padding:10px; color:#fff; background:var(--danger);" onclick="closeAllLiveSessions()">ZAMKNIJ WSZYSTKIE</button>
         </div>
         <div class="bulk-actions">
@@ -461,7 +543,7 @@
       </div>
 
       <div id="tab-alerty" class="tab-content" style="padding:10px;">
-        <h4 style="color:var(--danger);">Centrum zgłoszeń i alertów</h4>
+        <h4 style="color:var(--danger);">Centrum zgłoszeń i alertów <span class="tooltip-icon" data-tooltip="Powiadomienia systemowe → Zgłoszenia → Odpowiedzi">?</span></h4>
         <div class="bulk-actions">
           <button class="btn-primary" onclick="loadAdminAlerts()">Odśwież</button>
           <button class="btn-warn" onclick="dismissSelectedAlerts()">Usuń zaznaczone</button>
@@ -477,7 +559,7 @@
         </div>
         <select id="adUser"><option value="Wszyscy">Wszyscy pracownicy</option></select>
         <div class="bulk-actions">
-          <button class="btn-primary" onclick="loadAdminReports()">Podgląd raportu</button>
+          <button class="btn-primary" onclick="loadAdminReports()">Podgląd raportu <span class="tooltip-icon" data-tooltip="Brutto i Netto godziny">?</span></button>
           <button class="btn-success" onclick="promptExport('FULL', document.getElementById('ad1').value, document.getElementById('ad2').value)">Pobierz raport</button>
           <button class="btn-danger" onclick="promptExport('HR', document.getElementById('ad1').value, document.getElementById('ad2').value)">Pobierz plik HR</button>
         </div>
@@ -489,7 +571,7 @@
           <div style="flex:1;"><label>OD</label><input type="date" id="prodDate1"></div>
           <div style="flex:1;"><label>DO</label><input type="date" id="prodDate2"></div>
         </div>
-        <button class="btn-success" onclick="loadEfficiency()">POKAŻ RAPORT ANALITYCZNY</button>
+        <button class="btn-success" onclick="loadEfficiency()">POKAŻ RAPORT ANALITYCZNY <span class="tooltip-icon" data-tooltip="Wydajność zespołu i produkcja">?</span></button>
         <div id="chartContainer" class="chart-container">
           <h4>Podział pracy zespołu</h4>
           <div class="chart-wrapper"><canvas id="prodChart"></canvas></div>
@@ -507,7 +589,7 @@
       <div id="tab-edycja" class="tab-content" style="padding:10px;">
         <select id="adEditUser"><option value="">-- Pracownik --</option></select>
         <input type="date" id="adEditDate">
-        <button class="btn-primary" onclick="loadAdminEditLogs()">POBIERZ WPISY DO EDYCJI</button>
+        <button class="btn-primary" onclick="loadAdminEditLogs()">POBIERZ WPISY DO EDYCJI <span class="tooltip-icon" data-tooltip="Edycja wpisów z wybranego dnia">?</span></button>
         <div id="adminEditResults"></div>
       </div>
 
@@ -549,6 +631,7 @@
     const state = {
       currentUser: "",
       currentRole: "",
+      isDemo: false,
       admins: [],
       employees: [],
       activities: [],
@@ -566,11 +649,17 @@
       error: (title, text = "") => Swal.fire({ title, text, icon: "error" }),
       loading: (title) => Swal.fire({ title, allowOutsideClick: false, didOpen: () => Swal.showLoading() }),
       close: () => Swal.close(),
+      demoWarning: (title) => Swal.fire({ title, icon: "warning", text: "Konta demonstracyjne mają ograniczoną funkcjonalność." }),
     };
 
     async function apiCall(endpoint, method = "GET", body = null) {
       const options = { method, headers: { "Content-Type": "application/json" } };
-      if (body !== null) options.body = JSON.stringify(body);
+      if (body !== null) {
+        if (!body.requester_username && state.currentUser) {
+          body.requester_username = state.currentUser;
+        }
+        options.body = JSON.stringify(body);
+      }
       const response = await fetch(API_URL + endpoint, options);
       const rawText = await response.text();
       let payload = null;
@@ -740,17 +829,18 @@
         const user = await apiCall("/auth/login", "POST", { username, pin });
         state.currentUser = user.name;
         state.currentRole = String(user.role || "EMPLOYEE").toUpperCase();
+        state.isDemo = user.is_demo || false;
         document.getElementById("loginModal").style.display = "none";
 
         if (isAdmin()) {
           document.getElementById("userView").style.display = "none";
           document.getElementById("adminView").style.display = "block";
-          document.getElementById("adminNameDisplay").textContent = `(${state.currentUser})`;
+          document.getElementById("adminNameDisplay").textContent = `(${state.currentUser})${state.isDemo ? ' [DEMO]' : ''}`;
           await Promise.all([loadActiveSessions(), loadAdminAlerts(), loadConfig()]);
         } else {
           document.getElementById("adminView").style.display = "none";
           document.getElementById("userView").style.display = "block";
-          document.getElementById("userNameDisplay").textContent = state.currentUser;
+          document.getElementById("userNameDisplay").textContent = state.currentUser + (state.isDemo ? ' [DEMO]' : '');
           await loadUserData();
           startMessageAgent();
         }
@@ -766,6 +856,7 @@
       }
       state.currentUser = "";
       state.currentRole = "";
+      state.isDemo = false;
       document.getElementById("userView").style.display = "none";
       document.getElementById("adminView").style.display = "none";
       document.getElementById("loginModal").style.display = "block";
@@ -777,7 +868,7 @@
 
     function renderUserHistory(payload) {
       const banner = document.getElementById("statusBanner");
-      if (payload.currentTask) {
+      if (payload.currentTask && payload.currentTask.name !== "START") {
         banner.className = "status-box status-on";
         banner.textContent = `TRWA: ${payload.currentTask.name}`;
         document.getElementById("startSection").style.display = "none";
@@ -826,8 +917,17 @@
 
     async function action(type, specific = null) {
       if (isAdmin() || !state.currentUser) return;
+      if (state.isDemo && type === "STOP") {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       if (type === "STOP" && !confirm("Zakończyć pracę?")) return;
-      const task = specific || document.getElementById("taskSelect").value || "Kompletacja Zamówień";
+      
+      let task = "";
+      if (type === "TASK") {
+        task = specific || document.getElementById("taskSelect").value || "Kompletacja Zamówień";
+      }
+      
       const payload = await apiCall("/user/action", "POST", {
         username: state.currentUser,
         type,
@@ -839,6 +939,10 @@
     }
 
     async function correctLastTask() {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       const options = {};
       state.activities.forEach((activity) => { options[activity] = activity; });
       const result = await Swal.fire({
@@ -876,6 +980,10 @@
     }
 
     async function changeMyPin() {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       const oldPin = await Swal.fire({
         title: "Stary PIN",
         input: "password",
@@ -957,6 +1065,10 @@
     }
 
     async function sendAdminMessage() {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       const selected = Array.from(document.querySelectorAll(".msg-checkbox:checked"))
         .map((checkbox) => checkbox.value);
       const receivers = selected.length ? selected : ["ALL"];
@@ -971,15 +1083,23 @@
         receivers,
         content: result.value,
       });
-      notify.success(`Wysłano: ${response.sent || 0}`);
+      notify.success(`Wysłano: ${response.sent}`);
     }
 
     async function closeLiveSession(username) {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       await apiCall("/admin/live-session/close", "POST", { username });
       await loadActiveSessions();
     }
 
     async function closeAllLiveSessions() {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       const result = await Swal.fire({
         title: "Zamknąć wszystkie aktywne sesje?",
         icon: "warning",
@@ -992,357 +1112,415 @@
     }
 
     async function editLiveSession(username, task, start) {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       const options = state.activities
         .map((activity) => `<option value="${activity}" ${activity === task ? "selected" : ""}>${activity}</option>`)
         .join("");
       const result = await Swal.fire({
         title: `Edytuj sesję: ${username}`,
         html: `
-          <label style="display:block; text-align:left;">Aktywność</label>
-          <select id="liveTask" class="swal2-input" style="width:90%;">${options}</select>
-          <label style="display:block; text-align:left;">Godzina startu</label>
-          <input id="liveStart" type="time" class="swal2-input" style="width:90%;" value="${start}">
+          <label style="display:block; margin:10px 0; text-align:left;">Aktywność</label>
+          <select id="editTaskSelect" style="width:100%; padding:8px; margin:10px 0; border:1px solid #ddd; border-radius:6px;">
+            ${options}
+          </select>
+          <label style="display:block; margin:10px 0; text-align:left;">Godzina startu (HH:MM)</label>
+          <input type="time" id="editStartTime" value="${start}" style="width:100%; padding:8px; margin:10px 0; border:1px solid #ddd; border-radius:6px;">
         `,
         showCancelButton: true,
         confirmButtonText: "Zapisz",
-        preConfirm: () => ({
-          task: document.getElementById("liveTask").value,
-          start_time: document.getElementById("liveStart").value,
-        }),
+        didOpen: () => {
+          document.getElementById("editTaskSelect").value = task;
+        },
       });
       if (!result.isConfirmed) return;
+      const newTask = document.getElementById("editTaskSelect").value;
+      const newStart = document.getElementById("editStartTime").value;
       await apiCall("/admin/live-session/edit", "POST", {
         username,
-        ...result.value,
+        task: newTask,
+        start_time: newStart,
       });
       await loadActiveSessions();
     }
 
     async function loadAdminAlerts() {
       if (!isAdmin()) return;
-      state.currentAlerts = await apiCall("/admin/alerts");
-      renderAdminAlerts();
-    }
-
-    function renderAdminAlerts() {
-      if (!state.currentAlerts.length) {
-        document.getElementById("adminAlertsResults").innerHTML =
-          '<div class="empty-box" style="color:var(--success);">Skrzynka pusta.</div>';
-        return;
-      }
-      const grouped = {};
-      state.currentAlerts.forEach((alert) => {
-        if (!grouped[alert.date]) grouped[alert.date] = [];
-        grouped[alert.date].push(alert);
-      });
+      const alerts = await apiCall("/admin/alerts");
+      state.currentAlerts = alerts;
+      
       let html = "";
-      Object.keys(grouped).sort((a, b) => b.localeCompare(a)).forEach((date) => {
-        html += `<div class="day-sep-admin">${date}</div>`;
-        grouped[date].forEach((alert) => {
-          html += `
-            <div class="alert-card">
-              <div style="display:flex; align-items:center;">
-                <input type="checkbox" class="alert-checkbox" data-type="${alert.type}" value="${alert.id}">
-                <div>${alert.text}</div>
+      alerts.forEach((alert) => {
+        let icon = "🔔";
+        let border = "#3949ab";
+        if (alert.type === "sys") {
+          icon = "⚠️";
+          border = "#f29900";
+        } else if (alert.type === "prob") {
+          icon = "🆘";
+          border = "#d93025";
+        }
+        html += `
+          <div class="alert-card">
+            <div style="display:flex; align-items:center;">
+              <input type="checkbox" class="alert-checkbox" value='${JSON.stringify(alert)}' data-id="${alert.id}" data-type="${alert.type}">
+              <div style="margin-left:12px;">
+                <span style="font-weight:800; margin-right:8px;">${icon}</span>
+                <b>${alert.text}</b><br>
+                <small style="color:#666;">${alert.date}</small>
               </div>
-            </div>`;
-        });
+            </div>
+          </div>
+        `;
       });
-      document.getElementById("adminAlertsResults").innerHTML = html;
+      document.getElementById("adminAlertsResults").innerHTML =
+        html || '<div class="empty-box">Brak alertów</div>';
     }
 
     async function dismissSelectedAlerts() {
-      const alerts = Array.from(document.querySelectorAll(".alert-checkbox:checked"))
-        .map((checkbox) => ({ type: checkbox.dataset.type, id: checkbox.value }));
-      if (!alerts.length) {
-        notify.error("Zaznacz alerty");
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
         return;
       }
-      await apiCall("/admin/alerts/dismiss-all", "POST", { alerts });
+      const selected = Array.from(document.querySelectorAll(".alert-checkbox:checked"))
+        .map((checkbox) => JSON.parse(checkbox.value));
+      if (!selected.length) {
+        notify.error("Brak zaznaczonych alertów");
+        return;
+      }
+      await apiCall("/admin/alerts/dismiss-all", "POST", { alerts: selected });
       await loadAdminAlerts();
+      notify.success("Alerty usunięte");
     }
 
     async function dismissAllAlerts() {
-      if (!state.currentAlerts.length) return;
-      await apiCall("/admin/alerts/dismiss-all", "POST", {
-        alerts: state.currentAlerts.map((alert) => ({ type: alert.type, id: alert.id })),
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
+      const result = await Swal.fire({
+        title: "Wyczyścić wszystkie alerty?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Tak",
       });
+      if (!result.isConfirmed) return;
+      await apiCall("/admin/alerts/dismiss-all", "POST", { alerts: state.currentAlerts });
       await loadAdminAlerts();
+      notify.success("Alerty wyczyszczone");
     }
 
     async function loadAdminReports() {
+      if (!isAdmin()) return;
+      const date1 = document.getElementById("ad1").value;
+      const date2 = document.getElementById("ad2").value;
+      const user = document.getElementById("adUser").value;
       const reports = await apiCall("/admin/reports", "POST", {
-        d1: document.getElementById("ad1").value,
-        d2: document.getElementById("ad2").value,
-        user: document.getElementById("adUser").value,
+        d1: date1,
+        d2: date2,
+        user,
       });
+
       let html = "";
-      Object.entries(reports).forEach(([username, report]) => {
-        const grouped = {};
-        report.logi.forEach((entry) => {
-          if (!grouped[entry.data]) grouped[entry.data] = [];
-          grouped[entry.data].push(entry);
-        });
-        let content = "";
-        Object.keys(grouped).sort((a, b) => b.localeCompare(a)).forEach((date) => {
-          const dayMinutes = grouped[date].reduce((sum, entry) => sum + parseTime(entry.czas), 0);
-          content += `<div class="day-sep-admin"><span>${date}</span><span>Σ ${formatMins(dayMinutes)}</span></div><table>`;
-          grouped[date].forEach((entry) => {
-            content += `<tr><td><b>${entry.zadanie}</b></td><td>${entry.start}-${entry.koniec}</td><td style="text-align:right;">${entry.czas}</td></tr>`;
-          });
-          content += "</table>";
-        });
+      Object.entries(reports).forEach(([username, data]) => {
         html += `
           <div class="admin-report-worker-block">
-            <details>
-              <summary><span>${username}</span><span class="total-pill">${report.totalStr}</span></summary>
-              <div style="padding:15px;">${content}</div>
-            </details>
-          </div>`;
+            <summary>
+              <span>${username}</span>
+              <span style="color:var(--primary); font-weight:900;">
+                Brutto: ${data.totalStr_brutto} | Netto: ${data.totalStr_netto}
+              </span>
+            </summary>
+            <table style="margin:0;">
+              <thead>
+                <tr>
+                  <th>Aktywność</th>
+                  <th>Data</th>
+                  <th>Godziny</th>
+                  <th style="text-align:right;">Brutto</th>
+                  <th style="text-align:right;">Netto</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.logi.map((log) => `
+                  <tr>
+                    <td><b>${log.zadanie}</b></td>
+                    <td>${log.data}</td>
+                    <td>${log.start}-${log.koniec}</td>
+                    <td style="text-align:right;">${log.czas_brutto}</td>
+                    <td style="text-align:right;">${log.czas_netto}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
       });
       document.getElementById("adminResults").innerHTML =
-        html || '<div class="empty-box">Brak danych w wybranym okresie.</div>';
+        html || '<div class="empty-box">Brak danych</div>';
     }
 
     async function loadEfficiency() {
+      if (!isAdmin()) return;
+      const date1 = document.getElementById("prodDate1").value;
+      const date2 = document.getElementById("prodDate2").value;
       state.productivity = await apiCall("/admin/productivity", "POST", {
-        d1: document.getElementById("prodDate1").value,
-        d2: document.getElementById("prodDate2").value,
+        d1: date1,
+        d2: date2,
       });
-      const activities = Object.keys(state.productivity.chartData || {});
-      if (!activities.length) {
-        document.getElementById("chartContainer").style.display = "none";
-        document.getElementById("prodActivitySelect").style.display = "none";
-        document.getElementById("efficiencyList").innerHTML =
-          '<div class="empty-box">Brak danych analitycznych.</div>';
-        return;
-      }
 
       document.getElementById("chartContainer").style.display = "block";
-      document.getElementById("prodActivitySelect").style.display = "block";
-      document.getElementById("headcountBadges").innerHTML = Object.entries(state.productivity.headcount || {})
-        .map(([activity, count]) => `<span class="headcount-badge">${activity}: ${count} os.</span>`)
-        .join("");
 
+      const ctx = document.getElementById("prodChart");
       if (state.chart) state.chart.destroy();
-      state.chart = new Chart(document.getElementById("prodChart"), {
+      state.chart = new Chart(ctx, {
         type: "doughnut",
         data: {
-          labels: activities,
+          labels: Object.keys(state.productivity.chartData),
           datasets: [{
-            data: activities.map((activity) => state.productivity.chartData[activity]),
-            backgroundColor: ["#0b57d0", "#188038", "#f29900", "#8e24aa", "#b3261e", "#009688"],
+            data: Object.values(state.productivity.chartData),
+            backgroundColor: [
+              "#0b57d0", "#188038", "#f29900", "#00897b", "#8e24aa",
+              "#6d4c41", "#d93025", "#0097a7", "#3949ab", "#5f6368",
+            ],
           }],
         },
-        options: { maintainAspectRatio: false },
+        options: { responsive: true, maintainAspectRatio: false },
       });
 
-      const totalPackages = Object.values(state.productivity.packingStats || {})
-        .reduce((sum, item) => sum + (parseInt(item.paczki, 10) || 0), 0);
-      const totalProducts = Object.values(state.productivity.packingStats || {})
-        .reduce((sum, item) => sum + (parseInt(item.produkty, 10) || 0), 0);
-      const totals = document.getElementById("prodDailyTotals");
-      totals.style.display = "block";
-      totals.innerHTML = `Paczki: <b>${totalPackages}</b> | Produkty: <b>${totalProducts}</b>`;
+      let badges = "";
+      Object.entries(state.productivity.headcount).forEach(([task, count]) => {
+        badges += `<span class="headcount-badge">${task}: ${count} os.</span>`;
+      });
+      document.getElementById("headcountBadges").innerHTML = badges;
 
-      const select = document.getElementById("prodActivitySelect");
-      select.innerHTML = activities.map((activity) => `<option value="${activity}">${activity}</option>`).join("");
-      if (activities.includes("Pakowanie Paczek")) select.value = "Pakowanie Paczek";
+      document.getElementById("prodActivitySelect").innerHTML =
+        Object.keys(state.productivity.chartData).map((activity) =>
+          `<option value="${activity}">${activity}</option>`
+        ).join("");
+      document.getElementById("prodActivitySelect").style.display = "block";
       renderEfficiencyList();
     }
 
     function renderEfficiencyList() {
       if (!state.productivity) return;
       const activity = document.getElementById("prodActivitySelect").value;
-      const singleDay = document.getElementById("prodDate1").value === document.getElementById("prodDate2").value;
-      const rows = [];
-      Object.entries(state.productivity.workerDetails || {}).forEach(([username, details]) => {
-        const minutes = details[activity];
-        if (!minutes) return;
-        const safeId = username.replace(/\W+/g, "");
-        const stats = state.productivity.packingStats?.[username] || { paczki: 0, produkty: 0 };
-        if (activity === "Pakowanie Paczek" && singleDay) {
-          rows.push(`
-            <div class="efficiency-card worker-prod-card" data-worker="${username}" data-mins="${minutes}">
-              <b>${username} (${formatMins(minutes)})</b>
-              <div class="efficiency-grid" style="margin-top:12px;">
-                <div><label>Paczki</label><input id="paczki_${safeId}" type="number" value="${stats.paczki || 0}"></div>
-                <div><label>Produkty</label><input id="produkty_${safeId}" type="number" value="${stats.produkty || 0}"></div>
-                <div class="efficiency-stats">Czas pracy: ${formatMins(minutes)}</div>
+      const workers = state.productivity.workerDetails || {};
+      let html = "";
+      Object.entries(workers).forEach(([worker, tasks]) => {
+        if (tasks[activity]) {
+          html += `
+            <div class="efficiency-card">
+              <div>
+                <b>${worker}</b><br>
+                <small>${activity}: ${formatMins(tasks[activity])}</small>
               </div>
-            </div>`);
-        } else {
-          rows.push(`<div class="efficiency-card"><b>${username}</b>: ${formatMins(minutes)}</div>`);
+              <div style="display:flex; gap:6px; align-items:center;">
+                <input type="number" id="paczki_${worker}" placeholder="Paczki" style="width:80px; padding:8px; margin:0;">
+                <input type="number" id="produkty_${worker}" placeholder="Produkty" style="width:100px; padding:8px; margin:0;">
+              </div>
+            </div>
+          `;
         }
       });
-      document.getElementById("efficiencyList").innerHTML =
-        rows.join("") || '<div class="empty-box">Brak pracowników dla tej aktywności.</div>';
-      document.getElementById("efficiencyActions").style.display =
-        activity === "Pakowanie Paczek" && singleDay ? "block" : "none";
+      document.getElementById("efficiencyList").innerHTML = html;
+      document.getElementById("efficiencyActions").style.display = html ? "block" : "none";
     }
 
     async function saveAllEfficiency() {
-      const updates = Array.from(document.querySelectorAll(".worker-prod-card")).map((card) => {
-        const username = card.dataset.worker;
-        const safeId = username.replace(/\W+/g, "");
-        return {
-          worker: username,
-          mins: card.dataset.mins,
-          paczki: document.getElementById(`paczki_${safeId}`).value || 0,
-          produkty: document.getElementById(`produkty_${safeId}`).value || 0,
-        };
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
+      const date = document.getElementById("prodDate1").value;
+      const updates = [];
+      Object.keys(state.productivity.workerDetails || {}).forEach((worker) => {
+        const paczki = document.getElementById(`paczki_${worker}`)?.value || 0;
+        const produkty = document.getElementById(`produkty_${worker}`)?.value || 0;
+        if (paczki || produkty) {
+          updates.push({ worker, paczki, produkty, mins: 0 });
+        }
       });
-      await apiCall("/admin/save-productivity", "POST", {
-        date: document.getElementById("prodDate1").value,
-        updates,
-      });
-      notify.success("Wyniki zapisane");
-      await loadEfficiency();
+      if (!updates.length) {
+        notify.error("Brak danych do zapisania");
+        return;
+      }
+      await apiCall("/admin/save-productivity", "POST", { date, updates });
+      notify.success("Wyniki pakowania zapisane");
     }
 
     async function loadAdminEditLogs() {
-      const username = document.getElementById("adEditUser").value;
+      if (!isAdmin()) return;
+      const user = document.getElementById("adEditUser").value;
       const date = document.getElementById("adEditDate").value;
-      if (!username || !date) {
+      if (!user || !date) {
         notify.error("Wybierz pracownika i datę");
         return;
       }
-      const logs = await apiCall("/admin/edit-logs", "POST", { username, date });
-      const rows = logs.map((log) => `
-        <div class="admin-edit-row" id="editRow_${log.id}">
-          <div style="margin-bottom:8px; color:#666; font-size:12px;">ID wpisu: ${log.id}</div>
-          <label>Aktywność</label>
-          <input id="editTask_${log.id}" value="${log.zadanie}">
-          <div class="section-row" style="display:flex; gap:10px;">
-            <div style="flex:1;"><label>Start</label><input id="editStart_${log.id}" type="time" value="${log.start}"></div>
-            <div style="flex:1;"><label>Koniec</label><input id="editEnd_${log.id}" type="time" value="${log.koniec}"></div>
+      const logs = await apiCall("/admin/edit-logs", "POST", { username: user, date });
+      let html = "";
+      logs.forEach((log) => {
+        html += `
+          <div class="admin-edit-row">
+            <div>
+              <b>${log.zadanie}</b><br>
+              <small>${log.start} - ${log.koniec}</small>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="task_${log.id}" value="${log.zadanie}" placeholder="Zadanie" style="width:150px; padding:8px; margin:0;">
+              <input type="time" id="start_${log.id}" value="${log.start.replace(':',':').slice(0,5)}" style="width:100px; padding:8px; margin:0;">
+              <input type="time" id="end_${log.id}" value="${log.koniec.replace(':',':').slice(0,5)}" style="width:100px; padding:8px; margin:0;">
+              <button onclick='updateLogItem(${log.id}, "${date}")' style="width:auto; margin:0; padding:8px 12px; background:var(--success); color:#fff;">Zapisz</button>
+            </div>
           </div>
-        </div>`).join("");
-      document.getElementById("adminEditResults").innerHTML =
-        rows
-          ? `${rows}<button class="btn-success" onclick="saveAdminEdits()">ZAPISZ ZMIANY</button>`
-          : '<div class="empty-box">Brak wpisów.</div>';
+        `;
+      });
+      document.getElementById("adminEditResults").innerHTML = html || '<div class="empty-box">Brak wpisów</div>';
     }
 
-    async function saveAdminEdits() {
-      const updates = Array.from(document.querySelectorAll(".admin-edit-row")).map((row) => {
-        const id = row.id.replace("editRow_", "");
-        return {
-          id,
-          task: document.getElementById(`editTask_${id}`).value,
-          start: document.getElementById(`editStart_${id}`).value,
-          end: document.getElementById(`editEnd_${id}`).value,
-        };
-      });
+    async function updateLogItem(logId, date) {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
+      const task = document.getElementById(`task_${logId}`).value;
+      const start = document.getElementById(`start_${logId}`).value;
+      const end = document.getElementById(`end_${logId}`).value;
       await apiCall("/admin/update-batch", "POST", {
-        date: document.getElementById("adEditDate").value,
-        updates,
+        date,
+        updates: [{ id: logId, task, start, end }],
       });
-      notify.success("Zmiany zapisane");
+      notify.success("Wpis zaktualizowany");
       await loadAdminEditLogs();
     }
 
-    async function promptExport(exportType, dateFrom, dateTo) {
-      const result = await Swal.fire({
-        title: "Wybierz format",
-        showDenyButton: true,
+    async function promptExport(type, d1, d2) {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
+      const format = type === "PROD" ? "csv" : await Swal.fire({
+        title: "Format pliku",
+        input: "select",
+        inputOptions: { csv: "CSV", xlsx: "Excel" },
         showCancelButton: true,
-        confirmButtonText: "Excel",
-        denyButtonText: "CSV",
-        cancelButtonText: "Anuluj",
-      });
-      let format = "";
-      if (result.isConfirmed) format = "xlsx";
-      if (result.isDenied) format = "csv";
+      }).then(r => r.isConfirmed ? (r.value || "csv") : null);
       if (!format) return;
-      const response = await apiCall("/admin/export", "POST", {
-        export_type: exportType,
-        format,
-        d1: dateFrom,
-        d2: dateTo,
-      });
-      window.location.href = response.url;
-    }
-
-    async function promptBackupExport() {
-      const result = await Swal.fire({
-        title: "Format kopii",
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: "JSON",
-        denyButtonText: "Excel",
-        cancelButtonText: "Anuluj",
-      });
-      let format = "";
-      if (result.isConfirmed) format = "json";
-      if (result.isDenied) format = "xlsx";
-      if (!format) return;
-      const response = await apiCall("/admin/export", "POST", {
-        export_type: "BACKUP",
-        format,
-        d1: document.getElementById("backupD1").value,
-        d2: document.getElementById("backupD2").value,
-      });
-      window.location.href = response.url;
-    }
-
-    function switchAdminTab(id, element) {
-      document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
-      document.querySelectorAll(".tab-content").forEach((content) => content.classList.remove("active"));
-      element.classList.add("active");
-      document.getElementById(`tab-${id}`).classList.add("active");
-      if (id === "live") loadActiveSessions();
-      if (id === "alerty") loadAdminAlerts();
-      if (id === "baza") loadConfig();
-    }
-
-    async function dbAdd(type) {
-      const isActivity = type === "ACTIVITY";
-      const result = await Swal.fire({
-        title: isActivity ? "Dodaj aktywność" : type === "ADMIN" ? "Dodaj administratora" : "Dodaj pracownika",
-        html: `
-          <input id="dbName" class="swal2-input" placeholder="${isActivity ? "Nazwa aktywności" : "Login"}">
-          ${isActivity ? "" : '<input id="dbPin" class="swal2-input" placeholder="PIN / hasło">'}
-        `,
-        showCancelButton: true,
-        confirmButtonText: "Dodaj",
-        preConfirm: () => ({
-          name: document.getElementById("dbName").value.trim(),
-          pin: document.getElementById("dbPin")?.value.trim() || "",
-        }),
-      });
-      if (!result.isConfirmed || !result.value.name) return;
-      const response = await apiCall("/admin/db", "POST", {
-        type,
-        action: "ADD",
-        name: result.value.name,
-        val: result.value.pin,
-      });
-      response.ok ? notify.success("Dodano") : notify.error(response.msg);
-      await loadConfig();
-    }
-
-    async function runSimulation() {
-      const confirmation = await Swal.fire({
-        title: "Wygenerować dane demonstracyjne?",
-        text: "Dotychczasowe konta pracowników, wpisy czasu i wyniki zostaną zastąpione.",
-        icon: "warning",
-        showCancelButton: true,
-        confirmButtonText: "Tak, generuj",
-        cancelButtonText: "Anuluj",
-      });
-      if (!confirmation.isConfirmed) return;
-      notify.loading("Generuję historię od 1 stycznia...");
+      notify.loading("Generowanie...");
       try {
-        const response = await apiCall("/admin/simulate", "POST", {});
-        await loadConfig();
-        notify.success(`Gotowe: ${response.workers} pracowników, ${response.logs} wpisów`);
-      } catch (error) {
-        notify.error("Nie udało się wygenerować symulacji", error.message);
+        const response = await apiCall("/admin/export", "POST", {
+          export_type: type,
+          format,
+          d1,
+          d2,
+        });
+        notify.close();
+        if (response.ok && response.url) {
+          window.location.href = response.url;
+          notify.toast("Pobieranie...");
+        }
+      } catch (e) {
+        notify.error("Błąd", e.message);
       }
     }
 
+    async function promptBackupExport() {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
+      const format = await Swal.fire({
+        title: "Format kopii",
+        input: "select",
+        inputOptions: { json: "JSON (pełna baza)", csv: "CSV (raporty)", xlsx: "Excel (raporty)" },
+        showCancelButton: true,
+      }).then(r => r.isConfirmed ? (r.value || "json") : null);
+      if (!format) return;
+      notify.loading("Generowanie...");
+      try {
+        const response = await apiCall("/admin/export", "POST", {
+          export_type: "BACKUP",
+          format,
+          d1: document.getElementById("backupD1").value,
+          d2: document.getElementById("backupD2").value,
+        });
+        notify.close();
+        if (response.ok && response.url) {
+          window.location.href = response.url;
+          notify.toast("Pobieranie...");
+        }
+      } catch (e) {
+        notify.error("Błąd", e.message);
+      }
+    }
+
+    async function runSimulation() {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
+      const result = await Swal.fire({
+        title: "Wygenerować dane demonstracyjne?",
+        text: "Obecni pracownicy zostaną zastąpieni 10 testowymi kontami.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Tak, generuj",
+      });
+      if (!result.isConfirmed) return;
+      notify.loading("Generowanie...");
+      try {
+        await apiCall("/admin/simulate", "POST", {});
+        notify.close();
+        await loadConfig();
+        notify.success("Dane wygenerowane");
+      } catch (e) {
+        notify.error("Błąd", e.message);
+      }
+    }
+
+    async function dbAdd(type) {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
+      const result = await Swal.fire({
+        title: `Dodaj ${type === "ADMIN" ? "administratora" : type === "EMPLOYEE" ? "pracownika" : "aktywność"}`,
+        input: "text",
+        inputPlaceholder: type === "ACTIVITY" ? "Nazwa aktywności" : "Nazwa użytkownika",
+        showCancelButton: true,
+      });
+      if (!result.isConfirmed || !result.value) return;
+      if (type !== "ACTIVITY") {
+        const pin = await Swal.fire({
+          title: "PIN/Hasło",
+          input: "password",
+          showCancelButton: true,
+        });
+        if (!pin.isConfirmed) return;
+        await apiCall("/admin/db", "POST", {
+          type,
+          action: "ADD",
+          name: result.value,
+          val: pin.value || "123",
+        });
+      } else {
+        await apiCall("/admin/db", "POST", {
+          type,
+          action: "ADD",
+          name: result.value,
+        });
+      }
+      await loadConfig();
+      notify.success("Dodano");
+    }
+
     async function dbDelete(type, name) {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       const result = await Swal.fire({
         title: `Usunąć ${name}?`,
         icon: "warning",
@@ -1350,48 +1528,77 @@
         confirmButtonText: "Usuń",
       });
       if (!result.isConfirmed) return;
-      const response = await apiCall("/admin/db", "POST", {
+      await apiCall("/admin/db", "POST", {
         type,
         action: "DELETE",
         name,
       });
-      response.ok ? notify.success("Usunięto") : notify.error(response.msg);
       await loadConfig();
+      notify.success("Usunięto");
     }
 
     async function dbEditPin(type, name) {
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
       const result = await Swal.fire({
-        title: `Nowy PIN: ${name}`,
+        title: `Nowy ${type === "ADMIN" ? "PIN" : "kod"}`,
         input: "password",
         showCancelButton: true,
-        confirmButtonText: "Zapisz",
       });
       if (!result.isConfirmed || !result.value) return;
-      const response = await apiCall("/admin/db", "POST", {
+      await apiCall("/admin/db", "POST", {
         type,
         action: "EDIT_PIN",
         name,
         val: result.value,
       });
-      response.ok ? notify.success("PIN zmieniony") : notify.error(response.msg);
-      await loadConfig();
+      notify.success("Hasło zmienione");
     }
 
     async function changeMyPinAdmin() {
-      await dbEditPin("ADMIN", state.currentUser);
+      if (state.isDemo) {
+        notify.demoWarning("Ograniczona funkcjonalność");
+        return;
+      }
+      const oldPin = await Swal.fire({
+        title: "Stary PIN",
+        input: "password",
+        showCancelButton: true,
+      });
+      if (!oldPin.isConfirmed) return;
+      const newPin = await Swal.fire({
+        title: "Nowy PIN",
+        input: "password",
+        showCancelButton: true,
+      });
+      if (!newPin.isConfirmed || !newPin.value) return;
+      const response = await apiCall("/auth/change-pin", "POST", {
+        username: state.currentUser,
+        oldPin: oldPin.value || "",
+        newPin: newPin.value,
+      });
+      response.ok ? notify.success(response.msg) : notify.error(response.msg);
     }
 
-    async function init() {
+    function switchAdminTab(tabName, element) {
+      document.querySelectorAll(".tab").forEach(tab => tab.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(content => content.classList.remove("active"));
+      element.classList.add("active");
+      document.getElementById(`tab-${tabName}`).classList.add("active");
+    }
+
+    window.addEventListener("load", () => {
       setupLoginAutocomplete();
-      const today = localDate();
-      document.getElementById("histMonth").value = today.slice(0, 7);
-      ["ad1", "ad2", "prodDate1", "prodDate2", "adEditDate", "backupD1", "backupD2"]
-        .forEach((id) => { document.getElementById(id).value = today; });
-      await loadConfig();
-    }
-
-    init().catch((error) => {
-      document.getElementById("loginStatus").textContent = error.message;
+      loadConfig();
+      document.getElementById("ad1").valueAsDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      document.getElementById("ad2").valueAsDate = new Date();
+      document.getElementById("prodDate1").valueAsDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      document.getElementById("prodDate2").valueAsDate = new Date();
+      document.getElementById("backupD1").valueAsDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      document.getElementById("backupD2").valueAsDate = new Date();
+      document.getElementById("histMonth").valueAsDate = new Date();
     });
   </script>
 </body>
