@@ -36,9 +36,10 @@ else:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-SCHEMA_VERSION = "rejestrator-admin-worker-v1"
-APP_VERSION = "rejestrator-2026-06-10.4"
+SCHEMA_VERSION = "rejestrator-admin-worker-v2"
+APP_VERSION = "rejestrator-2026-06-10.5"
 ADMIN_ROLES = {"ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"}
+DEMO_ACCOUNTS = {"demo", "demo admin"}
 EXPORT_DIR = Path(tempfile.gettempdir()) / "rctp_exports"
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -261,6 +262,44 @@ def ensure_seed_data(db: Session, reset_defaults: bool) -> None:
             worker.pin = "123"
         worker.global_id = worker.global_id or "00002"
 
+    # Demo konto pracownika
+    demo_worker = db.query(User).filter(User.name == "demo").first()
+    if not demo_worker:
+        db.add(
+            User(
+                global_id="00099",
+                role="EMPLOYEE",
+                name="demo",
+                pin="demo",
+                hire_date=get_now(),
+                notes="Konto demonstracyjne",
+            )
+        )
+    else:
+        demo_worker.role = "EMPLOYEE"
+        if reset_defaults:
+            demo_worker.pin = "demo"
+        demo_worker.global_id = demo_worker.global_id or "00099"
+
+    # Demo konto admina
+    demo_admin = db.query(User).filter(User.name == "demo admin").first()
+    if not demo_admin:
+        db.add(
+            User(
+                global_id="00098",
+                role="ADMIN",
+                name="demo admin",
+                pin="admin",
+                hire_date=get_now(),
+                notes="Konto demonstracyjne admina",
+            )
+        )
+    else:
+        demo_admin.role = "ADMIN"
+        if reset_defaults:
+            demo_admin.pin = "admin"
+        demo_admin.global_id = demo_admin.global_id or "00098"
+
     legacy_activity = db.query(Activity).filter(Activity.name == "Praca").first()
     if legacy_activity:
         db.delete(legacy_activity)
@@ -309,12 +348,14 @@ def html_path(filename: str) -> str:
 
 
 def user_payload(user: User) -> dict[str, Any]:
+    is_demo = user.name in DEMO_ACCOUNTS
     return {
         "ok": True,
         "name": user.name,
         "role": user.role,
         "global_id": user.global_id or "",
         "is_admin": user.role in ADMIN_ROLES,
+        "is_demo": is_demo,
     }
 
 
@@ -351,7 +392,13 @@ def history_payload(db: Session, username: str, month: str = "") -> dict[str, An
 
     history = []
     current_task = None
+    break_minutes_total = 0
+    
     for log in logs:
+        minutes = duration_minutes(log.start_time, log.end_time)
+        if "Przerwa" in log.task_name and log.end_time:
+            break_minutes_total += minutes
+            
         history.append(
             {
                 "data": log.date_str,
@@ -359,7 +406,7 @@ def history_payload(db: Session, username: str, month: str = "") -> dict[str, An
                 "start": log.start_time.strftime("%H:%M") if log.start_time else "",
                 "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa...",
                 "czas": (
-                    format_minutes(duration_minutes(log.start_time, log.end_time))
+                    format_minutes(minutes)
                     if log.end_time
                     else "-"
                 ),
@@ -468,6 +515,9 @@ def change_pin(req: dict, db: Session = Depends(get_db)):
     new_pin = clean_text(req.get("newPin"))
     user = get_user(db, username)
 
+    if user.name in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+
     if not new_pin:
         return {"ok": False, "msg": "Nowy PIN jest pusty."}
     if user.role not in ADMIN_ROLES and old_pin and user.pin != old_pin:
@@ -498,7 +548,18 @@ def user_action(req: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Nieznana akcja.")
 
     close_active_log(db, username, now)
-    if action_type in {"START", "TASK"}:
+    if action_type == "START":
+        # START - bez aktywności
+        db.add(
+            WorkLog(
+                username=username,
+                task_name="START",
+                start_time=now,
+                date_str=now.strftime("%Y-%m-%d"),
+            )
+        )
+    elif action_type == "TASK":
+        # TASK - zmiana na wybraną aktywność
         db.add(
             WorkLog(
                 username=username,
@@ -587,6 +648,8 @@ def active_sessions(db: Session = Depends(get_db)):
         .all()
     )
     for log in logs:
+        if log.task_name == "START":
+            continue
         sessions.setdefault(log.task_name, []).append(
             {
                 "user": log.username,
@@ -598,6 +661,10 @@ def active_sessions(db: Session = Depends(get_db)):
 
 @app.post("/api/admin/messages/send")
 def send_admin_message(req: dict, db: Session = Depends(get_db)):
+    username = clean_text(req.get("username"))
+    if username in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     receivers = req.get("receivers") or []
     content = clean_text(req.get("content"))
     if not content:
@@ -623,6 +690,11 @@ def send_admin_message(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/admin/live-session/close")
 def close_live_session(req: dict, db: Session = Depends(get_db)):
     username = clean_text(req.get("username"))
+    username_requester = clean_text(req.get("requester_username", ""))
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     now = get_now()
     close_active_log(db, username, now)
     create_stop_marker(db, username, now)
@@ -631,7 +703,12 @@ def close_live_session(req: dict, db: Session = Depends(get_db)):
 
 
 @app.post("/api/admin/live-session/close-all")
-def close_all_live_sessions(db: Session = Depends(get_db)):
+def close_all_live_sessions(req: dict = None, db: Session = Depends(get_db)):
+    username_requester = clean_text(req.get("requester_username", "") if req else "")
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     now = get_now()
     active_users = [
         row.username
@@ -647,6 +724,11 @@ def close_all_live_sessions(db: Session = Depends(get_db)):
 @app.post("/api/admin/live-session/edit")
 def edit_live_session(req: dict, db: Session = Depends(get_db)):
     username = clean_text(req.get("username"))
+    username_requester = clean_text(req.get("requester_username", ""))
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     active = (
         db.query(WorkLog)
         .filter(WorkLog.username == username, WorkLog.end_time.is_(None))
@@ -670,42 +752,8 @@ def edit_live_session(req: dict, db: Session = Depends(get_db)):
 @app.get("/api/admin/alerts")
 def admin_alerts(db: Session = Depends(get_db)):
     alerts = []
-    replies = (
-        db.query(Message)
-        .filter(
-            Message.is_read == 1,
-            Message.reply.is_not(None),
-            Message.is_archived == 0,
-        )
-        .order_by(desc(Message.timestamp))
-        .all()
-    )
-    for reply in replies:
-        alerts.append(
-            {
-                "type": "msg",
-                "id": reply.id,
-                "date": reply.timestamp.strftime("%Y-%m-%d"),
-                "text": f"{reply.receiver} odpisał: {reply.reply}",
-            }
-        )
-
-    problems = (
-        db.query(Problem)
-        .filter(Problem.is_resolved == 0)
-        .order_by(desc(Problem.timestamp))
-        .all()
-    )
-    for problem in problems:
-        alerts.append(
-            {
-                "type": "prob",
-                "id": problem.id,
-                "date": problem.timestamp.strftime("%Y-%m-%d"),
-                "text": f"PROBLEM ({problem.username}): {problem.description}",
-            }
-        )
-
+    
+    # Powiadomienia systemowe
     dismissed = {
         row.alert_key for row in db.query(AlertDismiss).all()
     }
@@ -744,11 +792,55 @@ def admin_alerts(db: Session = Depends(get_db)):
                         "text": f"{username}: przerwa trwała {break_minutes} min.",
                     }
                 )
+    
+    # Zgłoszenia pracowników
+    problems = (
+        db.query(Problem)
+        .filter(Problem.is_resolved == 0)
+        .order_by(desc(Problem.timestamp))
+        .all()
+    )
+    for problem in problems:
+        alerts.append(
+            {
+                "type": "prob",
+                "id": problem.id,
+                "date": problem.timestamp.strftime("%Y-%m-%d"),
+                "text": f"PROBLEM ({problem.username}): {problem.description}",
+            }
+        )
+    
+    # Wiadomości od pracowników
+    replies = (
+        db.query(Message)
+        .filter(
+            Message.is_read == 1,
+            Message.reply.is_not(None),
+            Message.is_archived == 0,
+        )
+        .order_by(desc(Message.timestamp))
+        .all()
+    )
+    for reply in replies:
+        alerts.append(
+            {
+                "type": "msg",
+                "id": reply.id,
+                "date": reply.timestamp.strftime("%Y-%m-%d"),
+                "text": f"{reply.receiver} odpisał: {reply.reply}",
+            }
+        )
+    
     return alerts
 
 
 @app.post("/api/admin/alerts/dismiss-all")
 def dismiss_alerts(req: dict, db: Session = Depends(get_db)):
+    username_requester = clean_text(req.get("requester_username", ""))
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     for alert in req.get("alerts") or []:
         alert_type = clean_text(alert.get("type"))
         alert_id = alert.get("id")
@@ -783,20 +875,28 @@ def admin_reports(req: dict, db: Session = Depends(get_db)):
 
     result: dict[str, dict[str, Any]] = {}
     for log in query.order_by(WorkLog.username.asc(), WorkLog.start_time.asc()).all():
+        if log.task_name in {"START", "Zakończenie pracy"}:
+            continue
         minutes = duration_minutes(log.start_time, log.end_time)
-        bucket = result.setdefault(log.username, {"total": 0, "logi": []})
-        bucket["total"] += minutes
+        break_minutes = minutes if "Przerwa" in log.task_name else 0
+        net_minutes = minutes - break_minutes if log.task_name != "Przerwa" else minutes
+        
+        bucket = result.setdefault(log.username, {"total_brutto": 0, "total_netto": 0, "logi": []})
+        bucket["total_brutto"] += minutes
+        bucket["total_netto"] += net_minutes
         bucket["logi"].append(
             {
                 "zadanie": log.task_name,
                 "data": log.date_str,
                 "start": log.start_time.strftime("%H:%M") if log.start_time else "",
                 "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
-                "czas": format_minutes(minutes) if log.end_time else "-",
+                "czas_brutto": format_minutes(minutes) if log.end_time else "-",
+                "czas_netto": format_minutes(net_minutes) if log.end_time and log.task_name != "Przerwa" else format_minutes(minutes) if log.task_name == "Przerwa" else "-",
             }
         )
     for bucket in result.values():
-        bucket["totalStr"] = format_minutes(bucket.pop("total"))
+        bucket["totalStr_brutto"] = format_minutes(bucket.pop("total_brutto"))
+        bucket["totalStr_netto"] = format_minutes(bucket.pop("total_netto"))
     return result
 
 
@@ -814,7 +914,7 @@ def admin_productivity(req: dict, db: Session = Depends(get_db)):
     worker_details: dict[str, dict[str, int]] = {}
     task_workers: dict[str, set[str]] = {}
     for log in query.all():
-        if not log.end_time or log.task_name == "Zakończenie pracy":
+        if not log.end_time or log.task_name in {"Zakończenie pracy", "START"}:
             continue
         minutes = duration_minutes(log.start_time, log.end_time)
         chart_data[log.task_name] = chart_data.get(log.task_name, 0) + minutes
@@ -849,6 +949,11 @@ def admin_productivity(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/admin/save-productivity")
 def save_productivity(req: dict, db: Session = Depends(get_db)):
+    username_requester = clean_text(req.get("requester_username", ""))
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     date_str = clean_text(req.get("date"))
     for update in req.get("updates") or []:
         username = clean_text(update.get("worker"))
@@ -925,7 +1030,12 @@ def add_simulation_segments(
 
 
 @app.post("/api/admin/simulate")
-def generate_simulation(db: Session = Depends(get_db)):
+def generate_simulation(req: dict = None, db: Session = Depends(get_db)):
+    username_requester = clean_text(req.get("requester_username", "") if req else "")
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     rng = random.Random(20260101)
     today = get_now().date()
     first_day = today.replace(month=1, day=1)
@@ -936,7 +1046,7 @@ def generate_simulation(db: Session = Depends(get_db)):
     db.query(Problem).delete(synchronize_session=False)
     db.query(Message).delete(synchronize_session=False)
     db.query(AlertDismiss).delete(synchronize_session=False)
-    db.query(User).filter(~User.role.in_(list(ADMIN_ROLES))).delete(
+    db.query(User).filter(~User.role.in_(list(ADMIN_ROLES))).filter(User.name.notin_(DEMO_ACCOUNTS)).delete(
         synchronize_session=False
     )
     db.query(Activity).delete(synchronize_session=False)
@@ -1087,6 +1197,11 @@ def edit_logs(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/admin/update-batch")
 def update_batch(req: dict, db: Session = Depends(get_db)):
+    username_requester = clean_text(req.get("requester_username", ""))
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     date_str = clean_text(req.get("date"))
     for update in req.get("updates") or []:
         log = db.query(WorkLog).filter(WorkLog.id == update.get("id")).first()
@@ -1189,6 +1304,11 @@ def save_xlsx_file(path: Path, headers: list[str], rows: list[list[Any]]) -> Non
 
 @app.post("/api/admin/export")
 def admin_export(req: dict, db: Session = Depends(get_db)):
+    username_requester = clean_text(req.get("requester_username", ""))
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     export_type = clean_text(req.get("export_type")).upper() or "FULL"
     file_format = clean_text(req.get("format")).lower() or "csv"
     date_from = clean_text(req.get("d1"))
@@ -1253,6 +1373,11 @@ def download_export(filename: str):
 
 @app.post("/api/admin/db")
 def admin_database(req: dict, db: Session = Depends(get_db)):
+    username_requester = clean_text(req.get("requester_username", ""))
+    
+    if username_requester in DEMO_ACCOUNTS:
+        return {"ok": False, "msg": "Konta demonstracyjne mają ograniczoną funkcjonalność."}
+    
     item_type = clean_text(req.get("type")).upper()
     action = clean_text(req.get("action")).upper()
     name = clean_text(req.get("name"))
