@@ -519,6 +519,9 @@
     </div>
 
     <div class="card" style="padding:10px;">
+      <div id="demoAdminNotice" class="hidden" style="padding:12px 15px; margin:0 6px 15px; border-radius:10px; color:#8a4b00; background:#fff3cd; font-weight:800;">
+        Tryb demonstracyjny: możesz przeglądać wszystkie zakładki i generować raporty. Operacje zmieniające dane są zablokowane.
+      </div>
       <div class="tabs">
         <div class="tab active" data-admin-tab="live" onclick="switchAdminTab('live', this)">Live Sesje</div>
         <div class="tab" data-admin-tab="alerty" onclick="switchAdminTab('alerty', this)">Powiadomienia</div>
@@ -530,9 +533,6 @@
       </div>
 
       <div id="tab-live" class="tab-content active" style="padding:10px;">
-        <div id="demoAdminNotice" class="hidden" style="padding:12px 15px; margin-bottom:15px; border-radius:10px; color:#8a4b00; background:#fff3cd; font-weight:800;">
-          Tryb demonstracyjny: możesz obserwować aktywne sesje, ale nie możesz ich edytować ani zamykać.
-        </div>
         <div class="section-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px;">
           <h4 style="margin:0; color:var(--success);">Zarządzaj zespołem</h4>
           <button class="btn-danger" style="width:auto; margin:0; padding:10px; color:#fff; background:var(--danger);" onclick="closeAllLiveSessions()">ZAMKNIJ WSZYSTKIE</button>
@@ -709,7 +709,7 @@
 
     function configureDemoInterface() {
       document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
-        tab.classList.toggle("hidden", isDemoAdmin() && tab.dataset.adminTab !== "live");
+        tab.classList.remove("hidden");
       });
       document.getElementById("demoAdminNotice").classList.toggle("hidden", !isDemoAdmin());
       if (isDemoAdmin()) {
@@ -881,11 +881,7 @@
           document.getElementById("adminView").style.display = "block";
           document.getElementById("adminNameDisplay").innerHTML =
             `(${state.currentUser})${state.isDemo ? '<span class="demo-badge">DEMO</span>' : ""}`;
-          if (isDemoAdmin()) {
-            await loadActiveSessions();
-          } else {
-            await Promise.all([loadActiveSessions(), loadAdminAlerts(), loadConfig()]);
-          }
+          await Promise.all([loadActiveSessions(), loadAdminAlerts(), loadConfig()]);
         } else {
           document.getElementById("adminView").style.display = "none";
           document.getElementById("userView").style.display = "block";
@@ -1463,10 +1459,6 @@
     }
 
     function switchAdminTab(id, element) {
-      if (isDemoAdmin() && id !== "live") {
-        demoLimitPopup();
-        return;
-      }
       document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach((content) => content.classList.remove("active"));
       element.classList.add("active");

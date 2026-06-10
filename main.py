@@ -37,7 +37,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 SCHEMA_VERSION = "rejestrator-admin-worker-v1"
-APP_VERSION = "rejestrator-2026-06-10.6"
+APP_VERSION = "rejestrator-2026-06-10.7"
 DEMO_ADMIN_ROLE = "DEMO_ADMIN"
 DEMO_EMPLOYEE_ROLE = "DEMO_EMPLOYEE"
 ADMIN_ROLES = {
@@ -608,7 +608,7 @@ def public_data(db: Session = Depends(get_db)):
 @app.get("/api/config")
 def config(db: Session = Depends(get_db)):
     admins = {
-        user.name: user.pin
+        user.name: ""
         for user in db.query(User)
         .filter(User.role.in_(list(ADMIN_ROLES)))
         .order_by(User.name.asc())
@@ -1494,6 +1494,13 @@ def admin_export(req: dict, db: Session = Depends(get_db)):
     file_format = clean_text(req.get("format")).lower() or "csv"
     date_from = clean_text(req.get("d1"))
     date_to = clean_text(req.get("d2"))
+    actor = clean_text(req.get("actor"))
+    demo_export = bool(
+        actor
+        and db.query(User)
+        .filter(User.name == actor, User.role == DEMO_ADMIN_ROLE)
+        .first()
+    )
     token = uuid.uuid4().hex[:10]
 
     if export_type == "BACKUP" and file_format == "json":
@@ -1505,7 +1512,7 @@ def admin_export(req: dict, db: Session = Depends(get_db)):
                     "global_id": user.global_id,
                     "name": user.name,
                     "role": user.role,
-                    "pin": user.pin,
+                    "pin": "UKRYTY W TRYBIE DEMO" if demo_export else user.pin,
                 }
                 for user in db.query(User).all()
             ],
