@@ -1274,7 +1274,7 @@ def admin_database(req: dict, db: Session = Depends(get_db)):
             )
         elif action == "DELETE":
             if name == "Piotrek":
-                return {"ok": False, "msg": "Nie można usunąć głównego administratora."}
+                return {"ok": False, "msg": "Nie można usun��ć głównego administratora."}
             if user:
                 db.delete(user)
         elif action == "EDIT_PIN":
