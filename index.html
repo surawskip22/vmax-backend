@@ -402,7 +402,7 @@
       <div id="statusBanner" class="status-box">Status...</div>
 
       <div id="startSection" style="display:none;">
-        <button class="btn-success" style="height:65px; font-size:19px;" onclick="action('START', 'Praca')">ROZPOCZNIJ DZIEŃ</button>
+        <button class="btn-success" style="height:65px; font-size:19px;" onclick="action('START')">ROZPOCZNIJ DZIEŃ</button>
       </div>
       <div id="taskSection" style="display:none;">
         <select id="taskSelect"></select>
@@ -522,6 +522,12 @@
       </div>
 
       <div id="tab-baza" class="tab-content" style="padding:10px;">
+        <div style="padding:18px; margin-bottom:24px; border:1px solid #c6dafc; border-radius:12px; background:#f4f8ff;">
+          <h4 style="margin:0 0 8px; color:var(--primary);">Dane demonstracyjne</h4>
+          <p style="margin:0 0 12px; color:#5f6368;">Tworzy 10 pracowników i wpisy od 1 stycznia do dzisiaj. Obecne dane pracowników zostaną zastąpione.</p>
+          <button class="btn-success" style="margin:0;" onclick="runSimulation()">Wygeneruj symulację 10 pracowników</button>
+        </div>
+
         <h4 style="padding-bottom:8px; border-bottom:2px solid var(--primary);">Konta administratorów</h4>
         <div id="db-admins"></div>
         <button class="btn-dark" onclick="dbAdd('ADMIN')">+ Dodaj administratora</button>
@@ -821,7 +827,7 @@
     async function action(type, specific = null) {
       if (isAdmin() || !state.currentUser) return;
       if (type === "STOP" && !confirm("Zakończyć pracę?")) return;
-      const task = specific || document.getElementById("taskSelect").value || "Praca";
+      const task = specific || document.getElementById("taskSelect").value || "Kompletacja Zamówień";
       const payload = await apiCall("/user/action", "POST", {
         username: state.currentUser,
         type,
@@ -1314,6 +1320,26 @@
       });
       response.ok ? notify.success("Dodano") : notify.error(response.msg);
       await loadConfig();
+    }
+
+    async function runSimulation() {
+      const confirmation = await Swal.fire({
+        title: "Wygenerować dane demonstracyjne?",
+        text: "Dotychczasowe konta pracowników, wpisy czasu i wyniki zostaną zastąpione.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Tak, generuj",
+        cancelButtonText: "Anuluj",
+      });
+      if (!confirmation.isConfirmed) return;
+      notify.loading("Generuję historię od 1 stycznia...");
+      try {
+        const response = await apiCall("/admin/simulate", "POST", {});
+        await loadConfig();
+        notify.success(`Gotowe: ${response.workers} pracowników, ${response.logs} wpisów`);
+      } catch (error) {
+        notify.error("Nie udało się wygenerować symulacji", error.message);
+      }
     }
 
     async function dbDelete(type, name) {

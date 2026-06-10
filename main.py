@@ -4,6 +4,7 @@ import csv
 import io
 import json
 import os
+import random
 import tempfile
 import uuid
 from datetime import datetime, timedelta
@@ -36,10 +37,36 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 SCHEMA_VERSION = "rejestrator-admin-worker-v1"
-APP_VERSION = "rejestrator-2026-06-10.3"
+APP_VERSION = "rejestrator-2026-06-10.4"
 ADMIN_ROLES = {"ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"}
 EXPORT_DIR = Path(tempfile.gettempdir()) / "rctp_exports"
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+SIMULATION_WORKERS = [
+    "pracownik",
+    "Anna Kowalska",
+    "Bartosz Nowak",
+    "Celina Wiśniewska",
+    "Daniel Wójcik",
+    "Ewa Kamińska",
+    "Filip Lewandowski",
+    "Gabriela Zielińska",
+    "Hubert Szymański",
+    "Iwona Dąbrowska",
+]
+
+SIMULATION_ACTIVITIES = [
+    ("Przerwa", "#f29900"),
+    ("Pakowanie Paczek", "#188038"),
+    ("Kompletacja Zamówień", "#0b57d0"),
+    ("Przyjęcie Towaru", "#00897b"),
+    ("Kontrola Jakości", "#8e24aa"),
+    ("Inwentaryzacja", "#6d4c41"),
+    ("Obsługa Zwrotów", "#d93025"),
+    ("Uzupełnianie Lokacji", "#0097a7"),
+    ("Załadunek Zamówień", "#3949ab"),
+    ("Dokumentacja Magazynowa", "#5f6368"),
+]
 
 
 def get_now() -> datetime:
@@ -234,13 +261,11 @@ def ensure_seed_data(db: Session, reset_defaults: bool) -> None:
             worker.pin = "123"
         worker.global_id = worker.global_id or "00002"
 
-    defaults = [
-        ("Praca", "#0b57d0"),
-        ("Przerwa", "#f29900"),
-        ("Pakowanie Paczek", "#188038"),
-        ("Inne", "#8e24aa"),
-    ]
-    for name, color in defaults:
+    legacy_activity = db.query(Activity).filter(Activity.name == "Praca").first()
+    if legacy_activity:
+        db.delete(legacy_activity)
+
+    for name, color in SIMULATION_ACTIVITIES:
         if not db.query(Activity).filter(Activity.name == name).first():
             db.add(Activity(name=name, color=color))
 
@@ -315,7 +340,7 @@ def ensure_activity(db: Session, name: str) -> str:
     if task_name:
         return task_name
     first = db.query(Activity).order_by(Activity.name.asc()).first()
-    return first.name if first else "Praca"
+    return first.name if first else "Kompletacja Zamówień"
 
 
 def history_payload(db: Session, username: str, month: str = "") -> dict[str, Any]:
@@ -843,6 +868,200 @@ def save_productivity(req: dict, db: Session = Depends(get_db)):
         row.mins = int(float(update.get("mins") or 0))
     db.commit()
     return {"ok": True}
+
+
+def split_simulation_minutes(
+    total_minutes: int,
+    parts: int,
+    rng: random.Random,
+    minimum: int = 35,
+) -> list[int]:
+    spare_minutes = max(total_minutes - parts * minimum, 0)
+    weights = [rng.random() + 0.25 for _ in range(parts)]
+    weight_total = sum(weights)
+    result = [
+        minimum + int(spare_minutes * weight / weight_total)
+        for weight in weights
+    ]
+    result[-1] += total_minutes - sum(result)
+    return result
+
+
+def add_simulation_segments(
+    db: Session,
+    username: str,
+    date_str: str,
+    start_time: datetime,
+    total_minutes: int,
+    segment_count: int,
+    activity_pool: list[str],
+    rng: random.Random,
+) -> tuple[datetime, int]:
+    current_time = start_time
+    packing_minutes = 0
+    previous_activity = ""
+    for minutes in split_simulation_minutes(total_minutes, segment_count, rng):
+        choices = [
+            activity
+            for activity in activity_pool
+            if activity != previous_activity
+        ]
+        activity = rng.choice(choices or activity_pool)
+        end_time = current_time + timedelta(minutes=minutes)
+        db.add(
+            WorkLog(
+                username=username,
+                task_name=activity,
+                start_time=current_time,
+                end_time=end_time,
+                date_str=date_str,
+            )
+        )
+        if activity == "Pakowanie Paczek":
+            packing_minutes += minutes
+        previous_activity = activity
+        current_time = end_time
+    return current_time, packing_minutes
+
+
+@app.post("/api/admin/simulate")
+def generate_simulation(db: Session = Depends(get_db)):
+    rng = random.Random(20260101)
+    today = get_now().date()
+    first_day = today.replace(month=1, day=1)
+    activity_names = [name for name, _ in SIMULATION_ACTIVITIES if name != "Przerwa"]
+
+    db.query(WorkLog).delete(synchronize_session=False)
+    db.query(Productivity).delete(synchronize_session=False)
+    db.query(Problem).delete(synchronize_session=False)
+    db.query(Message).delete(synchronize_session=False)
+    db.query(AlertDismiss).delete(synchronize_session=False)
+    db.query(User).filter(~User.role.in_(list(ADMIN_ROLES))).delete(
+        synchronize_session=False
+    )
+    db.query(Activity).delete(synchronize_session=False)
+
+    for name, color in SIMULATION_ACTIVITIES:
+        db.add(Activity(name=name, color=color))
+    db.flush()
+
+    reserved_ids = {
+        int(user.global_id)
+        for user in db.query(User).filter(User.role.in_(list(ADMIN_ROLES))).all()
+        if user.global_id and user.global_id.isdigit()
+    }
+    next_global_id = 2
+    workers: list[User] = []
+    for username in SIMULATION_WORKERS:
+        while next_global_id in reserved_ids:
+            next_global_id += 1
+        worker = User(
+            global_id=f"{next_global_id:05d}",
+            role="EMPLOYEE",
+            name=username,
+            pin="123",
+            hire_date=datetime.combine(first_day, datetime.min.time()),
+            notes="Dane demonstracyjne",
+        )
+        db.add(worker)
+        workers.append(worker)
+        reserved_ids.add(next_global_id)
+        next_global_id += 1
+    db.flush()
+
+    workdays = 0
+    productivity_count = 0
+    current_day = first_day
+    while current_day <= today:
+        if current_day.weekday() < 5:
+            workdays += 1
+            date_str = current_day.isoformat()
+            for worker_index, worker in enumerate(workers):
+                pool_start = worker_index % len(activity_names)
+                activity_pool = [
+                    activity_names[(pool_start + offset) % len(activity_names)]
+                    for offset in range(5)
+                ]
+                if "Pakowanie Paczek" not in activity_pool:
+                    activity_pool[-1] = "Pakowanie Paczek"
+
+                start_minute = 6 * 60 + 45 + rng.randint(0, 85)
+                shift_minutes = rng.randint(8 * 60, 9 * 60)
+                break_minutes = rng.randint(30, 60)
+                work_minutes = shift_minutes - break_minutes
+                before_break = rng.randint(185, 245)
+                after_break = work_minutes - before_break
+                day_start = datetime.combine(current_day, datetime.min.time()) + timedelta(
+                    minutes=start_minute
+                )
+
+                current_time, packing_before = add_simulation_segments(
+                    db,
+                    worker.name,
+                    date_str,
+                    day_start,
+                    before_break,
+                    rng.randint(2, 3),
+                    activity_pool,
+                    rng,
+                )
+                break_end = current_time + timedelta(minutes=break_minutes)
+                db.add(
+                    WorkLog(
+                        username=worker.name,
+                        task_name="Przerwa",
+                        start_time=current_time,
+                        end_time=break_end,
+                        date_str=date_str,
+                    )
+                )
+                current_time, packing_after = add_simulation_segments(
+                    db,
+                    worker.name,
+                    date_str,
+                    break_end,
+                    after_break,
+                    rng.randint(2, 3),
+                    activity_pool,
+                    rng,
+                )
+                db.add(
+                    WorkLog(
+                        username=worker.name,
+                        task_name="Zakończenie pracy",
+                        start_time=current_time,
+                        end_time=current_time,
+                        date_str=date_str,
+                    )
+                )
+
+                packing_minutes = packing_before + packing_after
+                if packing_minutes:
+                    packages = max(1, int(packing_minutes * rng.uniform(0.65, 0.95)))
+                    db.add(
+                        Productivity(
+                            date_str=date_str,
+                            username=worker.name,
+                            paczki=packages,
+                            produkty=int(packages * rng.uniform(1.4, 2.2)),
+                            mins=packing_minutes,
+                        )
+                    )
+                    productivity_count += 1
+        current_day += timedelta(days=1)
+
+    db.commit()
+    actual_log_count = db.query(WorkLog).count()
+    return {
+        "ok": True,
+        "workers": len(workers),
+        "workdays": workdays,
+        "logs": actual_log_count,
+        "productivity_rows": productivity_count,
+        "date_from": first_day.isoformat(),
+        "date_to": today.isoformat(),
+        "message": "Symulacja została wygenerowana.",
+    }
 
 
 @app.post("/api/admin/edit-logs")
