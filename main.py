@@ -37,8 +37,21 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 SCHEMA_VERSION = "rejestrator-admin-worker-v1"
-APP_VERSION = "rejestrator-2026-06-10.4"
-ADMIN_ROLES = {"ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"}
+APP_VERSION = "rejestrator-2026-06-10.6"
+DEMO_ADMIN_ROLE = "DEMO_ADMIN"
+DEMO_EMPLOYEE_ROLE = "DEMO_EMPLOYEE"
+ADMIN_ROLES = {
+    "ADMIN",
+    "SUPER_ADMIN",
+    "MANAGER",
+    "TEAM_LEADER",
+    DEMO_ADMIN_ROLE,
+}
+DAY_START_MARKER = "Rozpoczęcie dnia"
+DAY_END_MARKER = "Zakończenie pracy"
+BREAK_ACTIVITY = "Przerwa"
+DEMO_LIMIT_MESSAGE = "Konta demo mają ograniczoną funkcjonalność."
+PROTECTED_DEMO_ACCOUNTS = {"demo", "demo admin"}
 EXPORT_DIR = Path(tempfile.gettempdir()) / "rctp_exports"
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -56,7 +69,6 @@ SIMULATION_WORKERS = [
 ]
 
 SIMULATION_ACTIVITIES = [
-    ("Przerwa", "#f29900"),
     ("Pakowanie Paczek", "#188038"),
     ("Kompletacja Zamówień", "#0b57d0"),
     ("Przyjęcie Towaru", "#00897b"),
@@ -172,6 +184,29 @@ def duration_minutes(start: datetime | None, end: datetime | None) -> int:
     return max(0, int((end - start).total_seconds() / 60))
 
 
+def work_summary(
+    logs: list[WorkLog],
+    active_until: datetime | None = None,
+) -> dict[str, Any]:
+    total_minutes = 0
+    break_minutes = 0
+    for log in logs:
+        end_time = log.end_time or active_until
+        minutes = duration_minutes(log.start_time, end_time)
+        total_minutes += minutes
+        if log.task_name == BREAK_ACTIVITY:
+            break_minutes += minutes
+    worked_minutes = max(total_minutes - break_minutes, 0)
+    return {
+        "totalMinutes": total_minutes,
+        "breakMinutes": break_minutes,
+        "workedMinutes": worked_minutes,
+        "totalStr": format_minutes(total_minutes),
+        "breakStr": format_minutes(break_minutes),
+        "workedStr": format_minutes(worked_minutes),
+    }
+
+
 def get_setting(db: Session, key: str, default: str = "") -> str:
     row = db.query(GlobalSetting).filter(GlobalSetting.setting_type == key).first()
     return row.value if row else default
@@ -198,6 +233,32 @@ def generate_global_id(db: Session) -> str:
         if user.global_id and str(user.global_id).isdigit():
             max_id = max(max_id, int(user.global_id))
     return f"{max_id + 1:05d}"
+
+
+def ensure_account(
+    db: Session,
+    name: str,
+    role: str,
+    pin: str,
+    global_id: str | None = None,
+    reset_pin: bool = False,
+) -> User:
+    user = db.query(User).filter(User.name == name).first()
+    if not user:
+        user = User(
+            global_id=global_id or generate_global_id(db),
+            role=role,
+            name=name,
+            pin=pin,
+            hire_date=get_now(),
+        )
+        db.add(user)
+    else:
+        user.role = role
+        user.global_id = user.global_id or global_id or generate_global_id(db)
+        if reset_pin:
+            user.pin = pin
+    return user
 
 
 def raw_schema_version() -> str:
@@ -261,9 +322,30 @@ def ensure_seed_data(db: Session, reset_defaults: bool) -> None:
             worker.pin = "123"
         worker.global_id = worker.global_id or "00002"
 
-    legacy_activity = db.query(Activity).filter(Activity.name == "Praca").first()
-    if legacy_activity:
-        db.delete(legacy_activity)
+    db.flush()
+    ensure_account(
+        db,
+        name="demo",
+        role=DEMO_EMPLOYEE_ROLE,
+        pin="demo",
+        reset_pin=True,
+    )
+    db.flush()
+    ensure_account(
+        db,
+        name="demo admin",
+        role=DEMO_ADMIN_ROLE,
+        pin="admin",
+        reset_pin=True,
+    )
+    db.flush()
+
+    for legacy_name in {"Praca", BREAK_ACTIVITY}:
+        legacy_activity = (
+            db.query(Activity).filter(Activity.name == legacy_name).first()
+        )
+        if legacy_activity:
+            db.delete(legacy_activity)
 
     for name, color in SIMULATION_ACTIVITIES:
         if not db.query(Activity).filter(Activity.name == name).first():
@@ -315,6 +397,7 @@ def user_payload(user: User) -> dict[str, Any]:
         "role": user.role,
         "global_id": user.global_id or "",
         "is_admin": user.role in ADMIN_ROLES,
+        "is_demo": user.role in {DEMO_ADMIN_ROLE, DEMO_EMPLOYEE_ROLE},
     }
 
 
@@ -335,23 +418,72 @@ def require_employee(db: Session, username: str) -> User:
     return user
 
 
+def require_demo_write_access(user: User) -> None:
+    if user.role in {DEMO_ADMIN_ROLE, DEMO_EMPLOYEE_ROLE}:
+        raise HTTPException(status_code=403, detail=DEMO_LIMIT_MESSAGE)
+
+
+def block_demo_admin(req: dict, db: Session) -> None:
+    actor = clean_text(req.get("actor"))
+    if not actor:
+        return
+    user = get_user(db, actor)
+    if user.role == DEMO_ADMIN_ROLE:
+        raise HTTPException(status_code=403, detail=DEMO_LIMIT_MESSAGE)
+
+
 def ensure_activity(db: Session, name: str) -> str:
     task_name = clean_text(name)
-    if task_name:
+    if task_name in {BREAK_ACTIVITY, DAY_START_MARKER, DAY_END_MARKER}:
+        raise HTTPException(status_code=400, detail="Wybierz zwykłą aktywność.")
+    if task_name and db.query(Activity).filter(Activity.name == task_name).first():
         return task_name
     first = db.query(Activity).order_by(Activity.name.asc()).first()
     return first.name if first else "Kompletacja Zamówień"
+
+
+def get_day_state(db: Session, username: str, now: datetime) -> dict[str, Any]:
+    today = now.strftime("%Y-%m-%d")
+    logs = (
+        db.query(WorkLog)
+        .filter(WorkLog.username == username, WorkLog.date_str == today)
+        .order_by(WorkLog.start_time.asc(), WorkLog.id.asc())
+        .all()
+    )
+    active_log = next((log for log in reversed(logs) if not log.end_time), None)
+    last_start_index = max(
+        (index for index, log in enumerate(logs) if log.task_name == DAY_START_MARKER),
+        default=-1,
+    )
+    last_end_index = max(
+        (index for index, log in enumerate(logs) if log.task_name == DAY_END_MARKER),
+        default=-1,
+    )
+    has_work_without_marker = any(
+        log.task_name not in {DAY_START_MARKER, DAY_END_MARKER}
+        for log in logs
+    )
+    day_started = bool(active_log) or last_start_index > last_end_index
+    if not day_started and has_work_without_marker and last_end_index == -1:
+        day_started = True
+    return {
+        "logs": logs,
+        "active": active_log,
+        "day_started": day_started,
+        "is_on_break": bool(active_log and active_log.task_name == BREAK_ACTIVITY),
+    }
 
 
 def history_payload(db: Session, username: str, month: str = "") -> dict[str, Any]:
     query = db.query(WorkLog).filter(WorkLog.username == username)
     if month:
         query = query.filter(WorkLog.date_str.startswith(month))
-    logs = query.order_by(desc(WorkLog.start_time), desc(WorkLog.id)).limit(500).all()
+    logs = query.order_by(desc(WorkLog.start_time), desc(WorkLog.id)).all()
 
     history = []
-    current_task = None
     for log in logs:
+        if log.task_name in {DAY_START_MARKER, DAY_END_MARKER}:
+            continue
         history.append(
             {
                 "data": log.date_str,
@@ -365,12 +497,49 @@ def history_payload(db: Session, username: str, month: str = "") -> dict[str, An
                 ),
             }
         )
-        if not log.end_time and current_task is None:
-            current_task = {
-                "name": log.task_name,
-                "start_time": log.start_time.strftime("%H:%M") if log.start_time else "",
-            }
-    return {"hist": history, "currentTask": current_task}
+
+    now = get_now()
+    day_state = get_day_state(db, username, now)
+    active_log = day_state["active"]
+    current_task = (
+        {
+            "name": active_log.task_name,
+            "start_time": (
+                active_log.start_time.strftime("%H:%M")
+                if active_log.start_time
+                else ""
+            ),
+        }
+        if active_log
+        else None
+    )
+    today_logs = (
+        db.query(WorkLog)
+        .filter(
+            WorkLog.username == username,
+            WorkLog.date_str == now.strftime("%Y-%m-%d"),
+        )
+        .all()
+    )
+    daily_logs: dict[str, list[WorkLog]] = {}
+    for log in logs:
+        daily_logs.setdefault(log.date_str, []).append(log)
+    day_summaries = {
+        date_str: work_summary(
+            date_logs,
+            now if date_str == now.strftime("%Y-%m-%d") else None,
+        )
+        for date_str, date_logs in daily_logs.items()
+    }
+    return {
+        "hist": history,
+        "currentTask": current_task,
+        "dayStarted": day_state["day_started"],
+        "isOnBreak": day_state["is_on_break"],
+        "summary": work_summary(logs, now),
+        "todaySummary": work_summary(today_logs, now),
+        "daySummaries": day_summaries,
+    }
 
 
 def close_active_log(db: Session, username: str, when: datetime) -> None:
@@ -388,7 +557,19 @@ def create_stop_marker(db: Session, username: str, when: datetime) -> None:
     db.add(
         WorkLog(
             username=username,
-            task_name="Zakończenie pracy",
+            task_name=DAY_END_MARKER,
+            start_time=when,
+            end_time=when,
+            date_str=when.strftime("%Y-%m-%d"),
+        )
+    )
+
+
+def create_start_marker(db: Session, username: str, when: datetime) -> None:
+    db.add(
+        WorkLog(
+            username=username,
+            task_name=DAY_START_MARKER,
             start_time=when,
             end_time=when,
             date_str=when.strftime("%Y-%m-%d"),
@@ -467,6 +648,7 @@ def change_pin(req: dict, db: Session = Depends(get_db)):
     old_pin = clean_text(req.get("oldPin"))
     new_pin = clean_text(req.get("newPin"))
     user = get_user(db, username)
+    require_demo_write_access(user)
 
     if not new_pin:
         return {"ok": False, "msg": "Nowy PIN jest pusty."}
@@ -493,12 +675,28 @@ def user_action(req: dict, db: Session = Depends(get_db)):
     require_employee(db, username)
     action_type = clean_text(req.get("type")).upper()
     now = get_now()
+    day_state = get_day_state(db, username, now)
+    active_log = day_state["active"]
 
-    if action_type not in {"START", "TASK", "STOP"}:
+    if action_type not in {"START", "TASK", "BREAK_START", "BREAK_END", "STOP"}:
         raise HTTPException(status_code=400, detail="Nieznana akcja.")
 
-    close_active_log(db, username, now)
-    if action_type in {"START", "TASK"}:
+    if action_type == "START":
+        if day_state["day_started"]:
+            raise HTTPException(status_code=400, detail="Dzień pracy jest już rozpoczęty.")
+        create_start_marker(db, username, now)
+    elif action_type == "TASK":
+        if not day_state["day_started"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Najpierw rozpocznij dzień pracy.",
+            )
+        if day_state["is_on_break"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Najpierw zakończ przerwę.",
+            )
+        close_active_log(db, username, now)
         db.add(
             WorkLog(
                 username=username,
@@ -507,7 +705,67 @@ def user_action(req: dict, db: Session = Depends(get_db)):
                 date_str=now.strftime("%Y-%m-%d"),
             )
         )
+    elif action_type == "BREAK_START":
+        if not day_state["day_started"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Najpierw rozpocznij dzień pracy.",
+            )
+        if day_state["is_on_break"]:
+            raise HTTPException(status_code=400, detail="Przerwa już trwa.")
+        close_active_log(db, username, now)
+        db.add(
+            WorkLog(
+                username=username,
+                task_name=BREAK_ACTIVITY,
+                start_time=now,
+                date_str=now.strftime("%Y-%m-%d"),
+            )
+        )
+    elif action_type == "BREAK_END":
+        if not active_log or active_log.task_name != BREAK_ACTIVITY:
+            raise HTTPException(status_code=400, detail="Brak aktywnej przerwy.")
+        active_log.end_time = now
+        latest_start_marker = (
+            db.query(WorkLog)
+            .filter(
+                WorkLog.username == username,
+                WorkLog.date_str == now.strftime("%Y-%m-%d"),
+                WorkLog.task_name == DAY_START_MARKER,
+                WorkLog.id < active_log.id,
+            )
+            .order_by(desc(WorkLog.id))
+            .first()
+        )
+        previous_task = (
+            db.query(WorkLog)
+            .filter(
+                WorkLog.username == username,
+                WorkLog.date_str == now.strftime("%Y-%m-%d"),
+                WorkLog.task_name.notin_(
+                    [BREAK_ACTIVITY, DAY_START_MARKER, DAY_END_MARKER]
+                ),
+                WorkLog.id < active_log.id,
+                WorkLog.id > (
+                    latest_start_marker.id if latest_start_marker else 0
+                ),
+            )
+            .order_by(desc(WorkLog.id))
+            .first()
+        )
+        if previous_task:
+            db.add(
+                WorkLog(
+                    username=username,
+                    task_name=previous_task.task_name,
+                    start_time=now,
+                    date_str=now.strftime("%Y-%m-%d"),
+                )
+            )
     else:
+        if not day_state["day_started"]:
+            raise HTTPException(status_code=400, detail="Dzień pracy nie jest rozpoczęty.")
+        close_active_log(db, username, now)
         create_stop_marker(db, username, now)
 
     db.commit()
@@ -517,12 +775,15 @@ def user_action(req: dict, db: Session = Depends(get_db)):
 @app.post("/api/user/correct-task")
 def correct_task(req: dict, db: Session = Depends(get_db)):
     username = clean_text(req.get("username"))
-    require_employee(db, username)
+    user = require_employee(db, username)
+    require_demo_write_access(user)
     last_log = (
         db.query(WorkLog)
         .filter(
             WorkLog.username == username,
-            WorkLog.task_name != "Zakończenie pracy",
+            WorkLog.task_name.notin_(
+                [BREAK_ACTIVITY, DAY_START_MARKER, DAY_END_MARKER]
+            ),
         )
         .order_by(desc(WorkLog.id))
         .first()
@@ -538,7 +799,8 @@ def correct_task(req: dict, db: Session = Depends(get_db)):
 def report_problem(req: dict, db: Session = Depends(get_db)):
     username = clean_text(req.get("username"))
     description = clean_text(req.get("description"))
-    require_employee(db, username)
+    user = require_employee(db, username)
+    require_demo_write_access(user)
     if not description:
         return {"ok": False, "msg": "Opis jest pusty."}
     db.add(Problem(username=username, description=description))
@@ -571,6 +833,8 @@ def reply_message(req: dict, db: Session = Depends(get_db)):
     message = db.query(Message).filter(Message.id == req.get("msg_id")).first()
     if not message:
         return {"ok": False}
+    receiver = get_user(db, message.receiver)
+    require_demo_write_access(receiver)
     message.is_read = 1
     message.reply = clean_text(req.get("reply"))
     db.commit()
@@ -580,6 +844,8 @@ def reply_message(req: dict, db: Session = Depends(get_db)):
 @app.get("/api/admin/active-sessions")
 def active_sessions(db: Session = Depends(get_db)):
     sessions: dict[str, list[dict[str, str]]] = {}
+    now = get_now()
+    today = now.strftime("%Y-%m-%d")
     logs = (
         db.query(WorkLog)
         .filter(WorkLog.end_time.is_(None))
@@ -587,10 +853,21 @@ def active_sessions(db: Session = Depends(get_db)):
         .all()
     )
     for log in logs:
+        today_logs = (
+            db.query(WorkLog)
+            .filter(
+                WorkLog.username == log.username,
+                WorkLog.date_str == today,
+            )
+            .all()
+        )
+        summary = work_summary(today_logs, now)
         sessions.setdefault(log.task_name, []).append(
             {
                 "user": log.username,
                 "start": log.start_time.strftime("%H:%M") if log.start_time else "",
+                "workedTodayStr": summary["workedStr"],
+                "breakTodayStr": summary["breakStr"],
             }
         )
     return sessions
@@ -598,6 +875,7 @@ def active_sessions(db: Session = Depends(get_db)):
 
 @app.post("/api/admin/messages/send")
 def send_admin_message(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     receivers = req.get("receivers") or []
     content = clean_text(req.get("content"))
     if not content:
@@ -605,7 +883,7 @@ def send_admin_message(req: dict, db: Session = Depends(get_db)):
 
     employee_names = {
         user.name
-        for user in db.query(User).filter(~User.role.in_(list(ADMIN_ROLES))).all()
+        for user in db.query(User).filter(User.role == "EMPLOYEE").all()
     }
     if "ALL" in receivers:
         receivers = sorted(employee_names)
@@ -622,6 +900,7 @@ def send_admin_message(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/admin/live-session/close")
 def close_live_session(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     username = clean_text(req.get("username"))
     now = get_now()
     close_active_log(db, username, now)
@@ -631,7 +910,8 @@ def close_live_session(req: dict, db: Session = Depends(get_db)):
 
 
 @app.post("/api/admin/live-session/close-all")
-def close_all_live_sessions(db: Session = Depends(get_db)):
+def close_all_live_sessions(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     now = get_now()
     active_users = [
         row.username
@@ -646,6 +926,7 @@ def close_all_live_sessions(db: Session = Depends(get_db)):
 
 @app.post("/api/admin/live-session/edit")
 def edit_live_session(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     username = clean_text(req.get("username"))
     active = (
         db.query(WorkLog)
@@ -716,10 +997,10 @@ def admin_alerts(db: Session = Depends(get_db)):
         break_minutes = sum(
             duration_minutes(log.start_time, log.end_time)
             for log in user_logs
-            if "Przerwa" in log.task_name and log.end_time
+            if log.task_name == BREAK_ACTIVITY and log.end_time
         )
         finished = any(
-            log.task_name == "Zakończenie pracy" and log.end_time
+            log.task_name == DAY_END_MARKER and log.end_time
             for log in user_logs
         )
         if finished and break_minutes == 0:
@@ -749,6 +1030,7 @@ def admin_alerts(db: Session = Depends(get_db)):
 
 @app.post("/api/admin/alerts/dismiss-all")
 def dismiss_alerts(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     for alert in req.get("alerts") or []:
         alert_type = clean_text(alert.get("type"))
         alert_id = alert.get("id")
@@ -782,21 +1064,33 @@ def admin_reports(req: dict, db: Session = Depends(get_db)):
         query = query.filter(WorkLog.username == username)
 
     result: dict[str, dict[str, Any]] = {}
+    report_now = get_now()
     for log in query.order_by(WorkLog.username.asc(), WorkLog.start_time.asc()).all():
-        minutes = duration_minutes(log.start_time, log.end_time)
-        bucket = result.setdefault(log.username, {"total": 0, "logi": []})
+        if log.task_name in {DAY_START_MARKER, DAY_END_MARKER}:
+            continue
+        minutes = duration_minutes(log.start_time, log.end_time or report_now)
+        bucket = result.setdefault(
+            log.username,
+            {"total": 0, "breaks": 0, "worked": 0, "logi": []},
+        )
         bucket["total"] += minutes
+        if log.task_name == BREAK_ACTIVITY:
+            bucket["breaks"] += minutes
+        else:
+            bucket["worked"] += minutes
         bucket["logi"].append(
             {
                 "zadanie": log.task_name,
                 "data": log.date_str,
                 "start": log.start_time.strftime("%H:%M") if log.start_time else "",
                 "koniec": log.end_time.strftime("%H:%M") if log.end_time else "Trwa",
-                "czas": format_minutes(minutes) if log.end_time else "-",
+                "czas": format_minutes(minutes),
             }
         )
     for bucket in result.values():
         bucket["totalStr"] = format_minutes(bucket.pop("total"))
+        bucket["breakStr"] = format_minutes(bucket.pop("breaks"))
+        bucket["workedStr"] = format_minutes(bucket.pop("worked"))
     return result
 
 
@@ -814,7 +1108,7 @@ def admin_productivity(req: dict, db: Session = Depends(get_db)):
     worker_details: dict[str, dict[str, int]] = {}
     task_workers: dict[str, set[str]] = {}
     for log in query.all():
-        if not log.end_time or log.task_name == "Zakończenie pracy":
+        if not log.end_time or log.task_name in {DAY_START_MARKER, DAY_END_MARKER}:
             continue
         minutes = duration_minutes(log.start_time, log.end_time)
         chart_data[log.task_name] = chart_data.get(log.task_name, 0) + minutes
@@ -849,6 +1143,7 @@ def admin_productivity(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/admin/save-productivity")
 def save_productivity(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     date_str = clean_text(req.get("date"))
     for update in req.get("updates") or []:
         username = clean_text(update.get("worker"))
@@ -925,18 +1220,19 @@ def add_simulation_segments(
 
 
 @app.post("/api/admin/simulate")
-def generate_simulation(db: Session = Depends(get_db)):
+def generate_simulation(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     rng = random.Random(20260101)
     today = get_now().date()
     first_day = today.replace(month=1, day=1)
-    activity_names = [name for name, _ in SIMULATION_ACTIVITIES if name != "Przerwa"]
+    activity_names = [name for name, _ in SIMULATION_ACTIVITIES]
 
     db.query(WorkLog).delete(synchronize_session=False)
     db.query(Productivity).delete(synchronize_session=False)
     db.query(Problem).delete(synchronize_session=False)
     db.query(Message).delete(synchronize_session=False)
     db.query(AlertDismiss).delete(synchronize_session=False)
-    db.query(User).filter(~User.role.in_(list(ADMIN_ROLES))).delete(
+    db.query(User).filter(User.role == "EMPLOYEE").delete(
         synchronize_session=False
     )
     db.query(Activity).delete(synchronize_session=False)
@@ -947,7 +1243,7 @@ def generate_simulation(db: Session = Depends(get_db)):
 
     reserved_ids = {
         int(user.global_id)
-        for user in db.query(User).filter(User.role.in_(list(ADMIN_ROLES))).all()
+        for user in db.query(User).all()
         if user.global_id and user.global_id.isdigit()
     }
     next_global_id = 2
@@ -1009,7 +1305,7 @@ def generate_simulation(db: Session = Depends(get_db)):
                 db.add(
                     WorkLog(
                         username=worker.name,
-                        task_name="Przerwa",
+                        task_name=BREAK_ACTIVITY,
                         start_time=current_time,
                         end_time=break_end,
                         date_str=date_str,
@@ -1028,7 +1324,7 @@ def generate_simulation(db: Session = Depends(get_db)):
                 db.add(
                     WorkLog(
                         username=worker.name,
-                        task_name="Zakończenie pracy",
+                        task_name=DAY_END_MARKER,
                         start_time=current_time,
                         end_time=current_time,
                         date_str=date_str,
@@ -1070,7 +1366,11 @@ def edit_logs(req: dict, db: Session = Depends(get_db)):
     date_str = clean_text(req.get("date"))
     logs = (
         db.query(WorkLog)
-        .filter(WorkLog.username == username, WorkLog.date_str == date_str)
+        .filter(
+            WorkLog.username == username,
+            WorkLog.date_str == date_str,
+            WorkLog.task_name.notin_([DAY_START_MARKER, DAY_END_MARKER]),
+        )
         .order_by(WorkLog.start_time.asc())
         .all()
     )
@@ -1087,6 +1387,7 @@ def edit_logs(req: dict, db: Session = Depends(get_db)):
 
 @app.post("/api/admin/update-batch")
 def update_batch(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     date_str = clean_text(req.get("date"))
     for update in req.get("updates") or []:
         log = db.query(WorkLog).filter(WorkLog.id == update.get("id")).first()
@@ -1253,6 +1554,7 @@ def download_export(filename: str):
 
 @app.post("/api/admin/db")
 def admin_database(req: dict, db: Session = Depends(get_db)):
+    block_demo_admin(req, db)
     item_type = clean_text(req.get("type")).upper()
     action = clean_text(req.get("action")).upper()
     name = clean_text(req.get("name"))
@@ -1260,6 +1562,13 @@ def admin_database(req: dict, db: Session = Depends(get_db)):
 
     if item_type in {"ADMIN", "EMPLOYEE"}:
         user = db.query(User).filter(User.name == name).first()
+        if name.casefold() in PROTECTED_DEMO_ACCOUNTS and action == "ADD":
+            return {"ok": False, "msg": "Ta nazwa konta jest zarezerwowana."}
+        if name.casefold() in PROTECTED_DEMO_ACCOUNTS and action in {
+            "DELETE",
+            "EDIT_PIN",
+        }:
+            return {"ok": False, "msg": "Konta demonstracyjne są chronione."}
         if action == "ADD":
             if user:
                 return {"ok": False, "msg": "Takie konto już istnieje."}
@@ -1274,7 +1583,7 @@ def admin_database(req: dict, db: Session = Depends(get_db)):
             )
         elif action == "DELETE":
             if name == "Piotrek":
-                return {"ok": False, "msg": "Nie można usun��ć głównego administratora."}
+                return {"ok": False, "msg": "Nie można usunąć głównego administratora."}
             if user:
                 db.delete(user)
         elif action == "EDIT_PIN":
@@ -1287,6 +1596,11 @@ def admin_database(req: dict, db: Session = Depends(get_db)):
                 set_setting(db, "admin_pass", value)
 
     elif item_type == "ACTIVITY":
+        if name in {BREAK_ACTIVITY, DAY_START_MARKER, DAY_END_MARKER}:
+            return {
+                "ok": False,
+                "msg": "Ta nazwa jest zarezerwowana przez rejestrator.",
+            }
         activity = db.query(Activity).filter(Activity.name == name).first()
         if action == "ADD":
             if activity:

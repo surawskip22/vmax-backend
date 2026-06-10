@@ -347,6 +347,54 @@
       color: var(--primary);
       background: #e8f0fe;
     }
+    .demo-info {
+      max-width: 720px;
+      margin: -20px auto 40px;
+      padding: 24px;
+      border: 1px solid #c6dafc;
+      border-radius: 16px;
+      color: #334155;
+      background: #f8fbff;
+      box-shadow: 0 4px 15px rgba(11, 87, 208, .08);
+    }
+    .demo-info h3 {
+      margin: 0 0 10px;
+      color: var(--primary);
+      text-align: center;
+    }
+    .demo-credentials {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .demo-credential {
+      padding: 14px;
+      border: 1px solid #dbe7fb;
+      border-radius: 12px;
+      background: #fff;
+      text-align: center;
+    }
+    .demo-credential button {
+      width: auto;
+      margin: 10px 0 0;
+      padding: 8px 14px;
+      color: var(--primary);
+      border: 1px solid #a8c7fa;
+      background: #eef5ff;
+      font-size: 13px;
+    }
+    .demo-badge {
+      display: inline-block;
+      padding: 4px 9px;
+      margin-left: 8px;
+      border-radius: 999px;
+      color: #8a4b00;
+      background: #fff3cd;
+      font-size: 11px;
+      font-weight: 900;
+      vertical-align: middle;
+    }
     .hidden {
       display: none !important;
     }
@@ -374,6 +422,9 @@
       .efficiency-stats {
         grid-column: span 1;
       }
+      .demo-credentials {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -388,6 +439,32 @@
       <input type="password" id="pinInput" autocomplete="current-password" placeholder="KOD PIN" style="text-align:center; letter-spacing:8px; font-size:22px;">
       <button class="btn-primary" onclick="login()">ZALOGUJ SIĘ</button>
       <div id="loginStatus" style="min-height:20px; color:var(--danger); text-align:center; font-weight:700;"></div>
+    </div>
+    <div class="demo-info">
+      <h3>Miło mi, że sprawdzasz moją aplikację webową 👋</h3>
+      <p style="margin:0; text-align:center;">
+        Rejestrator umożliwia rozpoczynanie dnia, wybór wykonywanych aktywności,
+        obsługę przerw, podgląd sesji na żywo, raporty oraz kontrolę czasu pracy netto.
+      </p>
+      <div class="demo-credentials">
+        <div class="demo-credential">
+          <b>Konto demonstracyjne pracownika</b><br>
+          Login: <code>demo</code><br>
+          Hasło: <code>demo</code><br>
+          <button type="button" onclick="fillDemoLogin('demo', 'demo')">Użyj konta</button>
+        </div>
+        <div class="demo-credential">
+          <b>Konto demonstracyjne administratora</b><br>
+          Login: <code>demo admin</code><br>
+          Hasło: <code>admin</code><br>
+          <button type="button" onclick="fillDemoLogin('demo admin', 'admin')">Użyj konta</button>
+        </div>
+      </div>
+      <p style="margin:0; color:#5f6368; font-size:14px; line-height:1.55;">
+        Docelowo rejestrator może działać na skanerach typu Zebra albo telefonach
+        pracowników. Dostęp można ograniczyć tak, aby rejestracja pracy była możliwa
+        wyłącznie po połączeniu z firmową siecią Wi‑Fi.
+      </p>
     </div>
   </div>
 
@@ -405,9 +482,13 @@
         <button class="btn-success" style="height:65px; font-size:19px;" onclick="action('START')">ROZPOCZNIJ DZIEŃ</button>
       </div>
       <div id="taskSection" style="display:none;">
-        <select id="taskSelect"></select>
-        <button class="btn-warn" onclick="correctLastTask()">Popraw ostatnią aktywność</button>
-        <button class="btn-primary" onclick="action('TASK')">ZATWIERDŹ ZMIANĘ</button>
+        <div id="activityControls">
+          <select id="taskSelect"></select>
+          <button class="btn-warn" onclick="correctLastTask()">Popraw ostatnią aktywność</button>
+          <button class="btn-primary" onclick="action('TASK')">WYBIERZ / ZMIEŃ AKTYWNOŚĆ</button>
+        </div>
+        <button id="breakStartButton" class="btn-warn" onclick="action('BREAK_START')">ROZPOCZNIJ PRZERWĘ</button>
+        <button id="breakEndButton" class="btn-success" style="display:none;" onclick="action('BREAK_END')">ZAKOŃCZ PRZERWĘ</button>
         <button class="btn-danger" onclick="action('STOP')">ZAKOŃCZ PRACĘ</button>
       </div>
       <button onclick="changeMyPin()" style="border:none; background:none; color:#666; text-decoration:underline;">Zmień swój kod PIN</button>
@@ -416,7 +497,7 @@
     <div class="card">
       <div class="section-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
         <h4 style="margin:0;">TWOJA HISTORIA</h4>
-        <div id="monthTotalBadge" class="total-pill">Suma: 0h 0m</div>
+        <div id="monthTotalBadge" class="total-pill">Netto: 0h 0m</div>
       </div>
       <input type="month" id="histMonth" onchange="loadUserData()" style="margin-top:15px;">
       <table>
@@ -439,16 +520,19 @@
 
     <div class="card" style="padding:10px;">
       <div class="tabs">
-        <div class="tab active" onclick="switchAdminTab('live', this)">Live Sesje</div>
-        <div class="tab" onclick="switchAdminTab('alerty', this)">Powiadomienia</div>
-        <div class="tab" onclick="switchAdminTab('raporty', this)">Raporty</div>
-        <div class="tab" onclick="switchAdminTab('produkcja', this)">Analityka</div>
-        <div class="tab" onclick="switchAdminTab('edycja', this)">Edycja</div>
-        <div class="tab" onclick="switchAdminTab('backup', this)">Kopia Bazy</div>
-        <div class="tab" onclick="switchAdminTab('baza', this)">Ustawienia</div>
+        <div class="tab active" data-admin-tab="live" onclick="switchAdminTab('live', this)">Live Sesje</div>
+        <div class="tab" data-admin-tab="alerty" onclick="switchAdminTab('alerty', this)">Powiadomienia</div>
+        <div class="tab" data-admin-tab="raporty" onclick="switchAdminTab('raporty', this)">Raporty</div>
+        <div class="tab" data-admin-tab="produkcja" onclick="switchAdminTab('produkcja', this)">Analityka</div>
+        <div class="tab" data-admin-tab="edycja" onclick="switchAdminTab('edycja', this)">Edycja</div>
+        <div class="tab" data-admin-tab="backup" onclick="switchAdminTab('backup', this)">Kopia Bazy</div>
+        <div class="tab" data-admin-tab="baza" onclick="switchAdminTab('baza', this)">Ustawienia</div>
       </div>
 
       <div id="tab-live" class="tab-content active" style="padding:10px;">
+        <div id="demoAdminNotice" class="hidden" style="padding:12px 15px; margin-bottom:15px; border-radius:10px; color:#8a4b00; background:#fff3cd; font-weight:800;">
+          Tryb demonstracyjny: możesz obserwować aktywne sesje, ale nie możesz ich edytować ani zamykać.
+        </div>
         <div class="section-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px;">
           <h4 style="margin:0; color:var(--success);">Zarządzaj zespołem</h4>
           <button class="btn-danger" style="width:auto; margin:0; padding:10px; color:#fff; background:var(--danger);" onclick="closeAllLiveSessions()">ZAMKNIJ WSZYSTKIE</button>
@@ -545,10 +629,11 @@
 
   <script>
     const API_URL = "/api";
-    const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"];
+    const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER", "DEMO_ADMIN"];
     const state = {
       currentUser: "",
       currentRole: "",
+      isDemo: false,
       admins: [],
       employees: [],
       activities: [],
@@ -570,7 +655,17 @@
 
     async function apiCall(endpoint, method = "GET", body = null) {
       const options = { method, headers: { "Content-Type": "application/json" } };
-      if (body !== null) options.body = JSON.stringify(body);
+      let requestBody = body;
+      if (
+        method !== "GET" &&
+        endpoint.startsWith("/admin/") &&
+        state.currentUser &&
+        requestBody &&
+        typeof requestBody === "object"
+      ) {
+        requestBody = { ...requestBody, actor: state.currentUser };
+      }
+      if (requestBody !== null) options.body = JSON.stringify(requestBody);
       const response = await fetch(API_URL + endpoint, options);
       const rawText = await response.text();
       let payload = null;
@@ -587,6 +682,43 @@
     };
     const formatMins = (minutes) => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
     const isAdmin = () => ADMIN_ROLES.includes(state.currentRole);
+    const isDemoAdmin = () => state.currentRole === "DEMO_ADMIN";
+    const isProtectedDemoName = (name) => ["demo", "demo admin"].includes(String(name || "").toLocaleLowerCase("pl"));
+
+    function demoLimitPopup() {
+      return Swal.fire({
+        title: "Ograniczona funkcjonalność",
+        text: "Konta demo służą do bezpiecznego sprawdzania aplikacji i nie mogą zmieniać ustawień ani danych administracyjnych.",
+        icon: "info",
+        confirmButtonText: "Rozumiem",
+      });
+    }
+
+    function guardDemo() {
+      if (!state.isDemo) return false;
+      demoLimitPopup();
+      return true;
+    }
+
+    function fillDemoLogin(username, password) {
+      document.getElementById("userSelectInput").value = username;
+      document.getElementById("pinInput").value = password;
+      hideSuggestions();
+      document.getElementById("pinInput").focus();
+    }
+
+    function configureDemoInterface() {
+      document.querySelectorAll("[data-admin-tab]").forEach((tab) => {
+        tab.classList.toggle("hidden", isDemoAdmin() && tab.dataset.adminTab !== "live");
+      });
+      document.getElementById("demoAdminNotice").classList.toggle("hidden", !isDemoAdmin());
+      if (isDemoAdmin()) {
+        document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach((content) => content.classList.remove("active"));
+        document.querySelector('[data-admin-tab="live"]').classList.add("active");
+        document.getElementById("tab-live").classList.add("active");
+      }
+    }
 
     function localDate() {
       const offset = new Date().getTimezoneOffset() * 60000;
@@ -680,7 +812,7 @@
     function renderSettings() {
       document.getElementById("db-admins").innerHTML = state.admins.map((name) => `
         <div class="db-item">
-          <span><b>${name}</b></span>
+          <span><b>${name}</b>${isProtectedDemoName(name) ? '<span class="demo-badge">DEMO</span>' : ""}</span>
           <div style="display:flex; gap:6px;">
             <button class="btn-warn" style="width:auto; margin:0; padding:8px 13px;" onclick='dbEditPin("ADMIN", ${JSON.stringify(name)})'>Hasło</button>
             ${name === "Piotrek" ? "" : `<button class="btn-danger" style="width:auto; margin:0; padding:8px 13px;" onclick='dbDelete("ADMIN", ${JSON.stringify(name)})'>Usuń</button>`}
@@ -690,7 +822,7 @@
 
       document.getElementById("db-employees").innerHTML = state.employees.map((name) => `
         <div class="db-item">
-          <span>${name}</span>
+          <span>${name}${isProtectedDemoName(name) ? '<span class="demo-badge">DEMO</span>' : ""}</span>
           <div style="display:flex; gap:6px;">
             <button class="btn-warn" style="width:auto; margin:0; padding:8px 13px;" onclick='dbEditPin("EMPLOYEE", ${JSON.stringify(name)})'>PIN</button>
             <button class="btn-danger" style="width:auto; margin:0; padding:8px 13px;" onclick='dbDelete("EMPLOYEE", ${JSON.stringify(name)})'>Usuń</button>
@@ -740,19 +872,27 @@
         const user = await apiCall("/auth/login", "POST", { username, pin });
         state.currentUser = user.name;
         state.currentRole = String(user.role || "EMPLOYEE").toUpperCase();
+        state.isDemo = Boolean(user.is_demo);
         document.getElementById("loginModal").style.display = "none";
+        configureDemoInterface();
 
         if (isAdmin()) {
           document.getElementById("userView").style.display = "none";
           document.getElementById("adminView").style.display = "block";
-          document.getElementById("adminNameDisplay").textContent = `(${state.currentUser})`;
-          await Promise.all([loadActiveSessions(), loadAdminAlerts(), loadConfig()]);
+          document.getElementById("adminNameDisplay").innerHTML =
+            `(${state.currentUser})${state.isDemo ? '<span class="demo-badge">DEMO</span>' : ""}`;
+          if (isDemoAdmin()) {
+            await loadActiveSessions();
+          } else {
+            await Promise.all([loadActiveSessions(), loadAdminAlerts(), loadConfig()]);
+          }
         } else {
           document.getElementById("adminView").style.display = "none";
           document.getElementById("userView").style.display = "block";
-          document.getElementById("userNameDisplay").textContent = state.currentUser;
+          document.getElementById("userNameDisplay").innerHTML =
+            `${state.currentUser}${state.isDemo ? '<span class="demo-badge">DEMO</span>' : ""}`;
           await loadUserData();
-          startMessageAgent();
+          if (!state.isDemo) startMessageAgent();
         }
       } catch (error) {
         document.getElementById("loginStatus").textContent = error.message;
@@ -766,31 +906,41 @@
       }
       state.currentUser = "";
       state.currentRole = "";
+      state.isDemo = false;
       document.getElementById("userView").style.display = "none";
       document.getElementById("adminView").style.display = "none";
       document.getElementById("loginModal").style.display = "block";
       document.getElementById("userSelectInput").value = "";
       document.getElementById("pinInput").value = "";
       document.getElementById("loginStatus").textContent = "";
+      configureDemoInterface();
       hideSuggestions();
     }
 
     function renderUserHistory(payload) {
       const banner = document.getElementById("statusBanner");
-      if (payload.currentTask) {
+      const todaySummary = payload.todaySummary || {};
+      const todayLine = `Dziś netto: ${todaySummary.workedStr || "0h 0m"} · przerwy: ${todaySummary.breakStr || "0h 0m"}`;
+      if (payload.isOnBreak) {
+        banner.className = "status-box";
+        banner.innerHTML = `<b>TRWA PRZERWA</b><br><small>${todayLine}</small>`;
+      } else if (payload.currentTask) {
         banner.className = "status-box status-on";
-        banner.textContent = `TRWA: ${payload.currentTask.name}`;
-        document.getElementById("startSection").style.display = "none";
-        document.getElementById("taskSection").style.display = "block";
+        banner.innerHTML = `<b>TRWA: ${payload.currentTask.name}</b><br><small>${todayLine}</small>`;
+      } else if (payload.dayStarted) {
+        banner.className = "status-box status-on";
+        banner.innerHTML = `<b>Dzień rozpoczęty — wybierz aktywność</b><br><small>${todayLine}</small>`;
       } else {
         banner.className = "status-box";
-        banner.textContent = "Offline";
-        document.getElementById("startSection").style.display = "block";
-        document.getElementById("taskSection").style.display = "none";
+        banner.innerHTML = `<b>Offline</b><br><small>${todayLine}</small>`;
       }
+      document.getElementById("startSection").style.display = payload.dayStarted ? "none" : "block";
+      document.getElementById("taskSection").style.display = payload.dayStarted ? "block" : "none";
+      document.getElementById("activityControls").style.display = payload.isOnBreak ? "none" : "block";
+      document.getElementById("breakStartButton").style.display = payload.isOnBreak ? "none" : "block";
+      document.getElementById("breakEndButton").style.display = payload.isOnBreak ? "block" : "none";
 
       const grouped = {};
-      let totalMinutes = 0;
       (payload.hist || []).forEach((entry) => {
         if (!grouped[entry.data]) grouped[entry.data] = [];
         grouped[entry.data].push(entry);
@@ -798,13 +948,8 @@
 
       const rows = [];
       Object.keys(grouped).sort((a, b) => b.localeCompare(a)).forEach((date) => {
-        let dayMinutes = 0;
-        grouped[date].forEach((entry) => {
-          const minutes = parseTime(entry.czas);
-          dayMinutes += minutes;
-          totalMinutes += minutes;
-        });
-        rows.push(`<tr class="day-sep-row"><td colspan="2">${date}</td><td style="text-align:right; color:var(--primary);">Σ ${formatMins(dayMinutes)}</td></tr>`);
+        const daySummary = payload.daySummaries?.[date] || {};
+        rows.push(`<tr class="day-sep-row"><td>${date}</td><td style="text-align:center; color:#5f6368;">Przerwa ${daySummary.breakStr || "0h 0m"}</td><td style="text-align:right; color:var(--primary);">Netto ${daySummary.workedStr || "0h 0m"}</td></tr>`);
         grouped[date].forEach((entry) => {
           rows.push(`<tr><td><b>${entry.zadanie}</b></td><td class="col-time">${entry.start}-${entry.koniec}</td><td style="text-align:right;">${entry.czas}</td></tr>`);
         });
@@ -812,7 +957,9 @@
 
       document.getElementById("histTableBody").innerHTML =
         rows.join("") || '<tr><td colspan="3" class="empty-box">Brak wpisów</td></tr>';
-      document.getElementById("monthTotalBadge").textContent = `Suma: ${formatMins(totalMinutes)}`;
+      const summary = payload.summary || {};
+      document.getElementById("monthTotalBadge").textContent =
+        `Netto: ${summary.workedStr || "0h 0m"} · przerwy: ${summary.breakStr || "0h 0m"}`;
     }
 
     async function loadUserData() {
@@ -835,10 +982,18 @@
         month: document.getElementById("histMonth").value,
       });
       renderUserHistory(payload);
-      notify.toast("Zapisano");
+      const messages = {
+        START: "Dzień rozpoczęty — wybierz aktywność",
+        TASK: "Aktywność zapisana",
+        BREAK_START: "Przerwa rozpoczęta",
+        BREAK_END: "Przerwa zakończona",
+        STOP: "Dzień pracy zakończony",
+      };
+      notify.toast(messages[type] || "Zapisano");
     }
 
     async function correctLastTask() {
+      if (guardDemo()) return;
       const options = {};
       state.activities.forEach((activity) => { options[activity] = activity; });
       const result = await Swal.fire({
@@ -859,6 +1014,7 @@
     }
 
     async function reportProblem() {
+      if (guardDemo()) return;
       const result = await Swal.fire({
         title: "Zgłoś problem",
         input: "textarea",
@@ -876,6 +1032,7 @@
     }
 
     async function changeMyPin() {
+      if (guardDemo()) return;
       const oldPin = await Swal.fire({
         title: "Stary PIN",
         input: "password",
@@ -944,7 +1101,10 @@
             <div class="live-session-card">
               <div style="display:flex; align-items:center;">
                 <input type="checkbox" class="msg-checkbox cb-${groupClass}" value="${person.user}">
-                <div><b>${person.user}</b><br><small>Od: ${person.start}</small></div>
+                <div>
+                  <b>${person.user}</b><br>
+                  <small>Od: ${person.start} · dziś netto: ${person.workedTodayStr || "0h 0m"} · przerwy: ${person.breakTodayStr || "0h 0m"}</small>
+                </div>
               </div>
               <div style="display:flex; gap:6px;">
                 <button class="btn-warn" style="width:auto; margin:0; padding:8px 12px;" onclick='editLiveSession(${JSON.stringify(person.user)}, ${JSON.stringify(task)}, ${JSON.stringify(person.start)})'>Edytuj</button>
@@ -957,6 +1117,7 @@
     }
 
     async function sendAdminMessage() {
+      if (guardDemo()) return;
       const selected = Array.from(document.querySelectorAll(".msg-checkbox:checked"))
         .map((checkbox) => checkbox.value);
       const receivers = selected.length ? selected : ["ALL"];
@@ -971,15 +1132,17 @@
         receivers,
         content: result.value,
       });
-      notify.success(`Wysłano: ${response.sent || 0}`);
+      notify.success("Wysłano");
     }
 
     async function closeLiveSession(username) {
+      if (guardDemo()) return;
       await apiCall("/admin/live-session/close", "POST", { username });
       await loadActiveSessions();
     }
 
     async function closeAllLiveSessions() {
+      if (guardDemo()) return;
       const result = await Swal.fire({
         title: "Zamknąć wszystkie aktywne sesje?",
         icon: "warning",
@@ -992,6 +1155,7 @@
     }
 
     async function editLiveSession(username, task, start) {
+      if (guardDemo()) return;
       const options = state.activities
         .map((activity) => `<option value="${activity}" ${activity === task ? "selected" : ""}>${activity}</option>`)
         .join("");
@@ -1052,6 +1216,7 @@
     }
 
     async function dismissSelectedAlerts() {
+      if (guardDemo()) return;
       const alerts = Array.from(document.querySelectorAll(".alert-checkbox:checked"))
         .map((checkbox) => ({ type: checkbox.dataset.type, id: checkbox.value }));
       if (!alerts.length) {
@@ -1063,6 +1228,7 @@
     }
 
     async function dismissAllAlerts() {
+      if (guardDemo()) return;
       if (!state.currentAlerts.length) return;
       await apiCall("/admin/alerts/dismiss-all", "POST", {
         alerts: state.currentAlerts.map((alert) => ({ type: alert.type, id: alert.id })),
@@ -1085,8 +1251,13 @@
         });
         let content = "";
         Object.keys(grouped).sort((a, b) => b.localeCompare(a)).forEach((date) => {
-          const dayMinutes = grouped[date].reduce((sum, entry) => sum + parseTime(entry.czas), 0);
-          content += `<div class="day-sep-admin"><span>${date}</span><span>Σ ${formatMins(dayMinutes)}</span></div><table>`;
+          const dayBreakMinutes = grouped[date]
+            .filter((entry) => entry.zadanie === "Przerwa")
+            .reduce((sum, entry) => sum + parseTime(entry.czas), 0);
+          const dayWorkedMinutes = grouped[date]
+            .filter((entry) => entry.zadanie !== "Przerwa")
+            .reduce((sum, entry) => sum + parseTime(entry.czas), 0);
+          content += `<div class="day-sep-admin"><span>${date}</span><span>Netto ${formatMins(dayWorkedMinutes)} · przerwa ${formatMins(dayBreakMinutes)}</span></div><table>`;
           grouped[date].forEach((entry) => {
             content += `<tr><td><b>${entry.zadanie}</b></td><td>${entry.start}-${entry.koniec}</td><td style="text-align:right;">${entry.czas}</td></tr>`;
           });
@@ -1095,7 +1266,10 @@
         html += `
           <div class="admin-report-worker-block">
             <details>
-              <summary><span>${username}</span><span class="total-pill">${report.totalStr}</span></summary>
+              <summary>
+                <span>${username}</span>
+                <span class="total-pill">Netto ${report.workedStr} · przerwy ${report.breakStr}</span>
+              </summary>
               <div style="padding:15px;">${content}</div>
             </details>
           </div>`;
@@ -1182,6 +1356,7 @@
     }
 
     async function saveAllEfficiency() {
+      if (guardDemo()) return;
       const updates = Array.from(document.querySelectorAll(".worker-prod-card")).map((card) => {
         const username = card.dataset.worker;
         const safeId = username.replace(/\W+/g, "");
@@ -1225,6 +1400,7 @@
     }
 
     async function saveAdminEdits() {
+      if (guardDemo()) return;
       const updates = Array.from(document.querySelectorAll(".admin-edit-row")).map((row) => {
         const id = row.id.replace("editRow_", "");
         return {
@@ -1287,6 +1463,10 @@
     }
 
     function switchAdminTab(id, element) {
+      if (isDemoAdmin() && id !== "live") {
+        demoLimitPopup();
+        return;
+      }
       document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach((content) => content.classList.remove("active"));
       element.classList.add("active");
@@ -1297,6 +1477,7 @@
     }
 
     async function dbAdd(type) {
+      if (guardDemo()) return;
       const isActivity = type === "ACTIVITY";
       const result = await Swal.fire({
         title: isActivity ? "Dodaj aktywność" : type === "ADMIN" ? "Dodaj administratora" : "Dodaj pracownika",
@@ -1323,6 +1504,7 @@
     }
 
     async function runSimulation() {
+      if (guardDemo()) return;
       const confirmation = await Swal.fire({
         title: "Wygenerować dane demonstracyjne?",
         text: "Dotychczasowe konta pracowników, wpisy czasu i wyniki zostaną zastąpione.",
@@ -1343,6 +1525,10 @@
     }
 
     async function dbDelete(type, name) {
+      if (guardDemo() || isProtectedDemoName(name)) {
+        if (!state.isDemo) demoLimitPopup();
+        return;
+      }
       const result = await Swal.fire({
         title: `Usunąć ${name}?`,
         icon: "warning",
@@ -1360,6 +1546,10 @@
     }
 
     async function dbEditPin(type, name) {
+      if (guardDemo() || isProtectedDemoName(name)) {
+        if (!state.isDemo) demoLimitPopup();
+        return;
+      }
       const result = await Swal.fire({
         title: `Nowy PIN: ${name}`,
         input: "password",
@@ -1378,6 +1568,7 @@
     }
 
     async function changeMyPinAdmin() {
+      if (guardDemo()) return;
       await dbEditPin("ADMIN", state.currentUser);
     }
 
