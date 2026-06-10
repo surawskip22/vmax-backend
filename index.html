@@ -7,1303 +7,1366 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>Rejestrator Czasu Pracy</title>
-  <script>
-    try {
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          registrations.forEach((registration) => registration.unregister());
-        }).catch(() => {});
-      }
-      if ('caches' in window) {
-        caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))).catch(() => {});
-      }
-    } catch (error) {}
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --primary: #0b57d0;
-      --primary-2: #154ed6;
-      --success: #15803d;
-      --warning: #b26a00;
+      --success: #188038;
+      --warning: #f29900;
       --danger: #b3261e;
-      --bg: #edf4ff;
-      --panel: rgba(255, 255, 255, 0.88);
-      --panel-solid: #fff;
-      --text: #152033;
-      --muted: #6b7280;
-      --border: rgba(15, 23, 42, 0.1);
-      --shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+      --bg: #f0f4f9;
+      --card-bg: #ffffff;
+      --text: #1f1f1f;
+      --muted: #667085;
+      --border: #d1d5db;
     }
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
     body {
       margin: 0;
       min-height: 100vh;
+      padding: 10px;
       color: var(--text);
-      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(11, 87, 208, 0.16), transparent 34%),
-        radial-gradient(circle at top right, rgba(21, 129, 61, 0.14), transparent 30%),
-        linear-gradient(145deg, #f9fbff, #eaf1ff 44%, #fff6ef);
-      padding: 18px;
+      background: var(--bg);
     }
-    .shell {
-      width: min(1240px, 100%);
-      margin: 0 auto;
-      display: grid;
-      gap: 18px;
+    button,
+    select,
+    input,
+    textarea {
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: #fff;
+      font-size: 16px;
+      outline: none;
     }
-    .hero {
-      display: grid;
-      text-align: center;
-      padding: 18px 10px 4px;
+    button {
+      border: none;
+      cursor: pointer;
+      font-weight: 800;
+      transition: transform .15s ease, opacity .15s ease;
     }
-    .hero h1 {
-      margin: 0;
-      font-size: clamp(34px, 6vw, 62px);
-      line-height: 0.95;
-      letter-spacing: -0.04em;
+    button:active {
+      transform: scale(.98);
+    }
+    button:disabled {
+      cursor: not-allowed;
+      opacity: .55;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
     }
     .card {
-      background: var(--panel);
+      padding: 24px;
+      margin-bottom: 20px;
       border: 1px solid var(--border);
-      border-radius: 26px;
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
-      padding: 22px;
+      border-radius: 16px;
+      background: var(--card-bg);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, .08);
     }
-    .grid-two {
-      display: grid;
-      grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
-      gap: 18px;
+    .main-title {
+      margin-bottom: 28px;
+      color: var(--primary);
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 27px;
+      font-weight: 900;
     }
-    .grid-admin {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px;
+    .btn-primary {
+      color: #fff;
+      background: var(--primary);
     }
-    .stack {
-      display: grid;
-      gap: 18px;
+    .btn-success {
+      color: #fff;
+      background: var(--success);
     }
-    .hidden { display: none !important; }
-    .section-head {
+    .btn-danger {
+      color: var(--danger);
+      border: 2px solid var(--danger);
+      background: #fff;
+    }
+    .btn-warn {
+      color: #a86400;
+      border: 1px solid var(--warning);
+      background: #fff8e1;
+    }
+    .btn-dark {
+      color: #fff;
+      background: #333;
+    }
+    .status-box {
+      padding: 18px;
+      margin-bottom: 20px;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      color: #5f6368;
+      background: #f1f3f4;
+      text-align: center;
+      font-size: 17px;
+      font-weight: 800;
+    }
+    .status-on {
+      color: var(--success);
+      border-color: #ceead6;
+      background: #e6f4ea;
+    }
+    .total-pill {
+      display: inline-block;
+      padding: 8px 18px;
+      border-radius: 25px;
+      color: #fff;
+      background: var(--primary);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .day-sep-row td {
+      padding: 12px;
+      border-top: 2px solid #ccc;
+      color: #333;
+      background: #f1f3f4;
+      font-weight: 800;
+    }
+    .day-sep-admin {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 15px;
+      margin-top: 15px;
+      border-left: 6px solid var(--primary);
+      border-radius: 10px;
+      color: var(--primary);
+      background: #eff6ff;
+      font-weight: 800;
+    }
+    #userView,
+    #adminView {
+      display: none;
+      max-width: 1050px;
+      margin: 0 auto;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      padding: 6px;
+      margin-bottom: 20px;
+      overflow-x: auto;
+      border-radius: 14px;
+      background: #e2e8f0;
+    }
+    .tab {
+      flex: 1;
+      min-width: 125px;
+      padding: 14px;
+      border-radius: 10px;
+      color: #4a5568;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .tab.active {
+      color: var(--primary);
+      background: #fff;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, .05);
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .bulk-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .bulk-actions button {
+      flex: 1;
+      min-width: 145px;
+      margin: 0;
+      padding: 12px;
+      font-size: 13px;
+    }
+    .db-item,
+    .live-session-card,
+    .alert-card {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 12px;
-      margin-bottom: 14px;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 10px;
     }
-    .section-head h2,
-    .section-head h3 {
-      margin: 0;
-      font-size: 19px;
-      letter-spacing: -0.02em;
+    .db-item {
+      border-bottom: 1px solid #eee;
+      border-radius: 0;
     }
-    .subtle {
-      color: var(--muted);
-      font-size: 13px;
+    .live-session-card {
+      border: 1px solid #ceead6;
+      border-left: 6px solid var(--success);
+      background: #e6f4ea;
+    }
+    .alert-card {
+      border: 1px solid #feb2b2;
+      border-left: 6px solid var(--danger);
+      background: #fff5f5;
+    }
+    .inline-loader,
+    .empty-box {
+      padding: 28px;
+      color: #666;
+      text-align: center;
       font-weight: 700;
     }
-    label {
-      display: grid;
-      gap: 7px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: .05em;
+    .admin-edit-row,
+    .efficiency-card {
+      padding: 18px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      background: #fff;
     }
-    input, select, textarea, button {
-      width: 100%;
-      border-radius: 14px;
+    .admin-edit-row {
+      border-left: 6px solid var(--warning);
+    }
+    .admin-report-worker-block {
+      margin-bottom: 22px;
+      overflow: hidden;
       border: 1px solid var(--border);
-      padding: 13px 15px;
-      font: inherit;
+      border-radius: 16px;
       background: #fff;
-      outline: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .05);
     }
-    textarea {
-      min-height: 112px;
-      resize: vertical;
-    }
-    button {
+    summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      border-bottom: 1px solid #edf2f7;
+      background: #f8fafc;
+      font-size: 18px;
+      font-weight: 800;
       cursor: pointer;
-      font-weight: 900;
-      transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease, background .15s ease;
+      list-style: none;
     }
-    button:hover { transform: translateY(-1px); }
-    button:disabled { opacity: .6; cursor: not-allowed; transform: none; }
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-      box-shadow: 0 16px 30px rgba(11, 87, 208, 0.18);
+    table {
+      width: 100%;
+      margin-top: 10px;
+      border-collapse: collapse;
     }
-    .btn-success {
-      background: var(--success);
-      color: #fff;
-      box-shadow: 0 16px 30px rgba(21, 128, 61, 0.16);
+    th,
+    td {
+      padding: 13px 10px;
+      border-bottom: 1px solid #f1f3f4;
+      text-align: left;
     }
-    .btn-danger {
-      background: #fff5f5;
-      color: var(--danger);
-      border-color: rgba(179, 38, 30, 0.2);
+    th {
+      color: #666;
+      background: #f8fafd;
+      text-transform: uppercase;
+      font-size: 12px;
     }
-    .btn-ghost {
+    .col-time {
+      white-space: nowrap;
+      font-weight: 700;
+    }
+    .chart-container {
+      display: none;
+      padding: 20px;
+      margin-top: 20px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
       background: #fff;
-      color: var(--text);
+      text-align: center;
     }
-    .btn-soft {
-      background: #eff6ff;
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      height: 350px;
+    }
+    .headcount-badge {
+      display: inline-block;
+      padding: 8px 15px;
+      margin: 5px;
+      border: 1px solid #c3d4f2;
+      border-radius: 20px;
       color: var(--primary);
-      border-color: rgba(11, 87, 208, 0.16);
+      background: #e8f0fe;
+      font-size: 13px;
+      font-weight: 800;
     }
-    .btn-chip {
-      width: auto;
-      padding: 10px 14px;
-      border-radius: 999px;
-    }
-    .login-grid {
+    .efficiency-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 0.72fr) auto;
+      grid-template-columns: 1fr 1fr;
       gap: 12px;
-      align-items: end;
+    }
+    .efficiency-stats {
+      grid-column: span 2;
+      padding: 12px;
+      border-radius: 8px;
+      color: var(--primary);
+      background: #eff6ff;
+      text-align: center;
+      font-weight: 800;
     }
     .login-autocomplete {
       position: relative;
     }
     .login-suggestions {
       position: absolute;
-      z-index: 50;
-      top: calc(100% + 6px);
-      left: 0;
+      z-index: 100;
+      top: calc(100% - 7px);
       right: 0;
-      max-height: 240px;
+      left: 0;
+      max-height: 230px;
       overflow-y: auto;
       padding: 6px;
       border: 1px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       background: #fff;
-      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+      box-shadow: 0 16px 35px rgba(15, 23, 42, .2);
     }
     .login-suggestion {
-      display: block;
-      width: 100%;
+      margin: 0;
       padding: 11px 12px;
-      border: 0;
-      border-radius: 10px;
-      background: transparent;
+      border-radius: 8px;
       color: var(--text);
+      background: transparent;
       text-align: left;
-      font-weight: 800;
-      box-shadow: none;
     }
     .login-suggestion:hover,
     .login-suggestion.active {
-      background: #eaf2ff;
       color: var(--primary);
-      transform: none;
+      background: #e8f0fe;
     }
-    .login-note {
-      margin-top: 12px;
-      color: var(--muted);
-      font-weight: 700;
-      font-size: 13px;
+    .hidden {
+      display: none !important;
     }
-    .status-box {
-      padding: 18px;
-      border-radius: 18px;
-      background: #f4f7fb;
-      border: 1px solid #e5eaf3;
-      text-align: center;
-      font-weight: 900;
-      color: #5b6472;
-      font-size: 18px;
+    .msg-checkbox,
+    .alert-checkbox {
+      width: auto;
+      margin: 0 12px 0 0;
+      transform: scale(1.35);
     }
-    .status-on {
-      background: #e9f9ef;
-      border-color: #c9ecd4;
-      color: var(--success);
-    }
-    .control-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: end;
-      margin-top: 14px;
-    }
-    .action-row {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-      margin-top: 14px;
-    }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 34px;
-      height: 26px;
-      padding: 0 10px;
-      border-radius: 999px;
-      background: var(--primary);
-      color: #fff;
-      font-size: 12px;
-      font-weight: 900;
-    }
-    .pill-soft {
-      background: #eef2ff;
-      color: var(--primary);
-      border: 1px solid rgba(11, 87, 208, 0.16);
-    }
-    .list {
-      display: grid;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .list-item {
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      background: #fff;
-      padding: 14px;
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-    }
-    .list-item strong { display: block; }
-    .list-item small { color: var(--muted); font-weight: 700; }
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td {
-      border-bottom: 1px solid #edf0f6;
-      padding: 12px 10px;
-      text-align: left;
-      vertical-align: top;
-    }
-    th {
-      font-size: 12px;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-    .day-row td {
-      background: #f8fbff;
-      font-weight: 900;
-      border-top: 1px solid #e5ecf6;
-    }
-    .badge-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 7px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 900;
-      background: #eef2ff;
-      color: var(--primary);
-      border: 1px solid rgba(11, 87, 208, 0.12);
-    }
-    .badge-success {
-      background: #e9f9ef;
-      color: var(--success);
-      border-color: rgba(21, 128, 61, 0.16);
-    }
-    .badge-warn {
-      background: #fff7e8;
-      color: var(--warning);
-      border-color: rgba(178, 106, 0, 0.16);
-    }
-    .badge-danger {
-      background: #fff3f2;
-      color: var(--danger);
-      border-color: rgba(179, 38, 30, 0.16);
-    }
-    .section-card {
-      background: var(--panel-solid);
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 20px;
-      padding: 18px;
-    }
-    .admin-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px;
-    }
-    .admin-grid .section-card {
-      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
-    }
-    .recipient-box {
-      max-height: 240px;
-      overflow: auto;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      background: #fafcff;
-      padding: 12px;
-      display: grid;
-      gap: 8px;
-    }
-    .recipient-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      padding: 10px 12px;
-      border-radius: 12px;
-      background: #fff;
-      border: 1px solid #edf0f6;
-      font-weight: 800;
-    }
-    .recipient-row input { width: auto; margin: 0; }
-    .mini-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .mini-actions button { width: auto; padding: 9px 12px; }
-    .notification-card {
-      border-left: 6px solid var(--primary);
-      background: #f7fbff;
-    }
-    .notification-card.read {
-      border-left-color: #9ca3af;
-      background: #fafafa;
-    }
-    .notification-card.problem {
-      border-left-color: var(--danger);
-      background: #fff6f6;
-    }
-    .notification-card.reply {
-      border-left-color: var(--success);
-      background: #f1fbf4;
-    }
-    .muted-box {
-      color: var(--muted);
-      font-weight: 700;
-      text-align: center;
-      padding: 16px;
-      border-radius: 14px;
-      background: #fafcff;
-      border: 1px dashed #d7deea;
-    }
-    @media (max-width: 980px) {
-      .grid-two, .grid-admin, .admin-grid { grid-template-columns: 1fr; }
-      .login-grid, .action-row, .control-row { grid-template-columns: 1fr; }
-      body { padding: 12px; }
-      .section-head { align-items: flex-start; }
+    @media (max-width: 760px) {
+      .card {
+        padding: 16px;
+      }
+      .admin-header,
+      .section-row {
+        align-items: stretch !important;
+        flex-direction: column;
+      }
+      .section-row > * {
+        width: 100%;
+      }
+      .efficiency-grid {
+        grid-template-columns: 1fr;
+      }
+      .efficiency-stats {
+        grid-column: span 1;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <h1>Rejestrator Czasu Pracy</h1>
-    </section>
-
-    <section class="card" id="loginCard">
-      <div class="section-head">
-        <div>
-          <h2>Zaloguj się</h2>
-        </div>
-        <span class="badge pill-soft">Live</span>
+  <div id="loginModal">
+    <div class="card" style="max-width:450px; margin:40px auto;">
+      <div class="main-title">Rejestrator Czasu Pracy</div>
+      <div class="login-autocomplete">
+        <input id="userSelectInput" autocomplete="off" placeholder="Wpisz login..." style="text-align:center; font-weight:800;" aria-autocomplete="list" aria-controls="loginSuggestions" aria-expanded="false">
+        <div id="loginSuggestions" class="login-suggestions hidden" role="listbox"></div>
       </div>
-      <div class="login-grid">
-        <label>Login
-          <div class="login-autocomplete">
-            <input id="loginInput" autocomplete="off" placeholder="Wpisz login" aria-autocomplete="list" aria-controls="loginSuggestions" aria-expanded="false">
-            <div id="loginSuggestions" class="login-suggestions hidden" role="listbox"></div>
-          </div>
-        </label>
-        <label>PIN
-          <input id="pinInput" type="password" autocomplete="current-password" placeholder="Wpisz PIN">
-        </label>
-        <button class="btn-primary" onclick="login()">Zaloguj</button>
+      <input type="password" id="pinInput" autocomplete="current-password" placeholder="KOD PIN" style="text-align:center; letter-spacing:8px; font-size:22px;">
+      <button class="btn-primary" onclick="login()">ZALOGUJ SIĘ</button>
+      <div id="loginStatus" style="min-height:20px; color:var(--danger); text-align:center; font-weight:700;"></div>
+    </div>
+  </div>
+
+  <div id="userView">
+    <div class="card">
+      <div class="section-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px;">
+        <h3 id="userNameDisplay" style="margin:0; color:var(--primary);">Pracownik</h3>
+        <button onclick="logout()" style="width:auto; margin:0; padding:9px 16px; background:#eee;">Wyloguj</button>
       </div>
-      <div id="loginStatus" class="login-note"></div>
-    </section>
 
-    <section id="app" class="hidden stack">
-      <section class="card">
-        <div class="section-head">
-          <div>
-            <h2 id="currentUserLabel">Pracownik</h2>
-            <div class="subtle" id="currentRoleLabel">EMPLOYEE</div>
-          </div>
-          <div class="badge-row">
-            <span class="badge" id="notificationsBadge">0</span>
-            <button class="btn-ghost btn-chip" onclick="changeMyPin()">Zmień PIN</button>
-            <button class="btn-danger btn-chip" onclick="logout()">Wyloguj</button>
-          </div>
+      <button class="btn-danger" onclick="reportProblem()">ZGŁOŚ PROBLEM</button>
+      <div id="statusBanner" class="status-box">Status...</div>
+
+      <div id="startSection" style="display:none;">
+        <button class="btn-success" style="height:65px; font-size:19px;" onclick="action('START', 'Praca')">ROZPOCZNIJ DZIEŃ</button>
+      </div>
+      <div id="taskSection" style="display:none;">
+        <select id="taskSelect"></select>
+        <button class="btn-warn" onclick="correctLastTask()">Popraw ostatnią aktywność</button>
+        <button class="btn-primary" onclick="action('TASK')">ZATWIERDŹ ZMIANĘ</button>
+        <button class="btn-danger" onclick="action('STOP')">ZAKOŃCZ PRACĘ</button>
+      </div>
+      <button onclick="changeMyPin()" style="border:none; background:none; color:#666; text-decoration:underline;">Zmień swój kod PIN</button>
+    </div>
+
+    <div class="card">
+      <div class="section-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+        <h4 style="margin:0;">TWOJA HISTORIA</h4>
+        <div id="monthTotalBadge" class="total-pill">Suma: 0h 0m</div>
+      </div>
+      <input type="month" id="histMonth" onchange="loadUserData()" style="margin-top:15px;">
+      <table>
+        <thead>
+          <tr><th>Zadanie</th><th>Godziny</th><th style="text-align:right;">Suma</th></tr>
+        </thead>
+        <tbody id="histTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="adminView">
+    <div class="card admin-header" style="display:flex; justify-content:space-between; align-items:center; gap:12px; color:#fff; background:#1f2937;">
+      <h2 style="margin:0; font-size:18px;">PANEL ADMINA <span id="adminNameDisplay" style="margin-left:8px; color:#f29900; font-size:14px;"></span></h2>
+      <div style="display:flex; gap:8px;">
+        <button onclick="changeMyPinAdmin()" style="width:auto; margin:0; padding:9px 15px; color:#333; background:#f29900;">Hasło</button>
+        <button onclick="logout()" style="width:auto; margin:0; padding:9px 15px; color:#fff; background:var(--danger);">Wyloguj</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:10px;">
+      <div class="tabs">
+        <div class="tab active" onclick="switchAdminTab('live', this)">Live Sesje</div>
+        <div class="tab" onclick="switchAdminTab('alerty', this)">Powiadomienia</div>
+        <div class="tab" onclick="switchAdminTab('raporty', this)">Raporty</div>
+        <div class="tab" onclick="switchAdminTab('produkcja', this)">Analityka</div>
+        <div class="tab" onclick="switchAdminTab('edycja', this)">Edycja</div>
+        <div class="tab" onclick="switchAdminTab('backup', this)">Kopia Bazy</div>
+        <div class="tab" onclick="switchAdminTab('baza', this)">Ustawienia</div>
+      </div>
+
+      <div id="tab-live" class="tab-content active" style="padding:10px;">
+        <div class="section-row" style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px;">
+          <h4 style="margin:0; color:var(--success);">Zarządzaj zespołem</h4>
+          <button class="btn-danger" style="width:auto; margin:0; padding:10px; color:#fff; background:var(--danger);" onclick="closeAllLiveSessions()">ZAMKNIJ WSZYSTKIE</button>
         </div>
-        <div id="statusBanner" class="status-box">Gotowy do rejestracji.</div>
-        <div class="control-row">
-          <label>Aktywność
-            <select id="taskSelect"></select>
-          </label>
-          <button class="btn-soft" onclick="reloadAll()">Odśwież</button>
+        <div class="bulk-actions">
+          <button class="btn-primary" onclick="loadActiveSessions()">Odśwież statusy</button>
+          <button class="btn-success" onclick="sendAdminMessage()">Wyślij komunikat</button>
         </div>
-        <div class="action-row">
-          <button id="startBtn" class="btn-success" onclick="startWork()">Rozpocznij dzień</button>
-          <button id="changeBtn" class="btn-primary hidden" onclick="changeActivity()">Zmień czynność</button>
-          <button id="stopBtn" class="btn-danger hidden" onclick="stopWork()">Zakończ pracę</button>
+        <div id="activeSessionsResults"></div>
+      </div>
+
+      <div id="tab-alerty" class="tab-content" style="padding:10px;">
+        <h4 style="color:var(--danger);">Centrum zgłoszeń i alertów</h4>
+        <div class="bulk-actions">
+          <button class="btn-primary" onclick="loadAdminAlerts()">Odśwież</button>
+          <button class="btn-warn" onclick="dismissSelectedAlerts()">Usuń zaznaczone</button>
+          <button class="btn-danger" onclick="dismissAllAlerts()">Wyczyść wszystko</button>
         </div>
-      </section>
+        <div id="adminAlertsResults"></div>
+      </div>
 
-      <section class="grid-two">
-        <div class="card">
-          <div class="section-head">
-            <div>
-              <h3>Historia pracy</h3>
-              <div class="subtle">Widok miesięczny z sumą godzin</div>
-            </div>
-            <label style="max-width: 180px;">Miesiąc
-              <input type="month" id="histMonth" onchange="loadHistory()">
-            </label>
-          </div>
-          <div class="badge-row" style="margin-bottom: 10px;">
-            <span class="badge badge-success" id="monthTotalBadge">Suma: 0h 0m</span>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Zadanie</th>
-                  <th>Czas</th>
-                  <th style="text-align:right;">Suma</th>
-                </tr>
-              </thead>
-              <tbody id="historyBody">
-                <tr><td colspan="3"><div class="muted-box">Brak wpisów</div></td></tr>
-              </tbody>
-            </table>
-          </div>
+      <div id="tab-raporty" class="tab-content" style="padding:10px;">
+        <div class="section-row" style="display:flex; gap:12px;">
+          <div style="flex:1;"><label>OD</label><input type="date" id="ad1"></div>
+          <div style="flex:1;"><label>DO</label><input type="date" id="ad2"></div>
         </div>
-
-        <div class="card">
-          <div class="section-head">
-            <div>
-              <h3>Komunikaty</h3>
-              <div class="subtle">Nowe wiadomości pojawią się automatycznie</div>
-            </div>
-            <div class="mini-actions">
-              <button class="btn-soft" onclick="loadUnreadNotifications(true)">Odśwież</button>
-              <button class="btn-ghost" onclick="reportProblem()">Zgłoś problem</button>
-            </div>
-          </div>
-          <div id="notificationsList" class="list"></div>
+        <select id="adUser"><option value="Wszyscy">Wszyscy pracownicy</option></select>
+        <div class="bulk-actions">
+          <button class="btn-primary" onclick="loadAdminReports()">Podgląd raportu</button>
+          <button class="btn-success" onclick="promptExport('FULL', document.getElementById('ad1').value, document.getElementById('ad2').value)">Pobierz raport</button>
+          <button class="btn-danger" onclick="promptExport('HR', document.getElementById('ad1').value, document.getElementById('ad2').value)">Pobierz plik HR</button>
         </div>
-      </section>
+        <div id="adminResults"></div>
+      </div>
 
-      <section class="card hidden" id="adminCard">
-        <div class="section-head">
-          <div>
-            <h2>Panel administracyjny</h2>
-            <div class="subtle">Pracownicy, aktywności, komunikaty i aktywne sesje</div>
-          </div>
-          <button class="btn-soft btn-chip" onclick="refreshAdminData()">Odśwież panel</button>
+      <div id="tab-produkcja" class="tab-content" style="padding:10px;">
+        <div class="section-row" style="display:flex; gap:12px;">
+          <div style="flex:1;"><label>OD</label><input type="date" id="prodDate1"></div>
+          <div style="flex:1;"><label>DO</label><input type="date" id="prodDate2"></div>
         </div>
-
-        <div class="admin-grid">
-          <div class="section-card">
-            <div class="section-head">
-              <h3>Pracownicy</h3>
-              <span class="badge" id="workerCountBadge">0</span>
-            </div>
-            <div class="control-row" style="margin-top:0;">
-              <label>Login pracownika
-                <input id="workerNameInput" placeholder="Jan Kowalski">
-              </label>
-              <label>PIN
-                <input id="workerPinInput" placeholder="1234">
-              </label>
-            </div>
-            <button class="btn-primary" style="margin-top: 12px;" onclick="addWorker()">Dodaj pracownika</button>
-            <div id="workersList" class="list"></div>
-          </div>
-
-          <div class="section-card">
-            <div class="section-head">
-              <h3>Czynności</h3>
-              <span class="badge" id="activityCountBadge">0</span>
-            </div>
-            <div class="control-row" style="margin-top:0;">
-              <label>Nazwa czynności
-                <input id="activityNameInput" placeholder="Praca nocna">
-              </label>
-              <label>Kolor
-                <input id="activityColorInput" type="color" value="#0b57d0">
-              </label>
-            </div>
-            <button class="btn-primary" style="margin-top: 12px;" onclick="addActivity()">Dodaj czynność</button>
-            <div id="activitiesList" class="list"></div>
-          </div>
-
-          <div class="section-card">
-            <div class="section-head">
-              <h3>Aktywne zmiany</h3>
-              <div class="mini-actions">
-                <button class="btn-soft" onclick="loadActiveSessions()">Odśwież</button>
-                <button class="btn-danger" onclick="closeAllSessions()">Zamknij wszystkie</button>
-              </div>
-            </div>
-            <div id="activeSessionsList" class="list"></div>
-          </div>
-
-          <div class="section-card">
-            <div class="section-head">
-              <h3>Komunikaty i zgłoszenia</h3>
-              <button class="btn-soft btn-chip" onclick="loadAdminAlerts()">Odśwież</button>
-            </div>
-            <label>Wiadomość dla pracowników
-              <textarea id="messageInput" placeholder="Wpisz komunikat dla zespołu"></textarea>
-            </label>
-            <div style="margin: 12px 0 10px;" class="subtle">Wybierz odbiorców albo wyślij do wszystkich.</div>
-            <label style="display:flex; align-items:center; gap:10px; text-transform:none; letter-spacing:0; font-size:14px; font-weight:800; color:var(--text);">
-              <input type="checkbox" id="broadcastAll" style="width:auto; margin:0;">
-              Wszyscy pracownicy
-            </label>
-            <div id="recipientList" class="recipient-box"></div>
-            <button class="btn-success" style="margin-top:12px;" onclick="sendAdminMessage()">Wyślij komunikat</button>
-            <div id="adminAlertsList" class="list" style="margin-top:16px;"></div>
-          </div>
+        <button class="btn-success" onclick="loadEfficiency()">POKAŻ RAPORT ANALITYCZNY</button>
+        <div id="chartContainer" class="chart-container">
+          <h4>Podział pracy zespołu</h4>
+          <div class="chart-wrapper"><canvas id="prodChart"></canvas></div>
+          <div id="headcountBadges" style="margin-top:15px;"></div>
+          <div id="prodDailyTotals" style="display:none; margin-top:15px; padding:15px; border-radius:10px; background:#e8f0fe;"></div>
+          <button class="btn-success" onclick="promptExport('PROD', document.getElementById('prodDate1').value, document.getElementById('prodDate2').value)">Pobierz arkusz wydajności</button>
         </div>
-      </section>
-    </section>
-  </main>
+        <select id="prodActivitySelect" onchange="renderEfficiencyList()" style="display:none; margin-top:20px;"></select>
+        <div id="efficiencyList"></div>
+        <div id="efficiencyActions" style="display:none;">
+          <button class="btn-success" onclick="saveAllEfficiency()">ZAPISZ WYNIKI PAKOWANIA</button>
+        </div>
+      </div>
+
+      <div id="tab-edycja" class="tab-content" style="padding:10px;">
+        <select id="adEditUser"><option value="">-- Pracownik --</option></select>
+        <input type="date" id="adEditDate">
+        <button class="btn-primary" onclick="loadAdminEditLogs()">POBIERZ WPISY DO EDYCJI</button>
+        <div id="adminEditResults"></div>
+      </div>
+
+      <div id="tab-backup" class="tab-content" style="padding:10px; text-align:center;">
+        <h3 style="color:var(--primary);">Kopia zapasowa bazy danych</h3>
+        <p style="color:#666;">Eksport danych rejestratora do pliku JSON lub Excel.</p>
+        <div class="section-row" style="display:flex; gap:12px;">
+          <div style="flex:1;"><label>OD</label><input type="date" id="backupD1"></div>
+          <div style="flex:1;"><label>DO</label><input type="date" id="backupD2"></div>
+        </div>
+        <button class="btn-success" onclick="promptBackupExport()">GENERUJ KOPIĘ BAZY</button>
+      </div>
+
+      <div id="tab-baza" class="tab-content" style="padding:10px;">
+        <h4 style="padding-bottom:8px; border-bottom:2px solid var(--primary);">Konta administratorów</h4>
+        <div id="db-admins"></div>
+        <button class="btn-dark" onclick="dbAdd('ADMIN')">+ Dodaj administratora</button>
+
+        <h4 style="padding-bottom:8px; margin-top:25px; border-bottom:2px solid var(--primary);">Pracownicy</h4>
+        <div id="db-employees"></div>
+        <button class="btn-primary" onclick="dbAdd('EMPLOYEE')">+ Dodaj pracownika</button>
+
+        <h4 style="padding-bottom:8px; margin-top:25px; border-bottom:2px solid var(--primary);">Aktywności</h4>
+        <div id="db-activities"></div>
+        <button class="btn-primary" onclick="dbAdd('ACTIVITY')">+ Dodaj aktywność</button>
+      </div>
+    </div>
+  </div>
 
   <script>
-    const ADMIN_ROLES = ['ADMIN', 'SUPER_ADMIN', 'MANAGER', 'TEAM_LEADER'];
+    const API_URL = "/api";
+    const ADMIN_ROLES = ["ADMIN", "SUPER_ADMIN", "MANAGER", "TEAM_LEADER"];
     const state = {
-      user: null,
-      role: '',
+      currentUser: "",
+      currentRole: "",
+      admins: [],
       employees: [],
       activities: [],
-      unreadBusy: false,
-      unreadTimer: null,
+      accounts: [],
       loginSuggestionIndex: -1,
+      unreadTimer: null,
+      currentAlerts: [],
+      productivity: null,
+      chart: null,
     };
 
-    async function api(endpoint, method = 'GET', body = null) {
-      const options = { method, headers: { 'Content-Type': 'application/json' } };
+    const notify = {
+      toast: (title, icon = "success") => Swal.fire({ title, icon, timer: 1400, showConfirmButton: false, toast: true, position: "top-end" }),
+      success: (title) => Swal.fire({ title, icon: "success", timer: 1500, showConfirmButton: false }),
+      error: (title, text = "") => Swal.fire({ title, text, icon: "error" }),
+      loading: (title) => Swal.fire({ title, allowOutsideClick: false, didOpen: () => Swal.showLoading() }),
+      close: () => Swal.close(),
+    };
+
+    async function apiCall(endpoint, method = "GET", body = null) {
+      const options = { method, headers: { "Content-Type": "application/json" } };
       if (body !== null) options.body = JSON.stringify(body);
-      const response = await fetch('/api' + endpoint, options);
+      const response = await fetch(API_URL + endpoint, options);
       const rawText = await response.text();
       let payload = null;
       try { payload = rawText ? JSON.parse(rawText) : null; } catch (_) {}
       if (!response.ok) {
-        throw new Error((payload && payload.detail) ? payload.detail : (rawText || 'Błąd serwera'));
+        throw new Error(payload?.detail || rawText || `Błąd serwera: ${response.status}`);
       }
-      return payload || {};
+      return payload ?? {};
     }
 
-    function isAdmin() {
-      return ADMIN_ROLES.includes(String(state.role || '').toUpperCase());
+    const parseTime = (value) => {
+      const match = String(value || "").match(/(\d+)h\s*(\d+)m/);
+      return match ? (parseInt(match[1], 10) * 60 + parseInt(match[2], 10)) : 0;
+    };
+    const formatMins = (minutes) => `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+    const isAdmin = () => ADMIN_ROLES.includes(state.currentRole);
+
+    function localDate() {
+      const offset = new Date().getTimezoneOffset() * 60000;
+      return new Date(Date.now() - offset).toISOString().slice(0, 10);
     }
 
-    function todayMonth() {
-      return new Date().toISOString().slice(0, 7);
+    function hideSuggestions() {
+      const box = document.getElementById("loginSuggestions");
+      box.classList.add("hidden");
+      box.replaceChildren();
+      document.getElementById("userSelectInput").setAttribute("aria-expanded", "false");
+      state.loginSuggestionIndex = -1;
     }
 
-    function saveSession(user) {
-      localStorage.setItem('rctpSession', JSON.stringify(user));
-      state.user = user;
-      state.role = user.role || 'EMPLOYEE';
+    function chooseSuggestion(name) {
+      document.getElementById("userSelectInput").value = name;
+      hideSuggestions();
+      document.getElementById("pinInput").focus();
     }
 
-    function clearSession() {
-      localStorage.removeItem('rctpSession');
-      state.user = null;
-      state.role = '';
+    function renderLoginSuggestions() {
+      const input = document.getElementById("userSelectInput");
+      const box = document.getElementById("loginSuggestions");
+      const query = input.value.trim().toLocaleLowerCase("pl");
+      if (!query) {
+        hideSuggestions();
+        return;
+      }
+
+      const matches = state.accounts.filter((name) =>
+        name.toLocaleLowerCase("pl").startsWith(query)
+      );
+      box.replaceChildren();
+      state.loginSuggestionIndex = -1;
+      if (!matches.length) {
+        hideSuggestions();
+        return;
+      }
+
+      matches.forEach((name) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "login-suggestion";
+        button.setAttribute("role", "option");
+        button.textContent = name;
+        button.addEventListener("mousedown", (event) => event.preventDefault());
+        button.addEventListener("click", () => chooseSuggestion(name));
+        box.appendChild(button);
+      });
+      box.classList.remove("hidden");
+      input.setAttribute("aria-expanded", "true");
     }
 
-    function setLoggedOutView() {
-      document.getElementById('loginCard').classList.remove('hidden');
-      document.getElementById('app').classList.add('hidden');
-      document.getElementById('loginInput').value = '';
-      document.getElementById('pinInput').value = '';
-      document.getElementById('loginStatus').textContent = '';
-      hideLoginSuggestions();
-      document.getElementById('notificationsBadge').textContent = '0';
-      document.getElementById('notificationsList').innerHTML = '';
+    function moveSuggestion(direction) {
+      const buttons = Array.from(document.querySelectorAll(".login-suggestion"));
+      if (!buttons.length) return;
+      state.loginSuggestionIndex =
+        (state.loginSuggestionIndex + direction + buttons.length) % buttons.length;
+      buttons.forEach((button, index) => {
+        button.classList.toggle("active", index === state.loginSuggestionIndex);
+      });
+    }
+
+    function setupLoginAutocomplete() {
+      const input = document.getElementById("userSelectInput");
+      input.addEventListener("input", renderLoginSuggestions);
+      input.addEventListener("focus", renderLoginSuggestions);
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          moveSuggestion(1);
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          moveSuggestion(-1);
+        } else if (event.key === "Enter" && state.loginSuggestionIndex >= 0) {
+          event.preventDefault();
+          const buttons = document.querySelectorAll(".login-suggestion");
+          chooseSuggestion(buttons[state.loginSuggestionIndex].textContent);
+        } else if (event.key === "Escape") {
+          hideSuggestions();
+        }
+      });
+      document.getElementById("pinInput").addEventListener("keydown", (event) => {
+        if (event.key === "Enter") login();
+      });
+      document.addEventListener("mousedown", (event) => {
+        if (!event.target.closest(".login-autocomplete")) hideSuggestions();
+      });
+    }
+
+    function renderSettings() {
+      document.getElementById("db-admins").innerHTML = state.admins.map((name) => `
+        <div class="db-item">
+          <span><b>${name}</b></span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-warn" style="width:auto; margin:0; padding:8px 13px;" onclick='dbEditPin("ADMIN", ${JSON.stringify(name)})'>Hasło</button>
+            ${name === "Piotrek" ? "" : `<button class="btn-danger" style="width:auto; margin:0; padding:8px 13px;" onclick='dbDelete("ADMIN", ${JSON.stringify(name)})'>Usuń</button>`}
+          </div>
+        </div>
+      `).join("");
+
+      document.getElementById("db-employees").innerHTML = state.employees.map((name) => `
+        <div class="db-item">
+          <span>${name}</span>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-warn" style="width:auto; margin:0; padding:8px 13px;" onclick='dbEditPin("EMPLOYEE", ${JSON.stringify(name)})'>PIN</button>
+            <button class="btn-danger" style="width:auto; margin:0; padding:8px 13px;" onclick='dbDelete("EMPLOYEE", ${JSON.stringify(name)})'>Usuń</button>
+          </div>
+        </div>
+      `).join("");
+
+      document.getElementById("db-activities").innerHTML = state.activities.map((name) => `
+        <div class="db-item">
+          <span>${name}</span>
+          <button class="btn-danger" style="width:auto; margin:0; padding:8px 13px;" onclick='dbDelete("ACTIVITY", ${JSON.stringify(name)})'>Usuń</button>
+        </div>
+      `).join("");
+    }
+
+    async function loadConfig() {
+      const config = await apiCall("/config");
+      state.admins = Object.keys(config.admins || {}).sort((a, b) => a.localeCompare(b, "pl"));
+      state.employees = Array.isArray(config.pracownicy) ? config.pracownicy : [];
+      state.activities = Array.isArray(config.aktywnosci) ? config.aktywnosci : [];
+      state.accounts = [...new Set([...state.admins, ...state.employees])]
+        .sort((a, b) => a.localeCompare(b, "pl"));
+
+      document.getElementById("taskSelect").innerHTML = state.activities
+        .map((name) => `<option value="${name}">${name}</option>`)
+        .join("");
+      document.getElementById("adUser").innerHTML =
+        '<option value="Wszyscy">Wszyscy pracownicy</option>' +
+        state.employees.map((name) => `<option value="${name}">${name}</option>`).join("");
+      document.getElementById("adEditUser").innerHTML =
+        '<option value="">-- Pracownik --</option>' +
+        state.employees.map((name) => `<option value="${name}">${name}</option>`).join("");
+      renderSettings();
+      renderLoginSuggestions();
+    }
+
+    async function login() {
+      const username = document.getElementById("userSelectInput").value.trim();
+      const pin = document.getElementById("pinInput").value.trim();
+      document.getElementById("loginStatus").textContent = "";
+      if (!username || !pin) {
+        document.getElementById("loginStatus").textContent = "Podaj login i PIN.";
+        return;
+      }
+
+      try {
+        const user = await apiCall("/auth/login", "POST", { username, pin });
+        state.currentUser = user.name;
+        state.currentRole = String(user.role || "EMPLOYEE").toUpperCase();
+        document.getElementById("loginModal").style.display = "none";
+
+        if (isAdmin()) {
+          document.getElementById("userView").style.display = "none";
+          document.getElementById("adminView").style.display = "block";
+          document.getElementById("adminNameDisplay").textContent = `(${state.currentUser})`;
+          await Promise.all([loadActiveSessions(), loadAdminAlerts(), loadConfig()]);
+        } else {
+          document.getElementById("adminView").style.display = "none";
+          document.getElementById("userView").style.display = "block";
+          document.getElementById("userNameDisplay").textContent = state.currentUser;
+          await loadUserData();
+          startMessageAgent();
+        }
+      } catch (error) {
+        document.getElementById("loginStatus").textContent = error.message;
+      }
+    }
+
+    function logout() {
       if (state.unreadTimer) {
         clearInterval(state.unreadTimer);
         state.unreadTimer = null;
       }
+      state.currentUser = "";
+      state.currentRole = "";
+      document.getElementById("userView").style.display = "none";
+      document.getElementById("adminView").style.display = "none";
+      document.getElementById("loginModal").style.display = "block";
+      document.getElementById("userSelectInput").value = "";
+      document.getElementById("pinInput").value = "";
+      document.getElementById("loginStatus").textContent = "";
+      hideSuggestions();
     }
 
-    function setLoggedInView() {
-      document.getElementById('loginCard').classList.add('hidden');
-      document.getElementById('app').classList.remove('hidden');
-      document.getElementById('currentUserLabel').textContent = state.user.name;
-      document.getElementById('currentRoleLabel').textContent = state.role;
-      document.getElementById('adminCard').classList.toggle('hidden', !isAdmin());
-      document.getElementById('histMonth').value = todayMonth();
-    }
-
-    function renderStatus(currentTask) {
-      const banner = document.getElementById('statusBanner');
-      const startBtn = document.getElementById('startBtn');
-      const changeBtn = document.getElementById('changeBtn');
-      const stopBtn = document.getElementById('stopBtn');
-
-      if (currentTask) {
-        banner.className = 'status-box status-on';
-        banner.textContent = `TRWA: ${currentTask.name}`;
-        startBtn.classList.add('hidden');
-        changeBtn.classList.remove('hidden');
-        stopBtn.classList.remove('hidden');
+    function renderUserHistory(payload) {
+      const banner = document.getElementById("statusBanner");
+      if (payload.currentTask) {
+        banner.className = "status-box status-on";
+        banner.textContent = `TRWA: ${payload.currentTask.name}`;
+        document.getElementById("startSection").style.display = "none";
+        document.getElementById("taskSection").style.display = "block";
       } else {
-        banner.className = 'status-box';
-        banner.textContent = 'Gotowy do rejestracji.';
-        startBtn.classList.remove('hidden');
-        changeBtn.classList.add('hidden');
-        stopBtn.classList.add('hidden');
+        banner.className = "status-box";
+        banner.textContent = "Offline";
+        document.getElementById("startSection").style.display = "block";
+        document.getElementById("taskSection").style.display = "none";
       }
-    }
 
-    function setTaskOptions() {
-      const select = document.getElementById('taskSelect');
-      const options = (state.activities.length ? state.activities : ['Praca'])
-        .map((name) => `<option value="${name}">${name}</option>`)
-        .join('');
-      select.innerHTML = options;
-    }
-
-    function renderHistory(payload) {
-      const history = Array.isArray(payload.hist) ? payload.hist : [];
       const grouped = {};
-      let totalMins = 0;
-
-      history.forEach((entry) => {
+      let totalMinutes = 0;
+      (payload.hist || []).forEach((entry) => {
         if (!grouped[entry.data]) grouped[entry.data] = [];
         grouped[entry.data].push(entry);
       });
 
       const rows = [];
       Object.keys(grouped).sort((a, b) => b.localeCompare(a)).forEach((date) => {
-        let dayMins = 0;
+        let dayMinutes = 0;
         grouped[date].forEach((entry) => {
-          const mins = entry.czas === '-' ? 0 : parseTime(entry.czas);
-          dayMins += mins;
-          totalMins += mins;
+          const minutes = parseTime(entry.czas);
+          dayMinutes += minutes;
+          totalMinutes += minutes;
         });
-        rows.push(`<tr class="day-row"><td colspan="3">${date}<span style="float:right; color: var(--primary);">Σ ${formatMins(dayMins)}</span></td></tr>`);
+        rows.push(`<tr class="day-sep-row"><td colspan="2">${date}</td><td style="text-align:right; color:var(--primary);">Σ ${formatMins(dayMinutes)}</td></tr>`);
         grouped[date].forEach((entry) => {
-          rows.push(`<tr><td><strong>${entry.zadanie}</strong></td><td>${entry.start} - ${entry.koniec}</td><td style="text-align:right;">${entry.czas}</td></tr>`);
+          rows.push(`<tr><td><b>${entry.zadanie}</b></td><td class="col-time">${entry.start}-${entry.koniec}</td><td style="text-align:right;">${entry.czas}</td></tr>`);
         });
       });
 
-      document.getElementById('historyBody').innerHTML = rows.length
-        ? rows.join('')
-        : '<tr><td colspan="3"><div class="muted-box">Brak wpisów</div></td></tr>';
-      document.getElementById('monthTotalBadge').textContent = `Suma: ${formatMins(totalMins)}`;
-      renderStatus(payload.currentTask);
+      document.getElementById("histTableBody").innerHTML =
+        rows.join("") || '<tr><td colspan="3" class="empty-box">Brak wpisów</td></tr>';
+      document.getElementById("monthTotalBadge").textContent = `Suma: ${formatMins(totalMinutes)}`;
     }
 
-    function parseTime(value) {
-      const match = String(value || '').match(/(\d+)h\s*(\d+)m/);
-      return match ? (parseInt(match[1], 10) * 60 + parseInt(match[2], 10)) : 0;
-    }
-
-    function formatMins(value) {
-      const mins = Math.max(0, parseInt(value || 0, 10));
-      return `${Math.floor(mins / 60)}h ${mins % 60}m`;
-    }
-
-    function hideLoginSuggestions() {
-      const suggestions = document.getElementById('loginSuggestions');
-      suggestions.classList.add('hidden');
-      suggestions.replaceChildren();
-      document.getElementById('loginInput').setAttribute('aria-expanded', 'false');
-      state.loginSuggestionIndex = -1;
-    }
-
-    function selectLoginSuggestion(name) {
-      document.getElementById('loginInput').value = name;
-      hideLoginSuggestions();
-      document.getElementById('pinInput').focus();
-    }
-
-    function renderLoginSuggestions() {
-      const input = document.getElementById('loginInput');
-      const suggestions = document.getElementById('loginSuggestions');
-      const query = input.value.trim().toLocaleLowerCase('pl');
-
-      if (!query) {
-        hideLoginSuggestions();
-        return;
-      }
-
-      const matches = state.employees.filter((name) =>
-        String(name).toLocaleLowerCase('pl').startsWith(query)
-      );
-
-      suggestions.replaceChildren();
-      state.loginSuggestionIndex = -1;
-
-      if (!matches.length) {
-        hideLoginSuggestions();
-        return;
-      }
-
-      matches.forEach((name) => {
-        const option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'login-suggestion';
-        option.setAttribute('role', 'option');
-        option.textContent = name;
-        option.addEventListener('mousedown', (event) => event.preventDefault());
-        option.addEventListener('click', () => selectLoginSuggestion(name));
-        suggestions.appendChild(option);
+    async function loadUserData() {
+      if (!state.currentUser || isAdmin()) return;
+      const payload = await apiCall("/user/history", "POST", {
+        username: state.currentUser,
+        month: document.getElementById("histMonth").value,
       });
-
-      suggestions.classList.remove('hidden');
-      input.setAttribute('aria-expanded', 'true');
+      renderUserHistory(payload);
     }
 
-    function moveLoginSuggestion(direction) {
-      const suggestions = Array.from(document.querySelectorAll('.login-suggestion'));
-      if (!suggestions.length) return;
-
-      state.loginSuggestionIndex =
-        (state.loginSuggestionIndex + direction + suggestions.length) % suggestions.length;
-
-      suggestions.forEach((suggestion, index) => {
-        const isActive = index === state.loginSuggestionIndex;
-        suggestion.classList.toggle('active', isActive);
-        suggestion.setAttribute('aria-selected', String(isActive));
+    async function action(type, specific = null) {
+      if (isAdmin() || !state.currentUser) return;
+      if (type === "STOP" && !confirm("Zakończyć pracę?")) return;
+      const task = specific || document.getElementById("taskSelect").value || "Praca";
+      const payload = await apiCall("/user/action", "POST", {
+        username: state.currentUser,
+        type,
+        task,
+        month: document.getElementById("histMonth").value,
       });
-      suggestions[state.loginSuggestionIndex].scrollIntoView({ block: 'nearest' });
+      renderUserHistory(payload);
+      notify.toast("Zapisano");
     }
 
-    function setupLoginAutocomplete() {
-      const loginInput = document.getElementById('loginInput');
-      const pinInput = document.getElementById('pinInput');
-
-      loginInput.addEventListener('input', renderLoginSuggestions);
-      loginInput.addEventListener('focus', renderLoginSuggestions);
-      loginInput.addEventListener('keydown', (event) => {
-        if (event.key === 'ArrowDown') {
-          event.preventDefault();
-          moveLoginSuggestion(1);
-        } else if (event.key === 'ArrowUp') {
-          event.preventDefault();
-          moveLoginSuggestion(-1);
-        } else if (event.key === 'Enter' && state.loginSuggestionIndex >= 0) {
-          event.preventDefault();
-          const suggestions = document.querySelectorAll('.login-suggestion');
-          selectLoginSuggestion(suggestions[state.loginSuggestionIndex].textContent);
-        } else if (event.key === 'Escape') {
-          hideLoginSuggestions();
-        }
+    async function correctLastTask() {
+      const options = {};
+      state.activities.forEach((activity) => { options[activity] = activity; });
+      const result = await Swal.fire({
+        title: "Popraw aktywność",
+        input: "select",
+        inputOptions: options,
+        showCancelButton: true,
+        confirmButtonText: "Zmień",
+        cancelButtonText: "Anuluj",
       });
-
-      pinInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') login();
+      if (!result.isConfirmed || !result.value) return;
+      const payload = await apiCall("/user/correct-task", "POST", {
+        username: state.currentUser,
+        task: result.value,
+        month: document.getElementById("histMonth").value,
       });
+      renderUserHistory(payload);
+    }
 
-      document.addEventListener('mousedown', (event) => {
-        if (!event.target.closest('.login-autocomplete')) hideLoginSuggestions();
+    async function reportProblem() {
+      const result = await Swal.fire({
+        title: "Zgłoś problem",
+        input: "textarea",
+        inputPlaceholder: "Opisz problem...",
+        showCancelButton: true,
+        confirmButtonText: "Wyślij",
+        cancelButtonText: "Anuluj",
       });
-    }
-
-    function renderAdminWorkers(workers) {
-      document.getElementById('workerCountBadge').textContent = String(workers.length);
-      document.getElementById('workersList').innerHTML = workers.map((worker) => {
-        const buttons = worker.is_root
-          ? '<span class="badge badge-success">ADMIN</span>'
-          : `
-            <div class="mini-actions">
-              <button class="btn-soft btn-chip" onclick="changeWorkerPin(${JSON.stringify(worker.name)})">PIN</button>
-              <button class="btn-danger btn-chip" onclick="deleteWorker(${JSON.stringify(worker.name)})">Usuń</button>
-            </div>
-          `;
-        return `
-          <div class="list-item">
-            <div>
-              <strong>${worker.name}</strong>
-              <small>${worker.role} ${worker.global_id ? `• ID ${worker.global_id}` : ''}</small>
-            </div>
-            ${buttons}
-          </div>
-        `;
-      }).join('') || '<div class="muted-box">Brak pracowników</div>';
-      renderRecipients(workers);
-    }
-
-    function renderActivities(activities) {
-      document.getElementById('activityCountBadge').textContent = String(activities.length);
-      document.getElementById('activitiesList').innerHTML = activities.map((activity) => `
-        <div class="list-item">
-          <div>
-            <strong>${activity.name}</strong>
-            <small>Kolor: ${activity.color || '#0b57d0'}</small>
-          </div>
-          <button class="btn-danger btn-chip" onclick="deleteActivity(${JSON.stringify(activity.name)})">Usuń</button>
-        </div>
-      `).join('') || '<div class="muted-box">Brak czynności</div>';
-    }
-
-    function renderRecipients(workers) {
-      const nonRootWorkers = workers.filter((worker) => !worker.is_root);
-      document.getElementById('recipientList').innerHTML = nonRootWorkers.map((worker) => `
-        <label class="recipient-row">
-          <input type="checkbox" class="recipient-checkbox" value="${worker.name}">
-          <span>${worker.name}</span>
-        </label>
-      `).join('') || '<div class="muted-box">Brak odbiorców</div>';
-    }
-
-    function renderAdminAlerts(items) {
-      const list = document.getElementById('adminAlertsList');
-      if (!items.length) {
-        list.innerHTML = '<div class="muted-box">Brak otwartych zgłoszeń i odpowiedzi.</div>';
-        return;
-      }
-      list.innerHTML = items.map((item) => `
-        <div class="list-item ${item.type === 'problem' ? 'notification-card problem' : 'notification-card reply'}">
-          <div>
-            <strong>${item.type === 'problem' ? 'Zgłoszenie' : 'Odpowiedź'}</strong>
-            <small>${item.date} • ${item.text}</small>
-          </div>
-          <button class="btn-soft btn-chip" onclick="resolveAlert(${JSON.stringify(item.type)}, ${JSON.stringify(item.id)})">Oznacz</button>
-        </div>
-      `).join('');
-    }
-
-    function renderNotifications(messages) {
-      document.getElementById('notificationsBadge').textContent = String(messages.length);
-      const list = document.getElementById('notificationsList');
-      if (!messages.length) {
-        list.innerHTML = '<div class="muted-box">Brak nowych komunikatów.</div>';
-        return;
-      }
-      list.innerHTML = messages.map((message) => `
-        <div class="list-item notification-card">
-          <div>
-            <strong>${message.sender || 'ADMIN'} • ${message.time || ''}</strong>
-            <small>${message.content}</small>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    async function loadConfig() {
-      const config = await api('/config');
-      state.employees = Array.isArray(config.employees) ? config.employees : [];
-      state.activities = Array.isArray(config.activities) ? config.activities : [];
-      setTaskOptions();
-      renderLoginSuggestions();
-    }
-
-    async function loadHistory() {
-      if (!state.user) return;
-      const payload = await api('/user/history', 'POST', {
-        username: state.user.name,
-        month: document.getElementById('histMonth').value,
+      if (!result.isConfirmed || !result.value) return;
+      await apiCall("/user/problem", "POST", {
+        username: state.currentUser,
+        description: result.value,
       });
-      renderHistory(payload);
+      notify.success("Zgłoszenie wysłane");
     }
 
-    async function loadUnreadNotifications(showPopup = true) {
-      if (!state.user || state.unreadBusy) return;
-      const messages = await api('/user/messages/unread', 'POST', { username: state.user.name });
-      renderNotifications(messages);
-      if (!showPopup || !messages.length) return;
+    async function changeMyPin() {
+      const oldPin = await Swal.fire({
+        title: "Stary PIN",
+        input: "password",
+        showCancelButton: true,
+        confirmButtonText: "Dalej",
+      });
+      if (!oldPin.isConfirmed) return;
+      const newPin = await Swal.fire({
+        title: "Nowy PIN",
+        input: "password",
+        showCancelButton: true,
+        confirmButtonText: "Zapisz",
+      });
+      if (!newPin.isConfirmed || !newPin.value) return;
+      const response = await apiCall("/user/change-pin", "POST", {
+        username: state.currentUser,
+        oldPin: oldPin.value || "",
+        newPin: newPin.value,
+      });
+      response.ok ? notify.success(response.msg) : notify.error(response.msg);
+    }
 
-      state.unreadBusy = true;
-      try {
-        for (const message of messages) {
-          const result = await Swal.fire({
-            title: `Komunikat od ${message.sender || 'ADMIN'}`,
-            html: `<div style="text-align:left; font-weight:800; color:#152033; padding:10px 0 4px;">${message.content}</div>`,
-            input: 'textarea',
-            inputPlaceholder: 'Odpowiedź lub komentarz (opcjonalnie)',
-            confirmButtonText: 'Oznacz jako przeczytane',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-          });
-          if (result.isConfirmed) {
-            await api('/user/messages/reply', 'POST', {
-              msg_id: message.id,
-              reply: result.value || '',
-            });
-          }
-        }
-      } finally {
-        state.unreadBusy = false;
-        const refresh = await api('/user/messages/unread', 'POST', { username: state.user.name });
-        renderNotifications(refresh);
+    function startMessageAgent() {
+      if (state.unreadTimer) clearInterval(state.unreadTimer);
+      checkMessages();
+      state.unreadTimer = setInterval(checkMessages, 60000);
+    }
+
+    async function checkMessages() {
+      if (!state.currentUser || isAdmin()) return;
+      const messages = await apiCall("/user/messages/unread", "POST", { username: state.currentUser });
+      if (!messages.length) return;
+      const message = messages[0];
+      const result = await Swal.fire({
+        title: `Komunikat od ${message.sender || "administratora"}`,
+        html: `<div style="padding:15px; border:2px solid var(--danger); border-radius:10px; background:#fff5f5;"><b>${message.content}</b></div>`,
+        input: "text",
+        inputPlaceholder: "Odpowiedź (opcjonalnie)",
+        confirmButtonText: "Przeczytano",
+        allowOutsideClick: false,
+      });
+      if (result.isConfirmed) {
+        await apiCall("/user/messages/reply", "POST", {
+          msg_id: message.id,
+          reply: result.value || "",
+        });
       }
     }
 
     async function loadActiveSessions() {
       if (!isAdmin()) return;
-      const sessions = await api('/admin/active-sessions');
-      const container = document.getElementById('activeSessionsList');
+      const sessions = await apiCall("/admin/active-sessions");
       const tasks = Object.keys(sessions || {});
       if (!tasks.length) {
-        container.innerHTML = '<div class="muted-box">Brak aktywnych zmian.</div>';
+        document.getElementById("activeSessionsResults").innerHTML =
+          '<div class="empty-box">Brak aktywnych pracowników.</div>';
         return;
       }
-      container.innerHTML = tasks.map((task) => {
-        const workers = sessions[task] || [];
-        return `
-          <div class="section-card" style="background:#fdfefe; border-radius:18px; padding:14px;">
-            <div class="section-head">
-              <h3 style="font-size:16px; margin:0;">${task}</h3>
-              <span class="badge">${workers.length}</span>
-            </div>
-            <div class="stack">
-              ${workers.map((worker) => `
-                <div class="list-item">
-                  <div>
-                    <strong>${worker.user}</strong>
-                    <small>Start: ${worker.start || '-'}</small>
-                  </div>
-                  <button class="btn-danger btn-chip" onclick="closeSession(${JSON.stringify(worker.user)})">Zamknij</button>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      }).join('');
+
+      let html = "";
+      tasks.forEach((task) => {
+        const groupClass = task.replace(/\W+/g, "");
+        html += `<div class="day-sep-admin"><span>${task}</span><span>${sessions[task].length} os.</span></div>`;
+        sessions[task].forEach((person) => {
+          html += `
+            <div class="live-session-card">
+              <div style="display:flex; align-items:center;">
+                <input type="checkbox" class="msg-checkbox cb-${groupClass}" value="${person.user}">
+                <div><b>${person.user}</b><br><small>Od: ${person.start}</small></div>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button class="btn-warn" style="width:auto; margin:0; padding:8px 12px;" onclick='editLiveSession(${JSON.stringify(person.user)}, ${JSON.stringify(task)}, ${JSON.stringify(person.start)})'>Edytuj</button>
+                <button class="btn-danger" style="width:auto; margin:0; padding:8px 12px;" onclick='closeLiveSession(${JSON.stringify(person.user)})'>Zamknij</button>
+              </div>
+            </div>`;
+        });
+      });
+      document.getElementById("activeSessionsResults").innerHTML = html;
     }
 
-    async function loadAdminWorkers() {
-      if (!isAdmin()) return;
-      const workers = await api('/admin/workers');
-      renderAdminWorkers(workers);
+    async function sendAdminMessage() {
+      const selected = Array.from(document.querySelectorAll(".msg-checkbox:checked"))
+        .map((checkbox) => checkbox.value);
+      const receivers = selected.length ? selected : ["ALL"];
+      const result = await Swal.fire({
+        title: selected.length ? "Wyślij komunikat" : "Wyślij do wszystkich pracowników",
+        input: "textarea",
+        showCancelButton: true,
+        confirmButtonText: "Wyślij",
+      });
+      if (!result.isConfirmed || !result.value) return;
+      const response = await apiCall("/admin/messages/send", "POST", {
+        receivers,
+        content: result.value,
+      });
+      notify.success(`Wysłano: ${response.sent || 0}`);
     }
 
-    async function loadAdminActivities() {
-      if (!isAdmin()) return;
-      const activities = await api('/admin/activities');
-      renderActivities(activities);
+    async function closeLiveSession(username) {
+      await apiCall("/admin/live-session/close", "POST", { username });
+      await loadActiveSessions();
+    }
+
+    async function closeAllLiveSessions() {
+      const result = await Swal.fire({
+        title: "Zamknąć wszystkie aktywne sesje?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Zamknij",
+      });
+      if (!result.isConfirmed) return;
+      await apiCall("/admin/live-session/close-all", "POST", {});
+      await loadActiveSessions();
+    }
+
+    async function editLiveSession(username, task, start) {
+      const options = state.activities
+        .map((activity) => `<option value="${activity}" ${activity === task ? "selected" : ""}>${activity}</option>`)
+        .join("");
+      const result = await Swal.fire({
+        title: `Edytuj sesję: ${username}`,
+        html: `
+          <label style="display:block; text-align:left;">Aktywność</label>
+          <select id="liveTask" class="swal2-input" style="width:90%;">${options}</select>
+          <label style="display:block; text-align:left;">Godzina startu</label>
+          <input id="liveStart" type="time" class="swal2-input" style="width:90%;" value="${start}">
+        `,
+        showCancelButton: true,
+        confirmButtonText: "Zapisz",
+        preConfirm: () => ({
+          task: document.getElementById("liveTask").value,
+          start_time: document.getElementById("liveStart").value,
+        }),
+      });
+      if (!result.isConfirmed) return;
+      await apiCall("/admin/live-session/edit", "POST", {
+        username,
+        ...result.value,
+      });
+      await loadActiveSessions();
     }
 
     async function loadAdminAlerts() {
       if (!isAdmin()) return;
-      const alerts = await api('/admin/alerts');
-      renderAdminAlerts(alerts);
+      state.currentAlerts = await apiCall("/admin/alerts");
+      renderAdminAlerts();
     }
 
-    async function refreshAdminData() {
-      if (!isAdmin()) return;
-      await Promise.all([
-        loadAdminWorkers(),
-        loadAdminActivities(),
-        loadActiveSessions(),
-        loadAdminAlerts(),
-      ]);
-      await loadConfig();
-      await loadHistory();
-    }
-
-    async function reloadAll() {
-      await loadConfig();
-      await loadHistory();
-      await loadUnreadNotifications(true);
-      if (isAdmin()) {
-        await refreshAdminData();
+    function renderAdminAlerts() {
+      if (!state.currentAlerts.length) {
+        document.getElementById("adminAlertsResults").innerHTML =
+          '<div class="empty-box" style="color:var(--success);">Skrzynka pusta.</div>';
+        return;
       }
+      const grouped = {};
+      state.currentAlerts.forEach((alert) => {
+        if (!grouped[alert.date]) grouped[alert.date] = [];
+        grouped[alert.date].push(alert);
+      });
+      let html = "";
+      Object.keys(grouped).sort((a, b) => b.localeCompare(a)).forEach((date) => {
+        html += `<div class="day-sep-admin">${date}</div>`;
+        grouped[date].forEach((alert) => {
+          html += `
+            <div class="alert-card">
+              <div style="display:flex; align-items:center;">
+                <input type="checkbox" class="alert-checkbox" data-type="${alert.type}" value="${alert.id}">
+                <div>${alert.text}</div>
+              </div>
+            </div>`;
+        });
+      });
+      document.getElementById("adminAlertsResults").innerHTML = html;
     }
 
-    async function startWork() {
-      if (!state.user) return;
-      const task = document.getElementById('taskSelect').value || 'Praca';
-      await api('/user/action', 'POST', {
-        username: state.user.name,
-        type: 'START',
-        task,
-        month: document.getElementById('histMonth').value,
-      });
-      await reloadAll();
+    async function dismissSelectedAlerts() {
+      const alerts = Array.from(document.querySelectorAll(".alert-checkbox:checked"))
+        .map((checkbox) => ({ type: checkbox.dataset.type, id: checkbox.value }));
+      if (!alerts.length) {
+        notify.error("Zaznacz alerty");
+        return;
+      }
+      await apiCall("/admin/alerts/dismiss-all", "POST", { alerts });
+      await loadAdminAlerts();
     }
 
-    async function changeActivity() {
-      if (!state.user) return;
-      const task = document.getElementById('taskSelect').value || 'Praca';
-      await api('/user/action', 'POST', {
-        username: state.user.name,
-        type: 'TASK',
-        task,
-        month: document.getElementById('histMonth').value,
-      });
-      await reloadAll();
-    }
-
-    async function stopWork() {
-      if (!state.user) return;
-      if (!confirm('Zakończyć pracę?')) return;
-      await api('/user/action', 'POST', {
-        username: state.user.name,
-        type: 'STOP',
-        month: document.getElementById('histMonth').value,
-      });
-      await reloadAll();
-    }
-
-    async function reportProblem() {
-      if (!state.user) return;
-      const result = await Swal.fire({
-        title: 'Zgłoś problem',
-        input: 'textarea',
-        inputPlaceholder: 'Opisz problem lub potrzebę...',
-        showCancelButton: true,
-        confirmButtonText: 'Wyślij',
-        cancelButtonText: 'Anuluj',
-      });
-      if (!result.isConfirmed || !result.value) return;
-      await api('/user/problem', 'POST', {
-        username: state.user.name,
-        description: result.value,
+    async function dismissAllAlerts() {
+      if (!state.currentAlerts.length) return;
+      await apiCall("/admin/alerts/dismiss-all", "POST", {
+        alerts: state.currentAlerts.map((alert) => ({ type: alert.type, id: alert.id })),
       });
       await loadAdminAlerts();
-      Swal.fire({ icon: 'success', title: 'Wysłano zgłoszenie', timer: 1200, showConfirmButton: false });
     }
 
-    async function changeMyPin() {
-      if (!state.user) return;
-      if (isAdmin()) {
-        const result = await Swal.fire({
-          title: 'Nowy PIN administratora',
-          input: 'password',
-          showCancelButton: true,
-          confirmButtonText: 'Zmień',
-          cancelButtonText: 'Anuluj',
+    async function loadAdminReports() {
+      const reports = await apiCall("/admin/reports", "POST", {
+        d1: document.getElementById("ad1").value,
+        d2: document.getElementById("ad2").value,
+        user: document.getElementById("adUser").value,
+      });
+      let html = "";
+      Object.entries(reports).forEach(([username, report]) => {
+        const grouped = {};
+        report.logi.forEach((entry) => {
+          if (!grouped[entry.data]) grouped[entry.data] = [];
+          grouped[entry.data].push(entry);
         });
-        if (!result.isConfirmed || !result.value) return;
-        const response = await api('/auth/change-pin', 'POST', {
-          name: state.user.name,
-          oldPin: '',
-          newPin: result.value,
-          isAdmin: true,
+        let content = "";
+        Object.keys(grouped).sort((a, b) => b.localeCompare(a)).forEach((date) => {
+          const dayMinutes = grouped[date].reduce((sum, entry) => sum + parseTime(entry.czas), 0);
+          content += `<div class="day-sep-admin"><span>${date}</span><span>Σ ${formatMins(dayMinutes)}</span></div><table>`;
+          grouped[date].forEach((entry) => {
+            content += `<tr><td><b>${entry.zadanie}</b></td><td>${entry.start}-${entry.koniec}</td><td style="text-align:right;">${entry.czas}</td></tr>`;
+          });
+          content += "</table>";
         });
-        await Swal.fire({ icon: response.ok ? 'success' : 'error', title: response.msg || 'Gotowe' });
+        html += `
+          <div class="admin-report-worker-block">
+            <details>
+              <summary><span>${username}</span><span class="total-pill">${report.totalStr}</span></summary>
+              <div style="padding:15px;">${content}</div>
+            </details>
+          </div>`;
+      });
+      document.getElementById("adminResults").innerHTML =
+        html || '<div class="empty-box">Brak danych w wybranym okresie.</div>';
+    }
+
+    async function loadEfficiency() {
+      state.productivity = await apiCall("/admin/productivity", "POST", {
+        d1: document.getElementById("prodDate1").value,
+        d2: document.getElementById("prodDate2").value,
+      });
+      const activities = Object.keys(state.productivity.chartData || {});
+      if (!activities.length) {
+        document.getElementById("chartContainer").style.display = "none";
+        document.getElementById("prodActivitySelect").style.display = "none";
+        document.getElementById("efficiencyList").innerHTML =
+          '<div class="empty-box">Brak danych analitycznych.</div>';
         return;
       }
 
-      const oldPin = await Swal.fire({
-        title: 'Stary PIN',
-        input: 'password',
-        showCancelButton: true,
-        confirmButtonText: 'Dalej',
-        cancelButtonText: 'Anuluj',
-      });
-      if (!oldPin.isConfirmed || !oldPin.value) return;
+      document.getElementById("chartContainer").style.display = "block";
+      document.getElementById("prodActivitySelect").style.display = "block";
+      document.getElementById("headcountBadges").innerHTML = Object.entries(state.productivity.headcount || {})
+        .map(([activity, count]) => `<span class="headcount-badge">${activity}: ${count} os.</span>`)
+        .join("");
 
-      const newPin = await Swal.fire({
-        title: 'Nowy PIN',
-        input: 'password',
-        showCancelButton: true,
-        confirmButtonText: 'Zmień',
-        cancelButtonText: 'Anuluj',
+      if (state.chart) state.chart.destroy();
+      state.chart = new Chart(document.getElementById("prodChart"), {
+        type: "doughnut",
+        data: {
+          labels: activities,
+          datasets: [{
+            data: activities.map((activity) => state.productivity.chartData[activity]),
+            backgroundColor: ["#0b57d0", "#188038", "#f29900", "#8e24aa", "#b3261e", "#009688"],
+          }],
+        },
+        options: { maintainAspectRatio: false },
       });
-      if (!newPin.isConfirmed || !newPin.value) return;
 
-      const response = await api('/auth/change-pin', 'POST', {
-        name: state.user.name,
-        oldPin: oldPin.value,
-        newPin: newPin.value,
-        isAdmin: false,
-      });
-      await Swal.fire({ icon: response.ok ? 'success' : 'error', title: response.msg || 'Gotowe' });
+      const totalPackages = Object.values(state.productivity.packingStats || {})
+        .reduce((sum, item) => sum + (parseInt(item.paczki, 10) || 0), 0);
+      const totalProducts = Object.values(state.productivity.packingStats || {})
+        .reduce((sum, item) => sum + (parseInt(item.produkty, 10) || 0), 0);
+      const totals = document.getElementById("prodDailyTotals");
+      totals.style.display = "block";
+      totals.innerHTML = `Paczki: <b>${totalPackages}</b> | Produkty: <b>${totalProducts}</b>`;
+
+      const select = document.getElementById("prodActivitySelect");
+      select.innerHTML = activities.map((activity) => `<option value="${activity}">${activity}</option>`).join("");
+      if (activities.includes("Pakowanie Paczek")) select.value = "Pakowanie Paczek";
+      renderEfficiencyList();
     }
 
-    async function addWorker() {
-      if (!isAdmin()) return;
-      const name = document.getElementById('workerNameInput').value.trim();
-      const pin = document.getElementById('workerPinInput').value.trim();
-      if (!name || !pin) return;
-      const response = await api('/admin/workers/add', 'POST', { name, pin });
-      if (!response.ok) {
-        await Swal.fire({ icon: 'error', title: response.msg || 'Nie udało się dodać pracownika' });
+    function renderEfficiencyList() {
+      if (!state.productivity) return;
+      const activity = document.getElementById("prodActivitySelect").value;
+      const singleDay = document.getElementById("prodDate1").value === document.getElementById("prodDate2").value;
+      const rows = [];
+      Object.entries(state.productivity.workerDetails || {}).forEach(([username, details]) => {
+        const minutes = details[activity];
+        if (!minutes) return;
+        const safeId = username.replace(/\W+/g, "");
+        const stats = state.productivity.packingStats?.[username] || { paczki: 0, produkty: 0 };
+        if (activity === "Pakowanie Paczek" && singleDay) {
+          rows.push(`
+            <div class="efficiency-card worker-prod-card" data-worker="${username}" data-mins="${minutes}">
+              <b>${username} (${formatMins(minutes)})</b>
+              <div class="efficiency-grid" style="margin-top:12px;">
+                <div><label>Paczki</label><input id="paczki_${safeId}" type="number" value="${stats.paczki || 0}"></div>
+                <div><label>Produkty</label><input id="produkty_${safeId}" type="number" value="${stats.produkty || 0}"></div>
+                <div class="efficiency-stats">Czas pracy: ${formatMins(minutes)}</div>
+              </div>
+            </div>`);
+        } else {
+          rows.push(`<div class="efficiency-card"><b>${username}</b>: ${formatMins(minutes)}</div>`);
+        }
+      });
+      document.getElementById("efficiencyList").innerHTML =
+        rows.join("") || '<div class="empty-box">Brak pracowników dla tej aktywności.</div>';
+      document.getElementById("efficiencyActions").style.display =
+        activity === "Pakowanie Paczek" && singleDay ? "block" : "none";
+    }
+
+    async function saveAllEfficiency() {
+      const updates = Array.from(document.querySelectorAll(".worker-prod-card")).map((card) => {
+        const username = card.dataset.worker;
+        const safeId = username.replace(/\W+/g, "");
+        return {
+          worker: username,
+          mins: card.dataset.mins,
+          paczki: document.getElementById(`paczki_${safeId}`).value || 0,
+          produkty: document.getElementById(`produkty_${safeId}`).value || 0,
+        };
+      });
+      await apiCall("/admin/save-productivity", "POST", {
+        date: document.getElementById("prodDate1").value,
+        updates,
+      });
+      notify.success("Wyniki zapisane");
+      await loadEfficiency();
+    }
+
+    async function loadAdminEditLogs() {
+      const username = document.getElementById("adEditUser").value;
+      const date = document.getElementById("adEditDate").value;
+      if (!username || !date) {
+        notify.error("Wybierz pracownika i datę");
         return;
       }
-      document.getElementById('workerNameInput').value = '';
-      document.getElementById('workerPinInput').value = '';
-      await reloadAll();
+      const logs = await apiCall("/admin/edit-logs", "POST", { username, date });
+      const rows = logs.map((log) => `
+        <div class="admin-edit-row" id="editRow_${log.id}">
+          <div style="margin-bottom:8px; color:#666; font-size:12px;">ID wpisu: ${log.id}</div>
+          <label>Aktywność</label>
+          <input id="editTask_${log.id}" value="${log.zadanie}">
+          <div class="section-row" style="display:flex; gap:10px;">
+            <div style="flex:1;"><label>Start</label><input id="editStart_${log.id}" type="time" value="${log.start}"></div>
+            <div style="flex:1;"><label>Koniec</label><input id="editEnd_${log.id}" type="time" value="${log.koniec}"></div>
+          </div>
+        </div>`).join("");
+      document.getElementById("adminEditResults").innerHTML =
+        rows
+          ? `${rows}<button class="btn-success" onclick="saveAdminEdits()">ZAPISZ ZMIANY</button>`
+          : '<div class="empty-box">Brak wpisów.</div>';
     }
 
-    async function deleteWorker(name) {
-      if (!isAdmin()) return;
+    async function saveAdminEdits() {
+      const updates = Array.from(document.querySelectorAll(".admin-edit-row")).map((row) => {
+        const id = row.id.replace("editRow_", "");
+        return {
+          id,
+          task: document.getElementById(`editTask_${id}`).value,
+          start: document.getElementById(`editStart_${id}`).value,
+          end: document.getElementById(`editEnd_${id}`).value,
+        };
+      });
+      await apiCall("/admin/update-batch", "POST", {
+        date: document.getElementById("adEditDate").value,
+        updates,
+      });
+      notify.success("Zmiany zapisane");
+      await loadAdminEditLogs();
+    }
+
+    async function promptExport(exportType, dateFrom, dateTo) {
+      const result = await Swal.fire({
+        title: "Wybierz format",
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: "Excel",
+        denyButtonText: "CSV",
+        cancelButtonText: "Anuluj",
+      });
+      let format = "";
+      if (result.isConfirmed) format = "xlsx";
+      if (result.isDenied) format = "csv";
+      if (!format) return;
+      const response = await apiCall("/admin/export", "POST", {
+        export_type: exportType,
+        format,
+        d1: dateFrom,
+        d2: dateTo,
+      });
+      window.location.href = response.url;
+    }
+
+    async function promptBackupExport() {
+      const result = await Swal.fire({
+        title: "Format kopii",
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: "JSON",
+        denyButtonText: "Excel",
+        cancelButtonText: "Anuluj",
+      });
+      let format = "";
+      if (result.isConfirmed) format = "json";
+      if (result.isDenied) format = "xlsx";
+      if (!format) return;
+      const response = await apiCall("/admin/export", "POST", {
+        export_type: "BACKUP",
+        format,
+        d1: document.getElementById("backupD1").value,
+        d2: document.getElementById("backupD2").value,
+      });
+      window.location.href = response.url;
+    }
+
+    function switchAdminTab(id, element) {
+      document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach((content) => content.classList.remove("active"));
+      element.classList.add("active");
+      document.getElementById(`tab-${id}`).classList.add("active");
+      if (id === "live") loadActiveSessions();
+      if (id === "alerty") loadAdminAlerts();
+      if (id === "baza") loadConfig();
+    }
+
+    async function dbAdd(type) {
+      const isActivity = type === "ACTIVITY";
+      const result = await Swal.fire({
+        title: isActivity ? "Dodaj aktywność" : type === "ADMIN" ? "Dodaj administratora" : "Dodaj pracownika",
+        html: `
+          <input id="dbName" class="swal2-input" placeholder="${isActivity ? "Nazwa aktywności" : "Login"}">
+          ${isActivity ? "" : '<input id="dbPin" class="swal2-input" placeholder="PIN / hasło">'}
+        `,
+        showCancelButton: true,
+        confirmButtonText: "Dodaj",
+        preConfirm: () => ({
+          name: document.getElementById("dbName").value.trim(),
+          pin: document.getElementById("dbPin")?.value.trim() || "",
+        }),
+      });
+      if (!result.isConfirmed || !result.value.name) return;
+      const response = await apiCall("/admin/db", "POST", {
+        type,
+        action: "ADD",
+        name: result.value.name,
+        val: result.value.pin,
+      });
+      response.ok ? notify.success("Dodano") : notify.error(response.msg);
+      await loadConfig();
+    }
+
+    async function dbDelete(type, name) {
       const result = await Swal.fire({
         title: `Usunąć ${name}?`,
-        text: 'Historia czasu pracy zostanie zachowana, ale konto zniknie z listy pracowników.',
-        icon: 'warning',
+        icon: "warning",
         showCancelButton: true,
-        confirmButtonText: 'Usuń',
-        cancelButtonText: 'Anuluj',
+        confirmButtonText: "Usuń",
       });
       if (!result.isConfirmed) return;
-      const response = await api('/admin/workers/delete', 'POST', { name });
-      if (!response.ok) {
-        await Swal.fire({ icon: 'error', title: response.msg || 'Nie udało się usunąć' });
-        return;
-      }
-      await reloadAll();
+      const response = await apiCall("/admin/db", "POST", {
+        type,
+        action: "DELETE",
+        name,
+      });
+      response.ok ? notify.success("Usunięto") : notify.error(response.msg);
+      await loadConfig();
     }
 
-    async function changeWorkerPin(name) {
-      if (!isAdmin()) return;
+    async function dbEditPin(type, name) {
       const result = await Swal.fire({
-        title: `Nowy PIN dla ${name}`,
-        input: 'password',
+        title: `Nowy PIN: ${name}`,
+        input: "password",
         showCancelButton: true,
-        confirmButtonText: 'Zapisz',
-        cancelButtonText: 'Anuluj',
+        confirmButtonText: "Zapisz",
       });
       if (!result.isConfirmed || !result.value) return;
-      const response = await api('/admin/workers/pin', 'POST', { name, pin: result.value });
-      if (!response.ok) {
-        await Swal.fire({ icon: 'error', title: response.msg || 'Nie udało się zmienić PIN-u' });
-        return;
-      }
-      await reloadAll();
-    }
-
-    async function addActivity() {
-      if (!isAdmin()) return;
-      const name = document.getElementById('activityNameInput').value.trim();
-      const color = document.getElementById('activityColorInput').value || '#0b57d0';
-      if (!name) return;
-      const response = await api('/admin/activities/add', 'POST', { name, color });
-      if (!response.ok) {
-        await Swal.fire({ icon: 'error', title: response.msg || 'Nie udało się dodać czynności' });
-        return;
-      }
-      document.getElementById('activityNameInput').value = '';
-      await reloadAll();
-    }
-
-    async function deleteActivity(name) {
-      if (!isAdmin()) return;
-      const result = await Swal.fire({
-        title: `Usunąć czynność ${name}?`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Usuń',
-        cancelButtonText: 'Anuluj',
+      const response = await apiCall("/admin/db", "POST", {
+        type,
+        action: "EDIT_PIN",
+        name,
+        val: result.value,
       });
-      if (!result.isConfirmed) return;
-      const response = await api('/admin/activities/delete', 'POST', { name });
-      if (!response.ok) {
-        await Swal.fire({ icon: 'error', title: response.msg || 'Nie udało się usunąć czynności' });
-        return;
-      }
-      await reloadAll();
+      response.ok ? notify.success("PIN zmieniony") : notify.error(response.msg);
+      await loadConfig();
     }
 
-    async function sendAdminMessage() {
-      if (!isAdmin()) return;
-      const content = document.getElementById('messageInput').value.trim();
-      if (!content) return;
-      const allChecked = document.getElementById('broadcastAll').checked;
-      const receivers = allChecked
-        ? ['ALL']
-        : Array.from(document.querySelectorAll('.recipient-checkbox:checked')).map((input) => input.value);
-      if (!receivers.length) {
-        await Swal.fire({ icon: 'error', title: 'Wybierz przynajmniej jednego odbiorcę' });
-        return;
-      }
-      const response = await api('/admin/messages/send', 'POST', { receivers, content });
-      if (!response.ok) {
-        await Swal.fire({ icon: 'error', title: response.msg || 'Nie udało się wysłać komunikatu' });
-        return;
-      }
-      document.getElementById('messageInput').value = '';
-      document.getElementById('broadcastAll').checked = false;
-      document.querySelectorAll('.recipient-checkbox').forEach((checkbox) => { checkbox.checked = false; });
-      await Swal.fire({ icon: 'success', title: `Wysłano ${response.sent || 0} komunikatów`, timer: 1200, showConfirmButton: false });
-      await loadUnreadNotifications(true);
-    }
-
-    async function resolveAlert(type, id) {
-      if (!isAdmin()) return;
-      await api('/admin/alerts/resolve', 'POST', { type, id });
-      await loadAdminAlerts();
-    }
-
-    async function closeSession(username) {
-      if (!isAdmin()) return;
-      await api('/admin/live-session/close', 'POST', { username });
-      await reloadAll();
-    }
-
-    async function closeAllSessions() {
-      if (!isAdmin()) return;
-      const result = await Swal.fire({
-        title: 'Zamknąć wszystkie aktywne sesje?',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Zamknij',
-        cancelButtonText: 'Anuluj',
-      });
-      if (!result.isConfirmed) return;
-      await api('/admin/live-session/close-all', 'POST', {});
-      await reloadAll();
-    }
-
-    function loadAdminTimer() {
-      if (state.unreadTimer) clearInterval(state.unreadTimer);
-      state.unreadTimer = setInterval(() => loadUnreadNotifications(true), 60000);
-    }
-
-    async function login() {
-      const username = document.getElementById('loginInput').value.trim();
-      const pin = document.getElementById('pinInput').value.trim();
-      if (!username || !pin) {
-        document.getElementById('loginStatus').textContent = 'Podaj login i PIN.';
-        return;
-      }
-      try {
-        const user = await api('/auth/login', 'POST', { username, pin });
-        saveSession(user);
-        setLoggedInView();
-        await reloadAll();
-        loadAdminTimer();
-        await loadUnreadNotifications(true);
-      } catch (error) {
-        document.getElementById('loginStatus').textContent = error.message;
-      }
-    }
-
-    async function restoreSession() {
-      try {
-        const saved = localStorage.getItem('rctpSession');
-        if (!saved) return;
-        const user = JSON.parse(saved);
-        if (!user || !user.name) return;
-        saveSession(user);
-        setLoggedInView();
-        await reloadAll();
-        loadAdminTimer();
-      } catch (_) {
-        clearSession();
-      }
-    }
-
-    async function logout() {
-      clearSession();
-      setLoggedOutView();
+    async function changeMyPinAdmin() {
+      await dbEditPin("ADMIN", state.currentUser);
     }
 
     async function init() {
       setupLoginAutocomplete();
-      document.getElementById('histMonth').value = todayMonth();
+      const today = localDate();
+      document.getElementById("histMonth").value = today.slice(0, 7);
+      ["ad1", "ad2", "prodDate1", "prodDate2", "adEditDate", "backupD1", "backupD2"]
+        .forEach((id) => { document.getElementById(id).value = today; });
       await loadConfig();
-      await restoreSession();
-      if (!state.user) {
-        setLoggedOutView();
-      }
     }
 
-    init();
+    init().catch((error) => {
+      document.getElementById("loginStatus").textContent = error.message;
+    });
   </script>
 </body>
 </html>
