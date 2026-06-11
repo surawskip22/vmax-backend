@@ -60,8 +60,11 @@ npm run build
 Plik `render.yaml` tworzy:
 
 - płatny Web Service `pan-majster`,
-- PostgreSQL `pan-majster-db`,
 - Persistent Disk 10 GB zamontowany w `/var/data`.
+
+Web Service korzysta z istniejącej bazy PostgreSQL używanej przez RCP.
+Tabele Pan Majster są izolowane w osobnym schemacie `panmajster`, więc nie
+kolidują z tabelami RCP w schemacie domyślnym.
 
 W Render wybierz **New > Blueprint**, połącz repozytorium
 `surawskip22/vmax-backend` i wskaż gałąź `pan-majster`. Przed pierwszym
@@ -69,6 +72,7 @@ wdrożeniem ustaw sekrety oznaczone w Blueprint jako `sync: false`:
 
 - `OPENAI_API_KEY`,
 - `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`,
+- `DATABASE_URL` skopiowany z istniejącej usługi RCP,
 - `ADMIN_EMAILS`, np. adres właściciela pilotażu.
 
 Jeśli Render nada usłudze inny adres, zmień `APP_URL`. Start kontenera wykonuje

@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     app_url: str = "http://localhost:8000"
     secret_key: str = "change-me-before-production"
     database_url: str = "sqlite:///./panmajster.db"
+    database_schema: str = "panmajster"
     media_root: Path = Path("./data")
     session_days: int = 30
     otp_minutes: int = 10
