@@ -7,7 +7,6 @@ services:
     region: frankfurt
     autoDeployTrigger: commit
     healthCheckPath: /api/health
-    maxShutdownDelaySeconds: 60
     disk:
       name: pan-majster-media
       mountPath: /var/data
