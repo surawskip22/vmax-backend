@@ -1,14 +1,50 @@
 services:
   - type: web
     name: pan-majster
-    runtime: python
+    runtime: docker
     branch: pan-majster
-    plan: free
+    plan: starter
+    region: frankfurt
     autoDeployTrigger: commit
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
+    healthCheckPath: /api/health
+    maxShutdownDelaySeconds: 60
+    disk:
+      name: pan-majster-media
+      mountPath: /var/data
+      sizeGB: 10
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.13.3
+      - key: APP_ENV
+        value: production
+      - key: APP_URL
+        value: https://pan-majster.onrender.com
+      - key: MEDIA_ROOT
+        value: /var/data
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pan-majster-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        value: Pan Majster <noreply@panmajster.pl>
+      - key: ADMIN_EMAILS
+        sync: false
 
+databases:
+  - name: pan-majster-db
+    plan: basic-256mb
+    diskSizeGB: 15
+    region: frankfurt
+    databaseName: panmajster
+    user: panmajster
+    ipAllowList: []

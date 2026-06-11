@@ -1,0 +1,1 @@
+"""Pan Majster application package."""

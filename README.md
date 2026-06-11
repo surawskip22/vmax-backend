@@ -1,31 +1,96 @@
 # Pan Majster
 
-Robocze srodowisko nowej aplikacji, utrzymywane na osobnej galezi tego samego
-repozytorium co rejestrator czasu pracy.
+Testowa aplikacja webowa/PWA do dokumentowania prac terenowych: zdjęcia,
+notatki głosowe, problemy, raporty i bezpieczne udostępnianie klientowi.
 
-## Lokalnie
+Projekt działa na osobnej gałęzi `pan-majster` tego samego repozytorium co
+rejestrator czasu pracy. Nie zmienia usługi wdrażanej z gałęzi `main`.
+
+## Zakres wersji testowej
+
+- logowanie kodem e-mail bez hasła,
+- konta samodzielne i organizacje,
+- projekty, etapy, role, zaproszenia i odwoływalne linki gościnne,
+- zdjęcia, nagrania, wpisy, komentarze i statusy problemów,
+- lokalne szkice PWA i ponawianie wysyłki po odzyskaniu połączenia,
+- transkrypcja oraz redakcja raportu przez OpenAI,
+- zatwierdzanie raportów, link, PIN, QR i PDF,
+- proste portfolio i panel dostępu testowego,
+- trwała kolejka zadań w PostgreSQL,
+- pliki na Render Persistent Disk z rekordem `MediaAsset` i SHA-256.
+
+## Uruchomienie lokalne
+
+Backend wymaga Pythona 3.11 lub nowszego, frontend Node.js 22.
 
 ```powershell
+Copy-Item .env.example .env
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
+
+cd frontend
+npm ci
+npm run build
+cd ..
+
+alembic upgrade head
 uvicorn main:app --reload
 ```
 
-Aplikacja: http://localhost:8000
+Aplikacja: `http://localhost:8000`
 
-Kontrola stanu: http://localhost:8000/health
+API: `http://localhost:8000/docs`
 
-Dokumentacja API: http://localhost:8000/docs
+Kontrola stanu: `http://localhost:8000/api/health`
+
+W trybie `development`, jeśli SMTP nie jest skonfigurowane, endpoint logowania
+zwraca `dev_code`. W produkcji kod jest wysyłany wyłącznie e-mailem.
+
+## Testy
+
+```powershell
+pytest -q
+cd frontend
+npm run build
+```
 
 ## Render
 
-Plik `render.yaml` definiuje osobny Web Service `pan-majster`, wdrazany z galezi
-`pan-majster`. Nie zmienia ani nie zastepuje serwisu rejestratora czasu pracy,
-ktory nadal korzysta z galezi `main`.
+Plik `render.yaml` tworzy:
 
-W panelu Render wybierz **New > Blueprint**, podlacz repozytorium
-`surawskip22/vmax-backend` i zatwierdz usluge wykryta z `render.yaml`.
+- płatny Web Service `pan-majster`,
+- PostgreSQL `pan-majster-db`,
+- Persistent Disk 10 GB zamontowany w `/var/data`.
 
-Docelowe sekrety i polaczenie z baza danych nalezy dodawac jako zmienne
-srodowiskowe Render, bez umieszczania ich w repozytorium.
+W Render wybierz **New > Blueprint**, połącz repozytorium
+`surawskip22/vmax-backend` i wskaż gałąź `pan-majster`. Przed pierwszym
+wdrożeniem ustaw sekrety oznaczone w Blueprint jako `sync: false`:
+
+- `OPENAI_API_KEY`,
+- `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD`,
+- `ADMIN_EMAILS`, np. adres właściciela pilotażu.
+
+Jeśli Render nada usłudze inny adres, zmień `APP_URL`. Start kontenera wykonuje
+`alembic upgrade head`, a następnie uruchamia FastAPI i wbudowany worker.
+
+## Dane i migracja zdjęć
+
+Pliki trafiają do `/var/data/media/{project_id}/{asset_id}`. Aplikacja nie
+zapisuje bezpośrednich ścieżek dysku w logice biznesowej; korzysta z
+`storage_provider` i `storage_key`.
+
+Eksport manifestu:
+
+```powershell
+python scripts/export_media_manifest.py --output media-manifest.json
+```
+
+Próbne kopiowanie i weryfikacja SHA-256:
+
+```powershell
+python scripts/migrate_media.py --target-root media-export
+```
+
+Aktualizację dostawcy w bazie należy wykonać dopiero po dodaniu adaptera
+docelowego magazynu i pełnym audycie kopii.
