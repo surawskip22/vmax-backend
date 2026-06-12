@@ -47,6 +47,10 @@ Kontrola stanu: `http://localhost:8000/api/health`
 W trybie `development`, jeśli SMTP nie jest skonfigurowane, endpoint logowania
 zwraca `dev_code`. W produkcji kod jest wysyłany wyłącznie e-mailem.
 
+Bezkosztowy pilotaż na Renderze działa tymczasowo z `APP_ENV=development`, więc
+kod logowania jest pokazywany testerowi w aplikacji. Przed publicznym
+uruchomieniem należy ustawić `APP_ENV=production` i skonfigurować SMTP.
+
 ## Testy
 
 ```powershell
