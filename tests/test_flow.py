@@ -11,6 +11,7 @@ os.environ.update(
         "APP_ENV": "development",
         "SECRET_KEY": "test-secret",
         "DATABASE_URL": f"sqlite:///{(TEST_ROOT / 'test.db').as_posix()}",
+        "STORAGE_PROVIDER": "database",
         "MEDIA_ROOT": str(TEST_ROOT / "media"),
         "WORKER_ENABLED": "false",
         "ADMIN_EMAILS": "admin@example.com",
@@ -18,8 +19,11 @@ os.environ.update(
 )
 
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from main import app
+from panmajster import models
+from panmajster.db import SessionLocal
 from panmajster.reporting import _merge_generated_content
 from panmajster.worker import process_next_job
 
@@ -73,6 +77,18 @@ def test_complete_report_flow_and_media_integrity():
         assert upload.status_code == 201
         asset = upload.json()
         assert len(asset["sha256"]) == 64
+        assert asset["storage_provider"] == "database"
+        with SessionLocal() as db:
+            stored_asset = db.get(models.MediaAsset, asset["id"])
+            assert stored_asset is not None
+            blob = db.scalar(
+                select(models.StoredBlob).where(
+                    models.StoredBlob.storage_key == stored_asset.storage_key
+                )
+            )
+        assert blob is not None
+        assert blob.content == image
+        assert blob.sha256 == asset["sha256"]
 
         repeated_upload = client.post(
             f"/api/entries/{entry['id']}/media",

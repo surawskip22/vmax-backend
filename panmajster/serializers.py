@@ -37,6 +37,7 @@ def media(item: models.MediaAsset):
         "content_type": item.content_type,
         "size_bytes": item.size_bytes,
         "sha256": item.sha256,
+        "storage_provider": item.storage_provider,
         "status": item.status,
         "url": f"/api/media/{item.id}",
         "created_at": iso(item.created_at),

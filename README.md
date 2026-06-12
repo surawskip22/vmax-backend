@@ -17,7 +17,7 @@ rejestrator czasu pracy. Nie zmienia usługi wdrażanej z gałęzi `main`.
 - zatwierdzanie raportów, link, PIN, QR i PDF,
 - proste portfolio i panel dostępu testowego,
 - trwała kolejka zadań w PostgreSQL,
-- pliki na Render Persistent Disk z rekordem `MediaAsset` i SHA-256.
+- pliki testowe w PostgreSQL z rekordem `MediaAsset` i SHA-256.
 
 ## Uruchomienie lokalne
 
@@ -57,14 +57,15 @@ npm run build
 
 ## Render
 
-Plik `render.yaml` tworzy:
-
-- płatny Web Service `pan-majster`,
-- Persistent Disk 10 GB zamontowany w `/var/data`.
+Plik `render.yaml` tworzy darmowy Web Service `pan-majster`, bez dodatkowej
+bazy i bez Persistent Disk.
 
 Web Service korzysta z istniejącej bazy PostgreSQL używanej przez RCP.
 Tabele Pan Majster są izolowane w osobnym schemacie `panmajster`, więc nie
 kolidują z tabelami RCP w schemacie domyślnym.
+Zdjęcia, nagrania i PDF-y są tymczasowo przechowywane w tabeli
+`panmajster.stored_blobs`. Ten wariant nie generuje nowych kosztów Rendera,
+ale zużywa pojemność istniejącej bazy i służy wyłącznie do pilotażu.
 
 W Render wybierz **New > Blueprint**, połącz repozytorium
 `surawskip22/vmax-backend` i wskaż gałąź `pan-majster`. Przed pierwszym
@@ -80,9 +81,11 @@ Jeśli Render nada usłudze inny adres, zmień `APP_URL`. Start kontenera wykonu
 
 ## Dane i migracja zdjęć
 
-Pliki trafiają do `/var/data/media/{project_id}/{asset_id}`. Aplikacja nie
-zapisuje bezpośrednich ścieżek dysku w logice biznesowej; korzysta z
-`storage_provider` i `storage_key`.
+Pliki otrzymują klucze `media/{project_id}/{asset_id}` i są zapisywane przez
+warstwę storage. Na Renderze providerem jest `database`; lokalnie domyślnie
+`local_disk`. Rekordy nadal korzystają z `storage_provider`, `storage_key`
+i SHA-256, dlatego późniejsza migracja do magazynu obiektowego nie zmienia
+modelu domenowego.
 
 Eksport manifestu:
 
@@ -93,7 +96,7 @@ python scripts/export_media_manifest.py --output media-manifest.json
 Próbne kopiowanie i weryfikacja SHA-256:
 
 ```powershell
-python scripts/migrate_media.py --target-root media-export
+python scripts/migrate_media.py --target-dir media-export
 ```
 
 Aktualizację dostawcy w bazie należy wykonać dopiero po dodaniu adaptera

@@ -4,10 +4,10 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import quote
 
 from email_validator import validate_email
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
-from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -36,6 +36,22 @@ from .templates import STAGE_TEMPLATES
 router = APIRouter(prefix="/api")
 settings = get_settings()
 SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def stored_file_response(
+    storage_key: str, media_type: str, filename: str | None = None
+) -> Response:
+    try:
+        content = storage.read_bytes(storage_key)
+    except FileNotFoundError:
+        raise HTTPException(404, "Plik nie istnieje w magazynie")
+    headers = {}
+    if filename:
+        encoded_name = quote(filename.replace('"', ""))
+        headers["Content-Disposition"] = (
+            f"attachment; filename*=UTF-8''{encoded_name}"
+        )
+    return Response(content=content, media_type=media_type, headers=headers)
 
 
 class OtpRequest(BaseModel):
@@ -974,6 +990,7 @@ def upload_media(
         raise HTTPException(415, "Dozwolone są zdjęcia i nagrania audio")
 
     asset = models.MediaAsset(
+        id=models.uuid4(),
         project_id=entry_item.project_id,
         entry_id=entry_item.id,
         owner_user_id=access.user.id if access.user else None,
@@ -982,12 +999,12 @@ def upload_media(
         content_type=content_type,
         size_bytes=0,
         sha256="",
+        storage_provider=storage.provider,
         storage_key="pending",
         client_ref=client_ref,
         status="uploading",
     )
     db.add(asset)
-    db.flush()
     asset.storage_key = storage.media_key(
         entry_item.project_id, asset.id, asset.original_name
     )
@@ -1025,13 +1042,10 @@ def get_media(asset_id: str, request: Request, db: Session = Depends(get_db)):
     if not asset:
         raise HTTPException(404, "Nie znaleziono pliku")
     get_project_access(request, db, asset.project_id)
-    path = storage.resolve(asset.storage_key)
-    if not path.is_file():
-        raise HTTPException(404, "Plik nie istnieje w magazynie")
-    return FileResponse(
-        path,
-        media_type=asset.content_type,
-        filename=asset.original_name if asset.kind != "image" else None,
+    return stored_file_response(
+        asset.storage_key,
+        asset.content_type,
+        asset.original_name if asset.kind != "image" else None,
     )
 
 
@@ -1190,10 +1204,8 @@ def get_report_pdf(
     item, _ = report_with_access(report_id, request, db)
     if not item.pdf_storage_key:
         raise HTTPException(404, "Raport PDF nie jest jeszcze gotowy")
-    return FileResponse(
-        storage.resolve(item.pdf_storage_key),
-        media_type="application/pdf",
-        filename=f"{item.title}.pdf",
+    return stored_file_response(
+        item.pdf_storage_key, "application/pdf", f"{item.title}.pdf"
     )
 
 
@@ -1241,10 +1253,8 @@ def public_report_pdf(
     verify_share_pin(share, pin)
     if not item.pdf_storage_key:
         raise HTTPException(404, "Brak pliku PDF")
-    return FileResponse(
-        storage.resolve(item.pdf_storage_key),
-        media_type="application/pdf",
-        filename=f"{item.title}.pdf",
+    return stored_file_response(
+        item.pdf_storage_key, "application/pdf", f"{item.title}.pdf"
     )
 
 
@@ -1284,7 +1294,7 @@ def public_report_media(
         or asset.kind != "image"
     ):
         raise HTTPException(404, "Nie znaleziono zdjęcia")
-    return FileResponse(storage.resolve(asset.storage_key), media_type=asset.content_type)
+    return stored_file_response(asset.storage_key, asset.content_type)
 
 
 @router.get("/portfolio/{slug}")
@@ -1338,7 +1348,7 @@ def public_portfolio_media(
         or asset.kind != "image"
     ):
         raise HTTPException(404, "Zdjęcie nie jest publiczne")
-    return FileResponse(storage.resolve(asset.storage_key), media_type=asset.content_type)
+    return stored_file_response(asset.storage_key, asset.content_type)
 
 
 @router.get("/notifications")

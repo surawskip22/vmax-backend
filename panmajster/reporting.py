@@ -176,7 +176,7 @@ def transcribe_asset(asset: models.MediaAsset) -> str:
     if not settings.openai_api_key:
         return ""
     client = OpenAI(api_key=settings.openai_api_key)
-    with storage.resolve(asset.storage_key).open("rb") as audio:
+    with storage.open(asset.storage_key) as audio:
         result = client.audio.transcriptions.create(
             model=settings.openai_transcription_model,
             file=audio,

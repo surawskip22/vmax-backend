@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-before-production"
     database_url: str = "sqlite:///./panmajster.db"
     database_schema: str = "panmajster"
+    storage_provider: str = "local_disk"
     media_root: Path = Path("./data")
     session_days: int = 30
     otp_minutes: int = 10

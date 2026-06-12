@@ -20,7 +20,6 @@ def main() -> None:
         assets = db.scalars(select(models.MediaAsset).order_by(models.MediaAsset.created_at)).all()
         rows = []
         for asset in assets:
-            path = storage.resolve(asset.storage_key)
             rows.append(
                 {
                     "id": asset.id,
@@ -29,7 +28,7 @@ def main() -> None:
                     "storage_key": asset.storage_key,
                     "size_bytes": asset.size_bytes,
                     "sha256": asset.sha256,
-                    "exists": path.is_file(),
+                    "exists": storage.exists(asset.storage_key),
                 }
             )
     output = Path(args.output)

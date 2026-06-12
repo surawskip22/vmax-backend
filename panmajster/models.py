@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
+    LargeBinary,
     DateTime,
     ForeignKey,
     Index,
@@ -256,10 +257,20 @@ class MediaAsset(Base):
     content_type: Mapped[str] = mapped_column(String(160))
     size_bytes: Mapped[int] = mapped_column(Integer)
     sha256: Mapped[str] = mapped_column(String(64), index=True)
-    storage_provider: Mapped[str] = mapped_column(String(40), default="render_disk")
+    storage_provider: Mapped[str] = mapped_column(String(40), default="local_disk")
     storage_key: Mapped[str] = mapped_column(String(500), unique=True)
     client_ref: Mapped[str | None] = mapped_column(String(100))
     status: Mapped[str] = mapped_column(String(30), default="ready")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class StoredBlob(Base):
+    __tablename__ = "stored_blobs"
+
+    storage_key: Mapped[str] = mapped_column(String(500), primary_key=True)
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

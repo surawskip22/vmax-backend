@@ -3,25 +3,23 @@ services:
     name: pan-majster
     runtime: docker
     branch: pan-majster
-    plan: starter
+    plan: free
     region: frankfurt
     autoDeployTrigger: commit
     healthCheckPath: /api/health
-    disk:
-      name: pan-majster-media
-      mountPath: /var/data
-      sizeGB: 10
     envVars:
       - key: APP_ENV
         value: production
       - key: APP_URL
         value: https://pan-majster.onrender.com
-      - key: MEDIA_ROOT
-        value: /var/data
       - key: DATABASE_URL
         sync: false
       - key: DATABASE_SCHEMA
         value: panmajster
+      - key: STORAGE_PROVIDER
+        value: database
+      - key: MAX_UPLOAD_MB
+        value: "12"
       - key: SECRET_KEY
         generateValue: true
       - key: OPENAI_API_KEY
