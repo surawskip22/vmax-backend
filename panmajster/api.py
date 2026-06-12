@@ -212,7 +212,7 @@ def health(db: Session = Depends(get_db)):
     return {
         "status": "ok",
         "service": "pan-majster",
-        "storage": str(settings.media_root),
+        "storage": storage.provider,
     }
 
 
