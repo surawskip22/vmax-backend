@@ -135,7 +135,7 @@ class Project(Base, TimestampMixin):
     client_email: Mapped[str] = mapped_column(String(320), default="")
     address: Mapped[str] = mapped_column(String(300), default="")
     description: Mapped[str] = mapped_column(Text, default="")
-    status: Mapped[str] = mapped_column(String(30), default="active")
+    status: Mapped[str] = mapped_column(String(30), default="assigned")
     template: Mapped[str] = mapped_column(String(40), default="custom")
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

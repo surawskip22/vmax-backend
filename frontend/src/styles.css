@@ -257,6 +257,8 @@ h1, h2, h3, p { margin-top: 0; }
 .project-row__main strong { color: var(--navy); }
 .project-row__main span, .project-row__meta { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status { display: inline-flex; width: max-content; padding: 5px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.status--assigned { color: #2f5f99; background: #e2efff; }
+.status--in_progress { color: #187a31; background: #dcf7e1; }
 .status--active { color: #187a31; background: #dcf7e1; }
 .status--paused { color: #9a6413; background: #fff3ce; }
 .status--completed { color: #4b5565; background: #e9edf1; }

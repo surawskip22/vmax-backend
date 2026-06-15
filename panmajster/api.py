@@ -41,6 +41,9 @@ from .templates import STAGE_TEMPLATES
 router = APIRouter(prefix="/api")
 settings = get_settings()
 SLUG_RE = re.compile(r"[^a-z0-9]+")
+PROJECT_STATUS_ASSIGNED = "assigned"
+PROJECT_STATUS_IN_PROGRESS = "in_progress"
+PROJECT_STATUS_COMPLETED = "completed"
 
 
 def stored_file_response(
@@ -144,7 +147,7 @@ class ProjectUpdate(BaseModel):
     client_email: str | None = Field(default=None, max_length=320)
     address: str | None = Field(default=None, max_length=300)
     description: str | None = Field(default=None, max_length=5000)
-    status: Literal["active", "paused", "completed", "archived"] | None = None
+    status: Literal["assigned", "in_progress", "completed"] | None = None
     portfolio_enabled: bool | None = None
     portfolio_slug: str | None = Field(default=None, max_length=120)
     portfolio_summary: str | None = Field(default=None, max_length=3000)
@@ -1112,6 +1115,7 @@ def create_project(
         client_email=(payload.client_email or "").strip(),
         address=payload.address.strip(),
         description=payload.description.strip(),
+        status=PROJECT_STATUS_ASSIGNED,
         template=payload.template if payload.template in STAGE_TEMPLATES else "custom",
         started_at=now(),
         client_share_token=random_token(30),
@@ -1244,7 +1248,7 @@ def update_project(
         ensure_worker_project_access(db, access.project, worker, access.user.id)
     for key, value in changes.items():
         setattr(access.project, key, value)
-    if changes.get("status") == "completed" and not access.project.finished_at:
+    if changes.get("status") == PROJECT_STATUS_COMPLETED and not access.project.finished_at:
         access.project.finished_at = now()
     db.commit()
     return serializers.project(access.project, role=access.role, details=True)
@@ -1746,6 +1750,9 @@ def create_entry(
         client_ref=payload.client_ref,
     )
     db.add(item)
+    if access.project.status == PROJECT_STATUS_ASSIGNED:
+        access.project.status = PROJECT_STATUS_IN_PROGRESS
+    # Full completed/reopen rules belong to step 5B; 5A only starts work on progress.
     members = db.scalars(
         select(models.ProjectMember).where(
             models.ProjectMember.project_id == project_id,

@@ -65,6 +65,8 @@ def test_complete_report_flow_and_media_integrity():
         )
         assert project_response.status_code == 201
         project = project_response.json()
+        assert project["status"] == "assigned"
+        assert client.get("/api/projects").json()[0]["status"] == "assigned"
 
         entry_response = client.post(
             f"/api/projects/{project['id']}/entries",
@@ -76,6 +78,7 @@ def test_complete_report_flow_and_media_integrity():
             },
         )
         assert entry_response.status_code == 201
+        assert client.get(f"/api/projects/{project['id']}").json()["status"] == "in_progress"
         entry = entry_response.json()
 
         image = b"\x89PNG\r\n\x1a\n" + b"test-image"
@@ -361,6 +364,7 @@ def test_stable_client_link_updates_and_report_can_be_deleted():
             "/api/projects",
             json={"name": "Stały link", "template": "custom"},
         ).json()
+        assert project["status"] == "assigned"
         link = client.get(f"/api/projects/{project['id']}/client-link").json()
         token = link["url"].rsplit("/", 1)[-1]
 
@@ -370,6 +374,7 @@ def test_stable_client_link_updates_and_report_can_be_deleted():
         )
         assert first_entry.status_code == 201
         public_before = client.get(f"/api/public/projects/{token}").json()
+        assert public_before["project"]["status"] == "in_progress"
         assert [item["body"] for item in public_before["entries"]] == [
             "Pierwszy dzień"
         ]
@@ -394,6 +399,7 @@ def test_stable_client_link_updates_and_report_can_be_deleted():
         )
         assert second_entry.status_code == 201
         public_after = client.get(f"/api/public/projects/{token}").json()
+        assert public_after["project"]["status"] == "in_progress"
         assert [item["body"] for item in public_after["entries"]] == [
             "Drugi dzień",
             "Pierwszy dzień",
@@ -413,6 +419,13 @@ def test_stable_client_link_updates_and_report_can_be_deleted():
 
     with TestClient(app) as public_client:
         assert public_client.get(f"/api/public/projects/{token}").status_code == 200
+        assert (
+            public_client.patch(
+                f"/api/projects/{project['id']}",
+                json={"status": "completed"},
+            ).status_code
+            == 403
+        )
         assert public_client.get("/api/projects").status_code == 401
         assert public_client.get("/api/workspaces").status_code == 401
         assert public_client.get("/api/workers").status_code == 401
@@ -464,6 +477,7 @@ def test_worker_link_without_email_is_project_scoped_and_visible_in_team():
         assert resolved.json()["kind"] == "worker"
 
         assigned_detail = owner.get(f"/api/projects/{assigned['id']}").json()
+        assert assigned_detail["status"] == "assigned"
         assert assigned_detail["worker_links"][0]["label"] == "Mieciu bez maila"
         assert assigned_detail["worker_links"][0]["account_type"] == "link_only"
         team_detail = owner.get(f"/api/workspaces/{workspace['id']}").json()
@@ -490,6 +504,13 @@ def test_worker_link_without_email_is_project_scoped_and_visible_in_team():
                 json={"kind": "update", "body": "Drugi postęp od linku"},
             ).status_code
             == 201
+        )
+        assert (
+            worker_link.get(
+                f"/api/projects/{assigned['id']}",
+                headers={"x-guest-token": token},
+            ).json()["status"]
+            == "in_progress"
         )
         assert (
             worker_link.get(
@@ -652,6 +673,7 @@ def test_worker_profiles_roles_and_assignment_flow():
             "/api/projects",
             json={"name": "Własne zlecenie", "template": "custom"},
         ).json()
+        assert own_project["status"] == "assigned"
         assert independent.get("/api/workers").json() == []
         assert independent.post(
             "/api/workers", json={"label": "Nie powinno przejść"}
@@ -674,6 +696,7 @@ def test_worker_profiles_roles_and_assignment_flow():
                 "template": "custom",
             },
         ).json()
+        assert project["status"] == "assigned"
         assert investor.get(f"/api/projects/{project['id']}").json()[
             "worker_profile"
         ]["label"] == "Ekipa inwestora"
@@ -687,6 +710,7 @@ def test_worker_profiles_roles_and_assignment_flow():
             },
         )
         assert project_without_client.status_code == 201
+        assert project_without_client.json()["status"] == "assigned"
         assert project_without_client.json()["client_name"] == ""
         assert project_without_client.json()["client_email"] == ""
 
@@ -732,6 +756,7 @@ def test_company_worker_account_sees_project_assigned_at_creation():
                 "template": "custom",
             },
         ).json()
+        assert project["status"] == "assigned"
 
     with TestClient(app) as worker_client:
         user = login(worker_client, "pracownik-firmy@example.com")
@@ -740,6 +765,13 @@ def test_company_worker_account_sees_project_assigned_at_creation():
         assert [item["id"] for item in projects] == [project["id"]]
         assert unassigned["id"] not in [item["id"] for item in projects]
         assert projects[0]["role"] == "contributor"
+        assert projects[0]["status"] == "assigned"
+        progress = worker_client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Postep od pracownika firmy"},
+        )
+        assert progress.status_code == 201
+        assert worker_client.get(f"/api/projects/{project['id']}").json()["status"] == "in_progress"
         assert worker_client.get("/api/workers").json() == []
         assert worker_client.post(
             "/api/projects", json={"name": "Nie moje zlecenie"}

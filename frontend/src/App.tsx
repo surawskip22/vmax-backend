@@ -97,10 +97,10 @@ type Route =
   | { kind: "portfolio"; slug: string };
 
 const statusLabels: Record<string, string> = {
-  active: "W trakcie",
-  paused: "Wstrzymane",
+  assigned: "Zlecone",
+  in_progress: "W realizacji",
   completed: "Zakończono",
-  archived: "Archiwum",
+  active: "W realizacji",
   planned: "Planowany",
 };
 
@@ -772,7 +772,7 @@ function Dashboard({
   onProject: (project: Project) => void;
   onCreate: () => void;
 }) {
-  const active = projects.filter((project) => project.status === "active");
+  const active = projects.filter((project) => ["assigned", "in_progress"].includes(project.status));
   const problems = projects.reduce((sum, item) => sum + (item.open_problem_count || 0), 0);
   const canCreate = canCreateProject(user);
   const intro =
@@ -1322,7 +1322,7 @@ function ManageProjectModal({
         <form className="form-stack" onSubmit={saveDetails}>
           <div className="form-row">
             <label>Nazwa<input name="name" defaultValue={project.name} required /></label>
-            <label>Status<select name="status" defaultValue={project.status}><option value="active">W trakcie</option><option value="paused">Wstrzymane</option><option value="completed">Zakończone</option><option value="archived">Archiwum</option></select></label>
+            <label>Status<select name="status" defaultValue={project.status}><option value="assigned">Zlecone</option><option value="in_progress">W realizacji</option><option value="completed">Zakończono</option></select></label>
           </div>
           <div className="form-row">
             <label>Klient<input name="client_name" defaultValue={project.client_name} /></label>

@@ -283,6 +283,13 @@ Backendowe ograniczenia:
 - endpointy aplikacyjne `/api/projects`, `/api/workspaces`, `/api/workers` wymagają sesji użytkownika,
 - PIN musi być zweryfikowany, jeśli jest ustawiony.
 
+## KROK 5A - podstawowe statusy zleceń
+
+- Status zlecenia jest widoczny dla każdej roli, która już widzi dane zlecenie: szefa firmy, inwestora, samodzielnego majstra, `company_worker`, majstra link-only i klienta link-only.
+- Status `W realizacji` może zostać ustawiony automatycznie po dodaniu postępu przez osobę lub link, które już mają prawo dodać wpis do zlecenia.
+- Automatyczna zmiana statusu nie daje żadnej roli nowych uprawnień do firmy, ludzi, linków ani zarządzania zleceniem.
+- Pełne zamykanie zlecenia, ponowne otwieranie oraz reguły statusów powiązane z etapami należą do KROKU 5B.
+
 ## Parking / przyszłe kroki
 
 KROK 5:
