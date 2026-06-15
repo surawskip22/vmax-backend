@@ -411,6 +411,12 @@ def test_stable_client_link_updates_and_report_can_be_deleted():
         assert client.get(f"/api/projects/{project['id']}/reports").json() == []
         assert client.get(f"/api/public/projects/{token}").json()["reports"] == []
 
+    with TestClient(app) as public_client:
+        assert public_client.get(f"/api/public/projects/{token}").status_code == 200
+        assert public_client.get("/api/projects").status_code == 401
+        assert public_client.get("/api/workspaces").status_code == 401
+        assert public_client.get("/api/workers").status_code == 401
+
 
 def test_worker_link_without_email_is_project_scoped_and_visible_in_team():
     with TestClient(app) as owner:
@@ -709,6 +715,14 @@ def test_company_worker_account_sees_project_assigned_at_creation():
         )
         assert worker.status_code == 201
         assert worker.json()["account_status"] == "active"
+        unassigned = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zlecenie nieprzypisane",
+                "workspace_id": workspace_id,
+                "template": "custom",
+            },
+        ).json()
         project = owner.post(
             "/api/projects",
             json={
@@ -724,10 +738,25 @@ def test_company_worker_account_sees_project_assigned_at_creation():
         assert user["profile_type"] == "company_worker"
         projects = worker_client.get("/api/projects").json()
         assert [item["id"] for item in projects] == [project["id"]]
+        assert unassigned["id"] not in [item["id"] for item in projects]
         assert projects[0]["role"] == "contributor"
         assert worker_client.get("/api/workers").json() == []
         assert worker_client.post(
             "/api/projects", json={"name": "Nie moje zlecenie"}
+        ).status_code == 403
+        assert worker_client.post(
+            "/api/workspaces", json={"name": "Nie moja firma", "kind": "company"}
+        ).status_code == 403
+        assert worker_client.patch(
+            f"/api/workspaces/{workspace_id}",
+            json={"name": "Nie moge edytowac"},
+        ).status_code == 403
+        assert worker_client.post(
+            f"/api/workspaces/{workspace_id}/invite",
+            json={"email": "worker-invite-blocked@example.com", "role": "member"},
+        ).status_code == 403
+        assert worker_client.post(
+            "/api/workers", json={"label": "Nie powinno przejsc"}
         ).status_code == 403
 
 

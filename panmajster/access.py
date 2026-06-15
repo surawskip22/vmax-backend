@@ -18,6 +18,8 @@ PROJECT_ROLE_LEVEL = {
     "owner": 40,
 }
 GUEST_LEVEL = {"view": 10, "add": 20, "history": 20}
+COMPANY_WORKER_PROFILE_TYPES = {"company_worker", "worker"}
+WORKSPACE_MANAGER_ROLES = {"owner", "admin"}
 
 
 def now() -> datetime:
@@ -30,6 +32,30 @@ def active_date(value: datetime | None) -> bool:
     if value.tzinfo is None:
         value = value.replace(tzinfo=timezone.utc)
     return value > now()
+
+
+def is_company_owner(user: models.User | None) -> bool:
+    return bool(user and user.profile_type == "company_owner")
+
+
+def is_investor(user: models.User | None) -> bool:
+    return bool(user and user.profile_type == "investor")
+
+
+def is_independent_contractor(user: models.User | None) -> bool:
+    return bool(user and user.profile_type == "independent_contractor")
+
+
+def is_company_worker(user: models.User | None) -> bool:
+    return bool(user and user.profile_type in COMPANY_WORKER_PROFILE_TYPES)
+
+
+def can_manage_people(user: models.User | None) -> bool:
+    return bool(user and not (is_independent_contractor(user) or is_company_worker(user)))
+
+
+def can_create_project(user: models.User | None) -> bool:
+    return bool(user and not is_company_worker(user))
 
 
 def current_user(request: Request, db: Session, required: bool = True) -> models.User | None:
@@ -167,11 +193,21 @@ def can_manage_workspace(db: Session, workspace_id: str, user_id: str) -> bool:
             select(models.WorkspaceMember).where(
                 models.WorkspaceMember.workspace_id == workspace_id,
                 models.WorkspaceMember.user_id == user_id,
-                models.WorkspaceMember.role.in_(["owner", "admin"]),
+                models.WorkspaceMember.role.in_(WORKSPACE_MANAGER_ROLES),
             )
         )
         is not None
     )
+
+
+def can_manage_workers(
+    db: Session, user: models.User | None, workspace_id: str | None = None
+) -> bool:
+    if not can_manage_people(user):
+        return False
+    if workspace_id:
+        return can_manage_workspace(db, workspace_id, user.id)
+    return True
 
 
 def find_pending_invitations(db: Session, email: str):

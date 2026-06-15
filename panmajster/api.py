@@ -16,10 +16,15 @@ from sqlalchemy.orm import Session, selectinload
 from . import models, serializers
 from .access import (
     active_date,
+    can_create_project,
+    can_manage_people,
     can_manage_workspace,
+    can_manage_workers,
     current_user,
     find_pending_invitations,
     get_project_access,
+    is_company_worker,
+    is_independent_contractor,
     now,
     project_role,
     user_projects_query,
@@ -760,7 +765,7 @@ def create_workspace(
     user: models.User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    if user.profile_type in {"company_worker", "worker", "independent_contractor"}:
+    if not can_manage_people(user):
         raise HTTPException(403, "Ten typ konta nie zarzadza zespolem ani wykonawcami")
     workspace = models.Workspace(
         name=payload.name.strip(),
@@ -879,7 +884,7 @@ def list_workers(
     user: models.User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    if user.profile_type in {"independent_contractor", "company_worker", "worker"}:
+    if not can_manage_people(user):
         return []
     return [
         worker_profile_payload(db, item)
@@ -894,11 +899,11 @@ def create_worker(
     user: models.User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    if user.profile_type in {"independent_contractor", "company_worker", "worker"}:
+    if not can_manage_people(user):
         raise HTTPException(403, "Samodzielny majster nie dodaje ekip pod sobą")
     workspace_id = payload.workspace_id
     if workspace_id:
-        if not can_manage_workspace(db, workspace_id, user.id):
+        if not can_manage_workers(db, user, workspace_id):
             raise HTTPException(403, "Brak dostępu do firmy")
     elif user.profile_type == "company_owner":
         workspace_id = db.scalar(
@@ -1080,7 +1085,7 @@ def create_project(
     user: models.User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    if user.profile_type in {"company_worker", "worker"}:
+    if not can_create_project(user):
         raise HTTPException(403, "Majster - czlonek firmy widzi tylko przypisane zlecenia")
     if payload.workspace_id and not can_manage_workspace(
         db, payload.workspace_id, user.id
@@ -1363,7 +1368,10 @@ def create_guest_link(
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
     access.require_manage()
-    if access.user.profile_type in {"independent_contractor", "company_worker", "worker"} and payload.kind == "worker":
+    if (
+        (is_independent_contractor(access.user) or is_company_worker(access.user))
+        and payload.kind == "worker"
+    ):
         raise HTTPException(403, "Samodzielny majster nie wysyła linków wykonawcom")
     raw_token = random_token(36)
     worker = worker_profile_for_assignment(

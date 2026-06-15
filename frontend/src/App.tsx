@@ -36,6 +36,30 @@ function isCompanyWorker(user?: User): boolean {
   return user?.profile_type === "company_worker" || user?.profile_type === "worker";
 }
 
+function isCompanyOwner(user?: User): boolean {
+  return user?.profile_type === "company_owner";
+}
+
+function isInvestor(user?: User): boolean {
+  return user?.profile_type === "investor";
+}
+
+function isIndependentContractor(user?: User): boolean {
+  return user?.profile_type === "independent_contractor";
+}
+
+function canManagePeople(user?: User): boolean {
+  return Boolean(user && !isIndependentContractor(user) && !isCompanyWorker(user));
+}
+
+function canCreateProject(user?: User): boolean {
+  return Boolean(user && !isCompanyWorker(user));
+}
+
+function canSeeTeamPanel(user?: User): boolean {
+  return canManagePeople(user);
+}
+
 function workerKindLabel(worker: WorkerProfile): string {
   return worker.profile_kind === "crew" ? "Ekipa" : "Majster";
 }
@@ -583,7 +607,7 @@ function CreateProjectModal({
   const projectLabel = user.profile_type === "investor" ? "inwestycję" : "zlecenie";
 
   useEffect(() => {
-    if (user.profile_type === "independent_contractor" || isCompanyWorker(user)) return;
+    if (!canSeeTeamPanel(user)) return;
     api<WorkerProfile[]>("/workers").then(setWorkers).catch(() => setWorkers([]));
   }, [user]);
 
@@ -591,18 +615,18 @@ function CreateProjectModal({
     event.preventDefault();
     setBusy(true);
     const data = new FormData(event.currentTarget);
-    const isInvestor = user.profile_type === "investor";
+    const investorMode = isInvestor(user);
     try {
       const project = await api<Project>("/projects", {
         method: "POST",
         body: JSON.stringify({
           name: formString(data, "name"),
-          client_name: isInvestor ? "" : formString(data, "client_name"),
-          client_email: isInvestor ? "" : formString(data, "client_email"),
+          client_name: investorMode ? "" : formString(data, "client_name"),
+          client_email: investorMode ? "" : formString(data, "client_email"),
           address: formString(data, "address"),
           description: formString(data, "description"),
           template: formString(data, "template"),
-          workspace_id: isInvestor ? null : formString(data, "workspace_id") || null,
+          workspace_id: investorMode ? null : formString(data, "workspace_id") || null,
           worker_profile_id: formString(data, "worker_profile_id") || null,
         }),
       });
@@ -617,15 +641,15 @@ function CreateProjectModal({
     <Modal title={user.profile_type === "investor" ? "Nowa inwestycja" : "Nowe zlecenie"} onClose={onClose}>
       <form className="form-stack" onSubmit={submit}>
         <label>Nazwa {projectLabel}<input name="name" placeholder={user.profile_type === "investor" ? "np. Budowa domu - etap instalacji" : "np. Remont łazienki"} required autoFocus /></label>
-        {user.profile_type !== "investor" && (
+        {!isInvestor(user) && (
           <div className="form-row">
             <label>Klient<input name="client_name" placeholder="Jan Kowalski" /></label>
             <label>E-mail klienta<input type="email" name="client_email" placeholder="Opcjonalnie" /></label>
           </div>
         )}
-        {user.profile_type !== "independent_contractor" && !isCompanyWorker(user) && (
+        {canSeeTeamPanel(user) && (
           <label>
-            {user.profile_type === "investor" ? "Wykonawca" : "Majster / ekipa"}
+            {isInvestor(user) ? "Wykonawca" : "Majster / ekipa"}
             <select name="worker_profile_id" defaultValue="">
               <option value="">Wybiorę później</option>
               {workers.map((worker) => (
@@ -649,7 +673,7 @@ function CreateProjectModal({
             <option value="custom">Uniwersalny</option>
           </select>
         </label>
-        {user.profile_type !== "investor" && user.workspaces.length > 0 && (
+        {!isInvestor(user) && user.workspaces.length > 0 && (
           <label>
             Firma
             <select name="workspace_id" defaultValue="">
@@ -687,7 +711,7 @@ function Shell({
     ["home", "Pulpit", "home"],
     ["projects", "Zlecenia", "clipboard"],
     ["reports", "Raporty", "report"],
-    ...(user.profile_type === "independent_contractor" || isCompanyWorker(user)
+    ...(!canSeeTeamPanel(user)
       ? []
       : ([["team", user.profile_type === "investor" ? "Wykonawcy" : "Zespół", "users"]] as const)),
     ["settings", "Ustawienia", "settings"],
@@ -750,11 +774,11 @@ function Dashboard({
 }) {
   const active = projects.filter((project) => project.status === "active");
   const problems = projects.reduce((sum, item) => sum + (item.open_problem_count || 0), 0);
-  const canCreateProject = !isCompanyWorker(user);
+  const canCreate = canCreateProject(user);
   const intro =
-    user.profile_type === "investor"
+    isInvestor(user)
       ? "Tu widzisz postęp inwestycji, raporty i sprawy wymagające decyzji."
-      : user.profile_type === "company_owner"
+      : isCompanyOwner(user)
         ? "Tu kontrolujesz zlecenia firmy, majstrów i zgłoszone problemy."
         : "Tu masz szybki podgląd swoich zleceń i raportów.";
   const createLabel = user.profile_type === "investor" ? "Dodaj inwestycję" : "Dodaj zlecenie";
@@ -767,7 +791,7 @@ function Dashboard({
           <h1>Dzień dobry{user.name ? `, ${user.name.split(" ")[0]}` : ""}!</h1>
           <p>{intro}</p>
         </div>
-        {canCreateProject && <Button icon="plus" onClick={onCreate}>{createLabel}</Button>}
+        {canCreate && <Button icon="plus" onClick={onCreate}>{createLabel}</Button>}
       </header>
       <div className="stat-grid">
         <article><span className="stat-icon stat-icon--blue"><Icon name="clipboard" /></span><div><small>Aktywne zlecenia</small><strong>{active.length}</strong></div></article>
@@ -778,11 +802,11 @@ function Dashboard({
       <section className="panel">
         <div className="panel__header">
           <div><h2>Ostatnie zlecenia</h2><p>Wybierz projekt, aby dodać zdjęcia lub raport.</p></div>
-          {canCreateProject && <button className="text-button" onClick={onCreate}>+ Nowe zlecenie</button>}
+          {canCreate && <button className="text-button" onClick={onCreate}>+ Nowe zlecenie</button>}
         </div>
         {projects.length === 0 ? (
           <EmptyState icon="clipboard" title="Dodaj pierwsze zlecenie" text="Projekt połączy zdjęcia, opisy, problemy i raporty w jedną historię.">
-            {canCreateProject && <Button onClick={onCreate} icon="plus">Utwórz zlecenie</Button>}
+            {canCreate && <Button onClick={onCreate} icon="plus">Utwórz zlecenie</Button>}
           </EmptyState>
         ) : (
           <div className="project-list">
@@ -845,7 +869,7 @@ function ProjectsPage({
     <div className="page">
       <header className="page-header">
         <div><span className="eyebrow">Wszystkie realizacje</span><h1>Zlecenia</h1><p>Postęp, problemy i raporty w jednym miejscu.</p></div>
-        {!isCompanyWorker(user) && <Button icon="plus" onClick={onCreate}>Dodaj zlecenie</Button>}
+        {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>Dodaj zlecenie</Button>}
       </header>
       <section className="panel">
         <div className="toolbar"><input type="search" placeholder="Szukaj zlecenia, klienta lub adresu..." value={filter} onChange={(e) => setFilter(e.target.value)} /></div>
