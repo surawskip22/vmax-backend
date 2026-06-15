@@ -1,7 +1,7 @@
 from collections.abc import Generator
 import re
 
-from sqlalchemy import MetaData, create_engine, text
+from sqlalchemy import MetaData, create_engine, select, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .config import get_settings
@@ -48,7 +48,112 @@ def get_db() -> Generator[Session, None, None]:
 
 def init_db() -> None:
     from . import models  # noqa: F401
+    from .security import hash_secret
 
     with engine.begin() as connection:
         ensure_database_schema(connection)
         Base.metadata.create_all(bind=connection)
+        if not settings.is_production:
+            db = Session(bind=connection)
+            seed_development_accounts(db, models, hash_secret)
+
+
+def seed_development_accounts(db: Session, models, hash_secret) -> None:
+    accounts = [
+        ("szef@majster.pl", "Szef Firmy Testowej", "company_owner"),
+        ("inwestor@majster.pl", "Inwestor Testowy", "investor"),
+        ("samodzielny@majster.pl", "Samodzielny Majster", "independent_contractor"),
+        ("pracownik@majster.pl", "Pracownik Firmy Testowej", "company_worker"),
+    ]
+    users = {}
+    for email, name, profile_type in accounts:
+        user = db.scalar(select(models.User).where(models.User.email == email))
+        if not user:
+            user = models.User(
+                email=email,
+                name=name,
+                phone="",
+                profile_type=profile_type,
+                preferred_mode="expanded",
+                password_hash=hash_secret("test1234"),
+            )
+            db.add(user)
+            db.flush()
+        else:
+            if not user.password_hash:
+                user.password_hash = hash_secret("test1234")
+            if email == "pracownik@majster.pl":
+                user.profile_type = "company_worker"
+        users[email] = user
+        entitlement = db.scalar(
+            select(models.BetaEntitlement).where(
+                models.BetaEntitlement.user_id == user.id
+            )
+        )
+        if not entitlement:
+            db.add(models.BetaEntitlement(user_id=user.id, active=True, note="local seed"))
+
+    owner = users["szef@majster.pl"]
+    worker = users["pracownik@majster.pl"]
+    workspace = db.scalar(
+        select(models.Workspace).where(
+            models.Workspace.owner_id == owner.id,
+            models.Workspace.kind == "company",
+        )
+    )
+    if not workspace:
+        workspace = models.Workspace(
+            name="Firma testowa Szefa",
+            kind="company",
+            owner_id=owner.id,
+            description="Lokalna firma testowa do pracy nad Pan Majster",
+        )
+        db.add(workspace)
+        db.flush()
+    owner_membership = db.scalar(
+        select(models.WorkspaceMember).where(
+            models.WorkspaceMember.workspace_id == workspace.id,
+            models.WorkspaceMember.user_id == owner.id,
+        )
+    )
+    if not owner_membership:
+        db.add(
+            models.WorkspaceMember(
+                workspace_id=workspace.id,
+                user_id=owner.id,
+                role="owner",
+            )
+        )
+    worker_membership = db.scalar(
+        select(models.WorkspaceMember).where(
+            models.WorkspaceMember.workspace_id == workspace.id,
+            models.WorkspaceMember.user_id == worker.id,
+        )
+    )
+    if not worker_membership:
+        db.add(
+            models.WorkspaceMember(
+                workspace_id=workspace.id,
+                user_id=worker.id,
+                role="member",
+            )
+        )
+    worker_profile = db.scalar(
+        select(models.WorkerProfile).where(
+            models.WorkerProfile.workspace_id == workspace.id,
+            models.WorkerProfile.email == worker.email,
+        )
+    )
+    if not worker_profile:
+        db.add(
+            models.WorkerProfile(
+                owner_id=owner.id,
+                workspace_id=workspace.id,
+                label="Pracownik Firmy Testowej",
+                profile_kind="craftsman",
+                email=worker.email,
+                phone="",
+                note="Lokalny seed: Majster - czlonek firmy",
+            )
+        )
+    db.flush()

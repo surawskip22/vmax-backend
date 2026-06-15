@@ -44,6 +44,9 @@ class User(Base, TimestampMixin):
     phone: Mapped[str | None] = mapped_column(String(40))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     locale: Mapped[str] = mapped_column(String(10), default="pl")
+    profile_type: Mapped[str | None] = mapped_column(String(40))
+    preferred_mode: Mapped[str] = mapped_column(String(30), default="expanded")
+    password_hash: Mapped[str] = mapped_column(String(128), default="")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -79,6 +82,9 @@ class Workspace(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(180))
     kind: Mapped[str] = mapped_column(String(30), default="company")
     owner_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    description: Mapped[str] = mapped_column(Text, default="")
+    phone: Mapped[str] = mapped_column(String(40), default="")
+    address: Mapped[str] = mapped_column(String(300), default="")
 
 
 class WorkspaceMember(Base):
@@ -97,12 +103,31 @@ class WorkspaceMember(Base):
     workspace: Mapped[Workspace] = relationship()
 
 
+class WorkerProfile(Base, TimestampMixin):
+    __tablename__ = "worker_profiles"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
+    )
+    label: Mapped[str] = mapped_column(String(160))
+    email: Mapped[str] = mapped_column(String(320), default="")
+    phone: Mapped[str] = mapped_column(String(40), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    profile_kind: Mapped[str] = mapped_column(String(30), default="craftsman")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class Project(Base, TimestampMixin):
     __tablename__ = "projects"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
     workspace_id: Mapped[str | None] = mapped_column(
         ForeignKey("workspaces.id", ondelete="SET NULL"), index=True
+    )
+    worker_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("worker_profiles.id", ondelete="SET NULL"), index=True
     )
     created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
     name: Mapped[str] = mapped_column(String(200))
@@ -117,6 +142,12 @@ class Project(Base, TimestampMixin):
     portfolio_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     portfolio_slug: Mapped[str | None] = mapped_column(String(120), index=True)
     portfolio_summary: Mapped[str] = mapped_column(Text, default="")
+    details_locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    client_share_token: Mapped[str | None] = mapped_column(
+        String(120), unique=True, index=True
+    )
+    client_share_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    client_share_pin_hash: Mapped[str | None] = mapped_column(String(128))
 
     stages: Mapped[list[ProjectStage]] = relationship(
         cascade="all, delete-orphan", order_by="ProjectStage.position"
@@ -178,7 +209,15 @@ class GuestInvite(Base):
     project_id: Mapped[str] = mapped_column(
         ForeignKey("projects.id", ondelete="CASCADE"), index=True
     )
+    workspace_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), index=True
+    )
+    worker_profile_id: Mapped[str | None] = mapped_column(
+        ForeignKey("worker_profiles.id", ondelete="SET NULL"), index=True
+    )
     label: Mapped[str] = mapped_column(String(160), default="Gość")
+    email: Mapped[str] = mapped_column(String(320), default="")
+    kind: Mapped[str] = mapped_column(String(30), default="guest")
     permission: Mapped[str] = mapped_column(String(30), default="add")
     token_hash: Mapped[str] = mapped_column(String(128), unique=True)
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -253,6 +292,7 @@ class MediaAsset(Base):
         ForeignKey("users.id", ondelete="SET NULL")
     )
     kind: Mapped[str] = mapped_column(String(30), default="file")
+    purpose: Mapped[str] = mapped_column(String(40), default="attachment")
     original_name: Mapped[str] = mapped_column(String(260))
     content_type: Mapped[str] = mapped_column(String(160))
     size_bytes: Mapped[int] = mapped_column(Integer)

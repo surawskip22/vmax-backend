@@ -5,6 +5,8 @@ export type User = {
   phone?: string;
   is_admin: boolean;
   locale: string;
+  profile_type?: "company_owner" | "independent_contractor" | "investor" | "company_worker" | "worker";
+  preferred_mode: "expanded" | "field";
   beta_access: boolean;
   workspaces: Workspace[];
 };
@@ -14,6 +16,44 @@ export type Workspace = {
   name: string;
   kind: string;
   role: string;
+  description?: string;
+  phone?: string;
+  address?: string;
+  members?: Array<{ id: string; role: string; user: User }>;
+  worker_profiles?: WorkerProfile[];
+  worker_links?: WorkerLink[];
+};
+
+export type WorkerProfile = {
+  id: string;
+  label: string;
+  profile_kind: "craftsman" | "crew";
+  email: string;
+  phone: string;
+  note: string;
+  workspace_id?: string;
+  active: boolean;
+  account_type: "account" | "link_only";
+  account_status: "active" | "pending_email" | "email_missing_invite" | "link_only";
+  display_type: string;
+  assigned_projects: Array<{ id: string; name: string; status: string }>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkerLink = {
+  id: string;
+  label: string;
+  email: string;
+  kind: "guest" | "worker";
+  account_type: "account" | "link_only";
+  permission: "add" | "history" | "view";
+  project_id: string;
+  project_name?: string;
+  worker_profile_id?: string;
+  expires_at?: string;
+  revoked_at?: string;
+  created_at: string;
 };
 
 export type Stage = {
@@ -26,6 +66,7 @@ export type Stage = {
 export type MediaAsset = {
   id: string;
   kind: "image" | "audio";
+  purpose: "attachment" | "voice_description" | "voice_note";
   original_name: string;
   content_type: string;
   size_bytes: number;
@@ -70,14 +111,19 @@ export type Project = {
   status: string;
   template: string;
   workspace_id?: string;
+  worker_profile_id?: string;
+  worker_profile?: WorkerProfile;
   role?: string;
   stages?: Stage[];
   members?: Array<{ id: string; role: string; user: User }>;
+  worker_links?: WorkerLink[];
   entry_count?: number;
   open_problem_count?: number;
   portfolio_enabled: boolean;
   portfolio_slug?: string;
   portfolio_summary: string;
+  details_locked: boolean;
+  can_edit_details?: boolean;
   created_at: string;
   updated_at: string;
   guest?: { label: string; permission: string };
@@ -107,4 +153,10 @@ export type Report = {
   published_at?: string;
   pdf_url?: string;
   created_at: string;
+};
+
+export type ClientLink = {
+  active: boolean;
+  requires_pin: boolean;
+  url: string;
 };

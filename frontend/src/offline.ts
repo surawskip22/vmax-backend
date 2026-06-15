@@ -12,6 +12,7 @@ export type QueuedEntry = {
   payload: {
     kind: "update" | "problem";
     body: string;
+    transcript?: string;
     stage_id?: string;
     client_ref: string;
   };

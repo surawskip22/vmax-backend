@@ -17,6 +17,8 @@ def user(user: models.User | None):
         "phone": user.phone,
         "is_admin": user.is_admin,
         "locale": user.locale,
+        "profile_type": user.profile_type,
+        "preferred_mode": user.preferred_mode,
     }
 
 
@@ -33,6 +35,7 @@ def media(item: models.MediaAsset):
     return {
         "id": item.id,
         "kind": item.kind,
+        "purpose": item.purpose,
         "original_name": item.original_name,
         "content_type": item.content_type,
         "size_bytes": item.size_bytes,
@@ -85,12 +88,14 @@ def project(item: models.Project, role: str | None = None, details: bool = False
         "status": item.status,
         "template": item.template,
         "workspace_id": item.workspace_id,
+        "worker_profile_id": item.worker_profile_id,
         "role": role,
         "started_at": iso(item.started_at),
         "finished_at": iso(item.finished_at),
         "portfolio_enabled": item.portfolio_enabled,
         "portfolio_slug": item.portfolio_slug,
         "portfolio_summary": item.portfolio_summary,
+        "details_locked": item.details_locked,
         "created_at": iso(item.created_at),
         "updated_at": iso(item.updated_at),
     }

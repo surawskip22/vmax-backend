@@ -82,6 +82,13 @@ class ProjectAccess:
             self.user and PROJECT_ROLE_LEVEL.get(self.role or "", 0) >= 30
         )
 
+    def can_edit_details(self) -> bool:
+        if not self.user:
+            return False
+        if self.can_manage():
+            return True
+        return self.role == "contributor" and not self.project.details_locked
+
     def require_add(self) -> None:
         if not self.can_add():
             raise HTTPException(403, "Brak uprawnień do dodawania wpisów")
@@ -89,6 +96,13 @@ class ProjectAccess:
     def require_manage(self) -> None:
         if not self.can_manage():
             raise HTTPException(403, "Brak uprawnień do zarządzania projektem")
+
+    def require_edit_details(self) -> None:
+        if not self.can_edit_details():
+            raise HTTPException(
+                403,
+                "Szef zablokował edycję danych tego zlecenia",
+            )
 
 
 def project_role(db: Session, project_id: str, user_id: str) -> str | None:

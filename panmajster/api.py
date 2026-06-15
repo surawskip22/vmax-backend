@@ -6,10 +6,10 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
 
-from email_validator import validate_email
+from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from pydantic import BaseModel, EmailStr, Field
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -27,7 +27,7 @@ from .access import (
 from .config import get_settings
 from .db import get_db
 from .mailer import send_email, send_otp
-from .reporting import render_pdf
+from .reporting import render_pdf, transcribe_upload
 from .security import hash_secret, normalize_email, otp_code, random_token, verify_secret
 from .storage import storage
 from .templates import STAGE_TEMPLATES
@@ -63,15 +63,39 @@ class OtpVerify(BaseModel):
     code: str = Field(min_length=6, max_length=6)
 
 
+class PasswordLogin(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=4, max_length=128)
+
+
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=160)
     phone: str | None = Field(default=None, max_length=40)
     locale: str | None = Field(default=None, max_length=10)
+    preferred_mode: Literal["expanded", "field"] | None = None
+
+
+class OnboardingCreate(BaseModel):
+    profile_type: Literal[
+        "company_owner", "independent_contractor", "investor", "company_worker"
+    ]
+    preferred_mode: Literal["expanded", "field"] = "expanded"
+    company_name: str | None = Field(default=None, max_length=180)
 
 
 class WorkspaceCreate(BaseModel):
     name: str = Field(min_length=2, max_length=180)
     kind: Literal["company", "personal"] = "company"
+    description: str = Field(default="", max_length=3000)
+    phone: str = Field(default="", max_length=40)
+    address: str = Field(default="", max_length=300)
+
+
+class WorkspaceUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=180)
+    description: str | None = Field(default=None, max_length=3000)
+    phone: str | None = Field(default=None, max_length=40)
+    address: str | None = Field(default=None, max_length=300)
 
 
 class WorkspaceMemberInvite(BaseModel):
@@ -79,11 +103,29 @@ class WorkspaceMemberInvite(BaseModel):
     role: Literal["admin", "member"] = "member"
 
 
+class WorkerProfileCreate(BaseModel):
+    label: str = Field(min_length=1, max_length=160)
+    profile_kind: Literal["craftsman", "crew"] = "craftsman"
+    email: str = Field(default="", max_length=320)
+    phone: str = Field(default="", max_length=40)
+    note: str = Field(default="", max_length=1000)
+    workspace_id: str | None = None
+
+
+class WorkerProfileUpdate(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=160)
+    profile_kind: Literal["craftsman", "crew"] | None = None
+    email: str | None = Field(default=None, max_length=320)
+    phone: str | None = Field(default=None, max_length=40)
+    note: str | None = Field(default=None, max_length=1000)
+
+
 class ProjectCreate(BaseModel):
     name: str = Field(min_length=2, max_length=200)
     workspace_id: str | None = None
-    client_name: str = Field(default="", max_length=180)
-    client_email: str = Field(default="", max_length=320)
+    worker_profile_id: str | None = None
+    client_name: str | None = Field(default="", max_length=180)
+    client_email: str | None = Field(default="", max_length=320)
     address: str = Field(default="", max_length=300)
     description: str = Field(default="", max_length=5000)
     template: str = "custom"
@@ -92,6 +134,7 @@ class ProjectCreate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=200)
+    worker_profile_id: str | None = None
     client_name: str | None = Field(default=None, max_length=180)
     client_email: str | None = Field(default=None, max_length=320)
     address: str | None = Field(default=None, max_length=300)
@@ -100,6 +143,7 @@ class ProjectUpdate(BaseModel):
     portfolio_enabled: bool | None = None
     portfolio_slug: str | None = Field(default=None, max_length=120)
     portfolio_summary: str | None = Field(default=None, max_length=3000)
+    details_locked: bool | None = None
 
 
 class StageCreate(BaseModel):
@@ -119,6 +163,9 @@ class ProjectInvitationCreate(BaseModel):
 
 class GuestInviteCreate(BaseModel):
     label: str = Field(default="Gość", max_length=160)
+    email: str = Field(default="", max_length=320)
+    worker_profile_id: str | None = None
+    kind: Literal["guest", "worker"] = "guest"
     permission: Literal["add", "history", "view"] = "add"
     expires_in_days: int | None = Field(default=30, ge=1, le=365)
 
@@ -161,12 +208,295 @@ class ReportPublish(BaseModel):
     expires_in_days: int | None = Field(default=None, ge=1, le=365)
 
 
+class ClientLinkUpdate(BaseModel):
+    active: bool | None = None
+    pin: str | None = Field(default=None, min_length=4, max_length=12)
+    remove_pin: bool = False
+    rotate: bool = False
+
+
 class PinCheck(BaseModel):
     pin: str | None = None
 
 
 def require_user(request: Request, db: Session = Depends(get_db)) -> models.User:
     return current_user(request, db)
+
+
+def workspace_payload(
+    db: Session, workspace: models.Workspace, user_id: str, details: bool = False
+) -> dict:
+    membership = db.scalar(
+        select(models.WorkspaceMember).where(
+            models.WorkspaceMember.workspace_id == workspace.id,
+            models.WorkspaceMember.user_id == user_id,
+        )
+    )
+    data = {
+        "id": workspace.id,
+        "name": workspace.name,
+        "kind": workspace.kind,
+        "description": workspace.description,
+        "phone": workspace.phone,
+        "address": workspace.address,
+        "role": membership.role if membership else None,
+    }
+    if details:
+        members = db.scalars(
+            select(models.WorkspaceMember)
+            .options(selectinload(models.WorkspaceMember.user))
+            .where(models.WorkspaceMember.workspace_id == workspace.id)
+            .order_by(models.WorkspaceMember.created_at)
+        ).all()
+        data["members"] = [
+            {
+                "id": member.id,
+                "role": member.role,
+                "user": serializers.user(member.user),
+            }
+            for member in members
+        ]
+        worker_profiles = db.scalars(
+            select(models.WorkerProfile)
+            .where(models.WorkerProfile.workspace_id == workspace.id)
+            .order_by(models.WorkerProfile.created_at.desc())
+        ).all()
+        data["worker_profiles"] = [
+            worker_profile_payload(db, item) for item in worker_profiles
+        ]
+        worker_links = db.scalars(
+            select(models.GuestInvite)
+            .where(
+                models.GuestInvite.workspace_id == workspace.id,
+                models.GuestInvite.kind == "worker",
+            )
+            .order_by(models.GuestInvite.created_at.desc())
+        ).all()
+        data["worker_links"] = [
+            guest_invite_payload(db, item, include_project=True)
+            for item in worker_links
+        ]
+    return data
+
+
+def optional_email(value: object) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    try:
+        return normalize_email(validate_email(raw, check_deliverability=False).normalized)
+    except EmailNotValidError:
+        raise HTTPException(422, "Nieprawidłowy adres e-mail")
+
+
+def create_session_response(
+    db: Session, response: Response, user: models.User
+) -> dict:
+    user.last_login_at = now()
+    accept_pending_invitations(db, user)
+    raw_token = random_token()
+    db.add(
+        models.UserSession(
+            token_hash=hash_secret(raw_token),
+            user_id=user.id,
+            expires_at=now() + timedelta(days=settings.session_days),
+        )
+    )
+    db.commit()
+    response.set_cookie(
+        "pm_session",
+        raw_token,
+        max_age=settings.session_days * 86400,
+        httponly=True,
+        secure=settings.is_production,
+        samesite="lax",
+    )
+    return {"user": user_payload(db, user)}
+
+
+def project_role_from_guest_permission(permission: str) -> str:
+    return "viewer" if permission == "view" else "contributor"
+
+
+def worker_profile_payload(db: Session, item: models.WorkerProfile) -> dict:
+    projects = db.scalars(
+        select(models.Project)
+        .where(models.Project.worker_profile_id == item.id)
+        .order_by(models.Project.updated_at.desc())
+    ).all()
+    pending_invitation = None
+    existing_user = None
+    if item.email:
+        existing_user = db.scalar(select(models.User).where(models.User.email == item.email))
+        pending_invitation = db.scalar(
+            select(models.Invitation).where(
+                models.Invitation.email == item.email,
+                models.Invitation.workspace_id == item.workspace_id,
+                models.Invitation.accepted_at.is_(None),
+                models.Invitation.revoked_at.is_(None),
+            )
+        )
+    account_status = "link_only"
+    if item.email and existing_user:
+        account_status = "active"
+    elif item.email and pending_invitation:
+        account_status = "pending_email"
+    elif item.email:
+        account_status = "email_missing_invite"
+    return {
+        "id": item.id,
+        "label": item.label,
+        "profile_kind": item.profile_kind,
+        "email": item.email,
+        "phone": item.phone,
+        "note": item.note,
+        "workspace_id": item.workspace_id,
+        "active": item.active,
+        "account_type": "account" if item.email else "link_only",
+        "account_status": account_status,
+        "display_type": (
+            "Ekipa"
+            if item.profile_kind == "crew"
+            else "Majster - czlonek firmy"
+            if item.email
+            else "Majster link-only"
+        ),
+        "assigned_projects": [
+            {"id": project.id, "name": project.name, "status": project.status}
+            for project in projects
+        ],
+        "created_at": serializers.iso(item.created_at),
+        "updated_at": serializers.iso(item.updated_at),
+    }
+
+
+def guest_invite_payload(
+    db: Session, item: models.GuestInvite, include_project: bool = False
+) -> dict:
+    data = {
+        "id": item.id,
+        "label": item.label,
+        "email": item.email,
+        "kind": item.kind,
+        "account_type": "account" if item.email else "link_only",
+        "permission": item.permission,
+        "project_id": item.project_id,
+        "worker_profile_id": item.worker_profile_id,
+        "expires_at": serializers.iso(item.expires_at),
+        "revoked_at": serializers.iso(item.revoked_at),
+        "created_at": serializers.iso(item.created_at),
+    }
+    if include_project:
+        project = db.get(models.Project, item.project_id)
+        data["project_name"] = project.name if project else ""
+    return data
+
+
+def worker_profile_for_assignment(
+    db: Session,
+    worker_profile_id: str | None,
+    user: models.User,
+    workspace_id: str | None,
+) -> models.WorkerProfile | None:
+    if not worker_profile_id:
+        return None
+    worker = db.get(models.WorkerProfile, worker_profile_id)
+    if not worker:
+        raise HTTPException(404, "Nie znaleziono wykonawcy")
+    if not worker.active:
+        raise HTTPException(422, "Ten majster lub ekipa jest dezaktywowana")
+    if worker.workspace_id:
+        if workspace_id and worker.workspace_id != workspace_id:
+            raise HTTPException(422, "Wykonawca jest przypisany do innej firmy")
+        if not can_manage_workspace(db, worker.workspace_id, user.id):
+            raise HTTPException(403, "Brak dostępu do wykonawcy")
+    elif worker.owner_id != user.id:
+        raise HTTPException(403, "Brak dostępu do wykonawcy")
+    return worker
+
+
+def ensure_worker_project_access(
+    db: Session,
+    project: models.Project,
+    worker: models.WorkerProfile | None,
+    invited_by_id: str,
+) -> None:
+    if not worker or not worker.email:
+        return
+    existing_user = db.scalar(select(models.User).where(models.User.email == worker.email))
+    if existing_user:
+        if existing_user.profile_type in {None, "", "worker"}:
+            existing_user.profile_type = "company_worker"
+        member = db.scalar(
+            select(models.ProjectMember).where(
+                models.ProjectMember.project_id == project.id,
+                models.ProjectMember.user_id == existing_user.id,
+            )
+        )
+        if member:
+            member.role = "contributor"
+        else:
+            db.add(
+                models.ProjectMember(
+                    project_id=project.id,
+                    user_id=existing_user.id,
+                    role="contributor",
+                )
+            )
+        return
+    pending = db.scalar(
+        select(models.Invitation).where(
+            models.Invitation.project_id == project.id,
+            models.Invitation.email == worker.email,
+            models.Invitation.accepted_at.is_(None),
+            models.Invitation.revoked_at.is_(None),
+        )
+    )
+    if not pending:
+        db.add(
+            models.Invitation(
+                project_id=project.id,
+                email=worker.email,
+                role="contributor",
+                token_hash=hash_secret(random_token()),
+                invited_by_id=invited_by_id,
+                expires_at=now() + timedelta(days=14),
+                accepted_at=None,
+            )
+        )
+
+
+def available_worker_profiles(
+    db: Session, user: models.User, workspace_id: str | None = None
+) -> list[models.WorkerProfile]:
+    if workspace_id:
+        if not can_manage_workspace(db, workspace_id, user.id):
+            raise HTTPException(403, "Brak dostępu do wykonawców")
+        return db.scalars(
+            select(models.WorkerProfile)
+            .where(
+                models.WorkerProfile.workspace_id == workspace_id,
+                models.WorkerProfile.active.is_(True),
+            )
+            .order_by(models.WorkerProfile.created_at.desc())
+        ).all()
+    workspace_ids = [
+        row[0]
+        for row in db.execute(
+            select(models.WorkspaceMember.workspace_id).where(
+                models.WorkspaceMember.user_id == user.id,
+                models.WorkspaceMember.role.in_(["owner", "admin"]),
+            )
+        ).all()
+    ]
+    conditions = [models.WorkerProfile.owner_id == user.id]
+    if workspace_ids:
+        conditions.append(models.WorkerProfile.workspace_id.in_(workspace_ids))
+    return db.scalars(
+        select(models.WorkerProfile)
+        .where(or_(*conditions), models.WorkerProfile.active.is_(True))
+        .order_by(models.WorkerProfile.created_at.desc())
+    ).all()
 
 
 def user_payload(db: Session, user: models.User) -> dict:
@@ -184,20 +514,7 @@ def user_payload(db: Session, user: models.User) -> dict:
     )
     return {
         **serializers.user(user),
-        "workspaces": [
-            {
-                "id": item.id,
-                "name": item.name,
-                "kind": item.kind,
-                "role": db.scalar(
-                    select(models.WorkspaceMember.role).where(
-                        models.WorkspaceMember.workspace_id == item.id,
-                        models.WorkspaceMember.user_id == user.id,
-                    )
-                ),
-            }
-            for item in workspaces
-        ],
+        "workspaces": [workspace_payload(db, item, user.id) for item in workspaces],
         "beta_access": bool(
             entitlement
             and entitlement.active
@@ -251,6 +568,7 @@ def request_code(payload: OtpRequest, request: Request, db: Session = Depends(ge
 
 
 def accept_pending_invitations(db: Session, user: models.User) -> None:
+    accepted_worker_invite = False
     for invitation in find_pending_invitations(db, user.email):
         if invitation.project_id:
             existing = db.scalar(
@@ -282,7 +600,36 @@ def accept_pending_invitations(db: Session, user: models.User) -> None:
                         role=invitation.role,
                     )
                 )
+            if invitation.role in {"member", "admin"}:
+                accepted_worker_invite = True
         invitation.accepted_at = now()
+    if accepted_worker_invite and user.profile_type in {None, "", "worker"}:
+        user.profile_type = "company_worker"
+
+
+@router.get("/invitations/{token}")
+def invitation_details(token: str, db: Session = Depends(get_db)):
+    invitation = db.scalar(
+        select(models.Invitation).where(
+            models.Invitation.token_hash == hash_secret(token),
+            models.Invitation.revoked_at.is_(None),
+        )
+    )
+    if not invitation or not active_date(invitation.expires_at):
+        raise HTTPException(404, "Zaproszenie jest nieaktywne lub wygasło")
+    project = db.get(models.Project, invitation.project_id) if invitation.project_id else None
+    workspace = (
+        db.get(models.Workspace, invitation.workspace_id)
+        if invitation.workspace_id
+        else (db.get(models.Workspace, project.workspace_id) if project and project.workspace_id else None)
+    )
+    return {
+        "email": invitation.email,
+        "role": invitation.role,
+        "kind": "workspace" if invitation.workspace_id else "project",
+        "project_name": project.name if project else "",
+        "workspace_name": workspace.name if workspace else "",
+    }
 
 
 @router.post("/auth/verify")
@@ -313,27 +660,20 @@ def verify_code(payload: OtpVerify, response: Response, db: Session = Depends(ge
         db.add(user)
         db.flush()
         db.add(models.BetaEntitlement(user_id=user.id, active=True, note="Tester MVP"))
-    user.last_login_at = now()
-    accept_pending_invitations(db, user)
+    return create_session_response(db, response, user)
 
-    raw_token = random_token()
-    db.add(
-        models.UserSession(
-            token_hash=hash_secret(raw_token),
-            user_id=user.id,
-            expires_at=now() + timedelta(days=settings.session_days),
-        )
-    )
-    db.commit()
-    response.set_cookie(
-        "pm_session",
-        raw_token,
-        max_age=settings.session_days * 86400,
-        httponly=True,
-        secure=settings.is_production,
-        samesite="lax",
-    )
-    return {"user": user_payload(db, user)}
+
+@router.post("/auth/password")
+def password_login(
+    payload: PasswordLogin, response: Response, db: Session = Depends(get_db)
+):
+    email = normalize_email(str(payload.email))
+    user = db.scalar(select(models.User).where(models.User.email == email))
+    if not user or not user.password_hash:
+        raise HTTPException(400, "Nieprawidłowy email albo hasło")
+    if not verify_secret(payload.password, user.password_hash):
+        raise HTTPException(400, "Nieprawidłowy email albo hasło")
+    return create_session_response(db, response, user)
 
 
 @router.post("/auth/logout")
@@ -369,6 +709,44 @@ def update_me(
     return user_payload(db, user)
 
 
+@router.post("/onboarding")
+def complete_onboarding(
+    payload: OnboardingCreate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if user.profile_type:
+        raise HTTPException(409, "Profil został już wybrany")
+    if payload.profile_type == "company_owner" and not (
+        payload.company_name and payload.company_name.strip()
+    ):
+        raise HTTPException(422, "Podaj nazwę firmy")
+
+    user.profile_type = payload.profile_type
+    user.preferred_mode = (
+        payload.preferred_mode
+        if payload.profile_type == "independent_contractor"
+        else "expanded"
+    )
+    if payload.profile_type == "company_owner":
+        workspace = models.Workspace(
+            name=payload.company_name.strip(),
+            kind="company",
+            owner_id=user.id,
+        )
+        db.add(workspace)
+        db.flush()
+        db.add(
+            models.WorkspaceMember(
+                workspace_id=workspace.id,
+                user_id=user.id,
+                role="owner",
+            )
+        )
+    db.commit()
+    return user_payload(db, user)
+
+
 @router.get("/workspaces")
 def list_workspaces(
     user: models.User = Depends(require_user), db: Session = Depends(get_db)
@@ -382,8 +760,15 @@ def create_workspace(
     user: models.User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
+    if user.profile_type in {"company_worker", "worker", "independent_contractor"}:
+        raise HTTPException(403, "Ten typ konta nie zarzadza zespolem ani wykonawcami")
     workspace = models.Workspace(
-        name=payload.name.strip(), kind=payload.kind, owner_id=user.id
+        name=payload.name.strip(),
+        kind=payload.kind,
+        owner_id=user.id,
+        description=payload.description.strip(),
+        phone=payload.phone.strip(),
+        address=payload.address.strip(),
     )
     db.add(workspace)
     db.flush()
@@ -393,7 +778,45 @@ def create_workspace(
         )
     )
     db.commit()
-    return {"id": workspace.id, "name": workspace.name, "kind": workspace.kind}
+    return workspace_payload(db, workspace, user.id, details=True)
+
+
+@router.get("/workspaces/{workspace_id}")
+def get_workspace(
+    workspace_id: str,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    workspace = db.get(models.Workspace, workspace_id)
+    if not workspace:
+        raise HTTPException(404, "Nie znaleziono firmy")
+    membership = db.scalar(
+        select(models.WorkspaceMember).where(
+            models.WorkspaceMember.workspace_id == workspace_id,
+            models.WorkspaceMember.user_id == user.id,
+        )
+    )
+    if not membership:
+        raise HTTPException(403, "Nie należysz do tej firmy")
+    return workspace_payload(db, workspace, user.id, details=True)
+
+
+@router.patch("/workspaces/{workspace_id}")
+def update_workspace(
+    workspace_id: str,
+    payload: WorkspaceUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not can_manage_workspace(db, workspace_id, user.id):
+        raise HTTPException(403, "Brak uprawnień do edycji firmy")
+    workspace = db.get(models.Workspace, workspace_id)
+    if not workspace:
+        raise HTTPException(404, "Nie znaleziono firmy")
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        setattr(workspace, key, (value or "").strip())
+    db.commit()
+    return workspace_payload(db, workspace, user.id, details=True)
 
 
 @router.post("/workspaces/{workspace_id}/invite")
@@ -437,9 +860,208 @@ def invite_workspace_member(
     send_email(
         email,
         "Zaproszenie do zespołu Pan Majster",
-        f"Zaloguj się na {settings.app_url}, aby dołączyć do zespołu.",
+        (
+            f"Dołącz do zespołu Pan Majster:\n"
+            f"{settings.app_url}/invite/{raw_token}"
+        ),
     )
-    return {"ok": True, "email": email, "accepted": bool(existing_user)}
+    return {
+        "ok": True,
+        "email": email,
+        "accepted": bool(existing_user),
+        "url": f"{settings.app_url}/invite/{raw_token}",
+    }
+
+
+@router.get("/workers")
+def list_workers(
+    workspace_id: str | None = None,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if user.profile_type in {"independent_contractor", "company_worker", "worker"}:
+        return []
+    return [
+        worker_profile_payload(db, item)
+        for item in available_worker_profiles(db, user, workspace_id)
+    ]
+
+
+@router.post("/workers", status_code=201)
+def create_worker(
+    payload: WorkerProfileCreate,
+    response: Response,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if user.profile_type in {"independent_contractor", "company_worker", "worker"}:
+        raise HTTPException(403, "Samodzielny majster nie dodaje ekip pod sobą")
+    workspace_id = payload.workspace_id
+    if workspace_id:
+        if not can_manage_workspace(db, workspace_id, user.id):
+            raise HTTPException(403, "Brak dostępu do firmy")
+    elif user.profile_type == "company_owner":
+        workspace_id = db.scalar(
+            select(models.WorkspaceMember.workspace_id).where(
+                models.WorkspaceMember.user_id == user.id,
+                models.WorkspaceMember.role.in_(["owner", "admin"]),
+            )
+        )
+    email = optional_email(payload.email)
+    if email:
+        existing_worker = db.scalar(
+            select(models.WorkerProfile).where(
+                models.WorkerProfile.email == email,
+                models.WorkerProfile.workspace_id == workspace_id,
+            )
+        )
+        if existing_worker:
+            response.status_code = 200
+            return {
+                **worker_profile_payload(db, existing_worker),
+                "message": "Ten wykonawca już istnieje na liście.",
+                "existing": True,
+            }
+        existing_user = db.scalar(select(models.User).where(models.User.email == email))
+    else:
+        existing_user = None
+    item = models.WorkerProfile(
+        owner_id=user.id,
+        workspace_id=workspace_id,
+        label=payload.label.strip(),
+        profile_kind=payload.profile_kind,
+        email=email,
+        phone=payload.phone.strip(),
+        note=payload.note.strip(),
+    )
+    db.add(item)
+    invitation_url = ""
+    invite_message = ""
+    if email and workspace_id:
+        if existing_user:
+            user_membership = db.scalar(
+                select(models.WorkspaceMember).where(
+                    models.WorkspaceMember.workspace_id == workspace_id,
+                    models.WorkspaceMember.user_id == existing_user.id,
+                )
+            )
+            if not user_membership:
+                db.add(
+                    models.WorkspaceMember(
+                        workspace_id=workspace_id,
+                        user_id=existing_user.id,
+                        role="member",
+                    )
+                )
+            if existing_user.profile_type in {None, "", "worker"}:
+                existing_user.profile_type = "company_worker"
+            invite_message = "Ten wykonawca ma już konto. Dodaliśmy go do listy wykonawców."
+        else:
+            pending = db.scalar(
+                select(models.Invitation).where(
+                    models.Invitation.workspace_id == workspace_id,
+                    models.Invitation.email == email,
+                    models.Invitation.accepted_at.is_(None),
+                    models.Invitation.revoked_at.is_(None),
+                )
+            )
+            if pending:
+                response.status_code = 200
+                invite_message = "Ten e-mail ma już zaproszenie do konta wykonawcy."
+            else:
+                raw_token = random_token()
+                db.add(
+                    models.Invitation(
+                        workspace_id=workspace_id,
+                        email=email,
+                        role="member",
+                        token_hash=hash_secret(raw_token),
+                        invited_by_id=user.id,
+                        expires_at=now() + timedelta(days=14),
+                        accepted_at=None,
+                    )
+                )
+                invitation_url = f"{settings.app_url}/invite/{raw_token}"
+                invite_message = "Utworzono zaproszenie do stałego konta wykonawcy."
+                send_email(
+                    email,
+                    "Zaproszenie do Pan Majster",
+                    (
+                        "Zostałeś zaproszony jako wykonawca / majster w Pan Majster.\n"
+                        f"Potwierdź konto kodem e-mail i dołącz tutaj:\n{invitation_url}"
+                    ),
+                )
+    db.commit()
+    return {
+        **worker_profile_payload(db, item),
+        "message": invite_message or "Wykonawca dodany.",
+        "invitation_url": invitation_url,
+        "existing": False,
+    }
+
+
+@router.patch("/workers/{worker_id}")
+def update_worker(
+    worker_id: str,
+    payload: WorkerProfileUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = worker_profile_for_assignment(db, worker_id, user, None)
+    changes = payload.model_dump(exclude_unset=True)
+    if "email" in changes:
+        changes["email"] = optional_email(changes["email"])
+    for key, value in changes.items():
+        setattr(item, key, (value or "").strip())
+    db.commit()
+    return worker_profile_payload(db, item)
+
+
+@router.delete("/workers/{worker_id}")
+def deactivate_worker(
+    worker_id: str,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.WorkerProfile, worker_id)
+    if not item:
+        raise HTTPException(404, "Nie znaleziono majstra lub ekipy")
+    if item.workspace_id:
+        if not can_manage_workspace(db, item.workspace_id, user.id):
+            raise HTTPException(403, "Brak dostepu do majstra lub ekipy")
+    elif item.owner_id != user.id:
+        raise HTTPException(403, "Brak dostepu do majstra lub ekipy")
+    assigned_count = db.scalar(
+        select(func.count(models.Project.id)).where(
+            models.Project.worker_profile_id == item.id
+        )
+    )
+    item.active = False
+    for project in db.scalars(
+        select(models.Project).where(models.Project.worker_profile_id == item.id)
+    ).all():
+        project.worker_profile_id = None
+    db.commit()
+    return {"ok": True, "deactivated": True, "assigned_count": assigned_count or 0}
+
+
+@router.post("/workers/{worker_id}/activate")
+def activate_worker(
+    worker_id: str,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.WorkerProfile, worker_id)
+    if not item:
+        raise HTTPException(404, "Nie znaleziono majstra lub ekipy")
+    if item.workspace_id:
+        if not can_manage_workspace(db, item.workspace_id, user.id):
+            raise HTTPException(403, "Brak dostepu do majstra lub ekipy")
+    elif item.owner_id != user.id:
+        raise HTTPException(403, "Brak dostepu do majstra lub ekipy")
+    item.active = True
+    db.commit()
+    return worker_profile_payload(db, item)
 
 
 @router.get("/projects")
@@ -458,6 +1080,8 @@ def create_project(
     user: models.User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
+    if user.profile_type in {"company_worker", "worker"}:
+        raise HTTPException(403, "Majster - czlonek firmy widzi tylko przypisane zlecenia")
     if payload.workspace_id and not can_manage_workspace(
         db, payload.workspace_id, user.id
     ):
@@ -469,26 +1093,31 @@ def create_project(
         )
         if not membership:
             raise HTTPException(403, "Nie należysz do wybranej firmy")
+    worker = worker_profile_for_assignment(
+        db, payload.worker_profile_id, user, payload.workspace_id
+    )
+    workspace_id = payload.workspace_id or (worker.workspace_id if worker else None)
 
     project = models.Project(
-        workspace_id=payload.workspace_id,
+        workspace_id=workspace_id,
+        worker_profile_id=worker.id if worker else None,
         created_by_id=user.id,
         name=payload.name.strip(),
-        client_name=payload.client_name.strip(),
-        client_email=payload.client_email.strip(),
+        client_name=(payload.client_name or "").strip(),
+        client_email=(payload.client_email or "").strip(),
         address=payload.address.strip(),
         description=payload.description.strip(),
         template=payload.template if payload.template in STAGE_TEMPLATES else "custom",
         started_at=now(),
+        client_share_token=random_token(30),
     )
     db.add(project)
     db.flush()
     db.add(
         models.ProjectMember(project_id=project.id, user_id=user.id, role="owner")
     )
-    stage_names = payload.stages or STAGE_TEMPLATES.get(
-        project.template, STAGE_TEMPLATES["custom"]
-    )
+    ensure_worker_project_access(db, project, worker, user.id)
+    stage_names = STAGE_TEMPLATES.get(project.template, STAGE_TEMPLATES["custom"])
     for position, title in enumerate(stage_names):
         if title.strip():
             db.add(
@@ -510,6 +1139,19 @@ def project_detail_data(db: Session, project: models.Project, role: str | None):
         .options(selectinload(models.ProjectMember.user))
         .where(models.ProjectMember.project_id == project.id)
     ).all()
+    worker_links = db.scalars(
+        select(models.GuestInvite)
+        .where(
+            models.GuestInvite.project_id == project.id,
+            models.GuestInvite.kind == "worker",
+        )
+        .order_by(models.GuestInvite.created_at.desc())
+    ).all()
+    worker_profile = (
+        db.get(models.WorkerProfile, project.worker_profile_id)
+        if project.worker_profile_id
+        else None
+    )
     return {
         **serializers.project(project, role=role, details=True),
         "members": [
@@ -520,6 +1162,10 @@ def project_detail_data(db: Session, project: models.Project, role: str | None):
             }
             for member in members
         ],
+        "worker_profile": (
+            worker_profile_payload(db, worker_profile) if worker_profile else None
+        ),
+        "worker_links": [guest_invite_payload(db, item) for item in worker_links],
         "entry_count": db.scalar(
             select(func.count(models.Entry.id)).where(
                 models.Entry.project_id == project.id
@@ -531,6 +1177,10 @@ def project_detail_data(db: Session, project: models.Project, role: str | None):
                 models.Entry.kind == "problem",
                 models.Entry.problem_status == "open",
             )
+        ),
+        "can_edit_details": bool(
+            role in {"owner", "manager"}
+            or (role == "contributor" and not project.details_locked)
         ),
     }
 
@@ -544,8 +1194,10 @@ def get_project(project_id: str, request: Request, db: Session = Depends(get_db)
             "guest": {
                 "label": access.guest.label,
                 "permission": access.guest.permission,
+                "kind": access.guest.kind,
             },
             "members": [],
+            "worker_links": [],
             "entry_count": None,
             "open_problem_count": None,
         }
@@ -554,8 +1206,10 @@ def get_project(project_id: str, request: Request, db: Session = Depends(get_db)
         data["guest"] = {
             "label": access.guest.label,
             "permission": access.guest.permission,
+            "kind": access.guest.kind,
         }
         data["members"] = []
+        data["worker_links"] = []
     return data
 
 
@@ -567,13 +1221,22 @@ def update_project(
     db: Session = Depends(get_db),
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
-    access.require_manage()
     changes = payload.model_dump(exclude_unset=True)
+    if "details_locked" in changes or "worker_profile_id" in changes:
+        access.require_manage()
+    else:
+        access.require_edit_details()
     if "portfolio_slug" in changes and changes["portfolio_slug"]:
         slug = SLUG_RE.sub("-", changes["portfolio_slug"].lower()).strip("-")
         if not slug:
             raise HTTPException(400, "Nieprawidłowy adres portfolio")
         changes["portfolio_slug"] = slug
+    if "worker_profile_id" in changes:
+        worker = worker_profile_for_assignment(
+            db, changes["worker_profile_id"], access.user, access.project.workspace_id
+        )
+        changes["worker_profile_id"] = worker.id if worker else None
+        ensure_worker_project_access(db, access.project, worker, access.user.id)
     for key, value in changes.items():
         setattr(access.project, key, value)
     if changes.get("status") == "completed" and not access.project.finished_at:
@@ -590,20 +1253,11 @@ def add_stage(
     db: Session = Depends(get_db),
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
-    access.require_manage()
-    max_position = db.scalar(
-        select(func.max(models.ProjectStage.position)).where(
-            models.ProjectStage.project_id == project_id
-        )
+    access.require_edit_details()
+    raise HTTPException(
+        409,
+        "Zlecenie ma trzy stałe etapy: przed rozpoczęciem, w trakcie i po zakończeniu",
     )
-    item = models.ProjectStage(
-        project_id=project_id,
-        title=payload.title.strip(),
-        position=(max_position if max_position is not None else -1) + 1,
-    )
-    db.add(item)
-    db.commit()
-    return serializers.stage(item)
 
 
 @router.patch("/projects/{project_id}/stages/{stage_id}")
@@ -615,7 +1269,7 @@ def update_stage(
     db: Session = Depends(get_db),
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
-    access.require_manage()
+    access.require_edit_details()
     item = db.get(models.ProjectStage, stage_id)
     if not item or item.project_id != project_id:
         raise HTTPException(404, "Nie znaleziono etapu")
@@ -673,9 +1327,17 @@ def invite_project_member(
     send_email(
         email,
         f"Zaproszenie do projektu {access.project.name}",
-        f"Zaloguj się na {settings.app_url}, aby dołączyć do projektu.",
+        (
+            f"Dołącz do projektu {access.project.name}:\n"
+            f"{settings.app_url}/invite/{raw_token}"
+        ),
     )
-    return {"ok": True, "email": email, "accepted": bool(existing_user)}
+    return {
+        "ok": True,
+        "email": email,
+        "accepted": bool(existing_user),
+        "url": f"{settings.app_url}/invite/{raw_token}",
+    }
 
 
 @router.get("/projects/{project_id}/guest-links")
@@ -689,17 +1351,7 @@ def list_guest_links(
         .where(models.GuestInvite.project_id == project_id)
         .order_by(models.GuestInvite.created_at.desc())
     ).all()
-    return [
-        {
-            "id": item.id,
-            "label": item.label,
-            "permission": item.permission,
-            "expires_at": serializers.iso(item.expires_at),
-            "revoked_at": serializers.iso(item.revoked_at),
-            "created_at": serializers.iso(item.created_at),
-        }
-        for item in links
-    ]
+    return [guest_invite_payload(db, item) for item in links]
 
 
 @router.post("/projects/{project_id}/guest-links", status_code=201)
@@ -711,10 +1363,65 @@ def create_guest_link(
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
     access.require_manage()
+    if access.user.profile_type in {"independent_contractor", "company_worker", "worker"} and payload.kind == "worker":
+        raise HTTPException(403, "Samodzielny majster nie wysyła linków wykonawcom")
     raw_token = random_token(36)
+    worker = worker_profile_for_assignment(
+        db, payload.worker_profile_id, access.user, access.project.workspace_id
+    )
+    email = optional_email(payload.email or (worker.email if worker else ""))
+    label = payload.label.strip() or (worker.label if worker else "Gość")
+    role = project_role_from_guest_permission(payload.permission)
+    existing_user = (
+        db.scalar(select(models.User).where(models.User.email == email))
+        if email
+        else None
+    )
+    if existing_user:
+        member = db.scalar(
+            select(models.ProjectMember).where(
+                models.ProjectMember.project_id == project_id,
+                models.ProjectMember.user_id == existing_user.id,
+            )
+        )
+        if member:
+            member.role = role
+        else:
+            db.add(
+                models.ProjectMember(
+                    project_id=project_id,
+                    user_id=existing_user.id,
+                    role=role,
+                )
+            )
+    elif email:
+        pending_project_invite = db.scalar(
+            select(models.Invitation).where(
+                models.Invitation.project_id == project_id,
+                models.Invitation.email == email,
+                models.Invitation.accepted_at.is_(None),
+                models.Invitation.revoked_at.is_(None),
+            )
+        )
+        if not pending_project_invite:
+            db.add(
+                models.Invitation(
+                    project_id=project_id,
+                    email=email,
+                    role=role,
+                    token_hash=hash_secret(random_token()),
+                    invited_by_id=access.user.id,
+                    expires_at=now() + timedelta(days=14),
+                    accepted_at=None,
+                )
+            )
     item = models.GuestInvite(
         project_id=project_id,
-        label=payload.label.strip() or "Gość",
+        workspace_id=access.project.workspace_id,
+        worker_profile_id=worker.id if worker else None,
+        label=label,
+        email=email,
+        kind=payload.kind,
         permission=payload.permission,
         token_hash=hash_secret(raw_token),
         expires_at=(
@@ -724,15 +1431,58 @@ def create_guest_link(
         ),
         created_by_id=access.user.id,
     )
+    if worker and not access.project.worker_profile_id:
+        access.project.worker_profile_id = worker.id
     db.add(item)
     db.commit()
+    url = f"{settings.app_url}/g/{raw_token}"
+    if email:
+        send_email(
+            email,
+            f"Link do zlecenia {access.project.name}",
+            (
+                f"Otwórz zlecenie {access.project.name} bez logowania:\n"
+                f"{url}\n\n"
+                "Jeśli będziesz korzystać stale, możesz też zalogować się tym "
+                "adresem e-mail w Pan Majster."
+            ),
+        )
     return {
         "id": item.id,
         "label": item.label,
+        "email": item.email,
+        "kind": item.kind,
+        "account_type": "account" if item.email else "link_only",
         "permission": item.permission,
-        "url": f"{settings.app_url}/g/{raw_token}",
+        "url": url,
         "token": raw_token,
         "expires_at": serializers.iso(item.expires_at),
+    }
+
+
+@router.post("/projects/{project_id}/guest-links/{invite_id}/rotate")
+def rotate_guest_link(
+    project_id: str,
+    invite_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    access.require_manage()
+    item = db.get(models.GuestInvite, invite_id)
+    if not item or item.project_id != project_id or item.kind != "worker":
+        raise HTTPException(404, "Nie znaleziono linku wykonawcy")
+    raw_token = random_token(36)
+    item.token_hash = hash_secret(raw_token)
+    item.revoked_at = None
+    if item.expires_at:
+        item.expires_at = now() + timedelta(days=30)
+    db.commit()
+    url = f"{settings.app_url}/g/{raw_token}"
+    return {
+        **guest_invite_payload(db, item),
+        "url": url,
+        "token": raw_token,
     }
 
 
@@ -753,6 +1503,159 @@ def revoke_guest_link(
     return {"ok": True}
 
 
+def ensure_client_share(project: models.Project) -> str:
+    if not project.client_share_token:
+        project.client_share_token = random_token(30)
+    return project.client_share_token
+
+
+def client_link_payload(project: models.Project) -> dict:
+    token = ensure_client_share(project)
+    return {
+        "active": project.client_share_active,
+        "requires_pin": bool(project.client_share_pin_hash),
+        "url": f"{settings.app_url}/c/{token}",
+    }
+
+
+@router.get("/projects/{project_id}/client-link")
+def get_client_link(
+    project_id: str, request: Request, db: Session = Depends(get_db)
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    payload = client_link_payload(access.project)
+    db.commit()
+    return payload
+
+
+@router.patch("/projects/{project_id}/client-link")
+def update_client_link(
+    project_id: str,
+    payload: ClientLinkUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    access.require_manage()
+    if payload.rotate or not access.project.client_share_token:
+        access.project.client_share_token = random_token(30)
+    if payload.active is not None:
+        access.project.client_share_active = payload.active
+    if payload.remove_pin:
+        access.project.client_share_pin_hash = None
+    elif payload.pin:
+        access.project.client_share_pin_hash = hash_secret(payload.pin)
+    db.commit()
+    return client_link_payload(access.project)
+
+
+def public_project_by_token(db: Session, token: str) -> models.Project:
+    project = db.scalar(
+        select(models.Project).where(
+            models.Project.client_share_token == token,
+            models.Project.client_share_active.is_(True),
+        )
+    )
+    if not project:
+        raise HTTPException(404, "Link klienta jest nieaktywny")
+    return project
+
+
+def verify_project_pin(project: models.Project, pin: str | None) -> None:
+    if project.client_share_pin_hash and (
+        not pin or not verify_secret(pin, project.client_share_pin_hash)
+    ):
+        raise HTTPException(401, "Podaj prawidłowy PIN do zlecenia")
+
+
+def public_entry_payload(item: models.Entry, token: str) -> dict:
+    data = serializers.entry(item)
+    for asset in data["media"]:
+        asset["url"] = f"/api/public/projects/{token}/media/{asset['id']}"
+    data["author"] = (
+        {"name": item.author.name or "Wykonawca"} if item.author else None
+    )
+    return data
+
+
+@router.get("/public/projects/{token}")
+def public_project(
+    token: str, pin: str | None = None, db: Session = Depends(get_db)
+):
+    project = public_project_by_token(db, token)
+    if project.client_share_pin_hash and not pin:
+        return {"requires_pin": True, "project": None}
+    verify_project_pin(project, pin)
+    entries = load_entries(db, project.id)
+    reports = db.scalars(
+        select(models.Report)
+        .where(
+            models.Report.project_id == project.id,
+            models.Report.status == "published",
+        )
+        .order_by(models.Report.published_at.desc())
+    ).all()
+    project_data = serializers.project(project, details=True)
+    project_data.pop("client_email", None)
+    return {
+        "requires_pin": bool(project.client_share_pin_hash),
+        "project": project_data,
+        "entries": [public_entry_payload(item, token) for item in entries],
+        "reports": [serializers.report(item) for item in reports],
+    }
+
+
+@router.get("/public/projects/{token}/qr")
+def public_project_qr(token: str, db: Session = Depends(get_db)):
+    import io
+
+    import qrcode
+    from fastapi.responses import StreamingResponse
+
+    public_project_by_token(db, token)
+    output = io.BytesIO()
+    qrcode.make(f"{settings.app_url}/c/{token}").save(output, format="PNG")
+    output.seek(0)
+    return StreamingResponse(output, media_type="image/png")
+
+
+@router.get("/public/projects/{token}/media/{asset_id}")
+def public_project_media(
+    token: str,
+    asset_id: str,
+    pin: str | None = None,
+    db: Session = Depends(get_db),
+):
+    project = public_project_by_token(db, token)
+    verify_project_pin(project, pin)
+    asset = db.get(models.MediaAsset, asset_id)
+    if not asset or asset.project_id != project.id:
+        raise HTTPException(404, "Nie znaleziono zdjęcia")
+    return stored_file_response(asset.storage_key, asset.content_type)
+
+
+@router.get("/public/projects/{token}/reports/{report_id}/pdf")
+def public_project_report_pdf(
+    token: str,
+    report_id: str,
+    pin: str | None = None,
+    db: Session = Depends(get_db),
+):
+    project = public_project_by_token(db, token)
+    verify_project_pin(project, pin)
+    report = db.get(models.Report, report_id)
+    if (
+        not report
+        or report.project_id != project.id
+        or report.status != "published"
+        or not report.pdf_storage_key
+    ):
+        raise HTTPException(404, "Nie znaleziono raportu")
+    return stored_file_response(
+        report.pdf_storage_key, "application/pdf", f"{report.title}.pdf"
+    )
+
+
 @router.get("/guest/{token}")
 def resolve_guest_link(token: str, db: Session = Depends(get_db)):
     item = db.scalar(
@@ -770,6 +1673,9 @@ def resolve_guest_link(token: str, db: Session = Depends(get_db)):
         "project_id": project.id,
         "project_name": project.name,
         "label": item.label,
+        "email": item.email,
+        "kind": item.kind,
+        "account_type": "account" if item.email else "link_only",
         "permission": item.permission,
         "expires_at": serializers.iso(item.expires_at),
     }
@@ -961,12 +1867,39 @@ def add_comment(
     return serializers.comment(comment_item)
 
 
+@router.post("/projects/{project_id}/transcribe")
+def transcribe_recording(
+    project_id: str,
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id)
+    access.require_add()
+    content_type = (file.content_type or "audio/webm").lower()
+    if not (
+        content_type.startswith("audio/") or content_type.startswith("video/")
+    ):
+        raise HTTPException(415, "Prześlij nagranie głosowe")
+    content = file.file.read()
+    if not content:
+        raise HTTPException(400, "Nagranie jest puste")
+    if len(content) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(413, "Nagranie jest zbyt duże")
+    try:
+        text = transcribe_upload(file.filename or "nagranie.webm", content_type, content)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc))
+    return {"text": text}
+
+
 @router.post("/entries/{entry_id}/media", status_code=201)
 def upload_media(
     entry_id: str,
     request: Request,
     file: UploadFile = File(...),
     client_ref: str | None = Form(default=None),
+    purpose: str = Form(default="attachment"),
     db: Session = Depends(get_db),
 ):
     entry_item, access = entry_access(request, db, entry_id)
@@ -995,6 +1928,11 @@ def upload_media(
         entry_id=entry_item.id,
         owner_user_id=access.user.id if access.user else None,
         kind=kind,
+        purpose=(
+            purpose
+            if purpose in {"attachment", "voice_description", "voice_note"}
+            else "attachment"
+        ),
         original_name=(file.filename or "plik")[:260],
         content_type=content_type,
         size_bytes=0,
@@ -1159,7 +2097,7 @@ def publish_report(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    item, _ = report_with_access(report_id, request, db, manage=True)
+    item, access = report_with_access(report_id, request, db, manage=True)
     if not item.content:
         raise HTTPException(409, "Poczekaj na wygenerowanie treści raportu")
     for old_share in db.scalars(
@@ -1181,9 +2119,10 @@ def publish_report(
     db.add(share)
     item.status = "published"
     item.published_at = now()
-    share_url = f"{settings.app_url}/r/{raw_token}"
+    client_token = ensure_client_share(access.project)
+    share_url = f"{settings.app_url}/c/{client_token}"
     pdf_key = storage.report_key(item.project_id, item.id)
-    pdf_bytes = render_pdf(item, share_url)
+    pdf_bytes = render_pdf(db, item, share_url)
     storage.write_bytes(pdf_key, pdf_bytes)
     item.pdf_storage_key = pdf_key
     db.commit()
@@ -1192,9 +2131,22 @@ def publish_report(
         "url": share_url,
         "token": raw_token,
         "requires_pin": bool(payload.pin),
-        "qr_url": f"/api/public/reports/{raw_token}/qr",
+        "qr_url": f"/api/public/projects/{client_token}/qr",
         "pdf_url": f"/api/public/reports/{raw_token}/pdf",
+        "client_url": share_url,
     }
+
+
+@router.delete("/reports/{report_id}")
+def delete_report(
+    report_id: str, request: Request, db: Session = Depends(get_db)
+):
+    item, _ = report_with_access(report_id, request, db, manage=True)
+    if item.pdf_storage_key:
+        storage.delete(item.pdf_storage_key)
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/reports/{report_id}/pdf")

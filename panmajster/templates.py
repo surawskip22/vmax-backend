@@ -1,15 +1,15 @@
+SIMPLE_STAGES = [
+    "Przed rozpoczęciem",
+    "W trakcie realizacji",
+    "Po zakończeniu",
+]
+
 STAGE_TEMPLATES = {
-    "custom": ["Przygotowanie", "Realizacja", "Odbiór"],
-    "remont": [
-        "Przygotowanie i zabezpieczenie",
-        "Prace demontażowe",
-        "Instalacje",
-        "Prace wykończeniowe",
-        "Odbiór",
-    ],
-    "serwis": ["Diagnoza", "Naprawa", "Testy i odbiór"],
-    "montaz": ["Przygotowanie", "Montaż", "Uruchomienie", "Odbiór"],
-    "ogrod": ["Stan przed", "Prace", "Efekt końcowy"],
-    "sprzatanie": ["Stan przed", "Realizacja", "Kontrola jakości"],
-    "techniczne": ["Rozpoznanie", "Realizacja", "Testy", "Odbiór"],
+    "custom": SIMPLE_STAGES,
+    "remont": SIMPLE_STAGES,
+    "serwis": SIMPLE_STAGES,
+    "montaz": SIMPLE_STAGES,
+    "ogrod": SIMPLE_STAGES,
+    "sprzatanie": SIMPLE_STAGES,
+    "techniczne": SIMPLE_STAGES,
 }

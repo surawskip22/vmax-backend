@@ -7,6 +7,29 @@ export class ApiError extends Error {
   }
 }
 
+function formatErrorDetail(value: unknown): string {
+  if (!value) return "Wystąpił błąd";
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object" && "msg" in item) {
+          const location = "loc" in item && Array.isArray(item.loc) ? item.loc.join(".") : "";
+          return [location, String(item.msg)].filter(Boolean).join(": ");
+        }
+        return JSON.stringify(item);
+      })
+      .join(", ");
+  }
+  if (typeof value === "object" && "message" in value) return String(value.message);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 export async function api<T>(
   path: string,
   options: RequestInit = {},
@@ -26,7 +49,7 @@ export async function api<T>(
     let detail = "Wystąpił błąd";
     try {
       const payload = await response.json();
-      detail = payload.detail || detail;
+      detail = formatErrorDetail(payload.detail || payload);
     } catch {
       detail = response.statusText || detail;
     }

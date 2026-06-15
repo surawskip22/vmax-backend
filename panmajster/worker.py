@@ -59,7 +59,15 @@ def process_next_job() -> bool:
                     raise ValueError("Brak pliku lub wpisu do transkrypcji")
                 text = transcribe_asset(asset)
                 if text:
-                    entry.transcript = text
+                    if asset.purpose == "voice_description" and not entry.body:
+                        entry.body = text
+                    elif asset.purpose == "voice_note":
+                        if text not in entry.transcript:
+                            entry.transcript = "\n\n".join(
+                                part for part in [entry.transcript, text] if part
+                            )
+                    elif not entry.transcript:
+                        entry.transcript = text
             elif job.job_type == "generate_report":
                 report = db.get(models.Report, job.payload["report_id"])
                 if not report:
