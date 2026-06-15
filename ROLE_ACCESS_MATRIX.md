@@ -2,7 +2,7 @@
 
 Źródło prawdy dla ról i uprawnień po checkpointcie 4D.
 
-Ten dokument stabilizuje kręgosłup ról, opisuje podstawowe statusy z KROKU 5A oraz finalne zamykanie i ponowne otwieranie z KROKU 5B. Nadal nie opisuje etapów, raportów PDF, audio, płatności ani portfolio.
+Ten dokument stabilizuje kręgosłup ról, opisuje podstawowe statusy z KROKU 5A, finalne zamykanie i ponowne otwieranie z KROKU 5B oraz etap jako kontekst wpisu/postępu z KROKU 5C. Nadal nie opisuje pełnego workflow etapów, zamykania etapów, raportów PDF, audio, płatności ani portfolio.
 
 ## Zasady bazowe
 
@@ -189,7 +189,7 @@ Może edytować:
 - nie zarządza firmą ani zleceniem jak szef,
 - szczegóły zlecenia tylko wtedy, gdy pozwala na to `ProjectAccess.can_edit_details()`,
 - edycja szczegółów zlecenia musi być ograniczona do pól dopuszczonych dla wykonawcy,
-- pełne zasady zmiany statusów, etapów i zamykania zlecenia będą doprecyzowane w KROKU 5.
+- statusy 5A, zamykanie/ponowne otwieranie 5B oraz etap przy wpisie/postępie 5C są opisane; pełne zarządzanie etapami, zamykanie etapów i workflow "Zgłoś gotowe" zostają na później.
 
 Może generować linki:
 
@@ -297,12 +297,20 @@ Backendowe ograniczenia:
 - Później można dodać osobny flow "Zgłoś gotowe" dla wykonawcy albo link-only, ale nie jest to część 5B.
 - Klient link-only nigdy nie zamyka zlecenia i nigdy nie otwiera go ponownie.
 
+## KROK 5C - etap przy wpisie/postępie
+
+- Etap w 5C jest kontekstem wpisu/postępu, nie pełnym workflow etapów.
+- Role, które już mogą dodać postęp, mogą wskazać etap przy wpisie.
+- Klient link-only może widzieć etap przy wpisie, ale go nie zmienia.
+- Zamykanie etapów i customowe etapy są poza 5C.
+
 ## Parking / przyszłe kroki
 
 KROK 5:
 
-- etapy,
-- zmiana etapu przez majstra,
+- zamykanie etapów,
+- pełne zarządzanie etapami,
+- zmiana etapu jako workflow zlecenia,
 - osobny flow "Zgłoś gotowe" dla wykonawcy/link-only.
 
 KROK 6:

@@ -73,6 +73,15 @@ function workerAccountLabel(worker: WorkerProfile): string {
   return "link-only";
 }
 
+function defaultEntryStageId(project: Project): string {
+  return (
+    project.stages?.find((stage) => stage.title === "W trakcie realizacji")?.id ||
+    project.stages?.find((stage) => stage.status === "active")?.id ||
+    project.stages?.[0]?.id ||
+    ""
+  );
+}
+
 function formString(data: FormData, name: string): string {
   return String(data.get(name) || "").trim();
 }
@@ -930,7 +939,7 @@ function NewEntryModal({
 }) {
   const [body, setBody] = useState("");
   const [voiceNote, setVoiceNote] = useState("");
-  const [stageId, setStageId] = useState(project.stages?.find((s) => s.status === "active")?.id || "");
+  const [stageId, setStageId] = useState(defaultEntryStageId(project));
   const [files, setFiles] = useState<File[]>([]);
   const [recordingTarget, setRecordingTarget] = useState<"description" | "note" | null>(null);
   const [transcribing, setTranscribing] = useState<"description" | "note" | null>(null);

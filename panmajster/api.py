@@ -44,6 +44,7 @@ SLUG_RE = re.compile(r"[^a-z0-9]+")
 PROJECT_STATUS_ASSIGNED = "assigned"
 PROJECT_STATUS_IN_PROGRESS = "in_progress"
 PROJECT_STATUS_COMPLETED = "completed"
+DEFAULT_ENTRY_STAGE_TITLE = "W trakcie realizacji"
 
 
 def stored_file_response(
@@ -324,6 +325,22 @@ def create_session_response(
 
 def project_role_from_guest_permission(permission: str) -> str:
     return "viewer" if permission == "view" else "contributor"
+
+
+def default_entry_stage_id(db: Session, project_id: str) -> str | None:
+    preferred = db.scalar(
+        select(models.ProjectStage.id).where(
+            models.ProjectStage.project_id == project_id,
+            models.ProjectStage.title == DEFAULT_ENTRY_STAGE_TITLE,
+        )
+    )
+    if preferred:
+        return preferred
+    return db.scalar(
+        select(models.ProjectStage.id)
+        .where(models.ProjectStage.project_id == project_id)
+        .order_by(models.ProjectStage.position)
+    )
 
 
 def worker_profile_payload(db: Session, item: models.WorkerProfile) -> dict:
@@ -1761,6 +1778,7 @@ def create_entry(
         stage = db.get(models.ProjectStage, payload.stage_id)
         if not stage or stage.project_id != project_id:
             raise HTTPException(400, "Nieprawidłowy etap")
+    stage_id = payload.stage_id or default_entry_stage_id(db, project_id)
     if payload.client_ref:
         existing = db.scalar(
             select(models.Entry).where(
@@ -1772,7 +1790,7 @@ def create_entry(
             return serializers.entry(existing)
     item = models.Entry(
         project_id=project_id,
-        stage_id=payload.stage_id,
+        stage_id=stage_id,
         author_id=access.user.id if access.user else None,
         guest_label=access.guest.label if access.guest else None,
         kind=payload.kind,

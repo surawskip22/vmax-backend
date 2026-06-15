@@ -67,6 +67,10 @@ def test_complete_report_flow_and_media_integrity():
         project = project_response.json()
         assert project["status"] == "assigned"
         assert client.get("/api/projects").json()[0]["status"] == "assigned"
+        assert client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Zly etap", "stage_id": "missing-stage"},
+        ).status_code == 400
 
         entry_response = client.post(
             f"/api/projects/{project['id']}/entries",
@@ -80,6 +84,7 @@ def test_complete_report_flow_and_media_integrity():
         assert entry_response.status_code == 201
         assert client.get(f"/api/projects/{project['id']}").json()["status"] == "in_progress"
         entry = entry_response.json()
+        assert entry["stage"]["title"] == project["stages"][0]["title"]
 
         image = b"\x89PNG\r\n\x1a\n" + b"test-image"
         upload = client.post(
@@ -375,6 +380,7 @@ def test_stable_client_link_updates_and_report_can_be_deleted():
         assert first_entry.status_code == 201
         public_before = client.get(f"/api/public/projects/{token}").json()
         assert public_before["project"]["status"] == "in_progress"
+        assert public_before["entries"][0]["stage"]["title"] == "W trakcie realizacji"
         assert [item["body"] for item in public_before["entries"]] == [
             "Pierwszy dzień"
         ]
@@ -419,6 +425,10 @@ def test_stable_client_link_updates_and_report_can_be_deleted():
 
     with TestClient(app) as public_client:
         assert public_client.get(f"/api/public/projects/{token}").status_code == 200
+        assert public_client.patch(
+            f"/api/entries/{first_entry.json()['id']}",
+            json={"stage_id": project["stages"][2]["id"]},
+        ).status_code == 403
         assert (
             public_client.patch(
                 f"/api/projects/{project['id']}",
@@ -501,10 +511,19 @@ def test_worker_link_without_email_is_project_scoped_and_visible_in_team():
             worker_link.post(
                 f"/api/projects/{assigned['id']}/entries",
                 headers={"x-guest-token": token},
-                json={"kind": "update", "body": "Drugi postęp od linku"},
+                json={
+                    "kind": "update",
+                    "body": "Drugi postęp od linku",
+                    "stage_id": assigned_detail["stages"][2]["id"],
+                },
             ).status_code
             == 201
         )
+        worker_entries = worker_link.get(
+            f"/api/projects/{assigned['id']}/entries",
+            headers={"x-guest-token": token},
+        ).json()
+        assert worker_entries[0]["stage"]["title"] == "Po zakończeniu"
         assert (
             worker_link.get(
                 f"/api/projects/{assigned['id']}",
@@ -768,10 +787,23 @@ def test_company_worker_account_sees_project_assigned_at_creation():
         assert projects[0]["status"] == "assigned"
         progress = worker_client.post(
             f"/api/projects/{project['id']}/entries",
-            json={"kind": "update", "body": "Postep od pracownika firmy"},
+            json={
+                "kind": "update",
+                "body": "Postep od pracownika firmy",
+                "stage_id": project["stages"][1]["id"],
+            },
         )
         assert progress.status_code == 201
+        assert progress.json()["stage"]["title"] == "W trakcie realizacji"
         assert worker_client.get(f"/api/projects/{project['id']}").json()["status"] == "in_progress"
+        assert worker_client.post(
+            f"/api/projects/{unassigned['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "Nieprzypisany etap",
+                "stage_id": unassigned["stages"][1]["id"],
+            },
+        ).status_code == 403
         assert worker_client.get("/api/workers").json() == []
         assert worker_client.post(
             "/api/projects", json={"name": "Nie moje zlecenie"}
