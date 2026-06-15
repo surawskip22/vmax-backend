@@ -792,6 +792,107 @@ def test_company_worker_account_sees_project_assigned_at_creation():
         ).status_code == 403
 
 
+def test_project_close_and_reopen_permissions():
+    with TestClient(app) as worker_client:
+        login(worker_client, "close-worker@example.com")
+
+    with TestClient(app) as owner:
+        login(owner, "close-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Firma zamykania",
+            },
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik do zamykania",
+                "email": "close-worker@example.com",
+            },
+        ).json()
+        project = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zlecenie do zamkniecia",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        assert project["status"] == "assigned"
+
+        closed = owner.post(f"/api/projects/{project['id']}/close")
+        assert closed.status_code == 200
+        assert closed.json()["status"] == "completed"
+        assert owner.post(f"/api/projects/{project['id']}/close").json()["status"] == "completed"
+
+        reopened = owner.post(f"/api/projects/{project['id']}/reopen")
+        assert reopened.status_code == 200
+        assert reopened.json()["status"] == "in_progress"
+
+        link = owner.post(
+            f"/api/projects/{project['id']}/guest-links",
+            json={"label": "Linkowy", "kind": "worker", "permission": "history"},
+        ).json()
+        client_token = owner.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+    with TestClient(app) as worker_client:
+        login(worker_client, "close-worker@example.com")
+        assert worker_client.post(f"/api/projects/{project['id']}/close").status_code == 403
+        assert worker_client.post(f"/api/projects/{project['id']}/reopen").status_code == 403
+        assert worker_client.patch(
+            f"/api/projects/{project['id']}",
+            json={"status": "completed"},
+        ).status_code == 403
+
+    with TestClient(app) as guest:
+        assert guest.post(
+            f"/api/projects/{project['id']}/close",
+            headers={"x-guest-token": link["token"]},
+        ).status_code == 403
+        assert guest.post(
+            f"/api/projects/{project['id']}/reopen",
+            headers={"x-guest-token": link["token"]},
+        ).status_code == 403
+
+    with TestClient(app) as public_client:
+        assert public_client.get(f"/api/public/projects/{client_token}").json()[
+            "project"
+        ]["status"] == "in_progress"
+        assert public_client.post(f"/api/projects/{project['id']}/close").status_code == 403
+
+    with TestClient(app) as investor:
+        login(investor, "close-investor@example.com")
+        investor.post("/api/onboarding", json={"profile_type": "investor"})
+        investment = investor.post(
+            "/api/projects",
+            json={"name": "Inwestycja do zamkniecia", "template": "custom"},
+        ).json()
+        assert investor.post(f"/api/projects/{investment['id']}/close").json()[
+            "status"
+        ] == "completed"
+
+    with TestClient(app) as independent:
+        login(independent, "close-independent@example.com")
+        independent.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        own_project = independent.post(
+            "/api/projects",
+            json={"name": "Wlasne do zamkniecia", "template": "custom"},
+        ).json()
+        assert independent.post(f"/api/projects/{own_project['id']}/close").json()[
+            "status"
+        ] == "completed"
+
+
 def test_worker_with_email_requires_email_code_before_account_access():
     with TestClient(app) as owner:
         login(owner, "email-confirm-owner@example.com")

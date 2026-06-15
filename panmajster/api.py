@@ -1194,6 +1194,12 @@ def project_detail_data(db: Session, project: models.Project, role: str | None):
     }
 
 
+def require_final_status_manage(access) -> None:
+    access.require_manage()
+    if is_company_worker(access.user):
+        raise HTTPException(403, "Majster firmy nie zamyka finalnie zlecenia")
+
+
 @router.get("/projects/{project_id}")
 def get_project(project_id: str, request: Request, db: Session = Depends(get_db)):
     access = get_project_access(request, db, project_id)
@@ -1231,8 +1237,10 @@ def update_project(
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
     changes = payload.model_dump(exclude_unset=True)
-    if "details_locked" in changes or "worker_profile_id" in changes:
+    if "details_locked" in changes or "worker_profile_id" in changes or "status" in changes:
         access.require_manage()
+        if "status" in changes and is_company_worker(access.user):
+            raise HTTPException(403, "Majster firmy nie zmienia finalnego statusu")
     else:
         access.require_edit_details()
     if "portfolio_slug" in changes and changes["portfolio_slug"]:
@@ -1252,6 +1260,31 @@ def update_project(
         access.project.finished_at = now()
     db.commit()
     return serializers.project(access.project, role=access.role, details=True)
+
+
+@router.post("/projects/{project_id}/close")
+def close_project(
+    project_id: str, request: Request, db: Session = Depends(get_db)
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    require_final_status_manage(access)
+    access.project.status = PROJECT_STATUS_COMPLETED
+    if not access.project.finished_at:
+        access.project.finished_at = now()
+    db.commit()
+    return project_detail_data(db, access.project, access.role)
+
+
+@router.post("/projects/{project_id}/reopen")
+def reopen_project(
+    project_id: str, request: Request, db: Session = Depends(get_db)
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    require_final_status_manage(access)
+    access.project.status = PROJECT_STATUS_IN_PROGRESS
+    access.project.finished_at = None
+    db.commit()
+    return project_detail_data(db, access.project, access.role)
 
 
 @router.post("/projects/{project_id}/stages", status_code=201)

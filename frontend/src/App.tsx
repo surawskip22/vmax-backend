@@ -1184,6 +1184,7 @@ function ManageProjectModal({
   const [tab, setTab] = useState<"details" | "stages" | "people" | "share">("details");
   const [workers, setWorkers] = useState<WorkerProfile[]>([]);
   const canManagePeople = ["owner", "manager"].includes(project.role || "");
+  const canManageFinalStatus = canManagePeople && !isCompanyWorker(user);
   const canAssignWorkers = canManagePeople && user?.profile_type !== "independent_contractor" && !isCompanyWorker(user);
   const peopleTabLabel = user?.profile_type === "investor" ? "Wykonawcy" : "Majstrowie i ekipy";
 
@@ -1203,13 +1204,15 @@ function ManageProjectModal({
         client_email: data.get("client_email"),
         address: data.get("address"),
         description: data.get("description"),
-        status: data.get("status"),
         portfolio_enabled: data.get("portfolio_enabled") === "on",
         portfolio_slug: data.get("portfolio_slug") || null,
         portfolio_summary: data.get("portfolio_summary"),
       };
       if (canManagePeople) {
         payload.details_locked = data.get("details_locked") === "on";
+      }
+      if (canManageFinalStatus) {
+        payload.status = data.get("status");
       }
       if (canAssignWorkers) {
         payload.worker_profile_id = data.get("worker_profile_id") || null;
@@ -1322,7 +1325,7 @@ function ManageProjectModal({
         <form className="form-stack" onSubmit={saveDetails}>
           <div className="form-row">
             <label>Nazwa<input name="name" defaultValue={project.name} required /></label>
-            <label>Status<select name="status" defaultValue={project.status}><option value="assigned">Zlecone</option><option value="in_progress">W realizacji</option><option value="completed">Zakończono</option></select></label>
+            {canManageFinalStatus && <label>Status<select name="status" defaultValue={project.status}><option value="assigned">Zlecone</option><option value="in_progress">W realizacji</option><option value="completed">Zakończono</option></select></label>}
           </div>
           <div className="form-row">
             <label>Klient<input name="client_name" defaultValue={project.client_name} /></label>
@@ -1657,6 +1660,8 @@ function ProjectView({
   const completed = project.stages?.filter((stage) => stage.status === "completed").length || 0;
   const progress = project.stages?.length ? Math.round((completed / project.stages.length) * 100) : 0;
   const canUseReports = !guestToken && !isCompanyWorker(user);
+  const canFinalizeStatus = Boolean(user && !guestToken && ["owner", "manager"].includes(project.role || "") && !isCompanyWorker(user));
+  const projectIdForStatusActions = project.id;
 
   async function changeMode(next: "field" | "expanded") {
     setFieldMode(next === "field");
@@ -1677,6 +1682,28 @@ function ProjectView({
     setShowClientLink(true);
     const copied = await copyToClipboard(clientLink.url);
     notify({ kind: copied ? "success" : "info", message: copied ? "Stały link klienta został skopiowany." : "Stały link klienta jest poniżej. Skopiuj go ręcznie." });
+  }
+
+  async function closeProject() {
+    if (!window.confirm("Czy na pewno chcesz zamknąć zlecenie? Status zmieni się na Zakończono.")) return;
+    try {
+      await api(`/projects/${projectIdForStatusActions}/close`, { method: "POST", body: JSON.stringify({}) });
+      await load();
+      notify({ kind: "success", message: "Zlecenie zostało zamknięte." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zamknąć zlecenia" });
+    }
+  }
+
+  async function reopenProject() {
+    if (!window.confirm("Czy chcesz ponownie otworzyć zlecenie? Status wróci do W realizacji.")) return;
+    try {
+      await api(`/projects/${projectIdForStatusActions}/reopen`, { method: "POST", body: JSON.stringify({}) });
+      await load();
+      notify({ kind: "success", message: "Zlecenie wróciło do realizacji." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się otworzyć zlecenia ponownie" });
+    }
   }
 
   const stages = (
@@ -1717,6 +1744,8 @@ function ProjectView({
             <h1>{project.name}</h1>
             <p>{project.address}</p>
             <span className={`status status--${project.status}`}>● {statusLabels[project.status]}</span>
+            {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Robota skończona</Button>}
+            {canFinalizeStatus && project.status === "completed" && <Button variant="secondary" onClick={reopenProject}>Otwórz ponownie</Button>}
             {!guestToken && (
               <button className="field-mode-label" onClick={() => changeMode("expanded")}>
                 Tryb terenowy / prosty · przejdź do rozbudowanego
@@ -1760,6 +1789,8 @@ function ProjectView({
           <div className="project-header__actions">
             <Button variant="secondary" onClick={() => changeMode("field")}>Tryb terenowy / prosty</Button>
             {!guestToken && user?.profile_type !== "investor" && !isCompanyWorker(user) && clientLink && <Button variant="secondary" icon="link" onClick={copyClientLink}>Link klienta</Button>}
+            {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Robota skończona</Button>}
+            {canFinalizeStatus && project.status === "completed" && <Button variant="secondary" onClick={reopenProject}>Otwórz ponownie</Button>}
             {!guestToken && project.can_edit_details && <Button variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>}
             {canUseReports && <Button icon="report" onClick={() => setShowReports(true)}>Raporty PDF</Button>}
           </div>

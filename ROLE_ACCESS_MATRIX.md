@@ -2,7 +2,7 @@
 
 Źródło prawdy dla ról i uprawnień po checkpointcie 4D.
 
-Ten dokument stabilizuje kręgosłup ról przed krokami 5A/5B/5C. Nie opisuje nowych funkcji, statusów, etapów, zamykania zleceń, raportów PDF, audio, płatności ani portfolio.
+Ten dokument stabilizuje kręgosłup ról, opisuje podstawowe statusy z KROKU 5A oraz finalne zamykanie i ponowne otwieranie z KROKU 5B. Nadal nie opisuje etapów, raportów PDF, audio, płatności ani portfolio.
 
 ## Zasady bazowe
 
@@ -290,15 +290,20 @@ Backendowe ograniczenia:
 - Automatyczna zmiana statusu nie daje żadnej roli nowych uprawnień do firmy, ludzi, linków ani zarządzania zleceniem.
 - Pełne zamykanie zlecenia, ponowne otwieranie oraz reguły statusów powiązane z etapami należą do KROKU 5B.
 
+## KROK 5B - finalne zamknięcie i ponowne otwarcie
+
+- Finalnie zamknąć i ponownie otworzyć zlecenie w MVP mogą tylko role właścicielskie z dostępem `owner`/`manager` do projektu: `company_owner`, `investor`, `independent_contractor`.
+- `company_worker` i majster/ekipa link-only w tym kroku nie zamykają finalnie zlecenia i nie otwierają go ponownie.
+- Później można dodać osobny flow "Zgłoś gotowe" dla wykonawcy albo link-only, ale nie jest to część 5B.
+- Klient link-only nigdy nie zamyka zlecenia i nigdy nie otwiera go ponownie.
+
 ## Parking / przyszłe kroki
 
 KROK 5:
 
-- statusy,
 - etapy,
-- zamykanie zlecenia,
 - zmiana etapu przez majstra,
-- ponowne otwieranie zlecenia.
+- osobny flow "Zgłoś gotowe" dla wykonawcy/link-only.
 
 KROK 6:
 
