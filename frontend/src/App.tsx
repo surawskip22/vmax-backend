@@ -18,6 +18,13 @@ import {
 import type { ClientLink, Entry, Project, Report, User, WorkerProfile, Workspace } from "./types";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
+type SectionId = "home" | "projects" | "reports" | "team" | "settings";
+type NavItem = {
+  id: SectionId;
+  label: string;
+  icon: Parameters<typeof Icon>[0]["name"];
+};
+
 const profileLabels: Record<NonNullable<User["profile_type"]>, string> = {
   company_owner: "Szef firmy",
   investor: "Inwestor",
@@ -58,6 +65,60 @@ function canCreateProject(user?: User): boolean {
 
 function canSeeTeamPanel(user?: User): boolean {
   return canManagePeople(user);
+}
+
+function peopleLabelsForUser(user?: User) {
+  if (isInvestor(user)) {
+    return {
+      section: "Wykonawcy",
+      addAction: "Dodaj wykonawcę",
+      singular: "Wykonawca",
+      assignment: "Wykonawca",
+    };
+  }
+  return {
+    section: "Majstrowie i ekipy",
+    addAction: "Dodaj majstra / ekipę",
+    singular: "Majster / ekipa",
+    assignment: "Majster / ekipa",
+  };
+}
+
+function getNavigationForUser(user: User): NavItem[] {
+  if (isCompanyWorker(user)) {
+    return [
+      { id: "projects", label: "Moje zlecenia", icon: "clipboard" },
+      { id: "settings", label: "Ustawienia", icon: "settings" },
+    ];
+  }
+  if (isIndependentContractor(user)) {
+    return [
+      { id: "projects", label: "Moje zlecenia", icon: "clipboard" },
+      { id: "reports", label: "Raporty", icon: "report" },
+      { id: "settings", label: "Ustawienia", icon: "settings" },
+    ];
+  }
+  if (isInvestor(user)) {
+    return [
+      { id: "home", label: "Pulpit", icon: "home" },
+      { id: "projects", label: "Inwestycje / Zlecenia", icon: "clipboard" },
+      { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
+      { id: "reports", label: "Raporty", icon: "report" },
+      { id: "settings", label: "Ustawienia", icon: "settings" },
+    ];
+  }
+  return [
+    { id: "home", label: "Pulpit", icon: "home" },
+    { id: "projects", label: "Zlecenia", icon: "clipboard" },
+    { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
+    { id: "reports", label: "Raporty", icon: "report" },
+    { id: "settings", label: "Ustawienia", icon: "settings" },
+  ];
+}
+
+function visibleSectionForUser(user: User, section: string): SectionId {
+  const nav = getNavigationForUser(user);
+  return nav.some((item) => item.id === section) ? (section as SectionId) : nav[0].id;
 }
 
 function workerKindLabel(worker: WorkerProfile): string {
@@ -123,6 +184,69 @@ function contractTermRows(project: Project): Array<{ label: string; value: strin
   }
   if (amount) rows.push({ label: "Kwota umowna", value: amount });
   return rows;
+}
+
+function projectListCopy(user: User) {
+  if (user.profile_type === "investor") {
+    return {
+      eyebrow: "Twoje inwestycje",
+      title: "Inwestycje / Zlecenia",
+      description: "Kontroluj inwestycje, wykonawców i najważniejsze terminy.",
+      createLabel: "Dodaj inwestycję",
+      searchPlaceholder: "Szukaj inwestycji, wykonawcy lub adresu...",
+      emptyTitle: "Dodaj pierwszą inwestycję",
+      emptyText: "Inwestycja połączy wykonawcę, terminy, kwotę i historię postępu.",
+    };
+  }
+  if (user.profile_type === "company_worker") {
+    return {
+      eyebrow: "Przypisane realizacje",
+      title: "Moje zlecenia",
+      description: "Zlecenia przypisane do Twojej pracy i historii postępu.",
+      createLabel: "Dodaj zlecenie",
+      searchPlaceholder: "Szukaj zlecenia, klienta lub adresu...",
+      emptyTitle: "Brak przypisanych zleceń",
+      emptyText: "Gdy szef firmy przypisze Ci zlecenie, pojawi się na tej liście.",
+    };
+  }
+  if (user.profile_type === "independent_contractor") {
+    return {
+      eyebrow: "Twoje realizacje",
+      title: "Moje zlecenia",
+      description: "Terminy, kwoty, status i ostatni postęp w jednym widoku.",
+      createLabel: "Dodaj zlecenie",
+      searchPlaceholder: "Szukaj zlecenia, klienta lub adresu...",
+      emptyTitle: "Dodaj pierwsze zlecenie",
+      emptyText: "Zlecenie połączy terminy, kwotę i historię postępu.",
+    };
+  }
+  return {
+    eyebrow: "Wszystkie realizacje",
+    title: "Zlecenia",
+    description: "Terminy, wykonawcy, kwoty i statusy zleceń firmy.",
+    createLabel: "Nowe zlecenie",
+    searchPlaceholder: "Szukaj zlecenia, klienta, wykonawcy lub adresu...",
+    emptyTitle: "Dodaj pierwsze zlecenie",
+    emptyText: "Zlecenie połączy wykonawcę, terminy, kwotę i historię postępu.",
+  };
+}
+
+function projectPartyLabel(user: User): string {
+  if (user.profile_type === "investor") return "Wykonawca";
+  if (user.profile_type === "independent_contractor") return "Realizuje";
+  return "Majster / ekipa";
+}
+
+function projectPartyValue(user: User, project: Project): string {
+  if (project.worker_profile?.label) return project.worker_profile.label;
+  if (user.profile_type === "independent_contractor") return "Ty / Twoja firma";
+  return "Nie przypisano";
+}
+
+function projectLastProgressLabel(project: Project): string {
+  if (!project.entry_count) return "Brak wpisów";
+  if (!project.updated_at) return `${project.entry_count} wpisów`;
+  return `${project.entry_count} wpisów · ostatnio ${new Intl.DateTimeFormat("pl").format(new Date(project.updated_at))}`;
 }
 
 function ContractTermsPanel({ project }: { project: Project }) {
@@ -210,7 +334,7 @@ function Button({
   ...props
 }: {
   children: ReactNode;
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "success";
   icon?: Parameters<typeof Icon>[0]["name"];
   busy?: boolean;
   className?: string;
@@ -791,15 +915,7 @@ function Shell({
   onLogout: () => void;
   queueCount: number;
 }) {
-  const nav = [
-    ["home", "Pulpit", "home"],
-    ["projects", "Zlecenia", "clipboard"],
-    ["reports", "Raporty", "report"],
-    ...(!canSeeTeamPanel(user)
-      ? []
-      : ([["team", user.profile_type === "investor" ? "Wykonawcy" : "Zespół", "users"]] as const)),
-    ["settings", "Ustawienia", "settings"],
-  ] as const;
+  const nav = getNavigationForUser(user);
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -809,7 +925,7 @@ function Shell({
           <strong>{user.profile_type ? profileLabels[user.profile_type] : "Nie wybrano"}</strong>
         </div>
         <nav>
-          {nav.map(([id, label, icon]) => (
+          {nav.map(({ id, label, icon }) => (
             <button className={active === id ? "active" : ""} onClick={() => onNavigate(id)} key={id}>
               <Icon name={icon} /><span>{label}</span>
             </button>
@@ -834,7 +950,7 @@ function Shell({
         </header>
         {children}
         <nav className="bottom-nav">
-          {nav.slice(0, 4).map(([id, label, icon]) => (
+          {nav.slice(0, 4).map(({ id, label, icon }) => (
             <button className={active === id ? "active" : ""} onClick={() => onNavigate(id)} key={id}>
               <Icon name={icon} /><span>{label}</span>
             </button>
@@ -946,28 +1062,92 @@ function ProjectsPage({
   onCreate: () => void;
 }) {
   const [filter, setFilter] = useState("");
-  const visible = projects.filter((item) =>
-    `${item.name} ${item.client_name} ${item.address}`.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const [viewFilter, setViewFilter] = useState<"all" | "open" | "history">("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "start" | "end" | "status">("newest");
+  const copy = projectListCopy(user);
+  const query = filter.trim().toLowerCase();
+  const statusOrder: Record<string, number> = { assigned: 1, in_progress: 2, completed: 3 };
+  const visible = [...projects]
+    .filter((item) => {
+      const matchesQuery = `${item.name} ${item.client_name} ${item.address} ${item.worker_profile?.label || ""}`.toLowerCase().includes(query);
+      const matchesView = viewFilter === "all" || (viewFilter === "open" ? item.status !== "completed" : item.status === "completed");
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+      return matchesQuery && matchesView && matchesStatus;
+    })
+    .sort((left, right) => {
+      if (sortBy === "status") return (statusOrder[left.status] || 99) - (statusOrder[right.status] || 99);
+      const dateValue = (project: Project) => {
+        if (sortBy === "start") return project.planned_start_date ? `${project.planned_start_date}T00:00:00` : project.created_at;
+        if (sortBy === "end") return project.planned_end_date ? `${project.planned_end_date}T00:00:00` : project.created_at;
+        return project.updated_at || project.created_at;
+      };
+      const result = new Date(dateValue(left)).getTime() - new Date(dateValue(right)).getTime();
+      return sortBy === "oldest" || sortBy === "start" || sortBy === "end" ? result : -result;
+    });
   return (
     <div className="page">
       <header className="page-header">
-        <div><span className="eyebrow">Wszystkie realizacje</span><h1>Zlecenia</h1><p>Postęp, problemy i raporty w jednym miejscu.</p></div>
-        {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>Dodaj zlecenie</Button>}
+        <div><span className="eyebrow">{copy.eyebrow}</span><h1>{copy.title}</h1><p>{copy.description}</p></div>
+        {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
       </header>
       <section className="panel">
-        <div className="toolbar"><input type="search" placeholder="Szukaj zlecenia, klienta lub adresu..." value={filter} onChange={(e) => setFilter(e.target.value)} /></div>
-        <div className="project-cards">
-          {visible.map((project) => (
-            <button className="project-card" key={project.id} onClick={() => onProject(project)}>
-              <div className="project-card__top"><span className="project-card__icon"><Icon name="clipboard" /></span><span className={`status status--${project.status}`}>{statusLabels[project.status]}</span></div>
-              <h3>{project.name}</h3>
-              <p>{project.client_name || "Bez klienta"}</p>
-              <span className="project-card__address">{project.address || "Adres nieuzupełniony"}</span>
-              <div className="project-card__footer"><span>{project.entry_count || 0} wpisów</span><span>{project.open_problem_count || 0} problemów</span></div>
-            </button>
-          ))}
+        <div className="project-controls">
+          <div className="list-tabs" role="tablist" aria-label="Widok zleceń">
+            <button type="button" className={viewFilter === "all" ? "active" : ""} onClick={() => setViewFilter("all")}>Wszystkie</button>
+            <button type="button" className={viewFilter === "open" ? "active" : ""} onClick={() => setViewFilter("open")}>Otwarte</button>
+            <button type="button" className={viewFilter === "history" ? "active" : ""} onClick={() => setViewFilter("history")}>Historyczne</button>
+          </div>
+          <input type="search" placeholder={copy.searchPlaceholder} value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <div className="project-filter-row">
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtr statusu">
+              <option value="all">Wszystkie statusy</option>
+              <option value="assigned">Zlecone</option>
+              <option value="in_progress">W realizacji</option>
+              <option value="completed">Zakończono</option>
+            </select>
+            <div className="project-sort-controls" aria-label="Sortowanie zleceń">
+              <button type="button" className={sortBy === "newest" ? "active" : ""} onClick={() => setSortBy("newest")}>Najnowsze</button>
+              <button type="button" className={sortBy === "oldest" ? "active" : ""} onClick={() => setSortBy("oldest")}>Najstarsze</button>
+              <button type="button" className={sortBy === "start" ? "active" : ""} onClick={() => setSortBy("start")}>Data rozpoczęcia</button>
+              <button type="button" className={sortBy === "end" ? "active" : ""} onClick={() => setSortBy("end")}>Data zakończenia</button>
+              <button type="button" className={sortBy === "status" ? "active" : ""} onClick={() => setSortBy("status")}>Status</button>
+            </div>
+          </div>
         </div>
+        {projects.length === 0 ? (
+          <EmptyState icon="clipboard" title={copy.emptyTitle} text={copy.emptyText}>
+            {canCreateProject(user) && <Button onClick={onCreate} icon="plus">{copy.createLabel}</Button>}
+          </EmptyState>
+        ) : visible.length === 0 ? (
+          <EmptyState icon="clipboard" title="Brak wyników" text="Zmień wyszukiwaną frazę, żeby zobaczyć pasujące pozycje." />
+        ) : (
+          <div className="project-list-cards">
+            {visible.map((project) => (
+              <article className="project-list-card" key={project.id}>
+                <div className="project-list-card__top">
+                  <span className="project-card__icon"><Icon name="clipboard" /></span>
+                  <div>
+                    <h3>{project.name}</h3>
+                    <span>{project.client_name || "Bez klienta"} · {project.address || "Adres nieuzupełniony"}</span>
+                  </div>
+                  <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                </div>
+                <dl className="project-meta-grid">
+                  <div><dt>{projectPartyLabel(user)}</dt><dd>{projectPartyValue(user, project)}</dd></div>
+                  <div><dt>Start</dt><dd>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</dd></div>
+                  <div><dt>Koniec</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
+                  <div><dt>Kwota umowna</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>
+                </dl>
+                <div className="project-list-card__footer">
+                  <span>{projectLastProgressLabel(project)}</span>
+                  <span>{project.open_problem_count || 0} problemów</span>
+                  <Button type="button" onClick={() => onProject(project)} variant="secondary">Otwórz</Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );
@@ -1855,8 +2035,8 @@ function ProjectView({
             <p>{project.address}</p>
             <ContractTermsPanel project={project} />
             <span className={`status status--${project.status}`}>● {statusLabels[project.status]}</span>
-            {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Robota skończona</Button>}
-            {canFinalizeStatus && project.status === "completed" && <Button variant="secondary" onClick={reopenProject}>Otwórz ponownie</Button>}
+            {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
+            {canFinalizeStatus && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
             {!guestToken && (
               <button className="field-mode-label" onClick={() => changeMode("expanded")}>
                 Tryb terenowy / prosty · przejdź do rozbudowanego
@@ -1900,8 +2080,8 @@ function ProjectView({
           <div className="project-header__actions">
             <Button variant="secondary" onClick={() => changeMode("field")}>Tryb terenowy / prosty</Button>
             {!guestToken && user?.profile_type !== "investor" && !isCompanyWorker(user) && clientLink && <Button variant="secondary" icon="link" onClick={copyClientLink}>Link klienta</Button>}
-            {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Robota skończona</Button>}
-            {canFinalizeStatus && project.status === "completed" && <Button variant="secondary" onClick={reopenProject}>Otwórz ponownie</Button>}
+            {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
+            {canFinalizeStatus && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
             {!guestToken && project.can_edit_details && <Button variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>}
             {canUseReports && <Button icon="report" onClick={() => setShowReports(true)}>Raporty PDF</Button>}
           </div>
@@ -1937,12 +2117,162 @@ function ProjectView({
   );
 }
 
-function ReportsPage({ projects, onOpen }: { projects: Project[]; onOpen: (project: Project) => void }) {
+function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project[]; onOpen: (project: Project) => void }) {
+  const [tab, setTab] = useState<"all" | "open" | "history">("all");
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"issued" | "ended">("issued");
+  const [sortDirection, setSortDirection] = useState<"newest" | "oldest">("newest");
+  const [collapsedReports, setCollapsedReports] = useState<string[]>([]);
+
+  function reportMaterialCount(project: Project): number {
+    return project.entry_count || 0;
+  }
+
+  function reportSortDate(project: Project): number {
+    const value = sortBy === "ended"
+      ? project.planned_end_date
+        ? `${project.planned_end_date}T00:00:00`
+        : project.updated_at || project.created_at
+      : project.updated_at || project.created_at;
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
+  function reportBadge(project: Project): string {
+    const count = reportMaterialCount(project);
+    if (count === 0) return "0 wpisów";
+    if (count === 1) return "1 wpis";
+    return `${count} wpisów`;
+  }
+
+  function toggleReportDetails(projectId: string) {
+    setCollapsedReports((current) => current.includes(projectId)
+      ? current.filter((item) => item !== projectId)
+      : [...current, projectId]);
+  }
+
+  const openProjects = projects.filter((project) => project.status !== "completed");
+  const historicalProjects = projects.filter((project) => project.status === "completed");
+  const openReportMaterial = openProjects.reduce((sum, project) => sum + reportMaterialCount(project), 0);
+  const historicalReportMaterial = historicalProjects.reduce((sum, project) => sum + reportMaterialCount(project), 0);
+  const multiReportProjects = projects.filter((project) => reportMaterialCount(project) > 1).length;
+  const queryText = query.trim().toLowerCase();
+  const source = tab === "all" ? projects : tab === "open" ? openProjects : historicalProjects;
+  const visibleProjects = [...source]
+    .filter((project) =>
+      `${project.name} ${project.client_name || ""} ${project.address || ""} ${project.worker_profile?.label || ""}`
+        .toLowerCase()
+        .includes(queryText),
+    )
+    .sort((left, right) => {
+      const result = reportSortDate(left) - reportSortDate(right);
+      return sortDirection === "newest" ? -result : result;
+    });
+
   return (
-    <div className="page">
-      <header className="page-header"><div><span className="eyebrow">Dokumentacja</span><h1>Raporty</h1><p>Otwórz projekt, aby przygotować raport okresowy lub końcowy.</p></div></header>
-      <section className="panel">
-        <div className="project-cards">{projects.map((project) => <button className="project-card" key={project.id} onClick={() => onOpen(project)}><div className="project-card__top"><span className="project-card__icon"><Icon name="report" /></span><span className={`status status--${project.status}`}>{statusLabels[project.status]}</span></div><h3>{project.name}</h3><p>{project.client_name || "Bez klienta"}</p><div className="project-card__footer"><span>Otwórz raporty</span><Icon name="back" className="chevron" /></div></button>)}</div>
+    <div className="page reports-page">
+      <header className="page-header">
+        <div>
+          <span className="eyebrow">Dokumentacja</span>
+          <h1>Raporty</h1>
+          <p>Przeglądaj projekty raportowe i otwieraj raporty tworzone w ramach zleceń.</p>
+        </div>
+      </header>
+
+      <div className="report-tabs" role="tablist" aria-label="Widok raportów">
+        <button type="button" className={tab === "all" ? "active" : ""} onClick={() => setTab("all")}>Wszystkie</button>
+        <button type="button" className={tab === "open" ? "active" : ""} onClick={() => setTab("open")}>Otwarte</button>
+        <button type="button" className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>Historyczne</button>
+      </div>
+
+      <section className="panel report-metrics">
+        <article>
+          <span><Icon name="report" /></span>
+          <div><small>Otwarte raporty / wpisy</small><strong>{openReportMaterial}</strong><p>{openProjects.length} zleceń otwartych</p></div>
+        </article>
+        <article>
+          <span className="metric-green"><Icon name="sync" /></span>
+          <div><small>Historyczne raporty / wpisy</small><strong>{historicalReportMaterial}</strong><p>{historicalProjects.length} zleceń zakończonych</p></div>
+        </article>
+        <article>
+          <span className="metric-orange"><Icon name="clipboard" /></span>
+          <div><small>Zlecenia z wieloma wpisami</small><strong>{multiReportProjects}</strong><p>na podstawie wpisów postępu</p></div>
+        </article>
+      </section>
+
+      <section className="report-toolbar">
+        <input
+          type="search"
+          placeholder="Szukaj po nazwie zlecenia, kliencie lub wykonawcy..."
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <div className="report-sort-controls" aria-label="Sortowanie raportów">
+          <button type="button" className={sortBy === "issued" ? "active" : ""} onClick={() => setSortBy("issued")}>Data wystawienia</button>
+          <button type="button" className={sortBy === "ended" ? "active" : ""} onClick={() => setSortBy("ended")}>Data zakończenia zlecenia</button>
+          <button type="button" className={sortDirection === "newest" ? "active" : ""} onClick={() => setSortDirection("newest")}>Najnowsze</button>
+          <button type="button" className={sortDirection === "oldest" ? "active" : ""} onClick={() => setSortDirection("oldest")}>Najstarsze</button>
+        </div>
+      </section>
+
+      <section className="report-project-list">
+        {visibleProjects.length === 0 ? (
+          <EmptyState icon="report" title="Brak raportów w tym widoku" text="Zmień zakładkę albo frazę wyszukiwania." />
+        ) : visibleProjects.map((project) => {
+          const count = reportMaterialCount(project);
+          const isExpanded = count > 0 && !collapsedReports.includes(project.id);
+          return (
+            <article className="report-project-card panel" key={project.id}>
+              <header>
+                <span className="report-project-card__icon"><Icon name="report" /></span>
+                <div className="report-project-card__main">
+                  <h2>{project.name}</h2>
+                  <p>{project.address || "Adres nieuzupełniony"}{project.client_name ? ` · Klient: ${project.client_name}` : ""}</p>
+                </div>
+                <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                <dl>
+                  <div><dt>{projectPartyLabel(user)}</dt><dd>{projectPartyValue(user, project)}</dd></div>
+                  <div><dt>Planowane zakończenie</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
+                </dl>
+                <button type="button" className="report-count-badge" onClick={() => toggleReportDetails(project.id)} aria-expanded={isExpanded}>
+                  {reportBadge(project)}
+                  {count > 0 && <Icon name="back" size={15} />}
+                </button>
+              </header>
+              <section className={`report-materials ${count === 0 ? "report-materials--empty" : ""}`}>
+                <div className="report-materials__heading">
+                  <span>Raporty do tego zlecenia</span>
+                  <small>{count === 0 ? "Brak gotowych materiałów" : reportBadge(project)}</small>
+                </div>
+                {count === 0 ? (
+                  <div className="report-empty-line">
+                    <Icon name="report" size={18} />
+                    <span>Brak wpisów postępu do raportu.</span>
+                  </div>
+                ) : isExpanded ? (
+                  <div className="report-sublist">
+                    <article>
+                      <span><Icon name="report" /></span>
+                      <div>
+                        <span className="report-row-label">Raport</span>
+                        <strong>Raport zlecenia</strong>
+                        <small>{count > 0 ? `Materiał raportowy z ${count} ${count === 1 ? "wpisu" : "wpisów"}.` : "Brak wpisów postępu do raportu."}</small>
+                      </div>
+                      <div><small>Data wystawienia</small><strong>{new Intl.DateTimeFormat("pl").format(new Date(project.updated_at || project.created_at))}</strong></div>
+                      <div><small>Etap / Status</small><span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span></div>
+                      <Button type="button" variant="secondary" icon="report" onClick={() => onOpen(project)}>Otwórz raport</Button>
+                    </article>
+                  </div>
+                ) : (
+                  <div className="report-empty-line report-empty-line--collapsed">
+                    <Icon name="report" size={18} />
+                    <span>Raporty ukryte. Rozwiń licznik wpisów, aby je pokazać.</span>
+                  </div>
+                )}
+              </section>
+            </article>
+          );
+        })}
       </section>
     </div>
   );
@@ -1962,6 +2292,7 @@ function WorkspaceModal({
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [invitationUrl, setInvitationUrl] = useState("");
   const [editingWorker, setEditingWorker] = useState<WorkerProfile | null>(null);
+  const [workerSearch, setWorkerSearch] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -2057,18 +2388,21 @@ function WorkspaceModal({
   }
 
   async function deactivateWorker(worker: WorkerProfile) {
+    const isPersonal = workspace?.kind === "personal";
     const warning = worker.assigned_projects.length > 0
-      ? "Ten majster/ekipa ma przypisane zlecenia. Dezaktywacja odepnie wykonawcę od tych zleceń. Kontynuować?"
-      : "Dezaktywować tego majstra/ekipę?";
+      ? isPersonal
+        ? "Ten wykonawca ma przypisane inwestycje. Dezaktywacja odepnie wykonawcę od tych inwestycji. Kontynuować?"
+        : "Ten majster/ekipa ma przypisane zlecenia. Dezaktywacja odepnie wykonawcę od tych zleceń. Kontynuować?"
+      : isPersonal ? "Dezaktywować tego wykonawcę?" : "Dezaktywować tego majstra/ekipę?";
     if (!window.confirm(warning)) return;
     setBusy(true);
     try {
       await api(`/workers/${worker.id}`, { method: "DELETE" });
       load();
       onChanged();
-      notify({ kind: "success", message: "Majster/ekipa została dezaktywowana." });
+      notify({ kind: "success", message: isPersonal ? "Wykonawca został dezaktywowany." : "Majster/ekipa została dezaktywowana." });
     } catch (reason) {
-      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się dezaktywować majstra/ekipy" });
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : isPersonal ? "Nie udało się dezaktywować wykonawcy" : "Nie udało się dezaktywować majstra/ekipy" });
     } finally {
       setBusy(false);
     }
@@ -2080,13 +2414,20 @@ function WorkspaceModal({
       await api(`/workers/${worker.id}/activate`, { method: "POST" });
       load();
       onChanged();
-      notify({ kind: "success", message: "Majster/ekipa została aktywowana ponownie." });
+      notify({ kind: "success", message: workspace?.kind === "personal" ? "Wykonawca został aktywowany ponownie." : "Majster/ekipa została aktywowana ponownie." });
     } catch (reason) {
-      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się aktywować majstra/ekipy" });
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : workspace?.kind === "personal" ? "Nie udało się aktywować wykonawcy" : "Nie udało się aktywować majstra/ekipy" });
     } finally {
       setBusy(false);
     }
   }
+
+  const workerQuery = workerSearch.trim().toLowerCase();
+  const filteredWorkerProfiles = (workspace?.worker_profiles || []).filter((worker) =>
+    `${worker.label} ${worker.email || ""} ${worker.phone || ""} ${worker.note || ""}`
+      .toLowerCase()
+      .includes(workerQuery),
+  );
 
   return (
     <Modal title={workspace?.kind === "personal" ? "Wykonawcy" : "Firma i majstrowie"} onClose={onClose} wide>
@@ -2115,14 +2456,22 @@ function WorkspaceModal({
             </div>
             {(workspace.worker_profiles?.length || 0) > 0 && (
               <div className="member-list worker-link-list">
-                <h4>Wykonawcy / majstrowie / ekipy</h4>
-                {workspace.worker_profiles?.map((worker) => (
+                <h4>{workspace.kind === "personal" ? "Wykonawcy" : "Majstrowie i ekipy"}</h4>
+                <div className="directory-toolbar directory-toolbar--compact">
+                  <input
+                    type="search"
+                    value={workerSearch}
+                    onChange={(event) => setWorkerSearch(event.target.value)}
+                    placeholder={workspace.kind === "personal" ? "Szukaj wykonawcy po nazwie..." : "Szukaj majstra lub ekipy..."}
+                  />
+                </div>
+                {filteredWorkerProfiles.length === 0 ? <p className="empty-note">Brak wyników dla tej frazy.</p> : filteredWorkerProfiles.map((worker) => (
                   <article className={`clickable-card ${!worker.active ? "is-muted" : ""}`} key={worker.id}>
                     <span>{worker.label.slice(0, 2).toUpperCase()}</span>
                     <div>
-                      <strong>{workerKindLabel(worker)}: {worker.label}</strong>
+                      <strong>{workspace.kind === "personal" ? "Wykonawca" : workerKindLabel(worker)}: {worker.label}</strong>
                       <small>
-                        {worker.email || "Bez e-maila"} · {worker.account_type === "account" ? "konto po potwierdzeniu e-mail" : "link-only"} · {worker.assigned_projects.length} zleceń
+                        {worker.email || "Bez e-maila"} · {worker.account_type === "account" ? "konto po potwierdzeniu e-mail" : "link-only"} · {worker.assigned_projects.length} {workspace.kind === "personal" ? "inwestycji" : "zleceń"}
                       </small>
                     </div>
                     <Button type="button" variant="secondary" onClick={() => setEditingWorker(worker)}>Edytuj</Button>
@@ -2157,7 +2506,7 @@ function WorkspaceModal({
                 Wykonawca musi potwierdzić adres kodem z poczty. Bez e-maila możesz użyć linku do konkretnego zlecenia.
               </p>
               <label>Typ<select name="profile_kind" defaultValue="craftsman"><option value="craftsman">{workspace.kind === "personal" ? "Wykonawca / majster" : "Majster"}</option><option value="crew">Ekipa</option></select></label>
-              <label>Nazwa majstra / ekipy<input name="label" required placeholder="np. Mieciu hydraulik" /></label>
+              <label>{workspace.kind === "personal" ? "Nazwa wykonawcy" : "Nazwa majstra / ekipy"}<input name="label" required placeholder={workspace.kind === "personal" ? "np. Firma remontowa albo hydraulik" : "np. Mieciu hydraulik"} /></label>
               <div className="form-row">
                 <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
                 <label>Telefon opcjonalnie<input name="phone" /></label>
@@ -2190,42 +2539,384 @@ function WorkspaceModal({
   );
 }
 
+function InvestorContractorsPanel({
+  workspaceId,
+  projects,
+  onOpenProject,
+  onChanged,
+  notify,
+}: {
+  workspaceId: string;
+  projects: Project[];
+  onOpenProject: (project: Project) => void;
+  onChanged: () => void;
+  notify: (toast: Toast) => void;
+}) {
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [invitationUrl, setInvitationUrl] = useState("");
+  const [editingWorker, setEditingWorker] = useState<WorkerProfile | null>(null);
+  const [previewWorker, setPreviewWorker] = useState<WorkerProfile | null>(null);
+  const [showAddContractor, setShowAddContractor] = useState(false);
+  const [contractorSearch, setContractorSearch] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(() => {
+    api<Workspace>(`/workspaces/${workspaceId}`).then(setWorkspace).catch((reason) => {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się otworzyć wykonawców" });
+    });
+  }, [notify, workspaceId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function createWorker(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    try {
+      const worker = await api<WorkerProfile & { invitation_url?: string; message?: string; existing?: boolean }>("/workers", {
+        method: "POST",
+        body: JSON.stringify({
+          label: formString(data, "label"),
+          profile_kind: formString(data, "profile_kind") || "craftsman",
+          email: formString(data, "email"),
+          phone: formString(data, "phone"),
+          note: formString(data, "note"),
+          workspace_id: workspaceId,
+        }),
+      });
+      setInvitationUrl(worker.invitation_url || "");
+      form.reset();
+      setShowAddContractor(false);
+      load();
+      onChanged();
+      notify({ kind: worker.existing ? "info" : "success", message: worker.message || "Wykonawca dodany." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się dodać wykonawcy" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveWorker(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingWorker) return;
+    setBusy(true);
+    const data = new FormData(event.currentTarget);
+    try {
+      const updated = await api<WorkerProfile>(`/workers/${editingWorker.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          label: formString(data, "label"),
+          profile_kind: formString(data, "profile_kind") || editingWorker.profile_kind,
+          email: formString(data, "email"),
+          phone: formString(data, "phone"),
+          note: formString(data, "note"),
+        }),
+      });
+      setEditingWorker(null);
+      setWorkspace((current) => current ? {
+        ...current,
+        worker_profiles: current.worker_profiles?.map((worker) => worker.id === updated.id ? updated : worker),
+      } : current);
+      load();
+      onChanged();
+      notify({ kind: "success", message: "Dane wykonawcy zapisane." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zapisać wykonawcy" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deactivateWorker(worker: WorkerProfile) {
+    const warning = worker.assigned_projects.length > 0
+      ? "Ten wykonawca ma przypisane inwestycje. Dezaktywacja odepnie wykonawcę od tych inwestycji. Kontynuować?"
+      : "Dezaktywować tego wykonawcę?";
+    if (!window.confirm(warning)) return;
+    setBusy(true);
+    try {
+      await api(`/workers/${worker.id}`, { method: "DELETE" });
+      load();
+      onChanged();
+      notify({ kind: "success", message: "Wykonawca został dezaktywowany." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się dezaktywować wykonawcy" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function activateWorker(worker: WorkerProfile) {
+    setBusy(true);
+    try {
+      await api(`/workers/${worker.id}/activate`, { method: "POST" });
+      load();
+      onChanged();
+      notify({ kind: "success", message: "Wykonawca został aktywowany ponownie." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się aktywować wykonawcy" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!workspace) {
+    return <section className="panel"><div className="loading-screen"><span className="spinner" /> Ładowanie wykonawców...</div></section>;
+  }
+
+  const workers = workspace.worker_profiles || [];
+  const workerLinks = workspace.worker_links || [];
+  const query = contractorSearch.trim().toLowerCase();
+  const filteredWorkers = workers.filter((worker) =>
+    `${worker.label} ${worker.email || ""} ${worker.phone || ""} ${worker.note || ""} ${worker.assigned_projects.map((project) => project.name).join(" ")}`
+      .toLowerCase()
+      .includes(query),
+  );
+  const activeWorkers = workers.filter((worker) => worker.active);
+  const inactiveWorkers = workers.filter((worker) => !worker.active);
+  const previewProjects = previewWorker
+    ? projects.filter((project) => project.worker_profile_id === previewWorker.id || project.worker_profile?.id === previewWorker.id)
+    : [];
+  const previewActiveProjects = previewProjects.filter((project) => ["assigned", "in_progress"].includes(project.status));
+  const previewHistoryProjects = previewProjects.filter((project) => project.status === "completed");
+  const previewOtherProjects = previewProjects.filter((project) => !["assigned", "in_progress", "completed"].includes(project.status));
+  const previewAssignedOnly = previewWorker
+    ? previewWorker.assigned_projects.filter((assigned) => !previewProjects.some((project) => project.id === assigned.id))
+    : [];
+
+  function openPreviewProject(project: Project) {
+    setPreviewWorker(null);
+    onOpenProject(project);
+  }
+
+  return (
+    <>
+      <section className="panel company-team-panel investor-contractors-panel">
+        <div className="company-team-header">
+          <div>
+            <span className="eyebrow">Typ konta: Inwestor</span>
+            <h2>Wykonawcy</h2>
+            <p>Zarządzaj wykonawcami, których przypisujesz do inwestycji.</p>
+          </div>
+          <div className="company-team-meta">
+            <span>{activeWorkers.length} aktywnych</span>
+            <span>{inactiveWorkers.length} nieaktywnych</span>
+            <Button type="button" icon="plus" onClick={() => setShowAddContractor(true)}>Dodaj wykonawcę</Button>
+          </div>
+        </div>
+        {invitationUrl && <div className="share-result share-result--compact"><input value={invitationUrl} readOnly /><Button variant="secondary" onClick={() => void copyToClipboard(invitationUrl)}>Kopiuj link</Button></div>}
+      </section>
+
+      <section className="panel directory-panel team-directory-panel investor-contractors-list">
+        <div className="panel__header">
+          <div>
+            <h2>Lista wykonawców</h2>
+            <p>{workers.length === 1 ? "1 wykonawca" : `${workers.length} wykonawców`} w tej liście.</p>
+          </div>
+        </div>
+        <div className="directory-toolbar">
+          <input
+            type="search"
+            value={contractorSearch}
+            onChange={(event) => setContractorSearch(event.target.value)}
+            placeholder="Szukaj wykonawcy po nazwie"
+          />
+        </div>
+        <div className="contractor-table-head" aria-hidden="true">
+          <span>Wykonawca</span>
+          <span>Status</span>
+          <span>Inwestycje</span>
+          <span>Akcje</span>
+        </div>
+        <div className="contractor-list">
+          {workers.length === 0 ? (
+            <EmptyState icon="users" title="Brak wykonawców" text="Dodaj pierwszego wykonawcę, żeby później przypisać go do inwestycji.">
+            </EmptyState>
+          ) : filteredWorkers.length === 0 ? (
+            <p className="empty-note">Brak wyników dla tej frazy.</p>
+          ) : filteredWorkers.map((worker) => {
+            const assignedCount = worker.assigned_projects.length;
+            return (
+              <article className={`contractor-card ${!worker.active ? "is-muted" : ""}`} key={worker.id}>
+                <div className={`contractor-card__avatar ${worker.profile_kind === "crew" ? "contractor-card__avatar--crew" : ""}`}>
+                  {worker.label.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="contractor-card__main">
+                  <strong>{worker.label}</strong>
+                  <small>{worker.profile_kind === "crew" ? "Firma / ekipa zewnętrzna" : "Wykonawca"}</small>
+                  <small>{worker.email || "Bez e-maila"}{worker.phone ? ` · ${worker.phone}` : " · Telefon nie podano"}</small>
+                  {worker.note && <small>{worker.note}</small>}
+                </div>
+                <div className="contractor-card__status">
+                  <span className={`status ${worker.active ? "status--active" : "status--archived"}`}>{worker.active ? "Aktywny" : "Nieaktywny"}</span>
+                  <small>{worker.account_type === "account" ? "konto po potwierdzeniu e-mail" : "link-only"}</small>
+                </div>
+                <div className="contractor-card__assignments">
+                  <strong>{assignedCount}</strong>
+                  <small>{assignedCount === 1 ? "inwestycja" : "inwestycji"}</small>
+                  {assignedCount > 0 ? (
+                    <span>{worker.assigned_projects.slice(0, 2).map((project) => project.name).join(", ")}{assignedCount > 2 ? ` +${assignedCount - 2}` : ""}</span>
+                  ) : (
+                    <span>Brak przypisań</span>
+                  )}
+                </div>
+                <div className="contractor-card__actions">
+                  <Button type="button" variant="secondary" onClick={() => setPreviewWorker(worker)}>Podgląd zleceń</Button>
+                  <Button type="button" variant="secondary" onClick={() => setEditingWorker(worker)}>Edytuj</Button>
+                  {worker.active ? (
+                    <Button type="button" variant="danger" disabled={busy} onClick={() => deactivateWorker(worker)}>Dezaktywuj</Button>
+                  ) : (
+                    <Button type="button" variant="secondary" disabled={busy} onClick={() => activateWorker(worker)}>Aktywuj ponownie</Button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      {workerLinks.length > 0 && (
+        <details className="panel temporary-links-panel">
+          <summary>Wykonawcy przypisani linkiem <span>{workerLinks.length}</span></summary>
+          <div className="member-list worker-link-list worker-link-list--compact">
+            {workerLinks.map((link) => (
+              <article key={link.id}>
+                <span>{link.label.slice(0, 2).toUpperCase()}</span>
+                <div>
+                  <strong>{link.label}</strong>
+                  <small>{link.email || "Bez e-maila"} · {link.project_name || "Inwestycja"} · link-only</small>
+                </div>
+                <b>{link.revoked_at ? "Odwołany" : "Aktywny"}</b>
+              </article>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {showAddContractor && (
+        <Modal title="Dodaj wykonawcę" onClose={() => setShowAddContractor(false)}>
+          <form className="form-stack" onSubmit={createWorker}>
+            <p className="form-intro">
+              E-mail jest opcjonalny. Jeśli go podasz, utworzymy zaproszenie do stałego konta wykonawcy.
+            </p>
+            <label>Typ<select name="profile_kind" defaultValue="craftsman"><option value="craftsman">Wykonawca</option><option value="crew">Firma / ekipa zewnętrzna</option></select></label>
+            <label>Nazwa wykonawcy<input name="label" required placeholder="np. Firma remontowa albo hydraulik" autoFocus /></label>
+            <div className="form-row">
+              <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
+              <label>Telefon opcjonalnie<input name="phone" /></label>
+            </div>
+            <label>Notatka opcjonalnie<textarea name="note" rows={2} placeholder="np. zakres prac, specjalizacja, ustalenia" /></label>
+            <Button type="submit" busy={busy} icon="plus">Dodaj wykonawcę</Button>
+          </form>
+        </Modal>
+      )}
+
+      {previewWorker && (
+        <Modal title={`Wykonawca: ${previewWorker.label}`} onClose={() => setPreviewWorker(null)} wide>
+          <div className="worker-preview">
+            <span className={`contractor-card__avatar ${previewWorker.profile_kind === "crew" ? "contractor-card__avatar--crew" : ""}`}>
+              {previewWorker.label.slice(0, 2).toUpperCase()}
+            </span>
+            <div>
+              <h3>{previewWorker.label}</h3>
+              <p>{previewWorker.profile_kind === "crew" ? "Firma / ekipa zewnętrzna" : "Wykonawca"} · {previewWorker.active ? "Aktywny" : "Nieaktywny"}</p>
+            </div>
+            <div className="worker-preview__actions">
+              <Button type="button" variant="secondary" onClick={() => { setEditingWorker(previewWorker); setPreviewWorker(null); }}>Edytuj</Button>
+              {previewWorker.active ? (
+                <Button type="button" variant="danger" disabled={busy} onClick={() => { const worker = previewWorker; setPreviewWorker(null); void deactivateWorker(worker); }}>Dezaktywuj</Button>
+              ) : (
+                <Button type="button" variant="secondary" disabled={busy} onClick={() => { const worker = previewWorker; setPreviewWorker(null); void activateWorker(worker); }}>Aktywuj</Button>
+              )}
+            </div>
+            <dl>
+              <div><dt>Typ / notatka</dt><dd>{previewWorker.note || (previewWorker.profile_kind === "crew" ? "Firma / ekipa zewnętrzna" : "Wykonawca")}</dd></div>
+              <div><dt>E-mail</dt><dd>{previewWorker.email || "Nie podano"}</dd></div>
+              <div><dt>Telefon</dt><dd>{previewWorker.phone || "Nie podano"}</dd></div>
+              <div><dt>Konto</dt><dd>{previewWorker.account_type === "account" ? "konto po potwierdzeniu e-mail" : "link-only"}</dd></div>
+            </dl>
+            <div className="worker-preview__projects">
+              <WorkerProjectSection title="Aktywne zlecenia" emptyText="Brak aktywnych zleceń" projects={[...previewActiveProjects, ...previewOtherProjects]} onOpen={openPreviewProject} />
+              <WorkerProjectSection title="Historyczne zlecenia" emptyText="Brak zakończonych zleceń" projects={previewHistoryProjects} onOpen={openPreviewProject} />
+              {previewAssignedOnly.length > 0 && (
+                <section className="worker-project-section">
+                  <header><h4>Zlecenia bez pełnych danych</h4><span>{previewAssignedOnly.length}</span></header>
+                  <div className="worker-project-list">
+                    {previewAssignedOnly.map((project) => (
+                      <article className="worker-project-card worker-project-card--compact" key={project.id}>
+                        <div>
+                          <strong>{project.name}</strong>
+                          <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                        </div>
+                        <p>Brak szczegółów terminów i kwoty w obecnym payloadzie.</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {editingWorker && (
+        <Modal title="Edytuj wykonawcę" onClose={() => setEditingWorker(null)}>
+          <form className="form-stack" onSubmit={saveWorker}>
+            <label>Typ<select name="profile_kind" defaultValue={editingWorker.profile_kind}><option value="craftsman">Wykonawca</option><option value="crew">Firma / ekipa zewnętrzna</option></select></label>
+            <label>Nazwa wykonawcy<input name="label" defaultValue={editingWorker.label} required autoFocus /></label>
+            <label>E-mail opcjonalnie<input type="email" name="email" defaultValue={editingWorker.email} placeholder="Możesz zostawić puste" /></label>
+            <label>Telefon<input name="phone" defaultValue={editingWorker.phone} /></label>
+            <label>Notatka<textarea name="note" rows={3} defaultValue={editingWorker.note} /></label>
+            <Button type="submit" busy={busy}>Zapisz wykonawcę</Button>
+          </form>
+        </Modal>
+      )}
+    </>
+  );
+}
+
 function TeamWorkerCard({
   worker,
   busy,
+  onPreview,
   onEdit,
   onDeactivate,
   onActivate,
 }: {
   worker: WorkerProfile;
   busy: boolean;
+  onPreview: (worker: WorkerProfile) => void;
   onEdit: (worker: WorkerProfile) => void;
   onDeactivate: (worker: WorkerProfile) => void;
   onActivate: (worker: WorkerProfile) => void;
 }) {
+  const assignedCount = worker.assigned_projects.length;
+  const note = worker.note || "Brak specjalizacji";
   return (
     <article className={`team-worker-card ${!worker.active ? "is-muted" : ""}`}>
-      <div className="team-worker-card__avatar">{worker.label.slice(0, 2).toUpperCase()}</div>
+      <div className={`team-worker-card__avatar ${worker.profile_kind === "crew" ? "team-worker-card__avatar--crew" : ""}`}>
+        {worker.profile_kind === "crew" ? <Icon name="users" size={21} /> : worker.label.slice(0, 2).toUpperCase()}
+      </div>
       <div className="team-worker-card__main">
         <div className="team-worker-card__top">
           <strong>{worker.label}</strong>
           <span>{workerKindLabel(worker)}</span>
         </div>
-        <small>
-          {workerAccountLabel(worker)} · {worker.email || "bez e-maila"}{worker.phone ? ` · ${worker.phone}` : ""}
-        </small>
-        <div className="assigned-projects">
-          <b>Przypisane zlecenia:</b>
-          {worker.assigned_projects.length === 0 ? (
-            <span>brak</span>
-          ) : (
-            worker.assigned_projects.map((project) => (
-              <span key={project.id}>{project.name} ({statusLabels[project.status] || project.status})</span>
-            ))
-          )}
-        </div>
+        <small>{note}</small>
+        <small>{worker.email || "Bez e-maila"}{worker.phone ? ` · ${worker.phone}` : " · Telefon nie podano"}</small>
+      </div>
+      <div className="team-worker-card__status">
+        <span className={`status ${worker.active ? "status--active" : "status--archived"}`}>{worker.active ? "Aktywny" : "Nieaktywny"}</span>
+        <small>{workerAccountLabel(worker)}</small>
+      </div>
+      <div className="team-worker-card__assignments">
+        <strong>{assignedCount}</strong>
+        <small>{assignedCount === 1 ? "zlecenie" : "zleceń"}</small>
+        {assignedCount === 0 && <span>Brak zleceń</span>}
       </div>
       <div className="team-worker-card__actions">
+        <Button type="button" variant="secondary" onClick={() => onPreview(worker)}>Podgląd zleceń</Button>
         <Button type="button" variant="secondary" onClick={() => onEdit(worker)}>Edytuj</Button>
         {worker.active ? (
           <Button type="button" variant="danger" disabled={busy} onClick={() => onDeactivate(worker)}>Dezaktywuj</Button>
@@ -2237,18 +2928,64 @@ function TeamWorkerCard({
   );
 }
 
+function WorkerProjectSection({
+  title,
+  emptyText,
+  projects,
+  onOpen,
+}: {
+  title: string;
+  emptyText: string;
+  projects: Project[];
+  onOpen: (project: Project) => void;
+}) {
+  return (
+    <section className="worker-project-section">
+      <header><h4>{title}</h4><span>{projects.length}</span></header>
+      {projects.length === 0 ? (
+        <p className="empty-note">{emptyText}</p>
+      ) : (
+        <div className="worker-project-list">
+          {projects.map((project) => (
+            <article className="worker-project-card" key={project.id}>
+              <div className="worker-project-card__main">
+                <strong>{project.name}</strong>
+                <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+              </div>
+              <dl>
+                <div><dt>Start</dt><dd>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</dd></div>
+                <div><dt>Koniec</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
+                <div><dt>Kwota</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>
+              </dl>
+              <Button type="button" variant="secondary" onClick={() => onOpen(project)}>Otwórz zlecenie</Button>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function CompanyTeamPanel({
   workspaceId,
+  projects,
+  onOpenProject,
   onChanged,
   notify,
 }: {
   workspaceId: string;
+  projects: Project[];
+  onOpenProject: (project: Project) => void;
   onChanged: () => void;
   notify: (toast: Toast) => void;
 }) {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [invitationUrl, setInvitationUrl] = useState("");
   const [editingWorker, setEditingWorker] = useState<WorkerProfile | null>(null);
+  const [previewWorker, setPreviewWorker] = useState<WorkerProfile | null>(null);
+  const [showAddWorker, setShowAddWorker] = useState(false);
+  const [teamSearch, setTeamSearch] = useState("");
+  const [teamTypeFilter, setTeamTypeFilter] = useState<"all" | "crew" | "craftsman">("all");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -2302,6 +3039,7 @@ function CompanyTeamPanel({
       });
       setInvitationUrl(worker.invitation_url || "");
       form.reset();
+      setShowAddWorker(false);
       load();
       onChanged();
       notify({ kind: worker.existing ? "info" : "success", message: worker.message || "Majster/ekipa dodana." });
@@ -2380,8 +3118,33 @@ function CompanyTeamPanel({
   }
 
   const workers = workspace.worker_profiles || [];
-  const crews = workers.filter((worker) => worker.profile_kind === "crew");
-  const craftsmen = workers.filter((worker) => worker.profile_kind !== "crew");
+  const workerLinks = workspace.worker_links || [];
+  const teamQuery = teamSearch.trim().toLowerCase();
+  const filteredTeamWorkers = workers.filter((worker) => {
+    const matchesQuery = `${worker.label} ${worker.email || ""} ${worker.phone || ""} ${worker.note || ""} ${worker.assigned_projects.map((project) => project.name).join(" ")}`
+      .toLowerCase()
+      .includes(teamQuery);
+    const matchesType = teamTypeFilter === "all" || worker.profile_kind === teamTypeFilter;
+    return matchesQuery && matchesType;
+  });
+  const allCrews = workers.filter((worker) => worker.profile_kind === "crew");
+  const allCraftsmen = workers.filter((worker) => worker.profile_kind !== "crew");
+  const activeWorkers = workers.filter((worker) => worker.active);
+  const inactiveWorkers = workers.filter((worker) => !worker.active);
+  const previewProjects = previewWorker
+    ? projects.filter((project) => project.worker_profile_id === previewWorker.id || project.worker_profile?.id === previewWorker.id)
+    : [];
+  const previewActiveProjects = previewProjects.filter((project) => ["assigned", "in_progress"].includes(project.status));
+  const previewHistoryProjects = previewProjects.filter((project) => project.status === "completed");
+  const previewOtherProjects = previewProjects.filter((project) => !["assigned", "in_progress", "completed"].includes(project.status));
+  const previewAssignedOnly = previewWorker
+    ? previewWorker.assigned_projects.filter((assigned) => !previewProjects.some((project) => project.id === assigned.id))
+    : [];
+
+  function openPreviewProject(project: Project) {
+    setPreviewWorker(null);
+    onOpenProject(project);
+  }
 
   return (
     <>
@@ -2395,8 +3158,10 @@ function CompanyTeamPanel({
           <div className="company-team-meta">
             <span>{workspace.phone || "Telefon nieuzupełniony"}</span>
             <span>{workspace.address || "Adres nieuzupełniony"}</span>
+            <Button type="button" icon="plus" onClick={() => setShowAddWorker(true)}>Dodaj majstra / ekipę</Button>
           </div>
         </div>
+        {invitationUrl && <div className="share-result share-result--compact"><input value={invitationUrl} readOnly /><Button variant="secondary" onClick={() => void copyToClipboard(invitationUrl)}>Kopiuj link</Button></div>}
         <details className="company-details">
           <summary>Dane firmy / edytuj</summary>
           <form className="form-stack" onSubmit={saveCompany}>
@@ -2411,74 +3176,143 @@ function CompanyTeamPanel({
         </details>
       </section>
 
-      <section className="team-management-grid">
-        <div className="panel team-management-section">
-          <div className="panel__header">
-            <div>
-              <h2>Zarządzaj ekipami</h2>
-              <p>Ekipy wykonawcze przypisujesz później do zleceń.</p>
-            </div>
-            <span className="team-count">{crews.length}</span>
+      <section className="team-action-grid">
+        <button type="button" className="team-action-card" onClick={() => setTeamTypeFilter("crew")}>
+          <span><Icon name="users" size={34} /></span>
+          <div>
+            <h2>Zarządzaj ekipami</h2>
+            <p>Twórz i zarządzaj ekipami majstrów. Przypisuj zlecenia i śledź ich realizację.</p>
           </div>
-          <div className="team-worker-list">
-            {crews.length === 0 ? <p className="empty-note">Brak ekip po resecie lokalnej bazy.</p> : crews.map((worker) => (
-              <TeamWorkerCard key={worker.id} worker={worker} busy={busy} onEdit={setEditingWorker} onDeactivate={deactivateWorker} onActivate={activateWorker} />
-            ))}
+          <b>{allCrews.length}</b>
+        </button>
+        <button type="button" className="team-action-card team-action-card--blue" onClick={() => setTeamTypeFilter("craftsman")}>
+          <span><Icon name="users" size={34} /></span>
+          <div>
+            <h2>Zarządzaj pojedynczymi majstrami</h2>
+            <p>Dodawaj pojedynczych majstrów, przypisuj role i zlecenia.</p>
+          </div>
+          <b>{allCraftsmen.length}</b>
+        </button>
+      </section>
+
+      <section className="panel directory-panel team-directory-panel">
+        <div className="panel__header">
+          <div>
+            <h2>Lista majstrów i ekip</h2>
+            <p>{activeWorkers.length} aktywnych, {inactiveWorkers.length} nieaktywnych.</p>
+          </div>
+          <Button type="button" icon="plus" onClick={() => setShowAddWorker(true)}>Dodaj majstra / ekipę</Button>
+        </div>
+        <div className="directory-toolbar">
+          <input
+            type="search"
+            value={teamSearch}
+            onChange={(event) => setTeamSearch(event.target.value)}
+            placeholder="Szukaj majstra lub ekipy"
+          />
+          <div className="filter-pills" aria-label="Filtr typu wykonawcy">
+            <button type="button" className={teamTypeFilter === "all" ? "is-active" : ""} onClick={() => setTeamTypeFilter("all")}>Wszyscy <span>{workers.length}</span></button>
+            <button type="button" className={teamTypeFilter === "crew" ? "is-active" : ""} onClick={() => setTeamTypeFilter("crew")}>Ekipy <span>{allCrews.length}</span></button>
+            <button type="button" className={teamTypeFilter === "craftsman" ? "is-active" : ""} onClick={() => setTeamTypeFilter("craftsman")}>Majstrowie <span>{allCraftsmen.length}</span></button>
           </div>
         </div>
-
-        <div className="panel team-management-section">
-          <div className="panel__header">
-            <div>
-              <h2>Zarządzaj pojedynczymi majstrami</h2>
-              <p>Stali majstrowie i konta wykonawców firmy.</p>
-            </div>
-            <span className="team-count">{craftsmen.length}</span>
-          </div>
-          <div className="team-worker-list">
-            {craftsmen.length === 0 ? <p className="empty-note">Brak pojedynczych majstrów.</p> : craftsmen.map((worker) => (
-              <TeamWorkerCard key={worker.id} worker={worker} busy={busy} onEdit={setEditingWorker} onDeactivate={deactivateWorker} onActivate={activateWorker} />
-            ))}
-          </div>
+        <div className="team-worker-table-head" aria-hidden="true">
+          <span>Nazwa</span>
+          <span>Status</span>
+          <span>Przypisane zlecenia</span>
+          <span>Akcje</span>
+        </div>
+        <div className="team-worker-list team-worker-list--table">
+          {filteredTeamWorkers.length === 0 ? <p className="empty-note">Brak majstrów lub ekip dla wybranych filtrów.</p> : filteredTeamWorkers.map((worker) => (
+            <TeamWorkerCard key={worker.id} worker={worker} busy={busy} onPreview={setPreviewWorker} onEdit={setEditingWorker} onDeactivate={deactivateWorker} onActivate={activateWorker} />
+          ))}
         </div>
       </section>
 
-      {(workspace.worker_links?.length || 0) > 0 && (
-        <section className="panel team-management-section">
-          <div className="panel__header"><div><h2>Linki tymczasowe</h2><p>Link-only przypisane do konkretnych zleceń.</p></div></div>
-          <div className="member-list worker-link-list">
-            {workspace.worker_links?.map((link) => (
+      {workerLinks.length > 0 && (
+        <details className="panel temporary-links-panel">
+          <summary>Linki tymczasowe <span>{workerLinks.length}</span></summary>
+          <div className="member-list worker-link-list worker-link-list--compact">
+            {workerLinks.map((link) => (
               <article key={link.id}>
                 <span>{link.label.slice(0, 2).toUpperCase()}</span>
                 <div>
                   <strong>{link.label}</strong>
-                  <small>{link.email || "Bez e-maila"} · {link.project_name || "Zlecenie"} · {link.account_type === "account" ? "konto/email" : "link-only"}</small>
+                  <small>{link.email || "Bez e-maila"} · {link.project_name || "Zlecenie"} · link-only</small>
                 </div>
                 <b>{link.revoked_at ? "Odwołany" : "Aktywny"}</b>
               </article>
             ))}
           </div>
-        </section>
+        </details>
       )}
 
-      <section className="panel add-worker-panel">
-        <form className="form-stack" onSubmit={createWorker}>
-          <h3>Dodaj majstra / ekipę</h3>
-          <p className="form-intro">
-            Podanie e-maila oznacza zaproszenie do stałego konta po potwierdzeniu kodem.
-            Bez e-maila dodasz wykonawcę do listy, a link tymczasowy wyślesz z poziomu zlecenia.
-          </p>
-          <label>Typ<select name="profile_kind" defaultValue="craftsman"><option value="craftsman">Majster</option><option value="crew">Ekipa</option></select></label>
-          <label>Nazwa<input name="label" required placeholder="np. Mieciu hydraulik albo Ekipa Kowalskiego" /></label>
-          <div className="form-row">
-            <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
-            <label>Telefon opcjonalnie<input name="phone" /></label>
+      {showAddWorker && (
+        <Modal title="Dodaj majstra / ekipę" onClose={() => setShowAddWorker(false)}>
+          <form className="form-stack" onSubmit={createWorker}>
+            <p className="form-intro">
+              Podanie e-maila oznacza zaproszenie do stałego konta po potwierdzeniu kodem.
+              Bez e-maila dodasz wykonawcę do listy, a link tymczasowy wyślesz z poziomu zlecenia.
+            </p>
+            <label>Typ<select name="profile_kind" defaultValue="craftsman"><option value="craftsman">Majster</option><option value="crew">Ekipa</option></select></label>
+            <label>Nazwa<input name="label" required placeholder="np. Mieciu hydraulik albo Ekipa Kowalskiego" autoFocus /></label>
+            <div className="form-row">
+              <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
+              <label>Telefon opcjonalnie<input name="phone" /></label>
+            </div>
+            <label>Notatka opcjonalnie<textarea name="note" rows={2} placeholder="np. łazienki, instalacje, wykończenia" /></label>
+            <Button type="submit" busy={busy} icon="plus">Dodaj majstra / ekipę</Button>
+          </form>
+        </Modal>
+      )}
+
+      {previewWorker && (
+        <Modal title={`${workerKindLabel(previewWorker)}: ${previewWorker.label}`} onClose={() => setPreviewWorker(null)} wide>
+          <div className="worker-preview">
+            <span className={`team-worker-card__avatar ${previewWorker.profile_kind === "crew" ? "team-worker-card__avatar--crew" : ""}`}>
+              {previewWorker.profile_kind === "crew" ? <Icon name="users" /> : previewWorker.label.slice(0, 2).toUpperCase()}
+            </span>
+            <div>
+              <h3>{previewWorker.label}</h3>
+              <p>{workerKindLabel(previewWorker)} · {previewWorker.active ? "Aktywny" : "Nieaktywny"}</p>
+            </div>
+            <div className="worker-preview__actions">
+              <Button type="button" variant="secondary" onClick={() => { setEditingWorker(previewWorker); setPreviewWorker(null); }}>Edytuj</Button>
+              {previewWorker.active ? (
+                <Button type="button" variant="danger" disabled={busy} onClick={() => { const worker = previewWorker; setPreviewWorker(null); void deactivateWorker(worker); }}>Dezaktywuj</Button>
+              ) : (
+                <Button type="button" variant="secondary" disabled={busy} onClick={() => { const worker = previewWorker; setPreviewWorker(null); void activateWorker(worker); }}>Aktywuj</Button>
+              )}
+            </div>
+            <dl>
+              <div><dt>Specjalizacja / notatka</dt><dd>{previewWorker.note || "Brak specjalizacji"}</dd></div>
+              <div><dt>E-mail</dt><dd>{previewWorker.email || "Nie podano"}</dd></div>
+              <div><dt>Telefon</dt><dd>{previewWorker.phone || "Nie podano"}</dd></div>
+              <div><dt>Konto</dt><dd>{workerAccountLabel(previewWorker)}</dd></div>
+            </dl>
+            <div className="worker-preview__projects">
+              <WorkerProjectSection title="Aktywne zlecenia" emptyText="Brak aktywnych zleceń" projects={[...previewActiveProjects, ...previewOtherProjects]} onOpen={openPreviewProject} />
+              <WorkerProjectSection title="Historia zleceń" emptyText="Brak zakończonych zleceń" projects={previewHistoryProjects} onOpen={openPreviewProject} />
+              {previewAssignedOnly.length > 0 && (
+                <section className="worker-project-section">
+                  <header><h4>Zlecenia bez pełnych danych</h4><span>{previewAssignedOnly.length}</span></header>
+                  <div className="worker-project-list">
+                    {previewAssignedOnly.map((project) => (
+                      <article className="worker-project-card worker-project-card--compact" key={project.id}>
+                        <div>
+                          <strong>{project.name}</strong>
+                          <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                        </div>
+                        <p>Brak szczegółów terminów i kwoty w obecnym payloadzie.</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
           </div>
-          <label>Notatka opcjonalnie<textarea name="note" rows={2} placeholder="np. łazienki, instalacje, wykończenia" /></label>
-          <Button type="submit" busy={busy} icon="plus">Dodaj majstra / ekipę</Button>
-        </form>
-        {invitationUrl && <div className="share-result"><input value={invitationUrl} readOnly /><Button variant="secondary" onClick={() => void copyToClipboard(invitationUrl)}>Kopiuj link</Button></div>}
-      </section>
+        </Modal>
+      )}
 
       {editingWorker && (
         <Modal title="Edytuj majstra / ekipę" onClose={() => setEditingWorker(null)}>
@@ -2498,10 +3332,14 @@ function CompanyTeamPanel({
 
 function TeamPage({
   user,
+  projects,
+  onProject,
   onUserUpdated,
   notify,
 }: {
   user: User;
+  projects: Project[];
+  onProject: (project: Project) => void;
   onUserUpdated: (user: User) => void;
   notify: (toast: Toast) => void;
 }) {
@@ -2534,10 +3372,11 @@ function TeamPage({
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się utworzyć firmy" });
     }
   }
+  const peopleLabels = peopleLabelsForUser(user);
   const primaryTeamAction = user.profile_type === "investor"
-    ? "Dodaj wykonawcę"
+    ? peopleLabels.addAction
     : user.workspaces.length > 0
-      ? "Dodaj majstra / ekipę"
+      ? peopleLabels.addAction
       : "Utwórz firmę";
   function openTeamAction() {
     if (user.profile_type === "company_owner" && user.workspaces.length > 0) {
@@ -2551,18 +3390,32 @@ function TeamPage({
       <div className="page">
         <header className="page-header">
           <div>
-            <span className="eyebrow">Firma i ekipy</span>
-            <h1>Firma i majstrowie</h1>
+            <span className="eyebrow">Zespół firmy</span>
+            <h1>{peopleLabels.section}</h1>
             <p>Zarządzaj ekipami i pojedynczymi majstrami bez wybierania wielu firm.</p>
           </div>
         </header>
-        <CompanyTeamPanel workspaceId={user.workspaces[0].id} onChanged={refreshUser} notify={notify} />
+        <CompanyTeamPanel workspaceId={user.workspaces[0].id} projects={projects} onOpenProject={onProject} onChanged={refreshUser} notify={notify} />
+      </div>
+    );
+  }
+  if (user.profile_type === "investor" && user.workspaces.length > 0) {
+    return (
+      <div className="page">
+        <header className="page-header">
+          <div>
+            <span className="eyebrow">Współpraca</span>
+            <h1>Wykonawcy</h1>
+            <p>Dodawaj wykonawców, wyszukuj ich po nazwie i przypisuj do inwestycji.</p>
+          </div>
+        </header>
+        <InvestorContractorsPanel workspaceId={user.workspaces[0].id} projects={projects} onOpenProject={onProject} onChanged={refreshUser} notify={notify} />
       </div>
     );
   }
   return (
     <div className="page">
-      <header className="page-header"><div><span className="eyebrow">{user.profile_type === "investor" ? "Wykonawcy" : "Firma i ekipy"}</span><h1>{user.profile_type === "investor" ? "Wykonawcy" : "Firma i majstrowie"}</h1><p>{user.profile_type === "investor" ? "Dodawaj wykonawców, wybieraj ich przy zleceniu i wysyłaj im link do postępu." : "Edytuj dane firmy, dodawaj majstrów i wysyłaj im link do logowania."}</p></div><Button icon="plus" onClick={openTeamAction}>{primaryTeamAction}</Button></header>
+      <header className="page-header"><div><span className="eyebrow">{peopleLabels.section}</span><h1>{peopleLabels.section}</h1><p>{user.profile_type === "investor" ? "Dodawaj wykonawców, wybieraj ich przy zleceniu i wysyłaj im link do postępu." : "Edytuj dane firmy, dodawaj majstrów i wysyłaj im link do logowania."}</p></div><Button icon="plus" onClick={openTeamAction}>{primaryTeamAction}</Button></header>
       <section className="panel">
         {user.workspaces.length === 0 ? <EmptyState icon="users" title={user.profile_type === "investor" ? "Dodaj pierwszego wykonawcę" : "Dodaj swoją firmę"} text={user.profile_type === "investor" ? "Utworzysz listę wykonawców do przypisywania przy zleceniach." : "Po utworzeniu od razu zaprosisz majstrów i wyślesz im link do logowania."}><Button onClick={() => setShowCreate(true)}>Dodaj teraz</Button></EmptyState> : <div className="workspace-grid">{user.workspaces.map((workspace) => <button onClick={() => setSelectedWorkspace(workspace.id)} key={workspace.id}><span><Icon name="users" /></span><h3>{workspace.name}</h3><p>{workspace.description || (user.profile_type === "investor" ? "Kliknij, aby edytować wykonawców." : "Kliknij, aby edytować i dodać majstrów.")}</p><small>Twoja rola: {workspace.role}</small></button>)}</div>}
       </section>
@@ -2936,15 +3789,17 @@ export default function App() {
     return <Onboarding onComplete={(next) => { setUser(next); setSection("home"); navigate("/app"); }} onBack={logout} />;
   }
 
+  const visibleSection = visibleSectionForUser(user, section);
+  const activeSection = selectedProject ? "projects" : visibleSection;
   const body = selectedProject ? (
     <ProjectView projectId={selectedProject.id} user={user} onUserUpdated={setUser} onBack={() => setSelectedProject(null)} notify={notify} onQueue={refreshQueue} />
-  ) : section === "projects" ? (
+  ) : visibleSection === "projects" ? (
     <ProjectsPage user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} />
-  ) : section === "reports" ? (
-    <ReportsPage projects={projects} onOpen={setSelectedProject} />
-  ) : section === "team" ? (
-    <TeamPage user={user} onUserUpdated={setUser} notify={notify} />
-  ) : section === "settings" ? (
+  ) : visibleSection === "reports" ? (
+    <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
+  ) : visibleSection === "team" ? (
+    <TeamPage user={user} projects={projects} onProject={setSelectedProject} onUserUpdated={setUser} notify={notify} />
+  ) : visibleSection === "settings" ? (
     <SettingsPage user={user} onUpdated={setUser} onLogout={logout} notify={notify} />
   ) : (
     <Dashboard user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} />
@@ -2952,7 +3807,7 @@ export default function App() {
 
   return (
     <>
-      <Shell user={user} active={selectedProject ? "projects" : section} onNavigate={(next) => { setSelectedProject(null); setSection(next); }} onLogout={logout} queueCount={queueCount}>
+      <Shell user={user} active={activeSection} onNavigate={(next) => { setSelectedProject(null); setSection(next); }} onLogout={logout} queueCount={queueCount}>
         {body}
       </Shell>
       {createOpen && <CreateProjectModal user={user} onClose={() => setCreateOpen(false)} onCreated={(project) => { setCreateOpen(false); setProjects((current) => [project, ...current]); setSelectedProject(project); notify({ kind: "success", message: "Zlecenie utworzone" }); }} />}
