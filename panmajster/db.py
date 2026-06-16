@@ -1,8 +1,19 @@
 from collections.abc import Generator
 import re
 
-from sqlalchemy import MetaData, create_engine, select, text
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    MetaData,
+    String,
+    create_engine,
+    inspect,
+    select,
+    text,
+)
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.schema import CreateColumn
 
 from .config import get_settings
 
@@ -38,6 +49,57 @@ def ensure_database_schema(connection) -> None:
     connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {quoted}"))
 
 
+def qualified_table_name(connection, table_name: str) -> str:
+    preparer = connection.dialect.identifier_preparer
+    if not database_schema:
+        return preparer.quote(table_name)
+    return f"{preparer.quote_schema(database_schema)}.{preparer.quote(table_name)}"
+
+
+def add_missing_column(connection, table_name: str, column) -> None:
+    column_definition = str(CreateColumn(column).compile(dialect=connection.dialect))
+    connection.execute(
+        text(
+            f"ALTER TABLE {qualified_table_name(connection, table_name)} "
+            f"ADD COLUMN {column_definition}"
+        )
+    )
+
+
+def ensure_user_schema_compatibility(connection) -> None:
+    inspector = inspect(connection)
+    if not inspector.has_table("users", schema=database_schema):
+        return
+    existing = {
+        column["name"]
+        for column in inspector.get_columns("users", schema=database_schema)
+    }
+    required_columns = [
+        ("name", String(160), "''"),
+        ("phone", String(40), None),
+        ("is_admin", Boolean(), "false"),
+        ("locale", String(10), "'pl'"),
+        ("profile_type", String(40), None),
+        ("preferred_mode", String(30), "'expanded'"),
+        ("password_hash", String(128), "''"),
+        ("last_login_at", DateTime(timezone=True), None),
+        ("created_at", DateTime(timezone=True), None),
+        ("updated_at", DateTime(timezone=True), None),
+    ]
+    for column_name, column_type, default in required_columns:
+        if column_name in existing:
+            continue
+        kwargs = {"nullable": True}
+        if default is not None:
+            kwargs["server_default"] = text(default)
+        add_missing_column(
+            connection,
+            "users",
+            Column(column_name, column_type, **kwargs),
+        )
+        existing.add(column_name)
+
+
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
@@ -52,7 +114,9 @@ def init_db() -> None:
 
     with engine.begin() as connection:
         ensure_database_schema(connection)
+        ensure_user_schema_compatibility(connection)
         Base.metadata.create_all(bind=connection)
+        ensure_user_schema_compatibility(connection)
         if not settings.is_production:
             db = Session(bind=connection)
             seed_development_accounts(db, models, hash_secret)
