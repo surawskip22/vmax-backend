@@ -87,6 +87,17 @@ def project(item: models.Project, role: str | None = None, details: bool = False
         "description": item.description,
         "status": item.status,
         "template": item.template,
+        "planned_start_date": item.planned_start_date.isoformat()
+        if item.planned_start_date
+        else None,
+        "planned_end_date": item.planned_end_date.isoformat()
+        if item.planned_end_date
+        else None,
+        "schedule_uncertainty_days": item.schedule_uncertainty_days,
+        "contract_amount": str(item.contract_amount)
+        if item.contract_amount is not None
+        else None,
+        "contract_currency": item.contract_currency or "PLN",
         "workspace_id": item.workspace_id,
         "worker_profile_id": item.worker_profile_id,
         "role": role,

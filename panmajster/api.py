@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import quote
@@ -45,6 +46,14 @@ PROJECT_STATUS_ASSIGNED = "assigned"
 PROJECT_STATUS_IN_PROGRESS = "in_progress"
 PROJECT_STATUS_COMPLETED = "completed"
 DEFAULT_ENTRY_STAGE_TITLE = "W trakcie realizacji"
+DEFAULT_CONTRACT_CURRENCY = "PLN"
+PROJECT_CONTRACT_FIELDS = {
+    "planned_start_date",
+    "planned_end_date",
+    "schedule_uncertainty_days",
+    "contract_amount",
+    "contract_currency",
+}
 
 
 def stored_file_response(
@@ -139,6 +148,11 @@ class ProjectCreate(BaseModel):
     description: str = Field(default="", max_length=5000)
     template: str = "custom"
     stages: list[str] = Field(default_factory=list)
+    planned_start_date: date | None = None
+    planned_end_date: date | None = None
+    schedule_uncertainty_days: int | None = None
+    contract_amount: Decimal | None = None
+    contract_currency: str | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -153,6 +167,11 @@ class ProjectUpdate(BaseModel):
     portfolio_slug: str | None = Field(default=None, max_length=120)
     portfolio_summary: str | None = Field(default=None, max_length=3000)
     details_locked: bool | None = None
+    planned_start_date: date | None = None
+    planned_end_date: date | None = None
+    schedule_uncertainty_days: int | None = None
+    contract_amount: Decimal | None = None
+    contract_currency: str | None = None
 
 
 class StageCreate(BaseModel):
@@ -1099,6 +1118,66 @@ def list_projects(
     ]
 
 
+def normalize_contract_currency(
+    currency: str | None, contract_amount: Decimal | None
+) -> str | None:
+    value = (currency or "").strip().upper()
+    if not value:
+        return DEFAULT_CONTRACT_CURRENCY if contract_amount is not None else None
+    if len(value) != 3 or not value.isalpha():
+        raise HTTPException(400, "Waluta musi miec trzyliterowy kod, np. PLN")
+    return value
+
+
+def validate_project_contract_terms(
+    *,
+    planned_start_date: date | None,
+    planned_end_date: date | None,
+    schedule_uncertainty_days: int | None,
+    contract_amount: Decimal | None,
+) -> None:
+    if planned_start_date and planned_end_date and planned_end_date < planned_start_date:
+        raise HTTPException(
+            400,
+            "Planowany koniec nie moze byc wczesniejszy niz planowany start",
+        )
+    if schedule_uncertainty_days is not None and schedule_uncertainty_days < 0:
+        raise HTTPException(400, "Niepewnosc terminu nie moze byc ujemna")
+    if contract_amount is not None and contract_amount < 0:
+        raise HTTPException(400, "Kwota umowna nie moze byc ujemna")
+
+
+def normalize_project_contract_changes(
+    changes: dict[str, Any], project: models.Project | None = None
+) -> None:
+    planned_start_date = changes.get(
+        "planned_start_date", project.planned_start_date if project else None
+    )
+    planned_end_date = changes.get(
+        "planned_end_date", project.planned_end_date if project else None
+    )
+    schedule_uncertainty_days = changes.get(
+        "schedule_uncertainty_days",
+        project.schedule_uncertainty_days if project else None,
+    )
+    contract_amount = changes.get(
+        "contract_amount", project.contract_amount if project else None
+    )
+    contract_currency = changes.get(
+        "contract_currency", project.contract_currency if project else None
+    )
+    validate_project_contract_terms(
+        planned_start_date=planned_start_date,
+        planned_end_date=planned_end_date,
+        schedule_uncertainty_days=schedule_uncertainty_days,
+        contract_amount=contract_amount,
+    )
+    if "contract_currency" in changes or "contract_amount" in changes:
+        changes["contract_currency"] = normalize_contract_currency(
+            contract_currency, contract_amount
+        )
+
+
 @router.post("/projects", status_code=201)
 def create_project(
     payload: ProjectCreate,
@@ -1122,6 +1201,8 @@ def create_project(
         db, payload.worker_profile_id, user, payload.workspace_id
     )
     workspace_id = payload.workspace_id or (worker.workspace_id if worker else None)
+    contract_changes = payload.model_dump(include=PROJECT_CONTRACT_FIELDS)
+    normalize_project_contract_changes(contract_changes)
 
     project = models.Project(
         workspace_id=workspace_id,
@@ -1134,6 +1215,11 @@ def create_project(
         description=payload.description.strip(),
         status=PROJECT_STATUS_ASSIGNED,
         template=payload.template if payload.template in STAGE_TEMPLATES else "custom",
+        planned_start_date=contract_changes["planned_start_date"],
+        planned_end_date=contract_changes["planned_end_date"],
+        schedule_uncertainty_days=contract_changes["schedule_uncertainty_days"],
+        contract_amount=contract_changes["contract_amount"],
+        contract_currency=contract_changes["contract_currency"],
         started_at=now(),
         client_share_token=random_token(30),
     )
@@ -1254,12 +1340,18 @@ def update_project(
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
     changes = payload.model_dump(exclude_unset=True)
+    has_contract_changes = bool(PROJECT_CONTRACT_FIELDS.intersection(changes))
     if "details_locked" in changes or "worker_profile_id" in changes or "status" in changes:
         access.require_manage()
         if "status" in changes and is_company_worker(access.user):
             raise HTTPException(403, "Majster firmy nie zmienia finalnego statusu")
     else:
         access.require_edit_details()
+    if has_contract_changes:
+        if is_company_worker(access.user):
+            raise HTTPException(403, "Majster firmy nie edytuje terminow i kwoty")
+        access.require_manage()
+        normalize_project_contract_changes(changes, access.project)
     if "portfolio_slug" in changes and changes["portfolio_slug"]:
         slug = SLUG_RE.sub("-", changes["portfolio_slug"].lower()).strip("-")
         if not slug:

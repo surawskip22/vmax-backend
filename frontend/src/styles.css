@@ -432,6 +432,19 @@ audio { width: 100%; margin-top: 13px; }
 .form-stack--flat { padding-left: 0; padding-right: 0; }
 .share-result { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 .portfolio-settings { padding: 18px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #dbe2ea; border-radius: 10px; background: #f8fafb; }
+.contract-fields { padding: 18px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #dbe2ea; border-radius: 10px; background: #f8fafb; }
+.contract-fields--readonly .contract-terms { margin: 0; background: #fff; }
+.form-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.contract-terms { margin: 16px 0; padding: 14px; border: 1px solid #dbe2ea; border-radius: 10px; background: #f8fafb; }
+.contract-terms h3 { margin: 0 0 10px; color: var(--navy); font-size: 14px; }
+.contract-terms dl { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.contract-terms dl div { display: flex; justify-content: space-between; gap: 12px; }
+.contract-terms dt { color: var(--muted); font-size: 11px; }
+.contract-terms dd { margin: 0; color: var(--navy); font-size: 12px; font-weight: 800; text-align: right; }
+.contract-terms p { margin: 10px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.project-summary .contract-terms { margin-bottom: 18px; }
+.field-project .contract-terms { margin: 12px 0; }
+.client-overview .contract-terms { margin-top: 14px; }
 .check-label { flex-direction: row !important; align-items: center; }
 .check-label input { width: auto !important; }
 

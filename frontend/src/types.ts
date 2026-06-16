@@ -110,6 +110,11 @@ export type Project = {
   description: string;
   status: string;
   template: string;
+  planned_start_date?: string | null;
+  planned_end_date?: string | null;
+  schedule_uncertainty_days?: number | null;
+  contract_amount?: string | null;
+  contract_currency?: string | null;
   workspace_id?: string;
   worker_profile_id?: string;
   worker_profile?: WorkerProfile;

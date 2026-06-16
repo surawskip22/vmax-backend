@@ -86,6 +86,64 @@ function formString(data: FormData, name: string): string {
   return String(data.get(name) || "").trim();
 }
 
+function formNullableString(data: FormData, name: string): string | null {
+  return formString(data, name) || null;
+}
+
+function formMoneyString(data: FormData, name: string): string | null {
+  const value = formString(data, name).replace(/\s/g, "").replace(",", ".");
+  return value || null;
+}
+
+function formOptionalNumber(data: FormData, name: string): number | null {
+  const value = formString(data, name);
+  if (!value) return null;
+  return Number(value);
+}
+
+function formatContractDate(value?: string | null): string {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("pl").format(new Date(`${value}T00:00:00`));
+}
+
+function contractAmountLabel(project: Project): string {
+  if (!project.contract_amount) return "";
+  return `${project.contract_amount} ${project.contract_currency || "PLN"}`;
+}
+
+function contractTermRows(project: Project): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = [];
+  const start = formatContractDate(project.planned_start_date);
+  const end = formatContractDate(project.planned_end_date);
+  const amount = contractAmountLabel(project);
+  if (start) rows.push({ label: "Planowany start", value: start });
+  if (end) rows.push({ label: "Planowany koniec", value: end });
+  if (project.schedule_uncertainty_days !== null && project.schedule_uncertainty_days !== undefined) {
+    rows.push({ label: "Niepewnosc terminu", value: `+/- ${project.schedule_uncertainty_days} dni` });
+  }
+  if (amount) rows.push({ label: "Kwota umowna", value: amount });
+  return rows;
+}
+
+function ContractTermsPanel({ project }: { project: Project }) {
+  const rows = contractTermRows(project);
+  if (rows.length === 0) return null;
+  return (
+    <section className="contract-terms">
+      <h3>Terminy i kwota</h3>
+      <dl>
+        {rows.map((row) => (
+          <div key={row.label}>
+            <dt>{row.label}</dt>
+            <dd>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p>{contractTermsDisclaimer}</p>
+    </section>
+  );
+}
+
 async function copyToClipboard(value: string): Promise<boolean> {
   try {
     if (!navigator.clipboard) return false;
@@ -112,6 +170,8 @@ const statusLabels: Record<string, string> = {
   active: "W realizacji",
   planned: "Planowany",
 };
+const contractTermsDisclaimer = "To informacja umowna. To nie jest faktura, platnosc ani wezwanie do zaplaty.";
+const contractTermsReadonlyMessage = "Dane do podgladu - zmienia je szef firmy.";
 
 function route(): Route {
   const matchGuest = location.pathname.match(/^\/g\/([^/]+)/);
@@ -635,6 +695,10 @@ function CreateProjectModal({
           address: formString(data, "address"),
           description: formString(data, "description"),
           template: formString(data, "template"),
+          planned_start_date: formNullableString(data, "planned_start_date"),
+          planned_end_date: formNullableString(data, "planned_end_date"),
+          schedule_uncertainty_days: formOptionalNumber(data, "schedule_uncertainty_days"),
+          contract_amount: formMoneyString(data, "contract_amount"),
           workspace_id: investorMode ? null : formString(data, "workspace_id") || null,
           worker_profile_id: formString(data, "worker_profile_id") || null,
         }),
@@ -682,6 +746,17 @@ function CreateProjectModal({
             <option value="custom">Uniwersalny</option>
           </select>
         </label>
+        <div className="contract-fields">
+          <div className="form-row">
+            <label>Planowany start<input type="date" name="planned_start_date" /></label>
+            <label>Planowany koniec<input type="date" name="planned_end_date" /></label>
+          </div>
+          <div className="form-row">
+            <label>Niepewnosc terminu (+/- dni)<input type="number" name="schedule_uncertainty_days" min="0" step="1" placeholder="np. 3" /></label>
+            <label>Kwota umowna (PLN)<input type="text" name="contract_amount" inputMode="decimal" placeholder="np. 12000" /></label>
+          </div>
+          <p className="form-note">{contractTermsDisclaimer}</p>
+        </div>
         {!isInvestor(user) && user.workspaces.length > 0 && (
           <label>
             Firma
@@ -1194,6 +1269,7 @@ function ManageProjectModal({
   const [workers, setWorkers] = useState<WorkerProfile[]>([]);
   const canManagePeople = ["owner", "manager"].includes(project.role || "");
   const canManageFinalStatus = canManagePeople && !isCompanyWorker(user);
+  const canEditContractTerms = canManagePeople && !isCompanyWorker(user);
   const canAssignWorkers = canManagePeople && user?.profile_type !== "independent_contractor" && !isCompanyWorker(user);
   const peopleTabLabel = user?.profile_type === "investor" ? "Wykonawcy" : "Majstrowie i ekipy";
 
@@ -1217,6 +1293,12 @@ function ManageProjectModal({
         portfolio_slug: data.get("portfolio_slug") || null,
         portfolio_summary: data.get("portfolio_summary"),
       };
+      if (canEditContractTerms) {
+        payload.planned_start_date = formNullableString(data, "planned_start_date");
+        payload.planned_end_date = formNullableString(data, "planned_end_date");
+        payload.schedule_uncertainty_days = formOptionalNumber(data, "schedule_uncertainty_days");
+        payload.contract_amount = formMoneyString(data, "contract_amount");
+      }
       if (canManagePeople) {
         payload.details_locked = data.get("details_locked") === "on";
       }
@@ -1341,6 +1423,25 @@ function ManageProjectModal({
             <label>E-mail klienta<input name="client_email" type="email" defaultValue={project.client_email} /></label>
           </div>
           <label>Adres<input name="address" defaultValue={project.address} /></label>
+          {canEditContractTerms ? (
+            <div className="contract-fields">
+              <div className="form-row">
+                <label>Planowany start<input type="date" name="planned_start_date" defaultValue={project.planned_start_date || ""} /></label>
+                <label>Planowany koniec<input type="date" name="planned_end_date" defaultValue={project.planned_end_date || ""} /></label>
+              </div>
+              <div className="form-row">
+                <label>Niepewnosc terminu (+/- dni)<input type="number" name="schedule_uncertainty_days" min="0" step="1" placeholder="np. 3" defaultValue={project.schedule_uncertainty_days ?? ""} /></label>
+                <label>Kwota umowna (PLN)<input type="text" name="contract_amount" inputMode="decimal" placeholder="np. 12000" defaultValue={project.contract_amount || ""} /></label>
+              </div>
+              <p className="form-note">{contractTermsDisclaimer}</p>
+            </div>
+          ) : (
+            <div className="contract-fields contract-fields--readonly">
+              <ContractTermsPanel project={project} />
+              {contractTermRows(project).length === 0 && <p className="form-note">Terminy i kwota nie sa jeszcze podane.</p>}
+              <p className="form-note">{contractTermsReadonlyMessage}</p>
+            </div>
+          )}
           {canAssignWorkers && (
             <label>
               {user?.profile_type === "investor" ? "Wykonawca" : "Majster / ekipa"}
@@ -1752,6 +1853,7 @@ function ProjectView({
             <small>ZLECENIE</small>
             <h1>{project.name}</h1>
             <p>{project.address}</p>
+            <ContractTermsPanel project={project} />
             <span className={`status status--${project.status}`}>● {statusLabels[project.status]}</span>
             {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Robota skończona</Button>}
             {canFinalizeStatus && project.status === "completed" && <Button variant="secondary" onClick={reopenProject}>Otwórz ponownie</Button>}
@@ -1816,6 +1918,7 @@ function ProjectView({
           <h3>Podsumowanie zlecenia</h3>
           <div className="progress-value"><strong>{progress}%</strong><span>{completed} z {project.stages?.length || 0} etapów</span></div>
           <div className="progress"><i style={{ width: `${progress}%` }} /></div>
+          <ContractTermsPanel project={project} />
           {stages}
           {!guestToken && <div className="summary-meta"><div><small>Klient</small><strong>{project.client_name || "—"}</strong></div><div><small>Adres</small><strong>{project.address || "—"}</strong></div><div><small>Rola</small><strong>{project.role || "gość"}</strong></div></div>}
         </aside>
@@ -2598,6 +2701,7 @@ function PublicProject({ token }: { token: string }) {
             <span className={`status status--${project.status}`}>{statusLabels[project.status]}</span>
             <h2>Postęp prac</h2>
             <p>{project.description || "Tutaj pojawiają się zdjęcia, opisy, problemy i kolejne raporty."}</p>
+            <ContractTermsPanel project={project} />
           </div>
           <div className="simple-stages">
             {project.stages?.map((stage, index) => <div className={`simple-stage simple-stage--${stage.status}`} key={stage.id}><span>{stage.status === "completed" ? "✓" : index + 1}</span><div><strong>{stage.title}</strong><small>{stage.status === "completed" ? "Zakończony" : stage.status === "active" ? "W trakcie" : "Przed nami"}</small></div></div>)}

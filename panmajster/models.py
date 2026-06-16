@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    Date,
     LargeBinary,
     DateTime,
     ForeignKey,
     Index,
     Integer,
     JSON,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -137,6 +140,11 @@ class Project(Base, TimestampMixin):
     description: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(30), default="assigned")
     template: Mapped[str] = mapped_column(String(40), default="custom")
+    planned_start_date: Mapped[date | None] = mapped_column(Date)
+    planned_end_date: Mapped[date | None] = mapped_column(Date)
+    schedule_uncertainty_days: Mapped[int | None] = mapped_column(Integer)
+    contract_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    contract_currency: Mapped[str | None] = mapped_column(String(3), default="PLN")
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     portfolio_enabled: Mapped[bool] = mapped_column(Boolean, default=False)

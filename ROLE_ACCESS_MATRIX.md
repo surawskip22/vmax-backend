@@ -2,7 +2,7 @@
 
 Źródło prawdy dla ról i uprawnień po checkpointcie 4D.
 
-Ten dokument stabilizuje kręgosłup ról, opisuje podstawowe statusy z KROKU 5A, finalne zamykanie i ponowne otwieranie z KROKU 5B oraz etap jako kontekst wpisu/postępu z KROKU 5C. Nadal nie opisuje pełnego workflow etapów, zamykania etapów, raportów PDF, audio, płatności ani portfolio.
+Ten dokument stabilizuje kręgosłup ról, opisuje podstawowe statusy z KROKU 5A, finalne zamykanie i ponowne otwieranie z KROKU 5B, etap jako kontekst wpisu/postępu z KROKU 5C oraz informacyjne planowane terminy i kwotę umowną z KROKU 5D. Nadal nie opisuje pełnego workflow etapów, zamykania etapów, raportów PDF, audio, płatności, faktur ani portfolio.
 
 ## Zasady bazowe
 
@@ -189,7 +189,8 @@ Może edytować:
 - nie zarządza firmą ani zleceniem jak szef,
 - szczegóły zlecenia tylko wtedy, gdy pozwala na to `ProjectAccess.can_edit_details()`,
 - edycja szczegółów zlecenia musi być ograniczona do pól dopuszczonych dla wykonawcy,
-- statusy 5A, zamykanie/ponowne otwieranie 5B oraz etap przy wpisie/postępie 5C są opisane; pełne zarządzanie etapami, zamykanie etapów i workflow "Zgłoś gotowe" zostają na później.
+- statusy 5A, zamykanie/ponowne otwieranie 5B, etap przy wpisie/postępie 5C oraz informacyjne planowane terminy/kwota 5D są opisane; `company_worker` nie zarządza terminami ani kwotą jak szef,
+- pełne zarządzanie etapami, zamykanie etapów i workflow "Zgłoś gotowe" zostają na później.
 
 Może generować linki:
 
@@ -303,6 +304,14 @@ Backendowe ograniczenia:
 - Role, które już mogą dodać postęp, mogą wskazać etap przy wpisie.
 - Klient link-only może widzieć etap przy wpisie, ale go nie zmienia.
 - Zamykanie etapów i customowe etapy są poza 5C.
+
+## KROK 5D - planowane terminy i kwota umowna
+
+- Planowany start, planowany koniec, niepewność terminu, kwota umowna i waluta są informacyjne.
+- To nie jest faktura, płatność, BLIK, Stripe ani wezwanie do zapłaty.
+- Role, które już widzą projekt, mogą widzieć te pola w szczegółach, linku majstra i publicznym linku klienta.
+- Edycja jest dla ról właścicielskich/zarządczych projektu: `company_owner`, `investor`, `independent_contractor`.
+- `company_worker`, majster/ekipa link-only i klient link-only nie edytują planowanych terminów ani kwoty.
 
 ## Parking / przyszłe kroki
 

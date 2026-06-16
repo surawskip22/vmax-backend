@@ -1001,3 +1001,177 @@ def test_worker_with_email_requires_email_code_before_account_access():
         projects = worker_client.get("/api/projects").json()
         assert [item["id"] for item in projects] == [project["id"]]
         assert projects[0]["role"] == "contributor"
+
+
+def test_project_contract_terms_are_validated_visible_and_guarded():
+    with TestClient(app) as owner:
+        login(owner, "contract-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma 5D"},
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik 5D",
+                "email": "contract-worker@example.com",
+            },
+        ).json()
+        created = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zlecenie z terminami",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+                "planned_start_date": "2026-06-20",
+                "planned_end_date": "2026-06-30",
+                "schedule_uncertainty_days": 3,
+                "contract_amount": "12000",
+            },
+        )
+        assert created.status_code == 201
+        project = created.json()
+        assert project["planned_start_date"] == "2026-06-20"
+        assert project["planned_end_date"] == "2026-06-30"
+        assert project["schedule_uncertainty_days"] == 3
+        assert project["contract_amount"] == "12000.00"
+        assert project["contract_currency"] == "PLN"
+        listed = owner.get("/api/projects").json()[0]
+        assert listed["planned_start_date"] == "2026-06-20"
+        assert listed["contract_amount"] == "12000.00"
+        details = owner.get(f"/api/projects/{project['id']}").json()
+        assert details["planned_end_date"] == "2026-06-30"
+        assert details["contract_currency"] == "PLN"
+
+        patched = owner.patch(
+            f"/api/projects/{project['id']}",
+            json={
+                "planned_end_date": "2026-07-02",
+                "contract_amount": "13000.75",
+            },
+        )
+        assert patched.status_code == 200
+        assert patched.json()["planned_end_date"] == "2026-07-02"
+        assert patched.json()["contract_amount"] == "13000.75"
+        assert patched.json()["contract_currency"] == "PLN"
+
+        invalid_dates = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zly termin",
+                "template": "custom",
+                "planned_start_date": "2026-07-10",
+                "planned_end_date": "2026-07-09",
+            },
+        )
+        assert invalid_dates.status_code == 400
+        assert "Planowany koniec" in invalid_dates.json()["detail"]
+        invalid_uncertainty = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zla niepewnosc",
+                "template": "custom",
+                "schedule_uncertainty_days": -1,
+            },
+        )
+        assert invalid_uncertainty.status_code == 400
+        invalid_amount = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zla kwota",
+                "template": "custom",
+                "contract_amount": "-1.00",
+            },
+        )
+        assert invalid_amount.status_code == 400
+        invalid_currency = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zla waluta",
+                "template": "custom",
+                "contract_amount": "10.00",
+                "contract_currency": "PLNN",
+            },
+        )
+        assert invalid_currency.status_code == 400
+
+        guest_link = owner.post(
+            f"/api/projects/{project['id']}/guest-links",
+            json={"label": "Link 5D", "kind": "worker", "permission": "history"},
+        ).json()
+        client_token = owner.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+    with TestClient(app) as public_client:
+        public_project = public_client.get(
+            f"/api/public/projects/{client_token}"
+        ).json()["project"]
+        assert public_project["planned_start_date"] == "2026-06-20"
+        assert public_project["planned_end_date"] == "2026-07-02"
+        assert public_project["schedule_uncertainty_days"] == 3
+        assert public_project["contract_amount"] == "13000.75"
+        assert public_client.patch(
+            f"/api/projects/{project['id']}",
+            json={"contract_amount": "1.00"},
+        ).status_code == 403
+
+    with TestClient(app) as guest:
+        guest_project = guest.get(
+            f"/api/projects/{project['id']}",
+            headers={"x-guest-token": guest_link["token"]},
+        ).json()
+        assert guest_project["contract_amount"] == "13000.75"
+        assert guest.patch(
+            f"/api/projects/{project['id']}",
+            headers={"x-guest-token": guest_link["token"]},
+            json={"contract_amount": "1.00"},
+        ).status_code == 403
+
+    with TestClient(app) as worker_client:
+        worker_user = login(worker_client, "contract-worker@example.com")
+        assert worker_user["profile_type"] == "company_worker"
+        worker_project = worker_client.get(f"/api/projects/{project['id']}").json()
+        assert worker_project["planned_end_date"] == "2026-07-02"
+        assert worker_client.patch(
+            f"/api/projects/{project['id']}",
+            json={"contract_amount": "1.00"},
+        ).status_code == 403
+
+
+def test_frontend_project_forms_send_contract_terms_without_currency_field():
+    source = Path("frontend/src/App.tsx").read_text(encoding="utf-8")
+    create_block = source[
+        source.index("function CreateProjectModal") : source.index("function Shell")
+    ]
+    manage_block = source[
+        source.index("function ManageProjectModal") : source.index("function ProjectView")
+    ]
+
+    assert 'planned_start_date: formNullableString(data, "planned_start_date")' in create_block
+    assert 'planned_end_date: formNullableString(data, "planned_end_date")' in create_block
+    assert (
+        'schedule_uncertainty_days: formOptionalNumber(data, "schedule_uncertainty_days")'
+        in create_block
+    )
+    assert 'contract_amount: formMoneyString(data, "contract_amount")' in create_block
+
+    assert "canEditContractTerms" in manage_block
+    assert 'payload.planned_start_date = formNullableString(data, "planned_start_date")' in manage_block
+    assert 'payload.planned_end_date = formNullableString(data, "planned_end_date")' in manage_block
+    assert (
+        'payload.schedule_uncertainty_days = formOptionalNumber(data, "schedule_uncertainty_days")'
+        in manage_block
+    )
+    assert 'payload.contract_amount = formMoneyString(data, "contract_amount")' in manage_block
+    assert "contractTermsReadonlyMessage" in manage_block
+    assert "Dane do podgladu - zmienia je szef firmy." in source
+
+    for block in (create_block, manage_block):
+        assert 'name="contract_amount"' in block
+        assert "Kwota umowna (PLN)" in block
+        assert 'name="contract_currency"' not in block
+        assert "Waluta" not in block
