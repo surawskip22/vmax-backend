@@ -80,10 +80,12 @@ def seed_development_accounts(db: Session, models, hash_secret) -> None:
             db.add(user)
             db.flush()
         else:
+            if user.profile_type != profile_type:
+                user.profile_type = profile_type
+            if not user.preferred_mode:
+                user.preferred_mode = "expanded"
             if not user.password_hash:
                 user.password_hash = hash_secret("test1234")
-            if email == "pracownik@majster.pl":
-                user.profile_type = "company_worker"
         users[email] = user
         entitlement = db.scalar(
             select(models.BetaEntitlement).where(
