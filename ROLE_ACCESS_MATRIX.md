@@ -189,7 +189,9 @@ Może edytować:
 - nie zarządza firmą ani zleceniem jak szef,
 - szczegóły zlecenia tylko wtedy, gdy pozwala na to `ProjectAccess.can_edit_details()`,
 - edycja szczegółów zlecenia musi być ograniczona do pól dopuszczonych dla wykonawcy,
-- statusy 5A, zamykanie/ponowne otwieranie 5B, etap przy wpisie/postępie 5C oraz informacyjne planowane terminy/kwota 5D są opisane; `company_worker` nie zarządza terminami ani kwotą jak szef,
+- może finalnie zamknąć przypisane sobie zlecenie przyciskiem "Zamknij zlecenie",
+- nie może ponownie otwierać zlecenia,
+- statusy 5A, zamykanie/ponowne otwieranie 5B, etap przy wpisie/postępie 5C oraz informacyjne planowane terminy/kwota 5D są opisane; `company_worker` nie zarządza firmą, terminami ani kwotą jak szef,
 - pełne zarządzanie etapami, zamykanie etapów i workflow "Zgłoś gotowe" zostają na później.
 
 Może generować linki:
@@ -289,12 +291,14 @@ Backendowe ograniczenia:
 - Status zlecenia jest widoczny dla każdej roli, która już widzi dane zlecenie: szefa firmy, inwestora, samodzielnego majstra, `company_worker`, majstra link-only i klienta link-only.
 - Status `W realizacji` może zostać ustawiony automatycznie po dodaniu postępu przez osobę lub link, które już mają prawo dodać wpis do zlecenia.
 - Automatyczna zmiana statusu nie daje żadnej roli nowych uprawnień do firmy, ludzi, linków ani zarządzania zleceniem.
-- Pełne zamykanie zlecenia, ponowne otwieranie oraz reguły statusów powiązane z etapami należą do KROKU 5B.
+- Pełne zamykanie zlecenia, ponowne otwieranie oraz reguły statusów powiązane z etapami są opisane dalej w KROKU 5B.
 
 ## KROK 5B - finalne zamknięcie i ponowne otwarcie
 
-- Finalnie zamknąć i ponownie otworzyć zlecenie w MVP mogą tylko role właścicielskie z dostępem `owner`/`manager` do projektu: `company_owner`, `investor`, `independent_contractor`.
-- `company_worker` i majster/ekipa link-only w tym kroku nie zamykają finalnie zlecenia i nie otwierają go ponownie.
+- Finalnie zamknąć i ponownie otworzyć zlecenie w MVP mogą role właścicielskie z dostępem `owner`/`manager` do projektu: `company_owner`, `investor`, `independent_contractor`.
+- `company_worker` może finalnie zamknąć tylko przypisane sobie zlecenie, jeśli ma do niego dostęp wykonawczy.
+- `company_worker` nie może ponownie otworzyć zlecenia i nie może zamknąć zlecenia, które nie jest mu przypisane.
+- Majster/ekipa link-only w tym kroku nie zamyka finalnie zlecenia i nie otwiera go ponownie.
 - Później można dodać osobny flow "Zgłoś gotowe" dla wykonawcy albo link-only, ale nie jest to część 5B.
 - Klient link-only nigdy nie zamyka zlecenia i nigdy nie otwiera go ponownie.
 

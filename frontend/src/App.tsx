@@ -15,7 +15,7 @@ import {
   queuedEntries,
   type QueuedEntry,
 } from "./offline";
-import type { ClientLink, Entry, Project, Report, User, WorkerProfile, Workspace } from "./types";
+import type { ClientLink, Entry, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
 type SectionId = "home" | "projects" | "reports" | "team" | "settings";
@@ -33,10 +33,31 @@ const profileLabels: Record<NonNullable<User["profile_type"]>, string> = {
   worker: "Majster - członek firmy",
 };
 const testAccounts = [
-  { label: "Szef firmy", email: "szef@majster.pl" },
-  { label: "Inwestor", email: "inwestor@majster.pl" },
-  { label: "Samodzielny majster", email: "samodzielny@majster.pl" },
-  { label: "Majster - członek firmy", email: "pracownik@majster.pl" },
+  {
+    label: "Demo Szef firmy",
+    email: "szef@majster.pl",
+    description: "pełna firma, majstrowie, ekipy, zlecenia, raporty",
+  },
+  {
+    label: "Demo Inwestor",
+    email: "inwestor@majster.pl",
+    description: "inwestycje, wykonawcy, historia remontów i usług",
+  },
+  {
+    label: "Demo Samodzielny majster",
+    email: "samodzielny@majster.pl",
+    description: "własne zlecenia, postęp, raporty",
+  },
+  {
+    label: "Demo Majster firmy - glazurnik",
+    email: "pracownik@majster.pl",
+    description: "przypisane zlecenia firmy",
+  },
+  {
+    label: "Demo Majster firmy - hydraulik",
+    email: "pracownik2@majster.pl",
+    description: "przypisane zlecenia firmy",
+  },
 ];
 
 function isCompanyWorker(user?: User): boolean {
@@ -125,6 +146,15 @@ function workerKindLabel(worker: WorkerProfile): string {
   return worker.profile_kind === "crew" ? "Ekipa" : "Majster";
 }
 
+function workerKindLabelForUser(user: User | undefined, worker: WorkerProfile): string {
+  if (isInvestor(user)) return worker.profile_kind === "crew" ? "Firma / ekipa zewnętrzna" : "Wykonawca";
+  return workerKindLabel(worker);
+}
+
+function workerOptionLabel(user: User | undefined, worker: WorkerProfile): string {
+  return `${workerKindLabelForUser(user, worker)}: ${worker.label} - ${workerAccountLabel(worker)}`;
+}
+
 function workerAccountLabel(worker: WorkerProfile): string {
   if (!worker.active) return "dezaktywowany";
   if (worker.profile_kind === "crew" && !worker.email) return "ekipa link-only / bez e-maila";
@@ -141,6 +171,26 @@ function defaultEntryStageId(project: Project): string {
     project.stages?.[0]?.id ||
     ""
   );
+}
+
+function projectStageProgress(project: Project): { completedCount: number; progress: number } {
+  const stages = project.stages || [];
+  if (!stages.length) return { completedCount: 0, progress: 0 };
+  if (project.status === "completed") return { completedCount: stages.length, progress: 100 };
+  const activeIndex = stages.findIndex((stage) => stage.status === "active");
+  const completedCount = activeIndex >= 0
+    ? activeIndex
+    : stages.filter((stage) => stage.status === "completed").length;
+  return {
+    completedCount,
+    progress: Math.floor((completedCount / stages.length) * 100),
+  };
+}
+
+function stageStatusText(stage: Stage): string {
+  if (stage.status === "completed") return "Ukończony";
+  if (stage.status === "active") return "Aktualny etap";
+  return "Oczekuje";
 }
 
 function formString(data: FormData, name: string): string {
@@ -612,8 +662,10 @@ function AuthModal({
               >
                 Zaloguj jako: {account.label}
                 <small>{account.email}</small>
+                <small>{account.description}</small>
               </button>
             ))}
+            <small>Hasło kont demo: test1234. Wykonawcy bez e-maila nie mają konta - korzystają z linków do konkretnych zleceń.</small>
           </div>
           <small>Logując się, akceptujesz warunki wersji testowej.</small>
         </form>
@@ -851,7 +903,7 @@ function CreateProjectModal({
               <option value="">Wybiorę później</option>
               {workers.map((worker) => (
                 <option value={worker.id} key={worker.id}>
-                  {workerKindLabel(worker)}: {worker.label} - {workerAccountLabel(worker)}
+                  {workerOptionLabel(user, worker)}
                 </option>
               ))}
             </select>
@@ -1131,7 +1183,7 @@ function ProjectsPage({
                     <h3>{project.name}</h3>
                     <span>{project.client_name || "Bez klienta"} · {project.address || "Adres nieuzupełniony"}</span>
                   </div>
-                  <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                  <span className={`status project-status-badge status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
                 </div>
                 <dl className="project-meta-grid">
                   <div><dt>{projectPartyLabel(user)}</dt><dd>{projectPartyValue(user, project)}</dd></div>
@@ -1142,7 +1194,7 @@ function ProjectsPage({
                 <div className="project-list-card__footer">
                   <span>{projectLastProgressLabel(project)}</span>
                   <span>{project.open_problem_count || 0} problemów</span>
-                  <Button type="button" onClick={() => onProject(project)} variant="secondary">Otwórz</Button>
+                  <Button type="button" onClick={() => onProject(project)} variant="secondary">{isInvestor(user) ? "Edytuj" : "Otwórz"}</Button>
                 </div>
               </article>
             ))}
@@ -1445,13 +1497,16 @@ function ManageProjectModal({
   const [busy, setBusy] = useState(false);
   const [guestUrl, setGuestUrl] = useState("");
   const [invitationUrl, setInvitationUrl] = useState("");
-  const [tab, setTab] = useState<"details" | "stages" | "people" | "share">("details");
+  const [tab, setTab] = useState<"details" | "people" | "share">("details");
   const [workers, setWorkers] = useState<WorkerProfile[]>([]);
   const canManagePeople = ["owner", "manager"].includes(project.role || "");
   const canManageFinalStatus = canManagePeople && !isCompanyWorker(user);
   const canEditContractTerms = canManagePeople && !isCompanyWorker(user);
   const canAssignWorkers = canManagePeople && user?.profile_type !== "independent_contractor" && !isCompanyWorker(user);
   const peopleTabLabel = user?.profile_type === "investor" ? "Wykonawcy" : "Majstrowie i ekipy";
+  const workerAssignmentLabel = user?.profile_type === "investor" ? "Wykonawca" : "Majster / ekipa";
+  const assignActionLabel = user?.profile_type === "investor" ? "Przypisz wykonawcę" : "Przypisz wykonawcę";
+  const shareTabLabel = user?.profile_type === "investor" ? "Link dla wykonawcy tymczasowego" : "Link dla majstra tymczasowego";
 
   useEffect(() => {
     if (!canAssignWorkers) return;
@@ -1499,14 +1554,6 @@ function ManageProjectModal({
     } finally {
       setBusy(false);
     }
-  }
-
-  async function setStageStatus(stageId: string, status: string) {
-    await api(`/projects/${project.id}/stages/${stageId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-    onRefresh();
   }
 
   async function invite(event: FormEvent<HTMLFormElement>) {
@@ -1588,9 +1635,8 @@ function ManageProjectModal({
     <Modal title="Edytuj wybrane zlecenie" onClose={onClose} wide>
       <div className="manage-tabs">
         <button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>Dane</button>
-        <button className={tab === "stages" ? "active" : ""} onClick={() => setTab("stages")}>Etapy</button>
         {canAssignWorkers && <button className={tab === "people" ? "active" : ""} onClick={() => setTab("people")}>{peopleTabLabel}</button>}
-        {canAssignWorkers && <button className={tab === "share" ? "active" : ""} onClick={() => setTab("share")}>Link dla majstra tymczasowego</button>}
+        {canAssignWorkers && <button className={tab === "share" ? "active" : ""} onClick={() => setTab("share")}>{shareTabLabel}</button>}
       </div>
       {tab === "details" && (
         <form className="form-stack" onSubmit={saveDetails}>
@@ -1624,12 +1670,12 @@ function ManageProjectModal({
           )}
           {canAssignWorkers && (
             <label>
-              {user?.profile_type === "investor" ? "Wykonawca" : "Majster / ekipa"}
+              {workerAssignmentLabel}
               <select name="worker_profile_id" defaultValue={project.worker_profile_id || ""}>
                 <option value="">Bez przypisanego wykonawcy</option>
                 {workers.map((worker) => (
                   <option value={worker.id} key={worker.id}>
-                    {workerKindLabel(worker)}: {worker.label} - {workerAccountLabel(worker)}
+                    {workerOptionLabel(user, worker)}
                   </option>
                 ))}
               </select>
@@ -1650,31 +1696,13 @@ function ManageProjectModal({
           <Button type="submit" busy={busy}>Zapisz dane</Button>
         </form>
       )}
-      {tab === "stages" && (
-        <div className="manage-content">
-          <div className="manage-stage-list">
-            {project.stages?.map((stage) => (
-              <article key={stage.id}>
-                <span>{stage.position + 1}</span>
-                <strong>{stage.title}</strong>
-                <select value={stage.status} onChange={(e) => setStageStatus(stage.id, e.target.value)}>
-                  <option value="planned">Zaplanowany</option>
-                  <option value="active">W trakcie</option>
-                  <option value="completed">Zakończony</option>
-                </select>
-              </article>
-            ))}
-          </div>
-          <p className="form-intro">Etapy są celowo ograniczone do trzech prostych momentów: przed pracą, w trakcie i po zakończeniu.</p>
-        </div>
-      )}
       {tab === "people" && canAssignWorkers && (
         <div className="manage-content">
           <div className="guest-explainer">
             <Icon name="users" size={34} />
             <div>
               <h3>{peopleTabLabel}</h3>
-              <p>Wybierz stałego wykonawcę przypisanego do tego zlecenia albo wyślij osobne zaproszenie e-mail do konta.</p>
+              <p>{user?.profile_type === "investor" ? "Wybierz wykonawcę przypisanego do tej inwestycji lub zlecenia." : "Wybierz stałego wykonawcę przypisanego do tego zlecenia albo wyślij osobne zaproszenie e-mail do konta."}</p>
             </div>
           </div>
           <form className="inline-form inline-form--three" onSubmit={assignWorker}>
@@ -1682,11 +1710,11 @@ function ManageProjectModal({
               <option value="">Bez przypisanego wykonawcy</option>
               {workers.map((worker) => (
                 <option value={worker.id} key={worker.id}>
-                    {workerKindLabel(worker)}: {worker.label} - {workerAccountLabel(worker)}
+                    {workerOptionLabel(user, worker)}
                 </option>
               ))}
             </select>
-            <Button type="submit">Przypisz wykonawcę</Button>
+            <Button type="submit">{assignActionLabel}</Button>
           </form>
           {project.worker_profile && (
             <div className="member-list worker-link-list">
@@ -1708,7 +1736,7 @@ function ManageProjectModal({
       )}
       {tab === "share" && canAssignWorkers && (
         <div className="manage-content">
-          <div className="guest-explainer"><Icon name="link" size={34} /><div><h3>Link dla majstra lub ekipy bez logowania</h3><p>Wpisz nazwę wykonawcy. E-mail jest opcjonalny. Link otwiera tylko to zlecenie i pozwala dodać postęp zgodnie z uprawnieniami.</p></div></div>
+          <div className="guest-explainer"><Icon name="link" size={34} /><div><h3>{user?.profile_type === "investor" ? "Link dla wykonawcy bez logowania" : "Link dla majstra lub ekipy bez logowania"}</h3><p>Wpisz nazwę wykonawcy. E-mail jest opcjonalny. Link otwiera tylko to zlecenie i pozwala dodać postęp zgodnie z uprawnieniami.</p></div></div>
           <form className="form-stack form-stack--flat" onSubmit={createGuest}>
             {workers.length > 0 && (
               <label>
@@ -1717,13 +1745,13 @@ function ManageProjectModal({
                   <option value="">Nie przypinaj do profilu</option>
                   {workers.map((worker) => (
                     <option value={worker.id} key={worker.id}>
-                      {workerKindLabel(worker)}: {worker.label} - {workerAccountLabel(worker)}
+                      {workerOptionLabel(user, worker)}
                     </option>
                   ))}
                 </select>
               </label>
             )}
-            <label>Majster / ekipa<input name="label" placeholder="np. Mieciu, ekipa łazienka" required /></label>
+            <label>{workerAssignmentLabel}<input name="label" placeholder={user?.profile_type === "investor" ? "np. firma remontowa, glazurnik" : "np. Mieciu, ekipa łazienka"} required /></label>
             <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
             <label>Uprawnienia<select name="permission" defaultValue="history"><option value="add">Tylko dodawanie</option><option value="history">Dodawanie i historia</option><option value="view">Tylko podgląd</option></select></label>
             <Button type="submit" icon="link">Utwórz i skopiuj link</Button>
@@ -1883,6 +1911,49 @@ function ReportModal({
   );
 }
 
+function ProjectStageControls({
+  project,
+  canChangeStage,
+  busyStageId,
+  onSetCurrent,
+}: {
+  project: Project;
+  canChangeStage: boolean;
+  busyStageId?: string;
+  onSetCurrent: (stageId: string) => void;
+}) {
+  const stages = project.stages || [];
+  if (!stages.length) {
+    return <p className="form-note">Etapy nie są jeszcze skonfigurowane.</p>;
+  }
+  return (
+    <div className="simple-stages">
+      {stages.map((stage, index) => {
+        const canSetCurrent = canChangeStage && stage.status !== "active";
+        return (
+          <article className={`simple-stage simple-stage--${stage.status}`} key={stage.id}>
+            <span>{stage.status === "completed" ? "✓" : index + 1}</span>
+            <div>
+              <strong>{stage.title}</strong>
+              <small>{stageStatusText(stage)}</small>
+            </div>
+            {canSetCurrent && (
+              <button
+                type="button"
+                className="simple-stage__action"
+                disabled={busyStageId === stage.id}
+                onClick={() => onSetCurrent(stage.id)}
+              >
+                {busyStageId === stage.id ? "Ustawiam..." : "Ustaw jako aktualny"}
+              </button>
+            )}
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProjectView({
   projectId,
   guestToken,
@@ -1909,6 +1980,7 @@ function ProjectView({
   const [showReports, setShowReports] = useState(false);
   const [showManage, setShowManage] = useState(false);
   const [showClientLink, setShowClientLink] = useState(false);
+  const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const [fieldMode, setFieldMode] = useState(
     Boolean(guestToken) || user?.preferred_mode === "field",
   );
@@ -1947,10 +2019,16 @@ function ProjectView({
   if (!project) return <div className="page"><EmptyState icon="alert" title="Nie udało się otworzyć projektu" text="Link może być nieaktywny albo nie masz dostępu." /></div>;
 
   const canAdd = !project.guest || ["add", "history"].includes(project.guest.permission);
-  const completed = project.stages?.filter((stage) => stage.status === "completed").length || 0;
-  const progress = project.stages?.length ? Math.round((completed / project.stages.length) * 100) : 0;
+  const { completedCount, progress } = projectStageProgress(project);
   const canUseReports = !guestToken && !isCompanyWorker(user);
-  const canFinalizeStatus = Boolean(user && !guestToken && ["owner", "manager"].includes(project.role || "") && !isCompanyWorker(user));
+  const canReopenProject = Boolean(user && !guestToken && ["owner", "manager"].includes(project.role || "") && !isCompanyWorker(user));
+  const canCloseProject = Boolean(
+    user
+    && !guestToken
+    && project.status !== "completed"
+    && (["owner", "manager"].includes(project.role || "") || isCompanyWorker(user)),
+  );
+  const canChangeStage = canAdd && project.status !== "completed";
   const projectIdForStatusActions = project.id;
 
   async function changeMode(next: "field" | "expanded") {
@@ -1996,24 +2074,29 @@ function ProjectView({
     }
   }
 
+  async function setCurrentStage(stageId: string) {
+    setBusyStageId(stageId);
+    try {
+      await api(`/projects/${projectIdForStatusActions}/stages/${stageId}/set-current`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }, guestToken);
+      await load();
+      notify({ kind: "success", message: "Etap zlecenia zaktualizowany." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zmienić etapu" });
+    } finally {
+      setBusyStageId(undefined);
+    }
+  }
+
   const stages = (
-    <div className="simple-stages">
-      {project.stages?.map((stage, index) => (
-        <div className={`simple-stage simple-stage--${stage.status}`} key={stage.id}>
-          <span>{stage.status === "completed" ? "✓" : index + 1}</span>
-          <div>
-            <strong>{stage.title}</strong>
-            <small>
-              {stage.status === "completed"
-                ? "Zakończony"
-                : stage.status === "active"
-                  ? "Aktualny etap"
-                  : "Do wykonania"}
-            </small>
-          </div>
-        </div>
-      ))}
-    </div>
+    <ProjectStageControls
+      project={project}
+      canChangeStage={canChangeStage}
+      busyStageId={busyStageId}
+      onSetCurrent={(stageId) => void setCurrentStage(stageId)}
+    />
   );
 
   if (fieldMode) {
@@ -2035,8 +2118,8 @@ function ProjectView({
             <p>{project.address}</p>
             <ContractTermsPanel project={project} />
             <span className={`status status--${project.status}`}>● {statusLabels[project.status]}</span>
-            {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
-            {canFinalizeStatus && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
+            {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
+            {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
             {!guestToken && (
               <button className="field-mode-label" onClick={() => changeMode("expanded")}>
                 Tryb terenowy / prosty · przejdź do rozbudowanego
@@ -2080,8 +2163,8 @@ function ProjectView({
           <div className="project-header__actions">
             <Button variant="secondary" onClick={() => changeMode("field")}>Tryb terenowy / prosty</Button>
             {!guestToken && user?.profile_type !== "investor" && !isCompanyWorker(user) && clientLink && <Button variant="secondary" icon="link" onClick={copyClientLink}>Link klienta</Button>}
-            {canFinalizeStatus && project.status !== "completed" && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
-            {canFinalizeStatus && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
+            {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
+            {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
             {!guestToken && project.can_edit_details && <Button variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>}
             {canUseReports && <Button icon="report" onClick={() => setShowReports(true)}>Raporty PDF</Button>}
           </div>
@@ -2096,7 +2179,7 @@ function ProjectView({
       <div className="project-layout">
         <aside className="project-summary panel">
           <h3>Podsumowanie zlecenia</h3>
-          <div className="progress-value"><strong>{progress}%</strong><span>{completed} z {project.stages?.length || 0} etapów</span></div>
+          <div className="progress-value"><strong>{progress}%</strong><span>{completedCount} z {project.stages?.length || 0} etapów ukończonych</span></div>
           <div className="progress"><i style={{ width: `${progress}%` }} /></div>
           <ContractTermsPanel project={project} />
           {stages}
@@ -2511,7 +2594,7 @@ function WorkspaceModal({
                 <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
                 <label>Telefon opcjonalnie<input name="phone" /></label>
               </div>
-              <label>Notatka<textarea name="note" rows={2} placeholder="np. robi łazienki i instalacje" /></label>
+              <label>{workspace.kind === "personal" ? "Profesja / specjalizacja wykonawcy" : "Profesja / specjalizacja majstra lub ekipy"}<textarea name="note" rows={2} placeholder="np. hydraulik, ogrodnik, glazurnik" /></label>
               <Button type="submit" busy={busy} icon="plus">{workspace.kind === "personal" ? "Dodaj wykonawcę" : "Dodaj majstra / ekipę"}</Button>
             </form>
             {invitationUrl && <div className="share-result"><input value={invitationUrl} readOnly /><Button variant="secondary" onClick={() => void copyToClipboard(invitationUrl)}>Kopiuj link</Button></div>}
@@ -2530,7 +2613,7 @@ function WorkspaceModal({
             <label>Nazwa<input name="label" defaultValue={editingWorker.label} required autoFocus /></label>
             <label>E-mail opcjonalnie<input type="email" name="email" defaultValue={editingWorker.email} placeholder="Możesz zostawić puste" /></label>
             <label>Telefon<input name="phone" defaultValue={editingWorker.phone} /></label>
-            <label>Notatka<textarea name="note" rows={3} defaultValue={editingWorker.note} /></label>
+            <label>{workspace?.kind === "personal" ? "Profesja / specjalizacja wykonawcy" : "Profesja / specjalizacja majstra lub ekipy"}<textarea name="note" rows={3} defaultValue={editingWorker.note} placeholder="np. hydraulik, ogrodnik, glazurnik" /></label>
             <Button type="submit" busy={busy}>Zapisz wykonawcę</Button>
           </form>
         </Modal>
@@ -2806,7 +2889,7 @@ function InvestorContractorsPanel({
               <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
               <label>Telefon opcjonalnie<input name="phone" /></label>
             </div>
-            <label>Notatka opcjonalnie<textarea name="note" rows={2} placeholder="np. zakres prac, specjalizacja, ustalenia" /></label>
+            <label>Profesja / specjalizacja wykonawcy<textarea name="note" rows={2} placeholder="np. hydraulik, ogrodnik, glazurnik" /></label>
             <Button type="submit" busy={busy} icon="plus">Dodaj wykonawcę</Button>
           </form>
         </Modal>
@@ -2831,7 +2914,7 @@ function InvestorContractorsPanel({
               )}
             </div>
             <dl>
-              <div><dt>Typ / notatka</dt><dd>{previewWorker.note || (previewWorker.profile_kind === "crew" ? "Firma / ekipa zewnętrzna" : "Wykonawca")}</dd></div>
+              <div><dt>Profesja / specjalizacja</dt><dd>{previewWorker.note || (previewWorker.profile_kind === "crew" ? "Firma / ekipa zewnętrzna" : "Wykonawca")}</dd></div>
               <div><dt>E-mail</dt><dd>{previewWorker.email || "Nie podano"}</dd></div>
               <div><dt>Telefon</dt><dd>{previewWorker.phone || "Nie podano"}</dd></div>
               <div><dt>Konto</dt><dd>{previewWorker.account_type === "account" ? "konto po potwierdzeniu e-mail" : "link-only"}</dd></div>
@@ -2867,7 +2950,7 @@ function InvestorContractorsPanel({
             <label>Nazwa wykonawcy<input name="label" defaultValue={editingWorker.label} required autoFocus /></label>
             <label>E-mail opcjonalnie<input type="email" name="email" defaultValue={editingWorker.email} placeholder="Możesz zostawić puste" /></label>
             <label>Telefon<input name="phone" defaultValue={editingWorker.phone} /></label>
-            <label>Notatka<textarea name="note" rows={3} defaultValue={editingWorker.note} /></label>
+            <label>Profesja / specjalizacja wykonawcy<textarea name="note" rows={3} defaultValue={editingWorker.note} placeholder="np. hydraulik, ogrodnik, glazurnik" /></label>
             <Button type="submit" busy={busy}>Zapisz wykonawcę</Button>
           </form>
         </Modal>
@@ -3260,7 +3343,7 @@ function CompanyTeamPanel({
               <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
               <label>Telefon opcjonalnie<input name="phone" /></label>
             </div>
-            <label>Notatka opcjonalnie<textarea name="note" rows={2} placeholder="np. łazienki, instalacje, wykończenia" /></label>
+            <label>Profesja / specjalizacja majstra lub ekipy<textarea name="note" rows={2} placeholder="np. hydraulik, ogrodnik, glazurnik" /></label>
             <Button type="submit" busy={busy} icon="plus">Dodaj majstra / ekipę</Button>
           </form>
         </Modal>
@@ -3285,7 +3368,7 @@ function CompanyTeamPanel({
               )}
             </div>
             <dl>
-              <div><dt>Specjalizacja / notatka</dt><dd>{previewWorker.note || "Brak specjalizacji"}</dd></div>
+              <div><dt>Profesja / specjalizacja</dt><dd>{previewWorker.note || "Brak specjalizacji"}</dd></div>
               <div><dt>E-mail</dt><dd>{previewWorker.email || "Nie podano"}</dd></div>
               <div><dt>Telefon</dt><dd>{previewWorker.phone || "Nie podano"}</dd></div>
               <div><dt>Konto</dt><dd>{workerAccountLabel(previewWorker)}</dd></div>
@@ -3321,7 +3404,7 @@ function CompanyTeamPanel({
             <label>Nazwa<input name="label" defaultValue={editingWorker.label} required autoFocus /></label>
             <label>E-mail opcjonalnie<input type="email" name="email" defaultValue={editingWorker.email} placeholder="Możesz zostawić puste" /></label>
             <label>Telefon<input name="phone" defaultValue={editingWorker.phone} /></label>
-            <label>Notatka<textarea name="note" rows={3} defaultValue={editingWorker.note} /></label>
+            <label>Profesja / specjalizacja majstra lub ekipy<textarea name="note" rows={3} defaultValue={editingWorker.note} placeholder="np. hydraulik, ogrodnik, glazurnik" /></label>
             <Button type="submit" busy={busy}>Zapisz</Button>
           </form>
         </Modal>

@@ -19,11 +19,12 @@ os.environ.update(
 )
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from main import app
 from panmajster import models
 from panmajster.db import SessionLocal
+from panmajster.demo_seed import seed_demo_data
 from panmajster.reporting import _merge_generated_content
 from panmajster.security import hash_secret
 from panmajster.worker import process_next_job
@@ -824,6 +825,153 @@ def test_company_worker_account_sees_project_assigned_at_creation():
         ).status_code == 403
 
 
+def test_investor_can_assign_worker_after_project_creation():
+    with TestClient(app) as investor:
+        login(investor, "investor-assign-worker@example.com")
+        investor.post("/api/onboarding", json={"profile_type": "investor"})
+        project = investor.post(
+            "/api/projects",
+            json={"name": "Inwestycja do przypisania", "template": "custom"},
+        ).json()
+        worker = investor.post(
+            "/api/workers", json={"label": "Wykonawca inwestora"}
+        ).json()
+
+        assigned = investor.patch(
+            f"/api/projects/{project['id']}",
+            json={"worker_profile_id": worker["id"]},
+        )
+
+        assert assigned.status_code == 200
+        details = investor.get(f"/api/projects/{project['id']}").json()
+        assert details["worker_profile_id"] == worker["id"]
+        assert details["worker_profile"]["label"] == "Wykonawca inwestora"
+        workers = investor.get("/api/workers").json()
+        assigned_projects = [
+            item
+            for item in workers
+            if item["id"] == worker["id"]
+        ][0]["assigned_projects"]
+        assert assigned_projects[0]["id"] == project["id"]
+
+
+def test_set_current_stage_permissions_and_payload():
+    with TestClient(app) as worker_client:
+        login(worker_client, "stage-worker@example.com")
+
+    with TestClient(app) as owner:
+        login(owner, "stage-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Firma etapow",
+            },
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik etapow",
+                "email": "stage-worker@example.com",
+            },
+        ).json()
+        unassigned = owner.post(
+            "/api/projects",
+            json={
+                "name": "Etap nieprzypisany",
+                "workspace_id": workspace_id,
+                "template": "custom",
+            },
+        ).json()
+        project = owner.post(
+            "/api/projects",
+            json={
+                "name": "Etap przypisany",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        owner_stage = owner.post(
+            f"/api/projects/{project['id']}/stages/{project['stages'][1]['id']}/set-current"
+        )
+        assert owner_stage.status_code == 200
+        assert [stage["status"] for stage in owner_stage.json()["stages"]] == [
+            "completed",
+            "active",
+            "planned",
+        ]
+        assert owner_stage.json()["status"] == "in_progress"
+        fallback_stage = owner.post(
+            f"/api/projects/{project['id']}/stages/{project['stages'][0]['id']}"
+        )
+        assert fallback_stage.status_code == 200
+        assert fallback_stage.json()["stages"][0]["status"] == "active"
+
+        link = owner.post(
+            f"/api/projects/{project['id']}/guest-links",
+            json={
+                "label": "Link stage",
+                "kind": "worker",
+                "permission": "add",
+            },
+        ).json()
+
+    with TestClient(app) as investor:
+        login(investor, "stage-investor@example.com")
+        investor.post("/api/onboarding", json={"profile_type": "investor"})
+        investor_project = investor.post(
+            "/api/projects",
+            json={"name": "Etap inwestora", "template": "custom"},
+        ).json()
+        response = investor.post(
+            f"/api/projects/{investor_project['id']}/stages/{investor_project['stages'][1]['id']}/set-current"
+        )
+        assert response.status_code == 200
+        assert response.json()["stages"][1]["status"] == "active"
+
+    with TestClient(app) as independent:
+        login(independent, "stage-independent@example.com")
+        independent.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        own_project = independent.post(
+            "/api/projects",
+            json={"name": "Etap samodzielnego", "template": "custom"},
+        ).json()
+        response = independent.post(
+            f"/api/projects/{own_project['id']}/stages/{own_project['stages'][2]['id']}/set-current"
+        )
+        assert response.status_code == 200
+        assert response.json()["stages"][2]["status"] == "active"
+        assert response.json()["status"] == "in_progress"
+
+    with TestClient(app) as worker_client:
+        login(worker_client, "stage-worker@example.com")
+        response = worker_client.post(
+            f"/api/projects/{project['id']}/stages/{project['stages'][2]['id']}/set-current"
+        )
+        assert response.status_code == 200
+        assert response.json()["stages"][2]["status"] == "active"
+        assert worker_client.post(
+            f"/api/projects/{unassigned['id']}/stages/{unassigned['stages'][1]['id']}/set-current"
+        ).status_code == 403
+
+    with TestClient(app) as link_client:
+        response = link_client.post(
+            f"/api/projects/{project['id']}/stages/{project['stages'][1]['id']}/set-current",
+            headers={"x-guest-token": link["token"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["stages"][1]["status"] == "active"
+        assert link_client.post(
+            f"/api/projects/{project['id']}/stages/{project['stages'][0]['id']}/set-current"
+        ).status_code == 403
+
+
 def test_project_close_and_reopen_permissions():
     with TestClient(app) as worker_client:
         login(worker_client, "close-worker@example.com")
@@ -844,6 +992,14 @@ def test_project_close_and_reopen_permissions():
                 "workspace_id": workspace_id,
                 "label": "Pracownik do zamykania",
                 "email": "close-worker@example.com",
+            },
+        ).json()
+        unassigned = owner.post(
+            "/api/projects",
+            json={
+                "name": "Nieprzypisane do zamykania",
+                "workspace_id": workspace_id,
+                "template": "custom",
             },
         ).json()
         project = owner.post(
@@ -876,8 +1032,11 @@ def test_project_close_and_reopen_permissions():
 
     with TestClient(app) as worker_client:
         login(worker_client, "close-worker@example.com")
-        assert worker_client.post(f"/api/projects/{project['id']}/close").status_code == 403
+        worker_closed = worker_client.post(f"/api/projects/{project['id']}/close")
+        assert worker_closed.status_code == 200
+        assert worker_closed.json()["status"] == "completed"
         assert worker_client.post(f"/api/projects/{project['id']}/reopen").status_code == 403
+        assert worker_client.post(f"/api/projects/{unassigned['id']}/close").status_code == 403
         assert worker_client.patch(
             f"/api/projects/{project['id']}",
             json={"status": "completed"},
@@ -896,7 +1055,7 @@ def test_project_close_and_reopen_permissions():
     with TestClient(app) as public_client:
         assert public_client.get(f"/api/public/projects/{client_token}").json()[
             "project"
-        ]["status"] == "in_progress"
+        ]["status"] == "completed"
         assert public_client.post(f"/api/projects/{project['id']}/close").status_code == 403
 
     with TestClient(app) as investor:
@@ -1175,3 +1334,81 @@ def test_frontend_project_forms_send_contract_terms_without_currency_field():
         assert "Kwota umowna (PLN)" in block
         assert 'name="contract_currency"' not in block
         assert "Waluta" not in block
+
+
+def test_demo_seed_reset_creates_realistic_demo_data():
+    with SessionLocal() as db:
+        db.add(
+            models.User(
+                email="old-demo-noise@example.com",
+                name="Nie demo",
+                profile_type="investor",
+            )
+        )
+        result = seed_demo_data(db, reset=True, yes=True)
+
+        demo_users = db.scalars(
+            select(models.User).where(
+                models.User.email.in_(
+                    [
+                        "szef@majster.pl",
+                        "inwestor@majster.pl",
+                        "samodzielny@majster.pl",
+                        "pracownik@majster.pl",
+                        "pracownik2@majster.pl",
+                    ]
+                )
+            )
+        ).all()
+        assert {user.email: user.profile_type for user in demo_users} == {
+            "szef@majster.pl": "company_owner",
+            "inwestor@majster.pl": "investor",
+            "samodzielny@majster.pl": "independent_contractor",
+            "pracownik@majster.pl": "company_worker",
+            "pracownik2@majster.pl": "company_worker",
+        }
+        assert all(user.password_hash for user in demo_users)
+        assert result.company_statuses["assigned"] == 1
+        assert result.company_statuses["in_progress"] == 4
+        assert result.company_statuses["completed"] == 5
+        assert result.independent_statuses["assigned"] == 1
+        assert result.independent_statuses["in_progress"] == 2
+        assert result.independent_statuses["completed"] == 4
+        assert result.investor_statuses["assigned"] == 1
+        assert result.investor_statuses["in_progress"] == 2
+        assert result.investor_statuses["completed"] == 5
+        company = db.scalar(
+            select(models.Workspace).where(
+                models.Workspace.name == "Firma Remontowo-Budowlana Majster Demo"
+            )
+        )
+        assert company is not None
+        company_workers = db.scalars(
+            select(models.WorkerProfile).where(
+                models.WorkerProfile.workspace_id == company.id
+            )
+        ).all()
+        assert len(company_workers) == 8
+        assert any(
+            worker.label == "Staszek Malarz Nieaktywny" and not worker.active
+            for worker in company_workers
+        )
+        investor_space = db.scalar(
+            select(models.Workspace).where(
+                models.Workspace.name == "Wykonawcy Inwestora Demo"
+            )
+        )
+        assert investor_space is not None
+        assert (
+            db.scalar(
+                select(func.count(models.WorkerProfile.id)).where(
+                    models.WorkerProfile.workspace_id == investor_space.id
+                )
+            )
+            == 5
+        )
+        assert result.guest_links >= 3
+        assert result.client_links >= 25
+        assert db.scalar(
+            select(models.User).where(models.User.email == "old-demo-noise@example.com")
+        )

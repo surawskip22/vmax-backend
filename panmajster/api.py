@@ -1317,6 +1317,13 @@ def require_final_status_manage(access) -> None:
         raise HTTPException(403, "Majster firmy nie zamyka finalnie zlecenia")
 
 
+def require_close_project_access(access) -> None:
+    if is_company_worker(access.user):
+        access.require_add()
+        return
+    require_final_status_manage(access)
+
+
 @router.get("/projects/{project_id}")
 def get_project(project_id: str, request: Request, db: Session = Depends(get_db)):
     access = get_project_access(request, db, project_id)
@@ -1390,7 +1397,7 @@ def close_project(
     project_id: str, request: Request, db: Session = Depends(get_db)
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
-    require_final_status_manage(access)
+    require_close_project_access(access)
     access.project.status = PROJECT_STATUS_COMPLETED
     if not access.project.finished_at:
         access.project.finished_at = now()
@@ -1446,6 +1453,49 @@ def update_stage(
         db.rollback()
         raise HTTPException(409, "Pozycja etapu jest już zajęta")
     return serializers.stage(item)
+
+
+@router.post("/projects/{project_id}/stages/{stage_id}/set-current")
+@router.post("/projects/{project_id}/stages/{stage_id}")
+def set_current_stage(
+    project_id: str,
+    stage_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id)
+    access.require_add()
+    item = db.get(models.ProjectStage, stage_id)
+    if not item or item.project_id != project_id:
+        raise HTTPException(404, "Nie znaleziono etapu")
+    stages = db.scalars(
+        select(models.ProjectStage)
+        .where(models.ProjectStage.project_id == project_id)
+        .order_by(models.ProjectStage.position)
+    ).all()
+    for stage_item in stages:
+        if stage_item.position < item.position:
+            stage_item.status = "completed"
+        elif stage_item.id == item.id:
+            stage_item.status = "active"
+        else:
+            stage_item.status = "planned"
+    if access.project.status == PROJECT_STATUS_ASSIGNED and item.position > 0:
+        access.project.status = PROJECT_STATUS_IN_PROGRESS
+    db.commit()
+    db.refresh(access.project)
+    if access.user:
+        return project_detail_data(db, access.project, access.role)
+    return {
+        **serializers.project(access.project, details=True),
+        "guest": {
+            "label": access.guest.label if access.guest else "",
+            "permission": access.guest.permission if access.guest else "",
+            "kind": access.guest.kind if access.guest else "",
+        },
+        "members": [],
+        "worker_links": [],
+    }
 
 
 @router.post("/projects/{project_id}/invite")
