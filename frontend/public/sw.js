@@ -1,4 +1,4 @@
-const CACHE = "pan-majster-v1";
+const CACHE = "pan-majster-5d";
 const SHELL = ["/", "/app", "/brand/logo.png", "/brand/symbol.png", "/brand/app-icon.png"];
 
 self.addEventListener("install", (event) => {

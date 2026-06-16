@@ -17,6 +17,7 @@ from .worker import worker_loop
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC_DIR = ROOT / "static"
+NO_CACHE_HEADERS = {"Cache-Control": "no-cache"}
 
 
 @asynccontextmanager
@@ -61,17 +62,22 @@ def create_app() -> FastAPI:
         return FileResponse(
             STATIC_DIR / "sw.js",
             media_type="application/javascript",
-            headers={"Service-Worker-Allowed": "/"},
+            headers={
+                "Service-Worker-Allowed": "/",
+                **NO_CACHE_HEADERS,
+            },
         )
 
     @app.get("/{path:path}", include_in_schema=False)
     def frontend(path: str):
         candidate = (STATIC_DIR / path).resolve()
         if STATIC_DIR.resolve() in candidate.parents and candidate.is_file():
+            if candidate.name == "index.html":
+                return FileResponse(candidate, headers=NO_CACHE_HEADERS)
             return FileResponse(candidate)
         index = STATIC_DIR / "index.html"
         if index.is_file():
-            return FileResponse(index)
+            return FileResponse(index, headers=NO_CACHE_HEADERS)
         return JSONResponse(
             {"message": "Frontend nie został jeszcze zbudowany."}, status_code=503
         )

@@ -577,6 +577,20 @@ def health(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/version")
+def version():
+    return {
+        "service": "pan-majster",
+        "build": "render-pan-majster",
+        "commit_hint": "3acf140-or-newer",
+        "features": {
+            "password_login": True,
+            "contract_terms_5d": True,
+            "progress_stage_5c": True,
+        },
+    }
+
+
 @router.post("/auth/request-code")
 def request_code(payload: OtpRequest, request: Request, db: Session = Depends(get_db)):
     email = normalize_email(str(payload.email))
