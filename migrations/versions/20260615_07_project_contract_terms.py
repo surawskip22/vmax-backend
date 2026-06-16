@@ -19,6 +19,8 @@ depends_on = None
 
 def has_column(table_name: str, column_name: str, schema: str | None) -> bool:
     inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table(table_name, schema=schema):
+        return False
     return any(
         column["name"] == column_name
         for column in inspector.get_columns(table_name, schema=schema)
@@ -27,6 +29,9 @@ def has_column(table_name: str, column_name: str, schema: str | None) -> bool:
 
 def upgrade() -> None:
     schema = Base.metadata.schema
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table("projects", schema=schema):
+        return
     columns = [
         ("planned_start_date", sa.Column("planned_start_date", sa.Date(), nullable=True)),
         ("planned_end_date", sa.Column("planned_end_date", sa.Date(), nullable=True)),
@@ -44,6 +49,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     schema = Base.metadata.schema
+    inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table("projects", schema=schema):
+        return
     for column_name in [
         "contract_currency",
         "contract_amount",

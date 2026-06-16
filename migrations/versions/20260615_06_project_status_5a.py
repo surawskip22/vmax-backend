@@ -19,10 +19,20 @@ depends_on = None
 
 def has_column(table_name: str, column_name: str, schema: str | None) -> bool:
     inspector = sa.inspect(op.get_bind())
+    if not inspector.has_table(table_name, schema=schema):
+        return False
     return any(
         column["name"] == column_name
         for column in inspector.get_columns(table_name, schema=schema)
     )
+
+
+def qualified_table(table_name: str, schema: str | None) -> str:
+    bind = op.get_bind()
+    preparer = bind.dialect.identifier_preparer
+    if not schema:
+        return preparer.quote(table_name)
+    return f"{preparer.quote_schema(schema)}.{preparer.quote(table_name)}"
 
 
 def upgrade() -> None:
@@ -30,9 +40,10 @@ def upgrade() -> None:
     if not has_column("projects", "status", schema):
         return
     bind = op.get_bind()
+    projects_table = qualified_table("projects", schema)
     bind.execute(
         sa.text(
-            "UPDATE projects "
+            f"UPDATE {projects_table} "
             "SET status = CASE "
             "WHEN status = 'completed' THEN 'completed' "
             "WHEN status = 'in_progress' THEN 'in_progress' "
@@ -48,9 +59,10 @@ def downgrade() -> None:
     if not has_column("projects", "status", schema):
         return
     bind = op.get_bind()
+    projects_table = qualified_table("projects", schema)
     bind.execute(
         sa.text(
-            "UPDATE projects "
+            f"UPDATE {projects_table} "
             "SET status = CASE "
             "WHEN status = 'assigned' THEN 'active' "
             "WHEN status = 'in_progress' THEN 'active' "
