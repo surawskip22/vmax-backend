@@ -19,4 +19,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . ./
 COPY --from=frontend /build/static /app/static
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
+CMD ["sh", "-c", "alembic upgrade head && python -m uvicorn panmajster.app:create_app --factory --host 0.0.0.0 --port ${PORT:-8000}"]
