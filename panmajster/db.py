@@ -1,12 +1,10 @@
 from collections.abc import Generator
+import logging
 import re
 
 from sqlalchemy import (
-    Boolean,
     Column,
-    DateTime,
     MetaData,
-    String,
     create_engine,
     inspect,
     select,
@@ -21,6 +19,7 @@ from .config import get_settings
 settings = get_settings()
 is_postgres = settings.normalized_database_url.startswith("postgresql")
 database_schema = settings.database_schema if is_postgres else None
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -66,38 +65,51 @@ def add_missing_column(connection, table_name: str, column) -> None:
     )
 
 
-def ensure_user_schema_compatibility(connection) -> None:
+SAFE_COLUMN_DEFAULTS = {
+    ("users", "name"): "''",
+    ("users", "is_admin"): "false",
+    ("users", "locale"): "'pl'",
+    ("users", "preferred_mode"): "'expanded'",
+    ("users", "password_hash"): "''",
+    ("workspaces", "description"): "''",
+    ("workspaces", "phone"): "''",
+    ("workspaces", "address"): "''",
+    ("projects", "status"): "'assigned'",
+    ("projects", "contract_currency"): "'PLN'",
+}
+
+
+def additive_column(table_name: str, model_column) -> Column:
+    kwargs = {"nullable": True}
+    default = SAFE_COLUMN_DEFAULTS.get((table_name, model_column.name))
+    if default is not None:
+        kwargs["server_default"] = text(default)
+    return Column(model_column.name, model_column.type, **kwargs)
+
+
+def ensure_model_schema_compatibility(connection) -> None:
     inspector = inspect(connection)
-    if not inspector.has_table("users", schema=database_schema):
-        return
-    existing = {
-        column["name"]
-        for column in inspector.get_columns("users", schema=database_schema)
-    }
-    required_columns = [
-        ("name", String(160), "''"),
-        ("phone", String(40), None),
-        ("is_admin", Boolean(), "false"),
-        ("locale", String(10), "'pl'"),
-        ("profile_type", String(40), None),
-        ("preferred_mode", String(30), "'expanded'"),
-        ("password_hash", String(128), "''"),
-        ("last_login_at", DateTime(timezone=True), None),
-        ("created_at", DateTime(timezone=True), None),
-        ("updated_at", DateTime(timezone=True), None),
-    ]
-    for column_name, column_type, default in required_columns:
-        if column_name in existing:
+    for table in Base.metadata.sorted_tables:
+        if not inspector.has_table(table.name, schema=database_schema):
             continue
-        kwargs = {"nullable": True}
-        if default is not None:
-            kwargs["server_default"] = text(default)
-        add_missing_column(
-            connection,
-            "users",
-            Column(column_name, column_type, **kwargs),
-        )
-        existing.add(column_name)
+        existing = {
+            column["name"]
+            for column in inspector.get_columns(table.name, schema=database_schema)
+        }
+        for model_column in table.columns:
+            if model_column.name in existing or model_column.primary_key:
+                continue
+            add_missing_column(
+                connection,
+                table.name,
+                additive_column(table.name, model_column),
+            )
+            logger.info(
+                "schema repair: added missing column %s.%s",
+                table.name,
+                model_column.name,
+            )
+            existing.add(model_column.name)
 
 
 def get_db() -> Generator[Session, None, None]:
@@ -114,9 +126,9 @@ def init_db() -> None:
 
     with engine.begin() as connection:
         ensure_database_schema(connection)
-        ensure_user_schema_compatibility(connection)
+        ensure_model_schema_compatibility(connection)
         Base.metadata.create_all(bind=connection)
-        ensure_user_schema_compatibility(connection)
+        ensure_model_schema_compatibility(connection)
         if not settings.is_production:
             db = Session(bind=connection)
             seed_development_accounts(db, models, hash_secret)
