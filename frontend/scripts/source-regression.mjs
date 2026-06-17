@@ -4,11 +4,12 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(resolve(__dirname, "../src/App.tsx"), "utf8");
+const manageProjectModalSource = readFileSync(resolve(__dirname, "../src/ManageProjectModal.tsx"), "utf8");
 const accessSource = readFileSync(resolve(__dirname, "../src/access.ts"), "utf8");
 const roleLabelsSource = readFileSync(resolve(__dirname, "../src/roleLabels.ts"), "utf8");
 const appShellSource = readFileSync(resolve(__dirname, "../src/AppShell.tsx"), "utf8");
 const sidebarSource = readFileSync(resolve(__dirname, "../src/RoleAwareSidebar.tsx"), "utf8");
-const allSources = [appSource, accessSource, roleLabelsSource, appShellSource, sidebarSource].join("\n");
+const allSources = [appSource, manageProjectModalSource, accessSource, roleLabelsSource, appShellSource, sidebarSource].join("\n");
 
 function assertIncludes(needle, message) {
   if (!allSources.includes(needle)) {
@@ -84,7 +85,7 @@ assertMatches(
 if (!/function canAssignWorkers\(user: RoleUser, canManageProject: boolean\): boolean \{\s*return canManageProject && !isIndependentContractor\(user\) && !isCompanyWorker\(user\);\s*\}/.test(accessSource)) {
   throw new Error("Helper canAssignWorkers nie powinien dawac company_worker zarzadzania wykonawca.");
 }
-if (!/const canAssignWorkers = canAssignWorkersForUser\(user, canManagePeople\);/.test(appSource)) {
+if (!/const canAssignWorkers = canAssignWorkersForUser\(user, canManagePeople\);/.test(manageProjectModalSource)) {
   throw new Error("ManageProjectModal powinien korzystac z helpera canAssignWorkers.");
 }
 assertIncludes(
@@ -134,8 +135,8 @@ if (companyWorkerNavigation.includes('id: "team"')) {
   throw new Error("company_worker nie powinien widziec panelu ludzi.");
 }
 
-const advancedIndex = appSource.indexOf("<summary>Zaawansowane</summary>");
-const profileLinkIndex = appSource.indexOf("Powi\u0105\u017c z profilem, je\u015bli dotyczy");
+const advancedIndex = manageProjectModalSource.indexOf("<summary>Zaawansowane</summary>");
+const profileLinkIndex = manageProjectModalSource.indexOf("Powi\u0105\u017c z profilem, je\u015bli dotyczy");
 if (advancedIndex < 0 || profileLinkIndex < 0 || profileLinkIndex < advancedIndex) {
   throw new Error("Pole Powiaz z profilem powinno byc schowane w Zaawansowane.");
 }
