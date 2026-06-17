@@ -531,6 +531,42 @@ audio { width: 100%; margin-top: 13px; }
 .guest-explainer p { margin: 0; color: #536379; line-height: 1.6; }
 .form-stack--flat { padding-left: 0; padding-right: 0; }
 .share-result { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.modal-actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: 12px; }
+.manage-content--worker { display: flex; flex-direction: column; gap: 20px; }
+.contractor-tab { padding: 28px; background: #f8fafc; }
+.worker-flow-section { padding: 24px; border: 1px solid var(--border); border-radius: 16px; background: #fff; box-shadow: 0 16px 36px rgba(15, 35, 66, .06); }
+.contractor-section-header { margin-bottom: 22px; display: flex; gap: 14px; align-items: flex-start; }
+.worker-flow-section h3 { margin: 0 0 9px; color: var(--navy); font-size: 21px; line-height: 1.25; }
+.worker-flow-section h3 small { margin-left: 10px; padding: 6px 10px; border-radius: 7px; color: #1b5bb8; background: #e7f0ff; font-size: 11px; font-weight: 900; text-transform: uppercase; vertical-align: middle; }
+.worker-flow-section p { margin: 0; color: var(--muted); line-height: 1.55; }
+.worker-flow-section--temporary { border-color: #9ac0ff; background: linear-gradient(180deg, #f8fbff, #fff); }
+.worker-flow-icon { width: 46px; height: 46px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 999px; color: #fff; background: var(--blue); box-shadow: 0 10px 24px rgba(30, 111, 255, .2); }
+.contractor-grid { display: grid; grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1fr) minmax(190px, .85fr); gap: 16px; align-items: end; }
+.contractor-grid--assign { grid-template-columns: minmax(0, 1fr) minmax(190px, auto); }
+.contractor-field { margin: 0; display: flex; flex-direction: column; gap: 8px; color: #5f6b7c; font-size: 12px; font-weight: 800; }
+.contractor-field > span { display: block; }
+.contractor-field input, .contractor-field select, .link-placeholder-input { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid #cbd5e1; border-radius: 10px; color: var(--navy); background: #fff; font: inherit; font-weight: 700; box-shadow: 0 1px 0 rgba(15, 35, 66, .03); }
+.contractor-field input::placeholder { color: #93a0b2; font-weight: 600; }
+.contractor-field select { appearance: none; padding-right: 38px; background-image: linear-gradient(45deg, transparent 50%, #53657d 50%), linear-gradient(135deg, #53657d 50%, transparent 50%); background-position: calc(100% - 18px) 21px, calc(100% - 12px) 21px; background-size: 6px 6px, 6px 6px; background-repeat: no-repeat; }
+.worker-assign-form .button { min-height: 48px; padding-inline: 24px; }
+.assigned-worker-card, .project-owner-list, .temporary-link-list { margin-top: 22px; }
+.assigned-worker-card h4, .project-owner-list h4, .temporary-link-list h4 { margin: 0 0 12px; color: var(--navy); font-size: 15px; }
+.assigned-worker-card article, .project-owner-list article, .temporary-link-list article { min-height: 70px; padding: 14px 16px; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: center; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+.assigned-worker-card article { border-color: #d7e7fb; background: #fbfdff; }
+.project-owner-list article { min-height: 58px; background: #fafcff; }
+.assigned-worker-card article > span, .project-owner-list article > span, .temporary-link-list article > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 999px; color: #fff; background: var(--navy); font-size: 12px; font-weight: 900; }
+.assigned-worker-card strong, .project-owner-list strong, .temporary-link-list strong { color: var(--navy); }
+.assigned-worker-card small, .project-owner-list small, .temporary-link-list small, .temporary-link-list em { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; font-style: normal; }
+.assigned-worker-card b, .project-owner-list b { padding: 6px 10px; border-radius: 999px; color: #168043; background: #d9f7e7; font-size: 11px; text-transform: uppercase; }
+.temporary-worker-form .button { grid-column: 1 / -1; min-height: 50px; justify-content: center; }
+.advanced-link-options { grid-column: 1 / -1; padding: 12px 14px; border: 1px dashed #cbd9ea; border-radius: 12px; background: rgba(255,255,255,.7); }
+.advanced-link-options summary { cursor: pointer; color: var(--blue); font-size: 13px; font-weight: 900; }
+.advanced-link-options .contractor-field { margin-top: 12px; }
+.share-result { margin-top: 16px; }
+.share-result input { min-height: 46px; border-radius: 10px; }
+.temporary-link-list { display: flex; flex-direction: column; gap: 10px; }
+.temporary-link-list article { grid-template-columns: 44px minmax(0, 1fr) auto; background: #fff; }
+.link-placeholder-input { margin-top: 10px; min-height: 40px; color: #748096; background: #f7f9fc; font-size: 12px; font-weight: 700; }
 .portfolio-settings { padding: 18px; display: flex; flex-direction: column; gap: 15px; border: 1px solid #dbe2ea; border-radius: 10px; background: #f8fafb; }
 .contract-fields { padding: 18px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #dbe2ea; border-radius: 10px; background: #f8fafb; }
 .contract-fields--readonly .contract-terms { margin: 0; background: #fff; }
@@ -766,6 +802,11 @@ audio { width: 100%; margin-top: 13px; }
   .worker-preview dl { grid-template-columns: 1fr; }
   .worker-project-card { grid-template-columns: 1fr; }
   .worker-project-card dl { grid-template-columns: 1fr; }
+  .contractor-tab { padding: 18px; }
+  .contractor-grid, .contractor-grid--assign { grid-template-columns: 1fr; }
+  .worker-assign-form .button, .temporary-worker-form .button { width: 100%; }
+  .assigned-worker-card article, .project-owner-list article, .temporary-link-list article { grid-template-columns: 42px 1fr; }
+  .assigned-worker-card article > b, .project-owner-list article > b, .temporary-link-list article > .button { grid-column: 2; justify-self: start; }
   .team-worker-card { display: flex; align-items: flex-start; }
   .contractor-card { display: flex; align-items: flex-start; }
   .team-worker-card__actions, .contractor-card__actions { width: 100%; flex-wrap: wrap; }

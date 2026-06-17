@@ -1496,17 +1496,17 @@ function ManageProjectModal({
 }) {
   const [busy, setBusy] = useState(false);
   const [guestUrl, setGuestUrl] = useState("");
-  const [invitationUrl, setInvitationUrl] = useState("");
-  const [tab, setTab] = useState<"details" | "people" | "share">("details");
+  const [tab, setTab] = useState<"details" | "people">("details");
   const [workers, setWorkers] = useState<WorkerProfile[]>([]);
   const canManagePeople = ["owner", "manager"].includes(project.role || "");
   const canManageFinalStatus = canManagePeople && !isCompanyWorker(user);
   const canEditContractTerms = canManagePeople && !isCompanyWorker(user);
   const canAssignWorkers = canManagePeople && user?.profile_type !== "independent_contractor" && !isCompanyWorker(user);
-  const peopleTabLabel = user?.profile_type === "investor" ? "Wykonawcy" : "Majstrowie i ekipy";
   const workerAssignmentLabel = user?.profile_type === "investor" ? "Wykonawca" : "Majster / ekipa";
-  const assignActionLabel = user?.profile_type === "investor" ? "Przypisz wykonawcę" : "Przypisz wykonawcę";
-  const shareTabLabel = user?.profile_type === "investor" ? "Link dla wykonawcy tymczasowego" : "Link dla majstra tymczasowego";
+  const assignActionLabel = user?.profile_type === "investor" ? "Przypisz wykonawcę" : "Przypisz majstra / ekipę";
+  const workerSectionDescription = user?.profile_type === "investor"
+    ? "Wybierz wykonawcę przypisanego do tego zlecenia."
+    : "Wybierz majstra lub ekipę przypisaną do tego zlecenia.";
 
   useEffect(() => {
     if (!canAssignWorkers) return;
@@ -1540,9 +1540,6 @@ function ManageProjectModal({
       if (canManageFinalStatus) {
         payload.status = data.get("status");
       }
-      if (canAssignWorkers) {
-        payload.worker_profile_id = data.get("worker_profile_id") || null;
-      }
       await api(`/projects/${project.id}`, {
         method: "PATCH",
         body: JSON.stringify(payload),
@@ -1553,25 +1550,6 @@ function ManageProjectModal({
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zapisać" });
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function invite(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
-    try {
-      const result = await api<{ url: string }>(`/projects/${project.id}/invite`, {
-        method: "POST",
-        body: JSON.stringify({ email: data.get("email"), role: data.get("role") }),
-      });
-      setInvitationUrl(result.url);
-      const copied = await copyToClipboard(result.url);
-      form.reset();
-      notify({ kind: copied ? "success" : "info", message: copied ? "Zaproszenie zapisane, a link skopiowany." : "Zaproszenie zapisane. Link jest poniżej do ręcznego skopiowania." });
-      onRefresh();
-    } catch (reason) {
-      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zaprosić" });
     }
   }
 
@@ -1632,11 +1610,10 @@ function ManageProjectModal({
   }
 
   return (
-    <Modal title="Edytuj wybrane zlecenie" onClose={onClose} wide>
+    <Modal title="Edytuj zlecenie" onClose={onClose} wide>
       <div className="manage-tabs">
         <button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>Dane</button>
-        {canAssignWorkers && <button className={tab === "people" ? "active" : ""} onClick={() => setTab("people")}>{peopleTabLabel}</button>}
-        {canAssignWorkers && <button className={tab === "share" ? "active" : ""} onClick={() => setTab("share")}>{shareTabLabel}</button>}
+        {canAssignWorkers && <button className={tab === "people" ? "active" : ""} onClick={() => setTab("people")}>Wykonawca</button>}
       </div>
       {tab === "details" && (
         <form className="form-stack" onSubmit={saveDetails}>
@@ -1668,19 +1645,6 @@ function ManageProjectModal({
               <p className="form-note">{contractTermsReadonlyMessage}</p>
             </div>
           )}
-          {canAssignWorkers && (
-            <label>
-              {workerAssignmentLabel}
-              <select name="worker_profile_id" defaultValue={project.worker_profile_id || ""}>
-                <option value="">Bez przypisanego wykonawcy</option>
-                {workers.map((worker) => (
-                  <option value={worker.id} key={worker.id}>
-                    {workerOptionLabel(user, worker)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <label>Opis<textarea name="description" rows={3} defaultValue={project.description} /></label>
           <div className="portfolio-settings">
             <label className="check-label"><input type="checkbox" name="portfolio_enabled" defaultChecked={project.portfolio_enabled} /> Pokaż realizację w publicznym portfolio</label>
@@ -1693,56 +1657,26 @@ function ManageProjectModal({
               Zablokuj majstrom edycję danych zlecenia. Nadal mogą dodawać zdjęcia, opisy i problemy.
             </label>
           )}
-          <Button type="submit" busy={busy}>Zapisz dane</Button>
+          <div className="modal-actions">
+            <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
+            <Button type="submit" busy={busy}>Zapisz zmiany</Button>
+          </div>
         </form>
       )}
       {tab === "people" && canAssignWorkers && (
-        <div className="manage-content">
-          <div className="guest-explainer">
-            <Icon name="users" size={34} />
-            <div>
-              <h3>{peopleTabLabel}</h3>
-              <p>{user?.profile_type === "investor" ? "Wybierz wykonawcę przypisanego do tej inwestycji lub zlecenia." : "Wybierz stałego wykonawcę przypisanego do tego zlecenia albo wyślij osobne zaproszenie e-mail do konta."}</p>
-            </div>
-          </div>
-          <form className="inline-form inline-form--three" onSubmit={assignWorker}>
-            <select name="worker_profile_id" defaultValue={project.worker_profile_id || ""}>
-              <option value="">Bez przypisanego wykonawcy</option>
-              {workers.map((worker) => (
-                <option value={worker.id} key={worker.id}>
-                    {workerOptionLabel(user, worker)}
-                </option>
-              ))}
-            </select>
-            <Button type="submit">{assignActionLabel}</Button>
-          </form>
-          {project.worker_profile && (
-            <div className="member-list worker-link-list">
-              <h4>Aktualnie przypisany wykonawca</h4>
-              <article>
-                <span>{project.worker_profile.label.slice(0, 2).toUpperCase()}</span>
-                <div>
-                  <strong>{project.worker_profile.label}</strong>
-                  <small>{project.worker_profile.email || "Bez e-maila"} · {project.worker_profile.account_type === "account" ? "konto po potwierdzeniu e-mail" : "link-only"}</small>
-                </div>
-                <b>Przypisany</b>
-              </article>
-            </div>
-          )}
-          <div className="member-list">{project.members?.map((member) => <article key={member.id}><span>{(member.user.name || member.user.email).slice(0, 2).toUpperCase()}</span><div><strong>{member.user.name || member.user.email}</strong><small>{member.user.email}</small></div><b>{member.role}</b></article>)}</div>
-          <form className="inline-form inline-form--three" onSubmit={invite}><input type="email" name="email" placeholder="E-mail współpracownika" required /><select name="role" defaultValue="contributor"><option value="viewer">Podgląd</option><option value="contributor">Dodawanie wpisów</option><option value="manager">Zarządzanie</option></select><Button type="submit">Zaproś</Button></form>
-          {invitationUrl && <div className="share-result"><input value={invitationUrl} readOnly /><Button variant="secondary" onClick={() => void copyToClipboard(invitationUrl)}>Kopiuj link</Button></div>}
-        </div>
-      )}
-      {tab === "share" && canAssignWorkers && (
-        <div className="manage-content">
-          <div className="guest-explainer"><Icon name="link" size={34} /><div><h3>{user?.profile_type === "investor" ? "Link dla wykonawcy bez logowania" : "Link dla majstra lub ekipy bez logowania"}</h3><p>Wpisz nazwę wykonawcy. E-mail jest opcjonalny. Link otwiera tylko to zlecenie i pozwala dodać postęp zgodnie z uprawnieniami.</p></div></div>
-          <form className="form-stack form-stack--flat" onSubmit={createGuest}>
-            {workers.length > 0 && (
-              <label>
-                Wybierz wykonawcę z listy
+        <div className="manage-content manage-content--worker contractor-tab">
+          <section className="worker-flow-section contractor-section">
+            <header className="contractor-section-header">
+              <div>
+                <h3>1. Przypisz {user?.profile_type === "investor" ? "wykonawcę" : "majstra / ekipę"}</h3>
+                <p>{workerSectionDescription}</p>
+              </div>
+            </header>
+            <form className="worker-assign-form contractor-grid contractor-grid--assign" onSubmit={assignWorker}>
+              <label className="contractor-field">
+                <span>{workerAssignmentLabel}</span>
                 <select name="worker_profile_id" defaultValue={project.worker_profile_id || ""}>
-                  <option value="">Nie przypinaj do profilu</option>
+                  <option value="">Bez przypisanego wykonawcy</option>
                   {workers.map((worker) => (
                     <option value={worker.id} key={worker.id}>
                       {workerOptionLabel(user, worker)}
@@ -1750,29 +1684,86 @@ function ManageProjectModal({
                   ))}
                 </select>
               </label>
-            )}
-            <label>{workerAssignmentLabel}<input name="label" placeholder={user?.profile_type === "investor" ? "np. firma remontowa, glazurnik" : "np. Mieciu, ekipa łazienka"} required /></label>
-            <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
-            <label>Uprawnienia<select name="permission" defaultValue="history"><option value="add">Tylko dodawanie</option><option value="history">Dodawanie i historia</option><option value="view">Tylko podgląd</option></select></label>
-            <Button type="submit" icon="link">Utwórz i skopiuj link</Button>
-          </form>
-          {guestUrl && <div className="share-result"><input value={guestUrl} readOnly /><Button variant="secondary" onClick={() => void copyToClipboard(guestUrl)}>Kopiuj</Button></div>}
-          {(project.worker_links?.length || 0) > 0 && (
-            <div className="member-list worker-link-list">
-              <h4>Linki wykonawców do tego zlecenia</h4>
-              {project.worker_links?.map((link) => (
-                <article key={link.id}>
-                  <span>{link.label.slice(0, 2).toUpperCase()}</span>
+              <Button type="submit">{assignActionLabel}</Button>
+            </form>
+            {project.worker_profile ? (
+              <div className="assigned-worker-card contractor-current-card">
+                <h4>Aktualnie przypisany {user?.profile_type === "investor" ? "wykonawca" : "majster / ekipa"}</h4>
+                <article>
+                  <span>{project.worker_profile.label.slice(0, 2).toUpperCase()}</span>
                   <div>
-                    <strong>{link.label}</strong>
-                    <small>{link.email || "Bez e-maila"} · {link.account_type === "account" ? "konto stałe / email" : "link-only"}</small>
+                    <strong>{project.worker_profile.label}</strong>
+                    <small>{project.worker_profile.email || "Bez e-maila"} · {project.worker_profile.account_type === "account" ? "konto stałe / e-mail" : "link-only"}</small>
                   </div>
-                  <b>{link.permission === "history" ? "Dodaje + historia" : link.permission === "add" ? "Dodaje" : "Podgląd"}</b>
-                  {!link.revoked_at && <Button type="button" variant="secondary" onClick={() => rotateGuest(link.id)}>Odśwież link</Button>}
+                  <b>Przypisany</b>
                 </article>
-              ))}
-            </div>
-          )}
+              </div>
+            ) : (
+              <p className="empty-note">Do tego zlecenia nie przypisano jeszcze wykonawcy.</p>
+            )}
+            {(project.members?.length || 0) > 0 && (
+              <div className="project-owner-list contractor-access-list">
+                <h4>Osoby z dostępem</h4>
+                {project.members?.map((member) => (
+                  <article key={member.id}>
+                    <span>{(member.user.name || member.user.email).slice(0, 2).toUpperCase()}</span>
+                    <div><strong>{member.user.name || member.user.email}</strong><small>{member.user.email}</small></div>
+                    <b>{member.role}</b>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="worker-flow-section worker-flow-section--temporary one-time-link-section">
+            <header className="contractor-section-header">
+              <span className="worker-flow-icon"><Icon name="link" /></span>
+              <div>
+                <h3>2. Link dla wykonawcy jednorazowego <small>Dostęp tymczasowy</small></h3>
+                <p>Wygeneruj tymczasowy link dla wykonawcy jednorazowego. Link pozwala otworzyć tylko to zlecenie i nie tworzy stałego konta. E-mail jest opcjonalny.</p>
+              </div>
+            </header>
+            <form className="temporary-worker-form contractor-grid" onSubmit={createGuest}>
+              <label className="contractor-field"><span>Nazwa wykonawcy</span><input name="label" placeholder="np. firma remontowa, glazurnik" required /></label>
+              <label className="contractor-field"><span>E-mail wykonawcy (opcjonalnie)</span><input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
+              <label className="contractor-field"><span>Uprawnienia</span><select name="permission" defaultValue="history"><option value="add">Tylko dodawanie</option><option value="history">Dodawanie i historia</option><option value="view">Tylko podgląd</option></select></label>
+              {workers.length > 0 && (
+                <details className="advanced-link-options">
+                  <summary>Zaawansowane</summary>
+                  <label className="contractor-field"><span>Powiąż z profilem, jeśli dotyczy</span><select name="worker_profile_id" defaultValue={project.worker_profile_id || ""}>
+                    <option value="">Nie przypinaj do profilu</option>
+                    {workers.map((worker) => (
+                      <option value={worker.id} key={worker.id}>
+                        {workerOptionLabel(user, worker)}
+                      </option>
+                    ))}
+                  </select></label>
+                </details>
+              )}
+              <Button type="submit" icon="link">Utwórz i skopiuj link</Button>
+            </form>
+            {guestUrl && <div className="share-result"><input value={guestUrl} readOnly /><Button variant="secondary" onClick={() => void copyToClipboard(guestUrl)}>Kopiuj link</Button></div>}
+            {(project.worker_links?.length || 0) > 0 && (
+              <div className="temporary-link-list active-links-list">
+                <h4>Aktywne linki do tego zlecenia</h4>
+                {project.worker_links?.map((link) => (
+                  <article key={link.id}>
+                    <span>{link.label.slice(0, 2).toUpperCase()}</span>
+                    <div>
+                      <strong>{link.label}</strong>
+                      <small>{link.email || "Bez e-maila"} · link-only · {link.permission === "history" ? "dodawanie i historia" : link.permission === "add" ? "tylko dodawanie" : "tylko podgląd"}</small>
+                      {!link.revoked_at && <input className="link-placeholder-input" value="Odśwież link, aby skopiować nowy adres" readOnly />}
+                    </div>
+                    {!link.revoked_at && <Button type="button" variant="secondary" onClick={() => rotateGuest(link.id)}>Odśwież link</Button>}
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+          <div className="modal-actions">
+            <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
+            <Button type="button" onClick={onClose}>Zapisz zmiany</Button>
+          </div>
         </div>
       )}
     </Modal>
