@@ -6,7 +6,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(resolve(__dirname, "../src/App.tsx"), "utf8");
 const accessSource = readFileSync(resolve(__dirname, "../src/access.ts"), "utf8");
 const roleLabelsSource = readFileSync(resolve(__dirname, "../src/roleLabels.ts"), "utf8");
-const allSources = [appSource, accessSource, roleLabelsSource].join("\n");
+const appShellSource = readFileSync(resolve(__dirname, "../src/AppShell.tsx"), "utf8");
+const sidebarSource = readFileSync(resolve(__dirname, "../src/RoleAwareSidebar.tsx"), "utf8");
+const allSources = [appSource, accessSource, roleLabelsSource, appShellSource, sidebarSource].join("\n");
 
 function assertIncludes(needle, message) {
   if (!allSources.includes(needle)) {
@@ -27,7 +29,7 @@ function assertMatches(pattern, message) {
 }
 
 function extractCompanyWorkerNavigation() {
-  const match = appSource.match(
+  const match = sidebarSource.match(
     /if \(isCompanyWorker\(user\)\) \{\s*return \[([\s\S]*?)\];\s*\}/,
   );
   if (!match) {
@@ -113,6 +115,18 @@ if (/function peopleLabelsForUser/.test(appSource)) {
 }
 if (/function isCompanyWorker/.test(appSource)) {
   throw new Error("Helpery rol nie powinny wracac do App.tsx.");
+}
+if (!/function getNavigationForUser\(user: User\): NavItem\[\]/.test(sidebarSource)) {
+  throw new Error("RoleAwareSidebar powinien zawierac role-aware nawigacje.");
+}
+if (!/export function visibleSectionForUser\(user: User, section: string\): SectionId/.test(sidebarSource)) {
+  throw new Error("visibleSectionForUser powinno korzystac z tej samej nawigacji co sidebar.");
+}
+if (!/export function AppShell/.test(appShellSource)) {
+  throw new Error("AppShell powinien byc wydzielony do osobnego pliku.");
+}
+if (!/RoleAwareSidebar/.test(appShellSource)) {
+  throw new Error("AppShell powinien uzywac RoleAwareSidebar.");
 }
 
 const companyWorkerNavigation = extractCompanyWorkerNavigation();

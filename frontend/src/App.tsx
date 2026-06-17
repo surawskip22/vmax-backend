@@ -17,6 +17,7 @@ import {
   isIndependentContractor,
   isInvestor,
 } from "./access";
+import { AppShell } from "./AppShell";
 import { api } from "./api";
 import { Icon } from "./icons";
 import {
@@ -31,15 +32,10 @@ import {
   workerKindLabel,
   workerKindLabelForUser,
 } from "./roleLabels";
+import { visibleSectionForUser } from "./RoleAwareSidebar";
 import type { ClientLink, Entry, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
-type SectionId = "home" | "projects" | "reports" | "team" | "settings";
-type NavItem = {
-  id: SectionId;
-  label: string;
-  icon: Parameters<typeof Icon>[0]["name"];
-};
 
 const testAccounts = [
   {
@@ -68,43 +64,6 @@ const testAccounts = [
     description: "przypisane zlecenia firmy",
   },
 ];
-
-function getNavigationForUser(user: User): NavItem[] {
-  if (isCompanyWorker(user)) {
-    return [
-      { id: "projects", label: "Moje zlecenia", icon: "clipboard" },
-      { id: "settings", label: "Ustawienia", icon: "settings" },
-    ];
-  }
-  if (isIndependentContractor(user)) {
-    return [
-      { id: "projects", label: "Moje zlecenia", icon: "clipboard" },
-      { id: "reports", label: "Raporty", icon: "report" },
-      { id: "settings", label: "Ustawienia", icon: "settings" },
-    ];
-  }
-  if (isInvestor(user)) {
-    return [
-      { id: "home", label: "Pulpit", icon: "home" },
-      { id: "projects", label: "Inwestycje / Zlecenia", icon: "clipboard" },
-      { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
-      { id: "reports", label: "Raporty", icon: "report" },
-      { id: "settings", label: "Ustawienia", icon: "settings" },
-    ];
-  }
-  return [
-    { id: "home", label: "Pulpit", icon: "home" },
-    { id: "projects", label: "Zlecenia", icon: "clipboard" },
-    { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
-    { id: "reports", label: "Raporty", icon: "report" },
-    { id: "settings", label: "Ustawienia", icon: "settings" },
-  ];
-}
-
-function visibleSectionForUser(user: User, section: string): SectionId {
-  const nav = getNavigationForUser(user);
-  return nav.some((item) => item.id === section) ? (section as SectionId) : nav[0].id;
-}
 
 function workerOptionLabel(user: User | undefined, worker: WorkerProfile): string {
   return `${workerKindLabelForUser(user, worker)}: ${worker.label} - ${workerAccountLabel(worker)}`;
@@ -904,67 +863,6 @@ function CreateProjectModal({
         <Button type="submit" busy={busy} icon="plus">Utwórz {projectLabel}</Button>
       </form>
     </Modal>
-  );
-}
-
-function Shell({
-  user,
-  active,
-  children,
-  onNavigate,
-  onLogout,
-  queueCount,
-}: {
-  user: User;
-  active: string;
-  children: ReactNode;
-  onNavigate: (section: string) => void;
-  onLogout: () => void;
-  queueCount: number;
-}) {
-  const nav = getNavigationForUser(user);
-  return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <Logo />
-        <div className="role-badge">
-          <small>Typ konta</small>
-          <strong>{user.profile_type ? profileLabels[user.profile_type] : "Nie wybrano"}</strong>
-        </div>
-        <nav>
-          {nav.map(({ id, label, icon }) => (
-            <button className={active === id ? "active" : ""} onClick={() => onNavigate(id)} key={id}>
-              <Icon name={icon} /><span>{label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar__bottom">
-          {queueCount > 0 && <div className="sync-pill"><Icon name="sync" /> {queueCount} czeka</div>}
-          <button className="profile-button" onClick={() => onNavigate("settings")}>
-            <span>{(user.name || user.email).slice(0, 2).toUpperCase()}</span>
-            <div><b>{user.name || "Użytkownik"}</b><small>{user.email}</small></div>
-          </button>
-          <button className="logout-button" onClick={onLogout}>Wyloguj się</button>
-        </div>
-      </aside>
-      <div className="app-main">
-        <header className="mobile-appbar">
-          <Logo compact />
-          <div className="mobile-appbar__actions">
-            {queueCount > 0 && <span className="queue-badge">{queueCount}</span>}
-            <button className="icon-button" onClick={() => onNavigate("settings")}><Icon name="menu" /></button>
-          </div>
-        </header>
-        {children}
-        <nav className="bottom-nav">
-          {nav.slice(0, 4).map(({ id, label, icon }) => (
-            <button className={active === id ? "active" : ""} onClick={() => onNavigate(id)} key={id}>
-              <Icon name={icon} /><span>{label}</span>
-            </button>
-          ))}
-        </nav>
-      </div>
-    </div>
   );
 }
 
@@ -3837,9 +3735,17 @@ export default function App() {
 
   return (
     <>
-      <Shell user={user} active={activeSection} onNavigate={(next) => { setSelectedProject(null); setSection(next); }} onLogout={logout} queueCount={queueCount}>
+      <AppShell
+        user={user}
+        active={activeSection}
+        onNavigate={(next) => { setSelectedProject(null); setSection(next); }}
+        onLogout={logout}
+        queueCount={queueCount}
+        logo={<Logo />}
+        compactLogo={<Logo compact />}
+      >
         {body}
-      </Shell>
+      </AppShell>
       {createOpen && <CreateProjectModal user={user} onClose={() => setCreateOpen(false)} onCreated={(project) => { setCreateOpen(false); setProjects((current) => [project, ...current]); setSelectedProject(project); notify({ kind: "success", message: "Zlecenie utworzone" }); }} />}
       {toast && <ToastView toast={toast} />}
     </>
