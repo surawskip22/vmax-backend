@@ -7,6 +7,16 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  canAssignWorkers as canAssignWorkersForUser,
+  canCreateProject,
+  canManagePeople,
+  canSeeTeamPanel,
+  isCompanyOwner,
+  isCompanyWorker,
+  isIndependentContractor,
+  isInvestor,
+} from "./access";
 import { api } from "./api";
 import { Icon } from "./icons";
 import {
@@ -15,6 +25,12 @@ import {
   queuedEntries,
   type QueuedEntry,
 } from "./offline";
+import {
+  peopleLabelsForUser,
+  profileLabels,
+  workerKindLabel,
+  workerKindLabelForUser,
+} from "./roleLabels";
 import type { ClientLink, Entry, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
@@ -25,13 +41,6 @@ type NavItem = {
   icon: Parameters<typeof Icon>[0]["name"];
 };
 
-const profileLabels: Record<NonNullable<User["profile_type"]>, string> = {
-  company_owner: "Szef firmy",
-  investor: "Inwestor",
-  independent_contractor: "Samodzielny majster",
-  company_worker: "Majster - członek firmy",
-  worker: "Majster - członek firmy",
-};
 const testAccounts = [
   {
     label: "Demo Szef firmy",
@@ -59,51 +68,6 @@ const testAccounts = [
     description: "przypisane zlecenia firmy",
   },
 ];
-
-function isCompanyWorker(user?: User): boolean {
-  return user?.profile_type === "company_worker" || user?.profile_type === "worker";
-}
-
-function isCompanyOwner(user?: User): boolean {
-  return user?.profile_type === "company_owner";
-}
-
-function isInvestor(user?: User): boolean {
-  return user?.profile_type === "investor";
-}
-
-function isIndependentContractor(user?: User): boolean {
-  return user?.profile_type === "independent_contractor";
-}
-
-function canManagePeople(user?: User): boolean {
-  return Boolean(user && !isIndependentContractor(user) && !isCompanyWorker(user));
-}
-
-function canCreateProject(user?: User): boolean {
-  return Boolean(user && !isCompanyWorker(user));
-}
-
-function canSeeTeamPanel(user?: User): boolean {
-  return canManagePeople(user);
-}
-
-function peopleLabelsForUser(user?: User) {
-  if (isInvestor(user)) {
-    return {
-      section: "Wykonawcy",
-      addAction: "Dodaj wykonawcę",
-      singular: "Wykonawca",
-      assignment: "Wykonawca",
-    };
-  }
-  return {
-    section: "Majstrowie i ekipy",
-    addAction: "Dodaj majstra / ekipę",
-    singular: "Majster / ekipa",
-    assignment: "Majster / ekipa",
-  };
-}
 
 function getNavigationForUser(user: User): NavItem[] {
   if (isCompanyWorker(user)) {
@@ -140,15 +104,6 @@ function getNavigationForUser(user: User): NavItem[] {
 function visibleSectionForUser(user: User, section: string): SectionId {
   const nav = getNavigationForUser(user);
   return nav.some((item) => item.id === section) ? (section as SectionId) : nav[0].id;
-}
-
-function workerKindLabel(worker: WorkerProfile): string {
-  return worker.profile_kind === "crew" ? "Ekipa" : "Majster";
-}
-
-function workerKindLabelForUser(user: User | undefined, worker: WorkerProfile): string {
-  if (isInvestor(user)) return worker.profile_kind === "crew" ? "Firma / ekipa zewnętrzna" : "Wykonawca";
-  return workerKindLabel(worker);
 }
 
 function workerOptionLabel(user: User | undefined, worker: WorkerProfile): string {
@@ -1501,9 +1456,10 @@ function ManageProjectModal({
   const canManagePeople = ["owner", "manager"].includes(project.role || "");
   const canManageFinalStatus = canManagePeople && !isCompanyWorker(user);
   const canEditContractTerms = canManagePeople && !isCompanyWorker(user);
-  const canAssignWorkers = canManagePeople && user?.profile_type !== "independent_contractor" && !isCompanyWorker(user);
-  const workerAssignmentLabel = user?.profile_type === "investor" ? "Wykonawca" : "Majster / ekipa";
-  const assignActionLabel = user?.profile_type === "investor" ? "Przypisz wykonawcę" : "Przypisz majstra / ekipę";
+  const canAssignWorkers = canAssignWorkersForUser(user, canManagePeople);
+  const workerLabels = peopleLabelsForUser(user);
+  const workerAssignmentLabel = workerLabels.assignment;
+  const assignActionLabel = workerLabels.assignAction;
   const workerSectionDescription = user?.profile_type === "investor"
     ? "Wybierz wykonawcę przypisanego do tego zlecenia."
     : "Wybierz majstra lub ekipę przypisaną do tego zlecenia.";

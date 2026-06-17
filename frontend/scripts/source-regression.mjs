@@ -4,21 +4,24 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appSource = readFileSync(resolve(__dirname, "../src/App.tsx"), "utf8");
+const accessSource = readFileSync(resolve(__dirname, "../src/access.ts"), "utf8");
+const roleLabelsSource = readFileSync(resolve(__dirname, "../src/roleLabels.ts"), "utf8");
+const allSources = [appSource, accessSource, roleLabelsSource].join("\n");
 
 function assertIncludes(needle, message) {
-  if (!appSource.includes(needle)) {
+  if (!allSources.includes(needle)) {
     throw new Error(message);
   }
 }
 
 function assertNotIncludes(needle, message) {
-  if (appSource.includes(needle)) {
+  if (allSources.includes(needle)) {
     throw new Error(message);
   }
 }
 
 function assertMatches(pattern, message) {
-  if (!pattern.test(appSource)) {
+  if (!pattern.test(allSources)) {
     throw new Error(message);
   }
 }
@@ -73,13 +76,44 @@ assertIncludes(
 );
 
 assertMatches(
-  /function canManagePeople\(user\?: User\): boolean \{\s*return Boolean\(user && !isIndependentContractor\(user\) && !isCompanyWorker\(user\)\);\s*\}/,
+  /function canManagePeople\(user\?: RoleUser\): boolean \{\s*return Boolean\(user && !isIndependentContractor\(user\) && !isCompanyWorker\(user\)\);\s*\}/,
   "canManagePeople musi wykluczac samodzielnego majstra i company_worker.",
 );
-assertMatches(
-  /const canAssignWorkers = canManagePeople && user\?\.profile_type !== "independent_contractor" && !isCompanyWorker\(user\);/,
-  "ManageProjectModal nie powinien dawac company_worker zarzadzania wykonawca.",
+if (!/function canAssignWorkers\(user: RoleUser, canManageProject: boolean\): boolean \{\s*return canManageProject && !isIndependentContractor\(user\) && !isCompanyWorker\(user\);\s*\}/.test(accessSource)) {
+  throw new Error("Helper canAssignWorkers nie powinien dawac company_worker zarzadzania wykonawca.");
+}
+if (!/const canAssignWorkers = canAssignWorkersForUser\(user, canManagePeople\);/.test(appSource)) {
+  throw new Error("ManageProjectModal powinien korzystac z helpera canAssignWorkers.");
+}
+assertIncludes(
+  "assignAction: \"Przypisz wykonawcę\"",
+  "Labelka przypisania wykonawcy powinna byc w roleLabels.",
 );
+assertIncludes(
+  "assignAction: \"Przypisz majstra / ekipę\"",
+  "Labelka przypisania majstra/ekipy powinna byc w roleLabels.",
+);
+assertIncludes(
+  "section: \"Wykonawcy\"",
+  "Inwestorska etykieta panelu ludzi powinna byc w roleLabels.",
+);
+assertIncludes(
+  "section: \"Majstrowie i ekipy\"",
+  "Firmowa etykieta panelu ludzi powinna byc w roleLabels.",
+);
+assertIncludes(
+  "profileLabels",
+  "Labelki profili powinny zostac w jednym zrodle prawdy.",
+);
+if (/const profileLabels: Record/.test(appSource)) {
+  throw new Error("profileLabels nie powinno wracac do App.tsx.");
+}
+if (/function peopleLabelsForUser/.test(appSource)) {
+  throw new Error("peopleLabelsForUser nie powinno wracac do App.tsx.");
+}
+if (/function isCompanyWorker/.test(appSource)) {
+  throw new Error("Helpery rol nie powinny wracac do App.tsx.");
+}
 
 const companyWorkerNavigation = extractCompanyWorkerNavigation();
 if (companyWorkerNavigation.includes('id: "team"')) {
