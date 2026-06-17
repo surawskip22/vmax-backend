@@ -131,6 +131,11 @@ function formatContractDate(value?: string | null): string {
   return new Intl.DateTimeFormat("pl").format(new Date(`${value}T00:00:00`));
 }
 
+function formatProjectActivityDate(value?: string | null): string {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("pl", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(value));
+}
+
 function contractAmountLabel(project: Project): string {
   if (!project.contract_amount) return "";
   return `${project.contract_amount} ${project.contract_currency || "PLN"}`;
@@ -211,6 +216,11 @@ function projectLastProgressLabel(project: Project): string {
   if (!project.entry_count) return "Brak wpisów";
   if (!project.updated_at) return `${project.entry_count} wpisów`;
   return `${project.entry_count} wpisów · ostatnio ${new Intl.DateTimeFormat("pl").format(new Date(project.updated_at))}`;
+}
+
+function projectActivityLabel(project: Project): string {
+  const activity = formatProjectActivityDate(project.updated_at || project.created_at);
+  return activity ? `Ostatnio ${activity}` : "Brak daty aktywności";
 }
 
 function ContractTermsPanel({ project }: { project: Project }) {
@@ -920,9 +930,10 @@ function Dashboard({
                 <div className="project-row__main">
                   <strong>{project.name}</strong>
                   <span>{project.client_name || "Bez klienta"} · {project.address || "Bez adresu"}</span>
+                  <small>{projectPartyLabel(user)}: {projectPartyValue(user, project)} · {projectActivityLabel(project)}</small>
                 </div>
                 <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
-                <span className="project-row__meta">{project.role === "owner" ? "Właściciel" : "Współpraca"}</span>
+                <span className="project-row__meta">{formatContractDate(project.planned_end_date) || (project.role === "owner" ? "Właściciel" : "Współpraca")}</span>
                 <Icon name="back" className="chevron" />
               </button>
             ))}
@@ -968,16 +979,30 @@ function ProjectsPage({
   const [filter, setFilter] = useState("");
   const [viewFilter, setViewFilter] = useState<"all" | "open" | "history">("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [workerFilter, setWorkerFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "start" | "end" | "status">("newest");
   const copy = projectListCopy(user);
   const query = filter.trim().toLowerCase();
   const statusOrder: Record<string, number> = { assigned: 1, in_progress: 2, completed: 3 };
+  const workerOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return projects
+      .filter((project) => project.worker_profile?.id && project.worker_profile?.label)
+      .map((project) => project.worker_profile!)
+      .filter((worker) => {
+        if (seen.has(worker.id)) return false;
+        seen.add(worker.id);
+        return true;
+      })
+      .sort((left, right) => left.label.localeCompare(right.label, "pl"));
+  }, [projects]);
   const visible = [...projects]
     .filter((item) => {
       const matchesQuery = `${item.name} ${item.client_name} ${item.address} ${item.worker_profile?.label || ""}`.toLowerCase().includes(query);
       const matchesView = viewFilter === "all" || (viewFilter === "open" ? item.status !== "completed" : item.status === "completed");
       const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-      return matchesQuery && matchesView && matchesStatus;
+      const matchesWorker = workerFilter === "all" || item.worker_profile?.id === workerFilter;
+      return matchesQuery && matchesView && matchesStatus && matchesWorker;
     })
     .sort((left, right) => {
       if (sortBy === "status") return (statusOrder[left.status] || 99) - (statusOrder[right.status] || 99);
@@ -1010,6 +1035,14 @@ function ProjectsPage({
               <option value="in_progress">W realizacji</option>
               <option value="completed">Zakończono</option>
             </select>
+            {workerOptions.length > 0 && (
+              <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)} aria-label="Filtr wykonawcy">
+                <option value="all">{isInvestor(user) ? "Wszyscy wykonawcy" : "Wszyscy majstrowie / ekipy"}</option>
+                {workerOptions.map((worker) => (
+                  <option key={worker.id} value={worker.id}>{worker.label}</option>
+                ))}
+              </select>
+            )}
             <div className="project-sort-controls" aria-label="Sortowanie zleceń">
               <button type="button" className={sortBy === "newest" ? "active" : ""} onClick={() => setSortBy("newest")}>Najnowsze</button>
               <button type="button" className={sortBy === "oldest" ? "active" : ""} onClick={() => setSortBy("oldest")}>Najstarsze</button>
@@ -1031,21 +1064,27 @@ function ProjectsPage({
               <article className="project-list-card" key={project.id}>
                 <div className="project-list-card__top">
                   <span className="project-card__icon"><Icon name="clipboard" /></span>
-                  <div>
+                  <div className="project-list-card__identity">
                     <h3>{project.name}</h3>
                     <span>{project.client_name || "Bez klienta"} · {project.address || "Adres nieuzupełniony"}</span>
                   </div>
-                  <span className={`status project-status-badge status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                  <div className="project-list-card__status">
+                    <span className={`status project-status-badge status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                    <small>{projectActivityLabel(project)}</small>
+                  </div>
                 </div>
-                <dl className="project-meta-grid">
+                <dl className="project-meta-grid project-meta-grid--overview">
                   <div><dt>{projectPartyLabel(user)}</dt><dd>{projectPartyValue(user, project)}</dd></div>
                   <div><dt>Start</dt><dd>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</dd></div>
                   <div><dt>Koniec</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
+                  <div><dt>Ostatnia aktywność</dt><dd>{formatProjectActivityDate(project.updated_at || project.created_at) || "Nie ustawiono"}</dd></div>
                   <div><dt>Kwota umowna</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>
                 </dl>
                 <div className="project-list-card__footer">
-                  <span>{projectLastProgressLabel(project)}</span>
-                  <span>{project.open_problem_count || 0} problemów</span>
+                  <div className="project-list-card__signals">
+                    <span>{projectLastProgressLabel(project)}</span>
+                    <span>{project.open_problem_count || 0} problemów</span>
+                  </div>
                   <Button type="button" onClick={() => onProject(project)} variant="secondary">{isInvestor(user) ? "Edytuj" : "Otwórz"}</Button>
                 </div>
               </article>
