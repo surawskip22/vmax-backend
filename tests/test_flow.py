@@ -23,6 +23,7 @@ from sqlalchemy import func, select
 
 from main import app
 from panmajster import models
+from panmajster.access import ProjectAccess
 from panmajster.db import SessionLocal
 from panmajster.demo_seed import seed_demo_data
 from panmajster.reporting import _merge_generated_content
@@ -223,6 +224,118 @@ def test_user_can_own_one_project_and_contribute_to_another():
         assert roles[second_project["id"]] == "contributor"
         assert roles[own_second["id"]] == "owner"
         assert owned["id"] not in roles
+
+
+def test_project_detail_can_edit_details_uses_project_access_decision():
+    with TestClient(app) as manager_seed:
+        login(manager_seed, "access-manager@example.com")
+    with TestClient(app) as contributor_seed:
+        login(contributor_seed, "access-contributor@example.com")
+
+    with TestClient(app) as owner:
+        login(owner, "access-owner@example.com")
+        project = owner.post(
+            "/api/projects",
+            json={"name": "Access cleanup project", "template": "custom"},
+        ).json()
+        project_id = project["id"]
+        owner_detail = owner.get(f"/api/projects/{project_id}").json()
+        assert owner_detail["can_edit_details"] is True
+
+        manager_invite = owner.post(
+            f"/api/projects/{project_id}/invite",
+            json={"email": "access-manager@example.com", "role": "manager"},
+        )
+        assert manager_invite.status_code == 200
+        contributor_invite = owner.post(
+            f"/api/projects/{project_id}/invite",
+            json={"email": "access-contributor@example.com", "role": "contributor"},
+        )
+        assert contributor_invite.status_code == 200
+        worker_link = owner.post(
+            f"/api/projects/{project_id}/guest-links",
+            json={"label": "Link-only", "kind": "worker", "permission": "history"},
+        ).json()
+        client_token = owner.get(f"/api/projects/{project_id}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+    with TestClient(app) as manager:
+        login(manager, "access-manager@example.com")
+        manager_detail = manager.get(f"/api/projects/{project_id}").json()
+        assert manager_detail["can_edit_details"] is True
+
+    with TestClient(app) as contributor:
+        login(contributor, "access-contributor@example.com")
+        contributor_detail = contributor.get(f"/api/projects/{project_id}").json()
+        assert contributor_detail["can_edit_details"] is True
+
+    with SessionLocal() as db:
+        stored_project = db.get(models.Project, project_id)
+        for email, payload in {
+            "access-manager@example.com": manager_detail,
+            "access-contributor@example.com": contributor_detail,
+        }.items():
+            stored_user = db.scalar(select(models.User).where(models.User.email == email))
+            role = db.scalar(
+                select(models.ProjectMember.role).where(
+                    models.ProjectMember.project_id == project_id,
+                    models.ProjectMember.user_id == stored_user.id,
+                )
+            )
+            assert payload["can_edit_details"] == ProjectAccess(
+                project=stored_project,
+                user=stored_user,
+                role=role,
+            ).can_edit_details()
+
+    with TestClient(app) as owner:
+        login(owner, "access-owner@example.com")
+        locked = owner.patch(
+            f"/api/projects/{project_id}",
+            json={"details_locked": True},
+        )
+        assert locked.status_code == 200
+
+    with TestClient(app) as contributor:
+        login(contributor, "access-contributor@example.com")
+        locked_detail = contributor.get(f"/api/projects/{project_id}").json()
+        assert locked_detail["can_edit_details"] is False
+        assert (
+            contributor.patch(
+                f"/api/projects/{project_id}",
+                json={"description": "Blocked detail edit"},
+            ).status_code
+            == 403
+        )
+        assert (
+            contributor.post(
+                f"/api/projects/{project_id}/entries",
+                json={"kind": "update", "body": "Contributor can still add progress"},
+            ).status_code
+            == 201
+        )
+
+    with TestClient(app) as guest:
+        guest_detail = guest.get(
+            f"/api/projects/{project_id}",
+            headers={"x-guest-token": worker_link["token"]},
+        ).json()
+        assert guest_detail["can_edit_details"] is False
+        assert (
+            guest.patch(
+                f"/api/projects/{project_id}",
+                headers={"x-guest-token": worker_link["token"]},
+                json={"description": "Guest cannot edit details"},
+            ).status_code
+            == 403
+        )
+
+    with TestClient(app) as public_client:
+        public_project = public_client.get(
+            f"/api/public/projects/{client_token}"
+        ).json()["project"]
+        assert "can_edit_details" not in public_project
 
 
 def test_ai_report_merge_preserves_source_media_and_metadata():

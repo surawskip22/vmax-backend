@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from . import models, serializers
 from .access import (
+    ProjectAccess,
     active_date,
     can_create_project,
     can_manage_people,
@@ -1259,7 +1260,9 @@ def create_project(
     return serializers.project(project, role="owner", details=True)
 
 
-def project_detail_data(db: Session, project: models.Project, role: str | None):
+def project_detail_data(db: Session, access: ProjectAccess):
+    project = access.project
+    role = access.role
     members = db.scalars(
         select(models.ProjectMember)
         .options(selectinload(models.ProjectMember.user))
@@ -1304,10 +1307,7 @@ def project_detail_data(db: Session, project: models.Project, role: str | None):
                 models.Entry.problem_status == "open",
             )
         ),
-        "can_edit_details": bool(
-            role in {"owner", "manager"}
-            or (role == "contributor" and not project.details_locked)
-        ),
+        "can_edit_details": access.can_edit_details(),
     }
 
 
@@ -1340,7 +1340,7 @@ def get_project(project_id: str, request: Request, db: Session = Depends(get_db)
             "entry_count": None,
             "open_problem_count": None,
         }
-    data = project_detail_data(db, access.project, access.role)
+    data = project_detail_data(db, access)
     if access.guest:
         data["guest"] = {
             "label": access.guest.label,
@@ -1402,7 +1402,7 @@ def close_project(
     if not access.project.finished_at:
         access.project.finished_at = now()
     db.commit()
-    return project_detail_data(db, access.project, access.role)
+    return project_detail_data(db, access)
 
 
 @router.post("/projects/{project_id}/reopen")
@@ -1414,7 +1414,7 @@ def reopen_project(
     access.project.status = PROJECT_STATUS_IN_PROGRESS
     access.project.finished_at = None
     db.commit()
-    return project_detail_data(db, access.project, access.role)
+    return project_detail_data(db, access)
 
 
 @router.post("/projects/{project_id}/stages", status_code=201)
@@ -1485,7 +1485,7 @@ def set_current_stage(
     db.commit()
     db.refresh(access.project)
     if access.user:
-        return project_detail_data(db, access.project, access.role)
+        return project_detail_data(db, access)
     return {
         **serializers.project(access.project, details=True),
         "guest": {
