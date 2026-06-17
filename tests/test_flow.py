@@ -1541,12 +1541,13 @@ def test_project_contract_terms_are_validated_visible_and_guarded():
 
 
 def test_frontend_project_forms_send_contract_terms_without_currency_field():
-    source = Path("frontend/src/App.tsx").read_text(encoding="utf-8")
-    create_block = source[
-        source.index("function CreateProjectModal") : source.index("function Shell")
+    app_source = Path("frontend/src/App.tsx").read_text(encoding="utf-8")
+    manage_source = Path("frontend/src/ManageProjectModal.tsx").read_text(encoding="utf-8")
+    create_block = app_source[
+        app_source.index("function CreateProjectModal") : app_source.index("function Dashboard")
     ]
-    manage_block = source[
-        source.index("function ManageProjectModal") : source.index("function ProjectView")
+    manage_block = manage_source[
+        manage_source.index("export function ManageProjectModal") :
     ]
 
     assert 'planned_start_date: formNullableString(data, "planned_start_date")' in create_block
@@ -1566,7 +1567,7 @@ def test_frontend_project_forms_send_contract_terms_without_currency_field():
     )
     assert 'payload.contract_amount = formMoneyString(data, "contract_amount")' in manage_block
     assert "contractTermsReadonlyMessage" in manage_block
-    assert "Dane do podgladu - zmienia je szef firmy." in source
+    assert "Dane do podgladu - zmienia je szef firmy." in manage_source
 
     for block in (create_block, manage_block):
         assert 'name="contract_amount"' in block
