@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "npm run test:regression",
+    "test:regression": "node scripts/source-regression.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
