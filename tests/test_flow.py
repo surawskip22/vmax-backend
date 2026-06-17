@@ -4,6 +4,8 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 
 TEST_ROOT = Path(tempfile.mkdtemp(prefix="panmajster-tests-"))
 os.environ.update(
@@ -336,6 +338,130 @@ def test_project_detail_can_edit_details_uses_project_access_decision():
             f"/api/public/projects/{client_token}"
         ).json()["project"]
         assert "can_edit_details" not in public_project
+
+
+def test_project_detail_worker_links_are_manager_only():
+    with TestClient(app) as manager_seed:
+        login(manager_seed, "worker-links-manager@example.com")
+    with TestClient(app) as worker_seed:
+        login(worker_seed, "worker-links-worker@example.com")
+
+    with TestClient(app) as owner:
+        login(owner, "worker-links-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Worker Links QA"},
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik worker-links",
+                "email": "worker-links-worker@example.com",
+            },
+        ).json()
+        project = owner.post(
+            "/api/projects",
+            json={
+                "name": "Worker links payload",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        project_id = project["id"]
+        owner.post(
+            f"/api/projects/{project_id}/invite",
+            json={"email": "worker-links-manager@example.com", "role": "manager"},
+        )
+        link = owner.post(
+            f"/api/projects/{project_id}/guest-links",
+            json={"label": "Link zarzadczo ukryty", "kind": "worker", "permission": "history"},
+        ).json()
+        owner_detail = owner.get(f"/api/projects/{project_id}").json()
+        assert [item["id"] for item in owner_detail["worker_links"]] == [link["id"]]
+        client_token = owner.get(f"/api/projects/{project_id}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+    with TestClient(app) as manager:
+        login(manager, "worker-links-manager@example.com")
+        manager_detail = manager.get(f"/api/projects/{project_id}").json()
+        assert [item["id"] for item in manager_detail["worker_links"]] == [link["id"]]
+
+    with TestClient(app) as worker_client:
+        login(worker_client, "worker-links-worker@example.com")
+        worker_detail = worker_client.get(f"/api/projects/{project_id}").json()
+        assert worker_detail["role"] == "contributor"
+        assert worker_detail["worker_links"] == []
+        assert worker_client.get(f"/api/projects/{project_id}/guest-links").status_code == 403
+        with SessionLocal() as db:
+            before_count = db.scalar(
+                select(func.count(models.GuestInvite.id)).where(
+                    models.GuestInvite.project_id == project_id
+                )
+            )
+        blocked = worker_client.post(
+            f"/api/projects/{project_id}/guest-links",
+            json={"label": "Nie wolno", "kind": "worker", "permission": "history"},
+        )
+        assert blocked.status_code == 403
+        with SessionLocal() as db:
+            after_count = db.scalar(
+                select(func.count(models.GuestInvite.id)).where(
+                    models.GuestInvite.project_id == project_id
+                )
+            )
+        assert after_count == before_count
+
+    with TestClient(app) as guest:
+        guest_detail = guest.get(
+            f"/api/projects/{project_id}",
+            headers={"x-guest-token": link["token"]},
+        ).json()
+        assert guest_detail["worker_links"] == []
+
+    with TestClient(app) as public_client:
+        public_project = public_client.get(
+            f"/api/public/projects/{client_token}"
+        ).json()["project"]
+        assert "worker_links" not in public_project
+
+
+def test_investor_cannot_assign_foreign_worker_profile():
+    with TestClient(app) as owner:
+        login(owner, "foreign-worker-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Cudza firma"},
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        foreign_worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Cudzy wykonawca",
+            },
+        ).json()
+
+    with TestClient(app) as investor:
+        login(investor, "foreign-worker-investor@example.com")
+        investor.post("/api/onboarding", json={"profile_type": "investor"})
+        project = investor.post(
+            "/api/projects",
+            json={"name": "Inwestycja bez cudzego wykonawcy", "template": "custom"},
+        ).json()
+
+        blocked = investor.patch(
+            f"/api/projects/{project['id']}",
+            json={"worker_profile_id": foreign_worker["id"]},
+        )
+
+        assert blocked.status_code == 403
+        details = investor.get(f"/api/projects/{project['id']}").json()
+        assert details["worker_profile_id"] is None
+        assert details["worker_profile"] is None
 
 
 def test_ai_report_merge_preserves_source_media_and_metadata():
@@ -1524,4 +1650,24 @@ def test_demo_seed_reset_creates_realistic_demo_data():
         assert result.client_links >= 25
         assert db.scalar(
             select(models.User).where(models.User.email == "old-demo-noise@example.com")
+        )
+
+
+def test_demo_seed_reset_requires_yes_confirmation():
+    with SessionLocal() as db:
+        sentinel = models.User(
+            email="demo-reset-sentinel@example.com",
+            name="Sentinel",
+            profile_type="investor",
+        )
+        db.add(sentinel)
+        db.commit()
+
+        with pytest.raises(RuntimeError, match="--yes"):
+            seed_demo_data(db, reset=True, yes=False)
+
+        assert db.scalar(
+            select(models.User).where(
+                models.User.email == "demo-reset-sentinel@example.com"
+            )
         )

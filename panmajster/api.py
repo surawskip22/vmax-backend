@@ -1268,14 +1268,16 @@ def project_detail_data(db: Session, access: ProjectAccess):
         .options(selectinload(models.ProjectMember.user))
         .where(models.ProjectMember.project_id == project.id)
     ).all()
-    worker_links = db.scalars(
-        select(models.GuestInvite)
-        .where(
-            models.GuestInvite.project_id == project.id,
-            models.GuestInvite.kind == "worker",
-        )
-        .order_by(models.GuestInvite.created_at.desc())
-    ).all()
+    worker_links = []
+    if access.can_manage():
+        worker_links = db.scalars(
+            select(models.GuestInvite)
+            .where(
+                models.GuestInvite.project_id == project.id,
+                models.GuestInvite.kind == "worker",
+            )
+            .order_by(models.GuestInvite.created_at.desc())
+        ).all()
     worker_profile = (
         db.get(models.WorkerProfile, project.worker_profile_id)
         if project.worker_profile_id
