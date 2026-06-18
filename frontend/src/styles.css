@@ -517,6 +517,12 @@ audio { width: 100%; margin-top: 13px; }
 .recorder span { color: var(--muted); font-size: 12px; }
 .recorder--active { border-color: #f3938e; background: #fff5f4; }
 .recorder--active button { background: var(--red); animation: pulse 1.3s infinite; }
+.live-transcription { margin-top: -4px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #cfe0ff; border-radius: 10px; color: var(--navy); background: #f4f8ff; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.live-transcription strong { font-size: 13px; }
+.live-transcription span { color: var(--muted); }
+.live-transcription--listening { border-color: #a8c7ff; background: #eef5ff; }
+.live-transcription--manual { border-color: #f5d39a; background: #fff8ea; }
+.live-transcription--unsupported, .live-transcription--error { border-color: #ead3d3; background: #fff7f7; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 10px rgba(219,52,44,.12); } }
 .file-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .file-chips span { display: inline-flex; gap: 7px; align-items: center; padding: 7px 10px; border-radius: 999px; color: #334155; background: #eef2f6; font-size: 11px; }

@@ -37,6 +37,36 @@ import type { ClientLink, Entry, Project, Report, Stage, User, WorkerProfile, Wo
 import { useUiMode, type UiMode } from "./useUiMode";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
+type EntryTextTarget = "description" | "note";
+type SpeechRecognitionState = "idle" | "listening" | "unsupported" | "error" | "manual";
+type SpeechRecognitionInfo = {
+  target: EntryTextTarget | null;
+  state: SpeechRecognitionState;
+  message: string;
+};
+type SpeechRecognitionResultLike = {
+  isFinal: boolean;
+  0: { transcript: string };
+};
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: {
+    length: number;
+    [index: number]: SpeechRecognitionResultLike;
+  };
+};
+type SpeechRecognitionInstance = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+};
+type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 
 const testAccounts = [
   {
@@ -1153,41 +1183,166 @@ function NewEntryModal({
   const [voiceNote, setVoiceNote] = useState("");
   const [stageId, setStageId] = useState(defaultEntryStageId(project));
   const [files, setFiles] = useState<File[]>([]);
-  const [recordingTarget, setRecordingTarget] = useState<"description" | "note" | null>(null);
-  const [transcribing, setTranscribing] = useState<"description" | "note" | null>(null);
+  const [recordingTarget, setRecordingTarget] = useState<EntryTextTarget | null>(null);
+  const [speechInfo, setSpeechInfo] = useState<SpeechRecognitionInfo>({ target: null, state: "idle", message: "" });
+  const [speechInterim, setSpeechInterim] = useState("");
   const [showVoiceNote, setShowVoiceNote] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
+  const speechRecognition = useRef<SpeechRecognitionInstance | null>(null);
+  const speechTarget = useRef<EntryTextTarget | null>(null);
+  const speechBaseText = useRef("");
+  const speechFinalText = useRef("");
+  const speechManualEdit = useRef(false);
+  const speechStopping = useRef(false);
 
-  async function transcribe(file: File, target: "description" | "note") {
-    setTranscribing(target);
-    const data = new FormData();
-    data.append("file", file);
-    try {
-      const result = await api<{ text: string }>(
-        `/projects/${project.id}/transcribe`,
-        { method: "POST", body: data },
-        guestToken,
-      );
-      if (target === "description") {
-        setBody((current) => [current, result.text].filter(Boolean).join(" "));
-      } else {
-        setVoiceNote((current) => [current, result.text].filter(Boolean).join("\n\n"));
-      }
-    } catch (reason) {
-      setError(
-        reason instanceof Error
-          ? `${reason.message}. Nagranie nadal zostanie zapisane.`
-          : "Nie udało się zamienić głosu na tekst. Nagranie nadal zostanie zapisane.",
-      );
-    } finally {
-      setTranscribing(null);
+  function speechRecognitionConstructor(): SpeechRecognitionConstructor | null {
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    return speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition || null;
+  }
+
+  function updateTargetText(target: EntryTextTarget, value: string) {
+    if (target === "description") {
+      setBody(value);
+    } else {
+      setVoiceNote(value);
     }
   }
 
-  async function startRecording(target: "description" | "note") {
+  function composeTranscript(base: string, finalText: string, interimText: string, target: EntryTextTarget): string {
+    const separator = target === "description" ? " " : "\n\n";
+    return [base.trim(), finalText.trim(), interimText.trim()].filter(Boolean).join(separator);
+  }
+
+  function applySpeechText(target: EntryTextTarget, interimText = "") {
+    if (speechManualEdit.current) return;
+    updateTargetText(target, composeTranscript(speechBaseText.current, speechFinalText.current, interimText, target));
+  }
+
+  function stopLiveTranscription(options: { keepMessage?: boolean } = {}) {
+    speechStopping.current = true;
+    const activeRecognition = speechRecognition.current;
+    speechRecognition.current = null;
+    if (activeRecognition) {
+      activeRecognition.onresult = null;
+      activeRecognition.onerror = null;
+      activeRecognition.onend = null;
+      try {
+        activeRecognition.stop();
+      } catch {
+        activeRecognition.abort?.();
+      }
+    }
+    speechTarget.current = null;
+    speechFinalText.current = "";
+    speechBaseText.current = "";
+    speechManualEdit.current = false;
+    setSpeechInterim("");
+    if (!options.keepMessage) {
+      setSpeechInfo({ target: null, state: "idle", message: "" });
+    }
+    window.setTimeout(() => { speechStopping.current = false; }, 0);
+  }
+
+  function startLiveTranscription(target: EntryTextTarget) {
+    stopLiveTranscription({ keepMessage: false });
+    const Constructor = speechRecognitionConstructor();
+    if (!Constructor) {
+      setSpeechInfo({
+        target,
+        state: "unsupported",
+        message: "Transkrypcja live beta nie jest dostępna w tej przeglądarce. Nagranie audio nadal zostanie zapisane.",
+      });
+      return;
+    }
+
+    const currentText = target === "description" ? body : voiceNote;
+    speechTarget.current = target;
+    speechBaseText.current = currentText;
+    speechFinalText.current = "";
+    speechManualEdit.current = false;
+    setSpeechInterim("");
+
+    try {
+      const recognition = new Constructor();
+      recognition.lang = "pl-PL";
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.onresult = (event) => {
+        if (speechTarget.current !== target) return;
+        let finalText = "";
+        let interimText = "";
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const result = event.results[index];
+          const transcript = result[0]?.transcript?.trim();
+          if (!transcript) continue;
+          if (result.isFinal) {
+            finalText = [finalText, transcript].filter(Boolean).join(" ");
+          } else {
+            interimText = [interimText, transcript].filter(Boolean).join(" ");
+          }
+        }
+        if (finalText) {
+          speechFinalText.current = [speechFinalText.current, finalText].filter(Boolean).join(" ");
+        }
+        setSpeechInterim(interimText);
+        applySpeechText(target, interimText);
+      };
+      recognition.onerror = () => {
+        if (speechStopping.current) return;
+        setSpeechInfo({
+          target,
+          state: "error",
+          message: "Transkrypcja live beta chwilowo nie działa. Nagranie audio nadal zostanie zapisane.",
+        });
+      };
+      recognition.onend = () => {
+        if (speechStopping.current) return;
+        speechRecognition.current = null;
+        setSpeechInterim("");
+        setSpeechInfo({
+          target,
+          state: "error",
+          message: "Transkrypcja live beta została przerwana. Nagranie audio nadal zostanie zapisane.",
+        });
+      };
+      speechRecognition.current = recognition;
+      recognition.start();
+      setSpeechInfo({
+        target,
+        state: "listening",
+        message: "Transkrypcja live beta: włączona. Słucham i zapisuję tekst...",
+      });
+    } catch {
+      setSpeechInfo({
+        target,
+        state: "unsupported",
+        message: "Transkrypcja live beta nie jest dostępna w tej przeglądarce. Nagranie audio nadal zostanie zapisane.",
+      });
+    }
+  }
+
+  function markManualTextEdit(target: EntryTextTarget) {
+    if (speechTarget.current !== target) return;
+    speechManualEdit.current = true;
+    setSpeechInfo({
+      target,
+      state: "manual",
+      message: "Tekst edytujesz ręcznie. Transkrypcja live nie będzie nadpisywać pola.",
+    });
+  }
+
+  useEffect(() => () => {
+    stopLiveTranscription();
+    recorder.current?.stop();
+  }, []);
+
+  async function startRecording(target: EntryTextTarget) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -1199,11 +1354,11 @@ function NewEntryModal({
         const file = new File([blob], `${prefix}-${Date.now()}.webm`, { type: blob.type });
         setFiles((current) => [...current, file]);
         stream.getTracks().forEach((track) => track.stop());
-        void transcribe(file, target);
       };
       recorder.current = mediaRecorder;
       mediaRecorder.start();
       setRecordingTarget(target);
+      startLiveTranscription(target);
     } catch {
       setError("Przeglądarka nie udostępniła mikrofonu. Opis możesz wpisać ręcznie.");
     }
@@ -1212,6 +1367,7 @@ function NewEntryModal({
   function stopRecording() {
     recorder.current?.stop();
     setRecordingTarget(null);
+    stopLiveTranscription({ keepMessage: false });
   }
 
   async function upload(entryId: string, selectedFiles: File[]) {
@@ -1276,6 +1432,19 @@ function NewEntryModal({
     }
   }
 
+  function renderSpeechStatus(target: EntryTextTarget) {
+    if (speechInfo.target !== target || speechInfo.state === "idle") return null;
+    return (
+      <div className={`live-transcription live-transcription--${speechInfo.state}`}>
+        <strong>{speechInfo.message}</strong>
+        {speechInfo.state === "listening" && <span>Tekst możesz poprawić przed zapisaniem.</span>}
+        {speechInterim && speechTarget.current === target && !speechManualEdit.current && (
+          <span>Roboczo: {speechInterim}</span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <Modal title={kind === "problem" ? "Zgłoś problem" : "Dodaj postęp prac"} onClose={onClose}>
       <form className="form-stack" onSubmit={submit}>
@@ -1304,11 +1473,12 @@ function NewEntryModal({
             <Icon name="mic" size={30} />
           </button>
           <div>
-            <strong>{recordingTarget === "description" ? "Nagrywanie opisu..." : transcribing === "description" ? "Zamieniam głos na tekst..." : "Nagraj opis prac"}</strong>
+            <strong>{recordingTarget === "description" ? "Nagrywanie opisu..." : "Nagraj opis prac"}</strong>
             <span>Powiedz krótko, co zostało zrobione. Tekst pojawi się poniżej i będzie można go poprawić.</span>
           </div>
         </div>
-        <label>{kind === "problem" ? "Opis problemu" : "Opis prac"}<textarea rows={5} value={body} onChange={(e) => setBody(e.target.value)} placeholder={kind === "problem" ? "Co się wydarzyło i czego potrzeba?" : "Wpisz opis albo nagraj go przyciskiem powyżej."} /></label>
+        {renderSpeechStatus("description")}
+        <label>{kind === "problem" ? "Opis problemu" : "Opis prac"}<textarea rows={5} value={body} onChange={(e) => { markManualTextEdit("description"); setBody(e.target.value); }} placeholder={kind === "problem" ? "Co się wydarzyło i czego potrzeba?" : "Wpisz opis albo nagraj go przyciskiem powyżej."} /></label>
         <button className="optional-voice-toggle" type="button" onClick={() => setShowVoiceNote((current) => !current)}>
           <Icon name="mic" size={20} />
           <span><strong>Opcjonalna dłuższa notatka głosowa</strong><small>Dodaj szczegóły, ustalenia lub obszerniejszy komentarz.</small></span>
@@ -1325,16 +1495,17 @@ function NewEntryModal({
                 <Icon name="mic" size={30} />
               </button>
               <div>
-                <strong>{recordingTarget === "note" ? "Nagrywanie notatki..." : transcribing === "note" ? "Zamieniam notatkę na tekst..." : "Nagraj dłuższą notatkę"}</strong>
-                <span>To nagranie również zostanie zapisane i przepisane na tekst.</span>
+                <strong>{recordingTarget === "note" ? "Nagrywanie notatki..." : "Nagraj dłuższą notatkę"}</strong>
+                <span>Nagranie zostanie zapisane, a live tekst pojawi się, jeśli przeglądarka wspiera transkrypcję beta.</span>
               </div>
             </div>
-            <label>Tekst dłuższej notatki<textarea rows={4} value={voiceNote} onChange={(event) => setVoiceNote(event.target.value)} placeholder="Tutaj pojawi się transkrypcja dłuższej notatki." /></label>
+            {renderSpeechStatus("note")}
+            <label>Tekst dłuższej notatki<textarea rows={4} value={voiceNote} onChange={(event) => { markManualTextEdit("note"); setVoiceNote(event.target.value); }} placeholder="Tutaj pojawi się transkrypcja dłuższej notatki." /></label>
           </>
         )}
         {files.length > 0 && <div className="file-chips">{files.map((file, index) => <span key={`${file.name}-${index}`}>{file.type.startsWith("audio/") ? "Nagranie" : "Zdjęcie"} {index + 1}<button type="button" onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>×</button></span>)}</div>}
         {error && <p className="form-error">{error}</p>}
-        <Button type="submit" busy={busy || Boolean(transcribing)} icon={kind === "problem" ? "alert" : "check"}>{navigator.onLine ? "Zapisz wpis" : "Zapisz do wysłania"}</Button>
+        <Button type="submit" busy={busy} icon={kind === "problem" ? "alert" : "check"}>{navigator.onLine ? "Zapisz wpis" : "Zapisz do wysłania"}</Button>
       </form>
     </Modal>
   );
