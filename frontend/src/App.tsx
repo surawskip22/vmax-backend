@@ -18,7 +18,7 @@ import {
 } from "./access";
 import { AppShell } from "./AppShell";
 import { ManageProjectModal } from "./ManageProjectModal";
-import { api } from "./api";
+import { ApiError, api } from "./api";
 import { Icon } from "./icons";
 import {
   deleteQueuedEntry,
@@ -1716,6 +1716,7 @@ function ProjectView({
   uiMode,
   onUiModeChange,
   onBack,
+  onUnavailable,
   notify,
   onQueue,
 }: {
@@ -1725,6 +1726,7 @@ function ProjectView({
   uiMode?: UiMode;
   onUiModeChange?: (mode: UiMode) => void;
   onBack: () => void;
+  onUnavailable?: () => void;
   notify: (toast: Toast) => void;
   onQueue: () => void;
 }) {
@@ -1762,11 +1764,31 @@ function ProjectView({
         setClientLink(linkData);
       }
     } catch (reason) {
+      setProject(null);
+      setEntries([]);
+      setReports([]);
+      setClientLink(null);
+      if (!guestToken && reason instanceof ApiError && [403, 404].includes(reason.status)) {
+        notify({ kind: "info", message: "Nie masz dostępu do tego zlecenia w tej sesji. Wracam do listy." });
+        onUnavailable?.();
+        return;
+      }
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się otworzyć projektu" });
     } finally {
       setLoading(false);
     }
-  }, [guestToken, notify, projectId]);
+  }, [guestToken, notify, onUnavailable, projectId]);
+
+  useEffect(() => {
+    setProject(null);
+    setEntries([]);
+    setReports([]);
+    setClientLink(null);
+    setShowReports(false);
+    setShowManage(false);
+    setShowClientLink(false);
+    setLoading(true);
+  }, [guestToken, projectId]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -3586,6 +3608,20 @@ export default function App() {
     await refreshQueue();
   }, [refreshQueue]);
 
+  const resetSessionView = useCallback(() => {
+    setSelectedProject(null);
+    setCreateOpen(false);
+    setProjects([]);
+    setSection("home");
+  }, []);
+
+  const enterAuthenticatedApp = useCallback((next: User) => {
+    resetSessionView();
+    setUser(next);
+    setAuthOpen(false);
+    navigate("/app");
+  }, [resetSessionView]);
+
   useEffect(() => {
     const handler = () => setCurrentRoute(route());
     addEventListener("popstate", handler);
@@ -3616,9 +3652,13 @@ export default function App() {
   }, [currentRoute, user]);
 
   async function logout() {
-    await api("/auth/logout", { method: "POST" });
-    setUser(null);
-    setProjects([]);
+    try {
+      await api("/auth/logout", { method: "POST" });
+    } finally {
+      resetSessionView();
+      setUser(null);
+      setAuthOpen(false);
+    }
     navigate("/");
   }
 
@@ -3629,24 +3669,33 @@ export default function App() {
     return <GuestEntry token={currentRoute.token} notify={notify} onQueue={refreshQueue} />;
   }
   if (currentRoute.kind === "invite" && !user) {
-    return <InvitePage token={currentRoute.token} onSuccess={(next) => { setUser(next); navigate("/app"); }} />;
+    return <InvitePage token={currentRoute.token} onSuccess={enterAuthenticatedApp} />;
   }
 
   const marketing = currentRoute.kind === "marketing" && !user;
   if (marketing) {
-    return <><Marketing onLogin={() => setAuthOpen(true)} />{authOpen && <AuthModal onClose={() => setAuthOpen(false)} onSuccess={(next) => { setUser(next); setAuthOpen(false); navigate("/app"); }} />}{toast && <ToastView toast={toast} />}</>;
+    return <><Marketing onLogin={() => setAuthOpen(true)} />{authOpen && <AuthModal onClose={() => setAuthOpen(false)} onSuccess={enterAuthenticatedApp} />}{toast && <ToastView toast={toast} />}</>;
   }
   if (loading || !user) {
-    return <><div className="splash"><img src="/brand/app-icon.png" alt="Pan Majster" /><span className="spinner" /></div>{authOpen && <AuthModal onClose={() => { setAuthOpen(false); navigate("/"); }} onSuccess={(next) => { setUser(next); setAuthOpen(false); navigate("/app"); }} />}</>;
+    return <><div className="splash"><img src="/brand/app-icon.png" alt="Pan Majster" /><span className="spinner" /></div>{authOpen && <AuthModal onClose={() => { setAuthOpen(false); navigate("/"); }} onSuccess={enterAuthenticatedApp} />}</>;
   }
   if (!user.profile_type) {
-    return <Onboarding onComplete={(next) => { setUser(next); setSection("home"); navigate("/app"); }} onBack={logout} />;
+    return <Onboarding onComplete={enterAuthenticatedApp} onBack={logout} />;
   }
 
   const visibleSection = visibleSectionForUser(user, section);
   const activeSection = selectedProject ? "projects" : visibleSection;
   const body = selectedProject ? (
-    <ProjectView projectId={selectedProject.id} user={user} uiMode={uiMode} onUiModeChange={setUiMode} onBack={() => setSelectedProject(null)} notify={notify} onQueue={refreshQueue} />
+    <ProjectView
+      projectId={selectedProject.id}
+      user={user}
+      uiMode={uiMode}
+      onUiModeChange={setUiMode}
+      onBack={() => setSelectedProject(null)}
+      onUnavailable={() => { setSelectedProject(null); setSection("projects"); }}
+      notify={notify}
+      onQueue={refreshQueue}
+    />
   ) : visibleSection === "projects" ? (
     <ProjectsPage user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} uiMode={uiMode} />
   ) : visibleSection === "reports" ? (

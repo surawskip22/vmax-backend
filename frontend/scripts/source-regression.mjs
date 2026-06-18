@@ -130,6 +130,16 @@ if (!/RoleAwareSidebar/.test(appShellSource)) {
   throw new Error("AppShell powinien uzywac RoleAwareSidebar.");
 }
 
+if (!/const resetSessionView = useCallback\(\(\) => \{[\s\S]*?setSelectedProject\(null\);[\s\S]*?setProjects\(\[\]\);[\s\S]*?setSection\("home"\);[\s\S]*?\}, \[\]\);/.test(appSource)) {
+  throw new Error("Reset sesji powinien czyscic aktywny projekt, liste projektow i wracac do glownego widoku.");
+}
+if (!/const enterAuthenticatedApp = useCallback\(\(next: User\) => \{[\s\S]*?resetSessionView\(\);[\s\S]*?setUser\(next\);[\s\S]*?navigate\("\/app"\);/.test(appSource)) {
+  throw new Error("Login powinien przechodzic przez resetSessionView, zeby nie odziedziczyc projektu poprzedniego konta.");
+}
+if (!/onUnavailable=\{\(\) => \{ setSelectedProject\(null\); setSection\("projects"\); \}\}/.test(appSource)) {
+  throw new Error("Niedostepny projekt po relogu powinien wracac do listy zamiast zostawiac ekran bledu.");
+}
+
 const companyWorkerNavigation = extractCompanyWorkerNavigation();
 if (companyWorkerNavigation.includes('id: "team"')) {
   throw new Error("company_worker nie powinien widziec panelu ludzi.");
