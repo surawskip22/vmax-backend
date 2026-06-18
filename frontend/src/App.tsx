@@ -34,6 +34,7 @@ import {
 } from "./roleLabels";
 import { visibleSectionForUser } from "./RoleAwareSidebar";
 import type { ClientLink, Entry, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
+import { useUiMode, type UiMode } from "./useUiMode";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
 
@@ -880,12 +881,15 @@ function Dashboard({
   projects,
   onProject,
   onCreate,
+  uiMode,
 }: {
   user: User;
   projects: Project[];
   onProject: (project: Project) => void;
   onCreate: () => void;
+  uiMode: UiMode;
 }) {
+  const simpleMode = uiMode === "simple";
   const active = projects.filter((project) => ["assigned", "in_progress"].includes(project.status));
   const problems = projects.reduce((sum, item) => sum + (item.open_problem_count || 0), 0);
   const canCreate = canCreateProject(user);
@@ -907,11 +911,11 @@ function Dashboard({
         </div>
         {canCreate && <Button icon="plus" onClick={onCreate}>{createLabel}</Button>}
       </header>
-      <div className="stat-grid">
+      <div className={`stat-grid ${simpleMode ? "stat-grid--simple" : ""}`}>
         <article><span className="stat-icon stat-icon--blue"><Icon name="clipboard" /></span><div><small>Aktywne zlecenia</small><strong>{active.length}</strong></div></article>
         <article><span className="stat-icon stat-icon--red"><Icon name="alert" /></span><div><small>Otwarte problemy</small><strong>{problems}</strong></div></article>
-        <article><span className="stat-icon stat-icon--green"><Icon name="check" /></span><div><small>Zakończone</small><strong>{projects.filter((p) => p.status === "completed").length}</strong></div></article>
-        <article><span className="stat-icon stat-icon--orange"><Icon name="users" /></span><div><small>Wszystkie projekty</small><strong>{projects.length}</strong></div></article>
+        {!simpleMode && <article><span className="stat-icon stat-icon--green"><Icon name="check" /></span><div><small>Zakończone</small><strong>{projects.filter((p) => p.status === "completed").length}</strong></div></article>}
+        {!simpleMode && <article><span className="stat-icon stat-icon--orange"><Icon name="users" /></span><div><small>Wszystkie projekty</small><strong>{projects.length}</strong></div></article>}
       </div>
       <section className="panel">
         <div className="panel__header">
@@ -924,16 +928,16 @@ function Dashboard({
           </EmptyState>
         ) : (
           <div className="project-list">
-            {projects.slice(0, 8).map((project) => (
-              <button key={project.id} className="project-row" onClick={() => onProject(project)}>
+            {projects.slice(0, simpleMode ? 5 : 8).map((project) => (
+              <button key={project.id} className={`project-row ${simpleMode ? "project-row--simple" : ""}`} onClick={() => onProject(project)}>
                 <span className="project-row__icon"><Icon name="clipboard" /></span>
                 <div className="project-row__main">
                   <strong>{project.name}</strong>
                   <span>{project.client_name || "Bez klienta"} · {project.address || "Bez adresu"}</span>
-                  <small>{projectPartyLabel(user)}: {projectPartyValue(user, project)} · {projectActivityLabel(project)}</small>
+                  {!simpleMode && <small>{projectPartyLabel(user)}: {projectPartyValue(user, project)} · {projectActivityLabel(project)}</small>}
                 </div>
                 <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
-                <span className="project-row__meta">{formatContractDate(project.planned_end_date) || (project.role === "owner" ? "Właściciel" : "Współpraca")}</span>
+                {!simpleMode && <span className="project-row__meta">{formatContractDate(project.planned_end_date) || (project.role === "owner" ? "Właściciel" : "Współpraca")}</span>}
                 <Icon name="back" className="chevron" />
               </button>
             ))}
@@ -970,17 +974,23 @@ function ProjectsPage({
   projects,
   onProject,
   onCreate,
+  uiMode,
 }: {
   user: User;
   projects: Project[];
   onProject: (project: Project) => void;
   onCreate: () => void;
+  uiMode: UiMode;
 }) {
   const [filter, setFilter] = useState("");
   const [viewFilter, setViewFilter] = useState<"all" | "open" | "history">("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [workerFilter, setWorkerFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "start" | "end" | "status">("newest");
+  const simpleMode = uiMode === "simple";
+  useEffect(() => {
+    if (simpleMode && !["newest", "oldest"].includes(sortBy)) setSortBy("newest");
+  }, [simpleMode, sortBy]);
   const copy = projectListCopy(user);
   const query = filter.trim().toLowerCase();
   const statusOrder: Record<string, number> = { assigned: 1, in_progress: 2, completed: 3 };
@@ -1035,7 +1045,7 @@ function ProjectsPage({
               <option value="in_progress">W realizacji</option>
               <option value="completed">Zakończono</option>
             </select>
-            {workerOptions.length > 0 && (
+            {!simpleMode && workerOptions.length > 0 && (
               <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)} aria-label="Filtr wykonawcy">
                 <option value="all">{isInvestor(user) ? "Wszyscy wykonawcy" : "Wszyscy majstrowie / ekipy"}</option>
                 {workerOptions.map((worker) => (
@@ -1046,9 +1056,9 @@ function ProjectsPage({
             <div className="project-sort-controls" aria-label="Sortowanie zleceń">
               <button type="button" className={sortBy === "newest" ? "active" : ""} onClick={() => setSortBy("newest")}>Najnowsze</button>
               <button type="button" className={sortBy === "oldest" ? "active" : ""} onClick={() => setSortBy("oldest")}>Najstarsze</button>
-              <button type="button" className={sortBy === "start" ? "active" : ""} onClick={() => setSortBy("start")}>Data rozpoczęcia</button>
-              <button type="button" className={sortBy === "end" ? "active" : ""} onClick={() => setSortBy("end")}>Data zakończenia</button>
-              <button type="button" className={sortBy === "status" ? "active" : ""} onClick={() => setSortBy("status")}>Status</button>
+              {!simpleMode && <button type="button" className={sortBy === "start" ? "active" : ""} onClick={() => setSortBy("start")}>Data rozpoczęcia</button>}
+              {!simpleMode && <button type="button" className={sortBy === "end" ? "active" : ""} onClick={() => setSortBy("end")}>Data zakończenia</button>}
+              {!simpleMode && <button type="button" className={sortBy === "status" ? "active" : ""} onClick={() => setSortBy("status")}>Status</button>}
             </div>
           </div>
         </div>
@@ -1073,12 +1083,12 @@ function ProjectsPage({
                     <small>{projectActivityLabel(project)}</small>
                   </div>
                 </div>
-                <dl className="project-meta-grid project-meta-grid--overview">
+                <dl className={`project-meta-grid project-meta-grid--overview ${simpleMode ? "project-meta-grid--simple" : ""}`}>
                   <div><dt>{projectPartyLabel(user)}</dt><dd>{projectPartyValue(user, project)}</dd></div>
                   <div><dt>Start</dt><dd>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</dd></div>
                   <div><dt>Koniec</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
-                  <div><dt>Ostatnia aktywność</dt><dd>{formatProjectActivityDate(project.updated_at || project.created_at) || "Nie ustawiono"}</dd></div>
-                  <div><dt>Kwota umowna</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>
+                  {!simpleMode && <div><dt>Ostatnia aktywność</dt><dd>{formatProjectActivityDate(project.updated_at || project.created_at) || "Nie ustawiono"}</dd></div>}
+                  {!simpleMode && <div><dt>Kwota umowna</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>}
                 </dl>
                 <div className="project-list-card__footer">
                   <div className="project-list-card__signals">
@@ -1552,7 +1562,8 @@ function ProjectView({
   projectId,
   guestToken,
   user,
-  onUserUpdated,
+  uiMode,
+  onUiModeChange,
   onBack,
   notify,
   onQueue,
@@ -1560,7 +1571,8 @@ function ProjectView({
   projectId: string;
   guestToken?: string;
   user?: User;
-  onUserUpdated?: (user: User) => void;
+  uiMode?: UiMode;
+  onUiModeChange?: (mode: UiMode) => void;
   onBack: () => void;
   notify: (toast: Toast) => void;
   onQueue: () => void;
@@ -1575,9 +1587,7 @@ function ProjectView({
   const [showManage, setShowManage] = useState(false);
   const [showClientLink, setShowClientLink] = useState(false);
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
-  const [fieldMode, setFieldMode] = useState(
-    Boolean(guestToken) || user?.preferred_mode === "field",
-  );
+  const fieldMode = Boolean(guestToken) || uiMode !== "advanced";
 
   const load = useCallback(async () => {
     try {
@@ -1625,18 +1635,8 @@ function ProjectView({
   const canChangeStage = canAdd && project.status !== "completed";
   const projectIdForStatusActions = project.id;
 
-  async function changeMode(next: "field" | "expanded") {
-    setFieldMode(next === "field");
-    if (!user || !onUserUpdated) return;
-    try {
-      const updated = await api<User>("/me", {
-        method: "PATCH",
-        body: JSON.stringify({ preferred_mode: next }),
-      });
-      onUserUpdated(updated);
-    } catch {
-      notify({ kind: "info", message: "Tryb zmieniono, ale nie udało się zapisać ustawienia." });
-    }
+  function changeMode(next: "field" | "expanded") {
+    onUiModeChange?.(next === "field" ? "simple" : "advanced");
   }
 
   async function copyClientLink() {
@@ -1722,10 +1722,10 @@ function ProjectView({
           </section>
           {!navigator.onLine && <div className="offline-banner"><Icon name="sync" /> Tryb offline — wpis zostanie wysłany po odzyskaniu sieci.</div>}
           {canAdd && <div className="field-actions">
-            <FieldAction icon="camera" title="Dodaj postęp" subtitle="Zdjęcia + opis głosowy lub tekst" tone="navy" onClick={() => setEntryModal({ kind: "update", mode: "photo" })} />
-            <FieldAction icon="alert" title="Zgłoś problem" subtitle="Usterka lub decyzja" tone="red" onClick={() => setEntryModal({ kind: "problem", mode: "photo" })} />
-            {!guestToken && user?.profile_type !== "investor" && !isCompanyWorker(user) && <FieldAction icon="link" title="Link klienta" subtitle="Kopiuj jeden stały link" tone="orange" onClick={copyClientLink} />}
-            {canUseReports && <FieldAction icon="report" title="Raporty PDF" subtitle="Obejrzyj lub utwórz raport" tone="navy" onClick={() => setShowReports(true)} />}
+            <FieldAction icon="camera" title="Zdjęcie" subtitle="Dodaj postęp z placu" tone="navy" onClick={() => setEntryModal({ kind: "update", mode: "photo" })} />
+            <FieldAction icon="mic" title="Audio" subtitle="Nagraj opis pracy" tone="orange" onClick={() => setEntryModal({ kind: "update", mode: "audio" })} />
+            <FieldAction icon="send" title="Opis" subtitle="Krótka notatka tekstowa" tone="navy" onClick={() => setEntryModal({ kind: "update", mode: "text" })} />
+            <FieldAction icon="alert" title="Problem" subtitle="Usterka lub decyzja" tone="red" onClick={() => setEntryModal({ kind: "problem", mode: "photo" })} />
           </div>}
           {showClientLink && clientLink?.url && (
             <div className="share-result">
@@ -3360,6 +3360,7 @@ export default function App() {
   const [createOpen, setCreateOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [queueCount, setQueueCount] = useState(0);
+  const [uiMode, setUiMode] = useUiMode();
   const toastTimer = useRef<number | null>(null);
 
   const notify = useCallback((next: Toast) => {
@@ -3469,9 +3470,9 @@ export default function App() {
   const visibleSection = visibleSectionForUser(user, section);
   const activeSection = selectedProject ? "projects" : visibleSection;
   const body = selectedProject ? (
-    <ProjectView projectId={selectedProject.id} user={user} onUserUpdated={setUser} onBack={() => setSelectedProject(null)} notify={notify} onQueue={refreshQueue} />
+    <ProjectView projectId={selectedProject.id} user={user} uiMode={uiMode} onUiModeChange={setUiMode} onBack={() => setSelectedProject(null)} notify={notify} onQueue={refreshQueue} />
   ) : visibleSection === "projects" ? (
-    <ProjectsPage user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} />
+    <ProjectsPage user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} uiMode={uiMode} />
   ) : visibleSection === "reports" ? (
     <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
   ) : visibleSection === "team" ? (
@@ -3479,7 +3480,7 @@ export default function App() {
   ) : visibleSection === "settings" ? (
     <SettingsPage user={user} onUpdated={setUser} onLogout={logout} notify={notify} />
   ) : (
-    <Dashboard user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} />
+    <Dashboard user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} uiMode={uiMode} />
   );
 
   return (
@@ -3490,6 +3491,8 @@ export default function App() {
         onNavigate={(next) => { setSelectedProject(null); setSection(next); }}
         onLogout={logout}
         queueCount={queueCount}
+        uiMode={uiMode}
+        onUiModeChange={setUiMode}
         logo={<Logo />}
         compactLogo={<Logo compact />}
       >
