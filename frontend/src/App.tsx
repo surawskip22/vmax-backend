@@ -1474,7 +1474,7 @@ function NewEntryModal({
           </button>
           <div>
             <strong>{recordingTarget === "description" ? "Nagrywanie opisu..." : "Nagraj opis prac"}</strong>
-            <span>Powiedz krótko, co zostało zrobione. Tekst pojawi się poniżej i będzie można go poprawić.</span>
+            <span>Powiedz krótko, co zostało zrobione. Transkrypcja live beta ruszy, jeśli przeglądarka ją wspiera; tekst możesz poprawić przed zapisem.</span>
           </div>
         </div>
         {renderSpeechStatus("description")}
@@ -1496,7 +1496,7 @@ function NewEntryModal({
               </button>
               <div>
                 <strong>{recordingTarget === "note" ? "Nagrywanie notatki..." : "Nagraj dłuższą notatkę"}</strong>
-                <span>Nagranie zostanie zapisane, a live tekst pojawi się, jeśli przeglądarka wspiera transkrypcję beta.</span>
+                <span>Nagranie zostanie zapisane, a transkrypcja live beta pojawi się, jeśli przeglądarka ją wspiera.</span>
               </div>
             </div>
             {renderSpeechStatus("note")}
