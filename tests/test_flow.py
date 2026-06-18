@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -51,6 +52,13 @@ def password_login(client: TestClient, email: str, password: str) -> dict:
     )
     assert response.status_code == 200
     return response.json()["user"]
+
+
+def assert_pdf_response(response):
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/pdf")
+    assert response.content.startswith(b"%PDF")
+    assert len(response.content) > 1000
 
 
 def test_complete_report_flow_and_media_integrity():
@@ -150,6 +158,207 @@ def test_complete_report_flow_and_media_integrity():
         pdf = client.get(f"/api/public/reports/{token}/pdf?pin=1234")
         assert pdf.status_code == 200
         assert pdf.content.startswith(b"%PDF")
+
+
+def test_daily_and_final_project_pdf_reports_for_project_members():
+    report_day = datetime(2026, 6, 18, 10, 0, tzinfo=timezone.utc)
+
+    with TestClient(app) as owner:
+        login(owner, "pdf-owner@example.com")
+        project = owner.post(
+            "/api/projects",
+            json={
+                "name": "PDF owner project",
+                "client_name": "Anna PDF",
+                "address": "ul. PDF 1",
+                "template": "custom",
+                "planned_start_date": "2026-06-17",
+                "planned_end_date": "2026-06-30",
+                "contract_amount": "4200.00",
+            },
+        ).json()
+        entry = owner.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "Wykonano prace testowe do raportu dziennego.",
+                "stage_id": project["stages"][1]["id"],
+                "occurred_at": report_day.isoformat(),
+            },
+        )
+        assert entry.status_code == 201
+        problem = owner.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "problem",
+                "body": "Uwaga do raportu PDF.",
+                "stage_id": project["stages"][1]["id"],
+                "occurred_at": report_day.isoformat(),
+            },
+        )
+        assert problem.status_code == 201
+        assert_pdf_response(
+            owner.get(
+                f"/api/projects/{project['id']}/report.pdf?type=daily&date=2026-06-18"
+            )
+        )
+        assert_pdf_response(
+            owner.get(f"/api/projects/{project['id']}/report.pdf?type=final")
+        )
+        assert_pdf_response(
+            owner.get(
+                f"/api/projects/{project['id']}/report.pdf?type=daily&date=2026-06-19"
+            )
+        )
+
+    with TestClient(app) as investor:
+        login(investor, "pdf-investor@example.com")
+        investor.post("/api/onboarding", json={"profile_type": "investor"})
+        investment = investor.post(
+            "/api/projects",
+            json={"name": "PDF investor project", "template": "custom"},
+        ).json()
+        assert_pdf_response(
+            investor.get(
+                f"/api/projects/{investment['id']}/report.pdf?type=daily&date=2026-06-18"
+            )
+        )
+        assert_pdf_response(
+            investor.get(f"/api/projects/{investment['id']}/report.pdf?type=final")
+        )
+
+    with TestClient(app) as independent:
+        login(independent, "pdf-independent@example.com")
+        independent.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        own_project = independent.post(
+            "/api/projects",
+            json={"name": "PDF independent project", "template": "custom"},
+        ).json()
+        assert_pdf_response(
+            independent.get(
+                f"/api/projects/{own_project['id']}/report.pdf?type=daily&date=2026-06-18"
+            )
+        )
+        assert_pdf_response(
+            independent.get(f"/api/projects/{own_project['id']}/report.pdf?type=final")
+        )
+
+
+def test_project_pdf_report_access_for_worker_guest_and_public_client():
+    report_day = datetime(2026, 6, 18, 11, 0, tzinfo=timezone.utc)
+
+    with TestClient(app) as worker_seed:
+        login(worker_seed, "pdf-worker@example.com")
+
+    with TestClient(app) as owner:
+        login(owner, "pdf-access-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "PDF Access"},
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "PDF worker",
+                "email": "pdf-worker@example.com",
+            },
+        ).json()
+        assigned = owner.post(
+            "/api/projects",
+            json={
+                "name": "PDF assigned worker project",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        unassigned = owner.post(
+            "/api/projects",
+            json={
+                "name": "PDF unassigned worker project",
+                "workspace_id": workspace_id,
+                "template": "custom",
+            },
+        ).json()
+        owner.post(
+            f"/api/projects/{assigned['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "Wpis widoczny w raporcie pracownika.",
+                "stage_id": assigned["stages"][1]["id"],
+                "occurred_at": report_day.isoformat(),
+            },
+        )
+        history_link = owner.post(
+            f"/api/projects/{assigned['id']}/guest-links",
+            json={"label": "PDF link history", "kind": "worker", "permission": "history"},
+        ).json()
+        add_only_link = owner.post(
+            f"/api/projects/{assigned['id']}/guest-links",
+            json={"label": "PDF link add", "kind": "worker", "permission": "add"},
+        ).json()
+        client_token = owner.get(f"/api/projects/{assigned['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+    with TestClient(app) as worker_client:
+        login(worker_client, "pdf-worker@example.com")
+        assert_pdf_response(
+            worker_client.get(
+                f"/api/projects/{assigned['id']}/report.pdf?type=daily&date=2026-06-18"
+            )
+        )
+        assert_pdf_response(
+            worker_client.get(f"/api/projects/{assigned['id']}/report.pdf?type=final")
+        )
+        assert (
+            worker_client.get(
+                f"/api/projects/{unassigned['id']}/report.pdf?type=final"
+            ).status_code
+            == 403
+        )
+        assert worker_client.get("/api/workers").json() == []
+
+    with TestClient(app) as guest:
+        assert_pdf_response(
+            guest.get(
+                f"/api/projects/{assigned['id']}/report.pdf?type=daily&date=2026-06-18",
+                headers={"x-guest-token": history_link["token"]},
+            )
+        )
+        assert_pdf_response(
+            guest.get(
+                f"/api/projects/{assigned['id']}/report.pdf?type=final&guest_token={history_link['token']}"
+            )
+        )
+        assert (
+            guest.get(
+                f"/api/projects/{unassigned['id']}/report.pdf?type=final",
+                headers={"x-guest-token": history_link["token"]},
+            ).status_code
+            == 403
+        )
+        assert (
+            guest.get(
+                f"/api/projects/{assigned['id']}/report.pdf?type=final",
+                headers={"x-guest-token": add_only_link["token"]},
+            ).status_code
+            == 403
+        )
+
+    with TestClient(app) as public_client:
+        assert public_client.get(f"/api/public/projects/{client_token}").status_code == 200
+        assert (
+            public_client.get(
+                f"/api/projects/{assigned['id']}/report.pdf?type=final"
+            ).status_code
+            == 403
+        )
 
 
 def test_guest_permissions_and_revocation():

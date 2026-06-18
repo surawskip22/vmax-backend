@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 import json
 from html import escape
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import qrcode
@@ -202,6 +202,8 @@ def transcribe_upload(filename: str, content_type: str, content: bytes) -> str:
 
 
 def _font_name() -> str:
+    if "PanMajsterFont" in pdfmetrics.getRegisteredFontNames():
+        return "PanMajsterFont"
     candidates = [
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
         Path("C:/Windows/Fonts/arial.ttf"),
@@ -248,6 +250,420 @@ def _photo_flowable(asset: models.MediaAsset):
         )
     except Exception:
         return None
+
+
+STATUS_LABELS = {
+    "assigned": "Zlecone",
+    "in_progress": "W realizacji",
+    "completed": "Zakończono",
+}
+
+
+def _format_date(value) -> str:
+    if not value:
+        return "Nie podano"
+    if isinstance(value, datetime):
+        return value.strftime("%d.%m.%Y")
+    return value.strftime("%d.%m.%Y")
+
+
+def _format_datetime(value: datetime | None) -> str:
+    if not value:
+        return "Nie podano"
+    return value.strftime("%d.%m.%Y %H:%M")
+
+
+def _format_amount(project: models.Project) -> str:
+    if project.contract_amount is None:
+        return "Nie podano"
+    return f"{project.contract_amount} {project.contract_currency or 'PLN'}"
+
+
+def _entry_title(item: models.Entry) -> str:
+    return "Problem / uwaga" if item.kind == "problem" else "Wpis postępu"
+
+
+def _entry_text(item: models.Entry) -> str:
+    parts = []
+    if item.body:
+        parts.append(item.body.strip())
+    if item.transcript:
+        parts.append(f"Transkrypcja audio: {item.transcript.strip()}")
+    if not parts and item.media:
+        parts.append("Dodano materiały bez opisu tekstowego.")
+    return "\n".join(parts) if parts else "Brak opisu."
+
+
+def _entry_author(item: models.Entry) -> str:
+    if item.author:
+        return item.author.name or item.author.email or "Użytkownik"
+    return item.guest_label or "Link wykonawcy"
+
+
+def _entry_stage(item: models.Entry) -> str:
+    return item.stage.title if item.stage else "Bez etapu"
+
+
+def _project_worker_label(db: Session, project: models.Project) -> str:
+    if not project.worker_profile_id:
+        return "Nie przypisano"
+    worker = db.get(models.WorkerProfile, project.worker_profile_id)
+    return worker.label if worker else "Nie przypisano"
+
+
+def _project_report_entries(
+    db: Session,
+    project_id: str,
+    report_type: str,
+    report_date: date | None,
+) -> list[models.Entry]:
+    entries = list(
+        db.scalars(
+            select(models.Entry)
+            .options(
+                selectinload(models.Entry.stage),
+                selectinload(models.Entry.media),
+                selectinload(models.Entry.author),
+            )
+            .where(models.Entry.project_id == project_id)
+            .order_by(models.Entry.occurred_at.asc(), models.Entry.created_at.asc())
+        ).all()
+    )
+    if report_type != "daily":
+        return entries
+    selected = report_date or datetime.now(timezone.utc).date()
+    return [item for item in entries if item.occurred_at.date() == selected]
+
+
+def _report_styles(font: str):
+    styles = getSampleStyleSheet()
+    for style_name in ("Title", "Heading1", "Heading2", "BodyText", "Normal"):
+        styles[style_name].fontName = font
+    styles["Title"].textColor = colors.HexColor("#062557")
+    styles["Title"].fontSize = 24
+    styles["Title"].leading = 28
+    styles["Heading1"].textColor = colors.HexColor("#062557")
+    styles["Heading1"].fontSize = 15
+    styles["Heading1"].leading = 18
+    styles["Heading2"].textColor = colors.HexColor("#0b376d")
+    styles["Heading2"].fontSize = 12
+    styles["Heading2"].leading = 15
+    styles["BodyText"].fontSize = 9.5
+    styles["BodyText"].leading = 13
+    styles.add(
+        ParagraphStyle(
+            "SmallMuted",
+            parent=styles["BodyText"],
+            fontSize=8,
+            leading=11,
+            textColor=colors.HexColor("#607089"),
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            "Badge",
+            parent=styles["BodyText"],
+            fontSize=8,
+            leading=10,
+            textColor=colors.HexColor("#062557"),
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            "FooterNote",
+            parent=styles["SmallMuted"],
+            alignment=TA_CENTER,
+        )
+    )
+    return styles
+
+
+def _card_table(rows: list[list], font: str, col_widths: list[float]):
+    table = Table(rows, colWidths=col_widths, hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), font),
+                ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f6f8fb")),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#dbe4ef")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#dbe4ef")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    return table
+
+
+def _photo_grid(assets: list[models.MediaAsset]):
+    photos = []
+    for asset in assets:
+        if asset.kind == "image":
+            photo = _photo_flowable(asset)
+            if photo:
+                photos.append(photo)
+    if not photos:
+        return None
+    rows = []
+    for index in range(0, len(photos), 3):
+        row = photos[index : index + 3]
+        while len(row) < 3:
+            row.append("")
+        rows.append(row)
+    table = Table(rows, colWidths=[52 * mm, 52 * mm, 52 * mm], hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
+                ("TOPPADDING", (0, 0), (-1, -1), 2 * mm),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2 * mm),
+            ]
+        )
+    )
+    return table
+
+
+def _entry_block(item: models.Entry, styles, font: str):
+    status = ""
+    if item.kind == "problem":
+        status = "Rozwiązany" if item.problem_status == "resolved" else "Otwarty"
+    meta_rows = [
+        [
+            Paragraph(escape(_entry_title(item)), styles["Heading2"]),
+            Paragraph(escape(_format_datetime(item.occurred_at)), styles["SmallMuted"]),
+            Paragraph(escape(_entry_stage(item)), styles["SmallMuted"]),
+            Paragraph(escape(_entry_author(item)), styles["SmallMuted"]),
+        ]
+    ]
+    if status:
+        meta_rows.append(
+            [
+                Paragraph("Status problemu", styles["SmallMuted"]),
+                Paragraph(escape(status), styles["SmallMuted"]),
+                "",
+                "",
+            ]
+        )
+    block = [
+        _card_table(meta_rows, font, [43 * mm, 38 * mm, 38 * mm, 38 * mm]),
+        Spacer(1, 2 * mm),
+        Paragraph(escape(_entry_text(item)).replace("\n", "<br/>"), styles["BodyText"]),
+    ]
+    audio_assets = [asset for asset in item.media if asset.kind == "audio"]
+    if audio_assets:
+        block.append(Spacer(1, 1.5 * mm))
+        block.append(
+            Paragraph(
+                escape(
+                    "Nagrania audio: "
+                    + ", ".join(asset.original_name for asset in audio_assets)
+                ),
+                styles["SmallMuted"],
+            )
+        )
+    photos = _photo_grid(item.media)
+    if photos:
+        block.extend([Spacer(1, 2 * mm), photos])
+    block.append(Spacer(1, 5 * mm))
+    return KeepTogether(block)
+
+
+def render_project_report_pdf(
+    db: Session,
+    access,
+    report_type: str,
+    report_date: date | None = None,
+) -> tuple[str, bytes]:
+    project = access.project
+    font = _font_name()
+    styles = _report_styles(font)
+    is_daily = report_type == "daily"
+    selected_date = report_date or datetime.now(timezone.utc).date()
+    entries = _project_report_entries(db, project.id, report_type, selected_date)
+    problems = [item for item in entries if item.kind == "problem"]
+    image_count = sum(1 for item in entries for asset in item.media if asset.kind == "image")
+    title = (
+        "Raport dzienny / raport postępu"
+        if is_daily
+        else "Raport końcowy zlecenia"
+    )
+    filename = (
+        f"raport-dzienny-{selected_date.isoformat()}-{project.id}.pdf"
+        if is_daily
+        else f"raport-koncowy-{project.id}.pdf"
+    )
+    disclaimer = (
+        "Raport dzienny pokazuje postęp prac i nie jest rozliczeniem końcowym "
+        "ani dokumentem księgowym."
+        if is_daily
+        else "Raport nie jest fakturą ani dokumentem księgowym. Kwoty mają "
+        "charakter informacyjny i wynikają z danych wpisanych w aplikacji."
+    )
+
+    buffer = io.BytesIO()
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=17 * mm,
+        leftMargin=17 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
+        title=title,
+    )
+    status_label = STATUS_LABELS.get(project.status, project.status or "Brak statusu")
+    story = []
+    logo = _logo_flowable(width=38 * mm)
+    header_cells = [
+        logo or Paragraph("Pan Majster", styles["Heading1"]),
+        Paragraph("Raport wygenerowany w aplikacji Pan Majster", styles["SmallMuted"]),
+    ]
+    header = Table([header_cells], colWidths=[60 * mm, 100 * mm], hAlign="LEFT")
+    header.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    story.extend([header, Spacer(1, 4 * mm), Paragraph(escape(title), styles["Title"])])
+    story.extend(
+        [
+            Paragraph(escape(project.name), styles["Heading1"]),
+            Spacer(1, 3 * mm),
+            _card_table(
+                [
+                    [
+                        Paragraph("<b>Status</b><br/>" + escape(status_label), styles["BodyText"]),
+                        Paragraph(
+                            "<b>Wykonawca</b><br/>"
+                            + escape(_project_worker_label(db, project)),
+                            styles["BodyText"],
+                        ),
+                        Paragraph(
+                            "<b>Wygenerował</b><br/>" + escape(access.label),
+                            styles["BodyText"],
+                        ),
+                    ],
+                    [
+                        Paragraph(
+                            "<b>Klient / inwestor</b><br/>"
+                            + escape(project.client_name or "Nie podano"),
+                            styles["BodyText"],
+                        ),
+                        Paragraph(
+                            "<b>Adres</b><br/>"
+                            + escape(project.address or "Nie podano"),
+                            styles["BodyText"],
+                        ),
+                        Paragraph(
+                            "<b>Data raportu</b><br/>"
+                            + escape(_format_date(selected_date if is_daily else datetime.now())),
+                            styles["BodyText"],
+                        ),
+                    ],
+                ],
+                font,
+                [52 * mm, 52 * mm, 52 * mm],
+            ),
+            Spacer(1, 5 * mm),
+        ]
+    )
+
+    if not is_daily:
+        story.extend(
+            [
+                Paragraph("Kwoty / podsumowanie", styles["Heading1"]),
+                _card_table(
+                    [
+                        [
+                            Paragraph(
+                                "<b>Start prac</b><br/>"
+                                + escape(_format_date(project.planned_start_date or project.started_at)),
+                                styles["BodyText"],
+                            ),
+                            Paragraph(
+                                "<b>Zakończenie prac</b><br/>"
+                                + escape(
+                                    _format_date(project.finished_at)
+                                    if project.finished_at
+                                    else "Nie zakończono"
+                                ),
+                                styles["BodyText"],
+                            ),
+                            Paragraph(
+                                "<b>Kwota umowna</b><br/>"
+                                + escape(_format_amount(project)),
+                                styles["BodyText"],
+                            ),
+                        ],
+                        [
+                            Paragraph(
+                                "<b>Liczba wpisów</b><br/>" + str(len(entries)),
+                                styles["BodyText"],
+                            ),
+                            Paragraph(
+                                "<b>Zdjęcia</b><br/>" + str(image_count),
+                                styles["BodyText"],
+                            ),
+                            Paragraph(
+                                "<b>Problemy / uwagi</b><br/>" + str(len(problems)),
+                                styles["BodyText"],
+                            ),
+                        ],
+                    ],
+                    font,
+                    [52 * mm, 52 * mm, 52 * mm],
+                ),
+                Spacer(1, 6 * mm),
+            ]
+        )
+
+    story.extend([Paragraph("Wpisy / Historia prac", styles["Heading1"]), Spacer(1, 2 * mm)])
+    if not entries:
+        empty = (
+            "Brak wpisów postępu dla wybranej daty."
+            if is_daily
+            else "Brak wpisów postępu w tym zleceniu."
+        )
+        story.append(Paragraph(escape(empty), styles["BodyText"]))
+        story.append(Spacer(1, 5 * mm))
+    else:
+        for entry in entries:
+            story.append(_entry_block(entry, styles, font))
+
+    story.extend([Paragraph("Problemy i uwagi", styles["Heading1"]), Spacer(1, 2 * mm)])
+    if not problems:
+        story.extend(
+            [
+                Paragraph("Brak problemów i uwag w zakresie raportu.", styles["BodyText"]),
+                Spacer(1, 5 * mm),
+            ]
+        )
+    else:
+        for entry in problems:
+            story.append(_entry_block(entry, styles, font))
+
+    story.extend(
+        [
+            Spacer(1, 5 * mm),
+            _card_table(
+                [[Paragraph(escape(disclaimer), styles["FooterNote"])]],
+                font,
+                [158 * mm],
+            ),
+        ]
+    )
+    document.build(story)
+    return filename, buffer.getvalue()
 
 
 def render_pdf(db: Session, report: models.Report, share_url: str) -> bytes:

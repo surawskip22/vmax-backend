@@ -600,6 +600,9 @@ audio { width: 100%; margin-top: 13px; }
 .project-summary .contract-terms { margin-bottom: 18px; }
 .field-project .contract-terms { margin: 12px 0; }
 .client-overview .contract-terms { margin-top: 14px; }
+.project-report-actions { display: flex; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.project-report-actions .button { min-width: 220px; flex: 1 1 220px; justify-content: center; text-align: center; white-space: normal; line-height: 1.2; }
+.field-project .project-report-actions { margin-top: 14px; }
 .check-label { flex-direction: row !important; align-items: center; }
 .check-label input { width: auto !important; }
 
@@ -951,6 +954,8 @@ audio { width: 100%; margin-top: 13px; }
   .manage-stage-list article { grid-template-columns: 32px 1fr; }
   .manage-stage-list article select { grid-column: 2; }
   .inline-form, .inline-form--three, .share-result { grid-template-columns: 1fr; }
+  .project-report-actions { width: 100%; flex-direction: column; }
+  .project-report-actions .button { width: 100%; min-width: 0; }
   .modal-backdrop { padding: 0; align-items: end; }
   .modal { max-height: 94vh; border-radius: 18px 18px 0 0; }
   .field-mode > main { padding: 14px 12px 60px; }

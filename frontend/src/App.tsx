@@ -1628,7 +1628,11 @@ function ProjectView({
 
   const canAdd = !project.guest || ["add", "history"].includes(project.guest.permission);
   const { completedCount, progress } = projectStageProgress(project);
-  const canUseReports = !guestToken && !isCompanyWorker(user);
+  const canGeneratePdfReports = Boolean(
+    guestToken
+      ? project.guest && ["history", "view"].includes(project.guest.permission)
+      : user,
+  );
   const canReopenProject = Boolean(user && !guestToken && ["owner", "manager"].includes(project.role || "") && !isCompanyWorker(user));
   const canCloseProject = Boolean(
     user
@@ -1642,6 +1646,23 @@ function ProjectView({
   function changeMode(next: "field" | "expanded") {
     onUiModeChange?.(next === "field" ? "simple" : "advanced");
   }
+
+  function projectPdfUrl(type: "daily" | "final") {
+    const params = new URLSearchParams({ type });
+    if (guestToken) params.set("guest_token", guestToken);
+    return `/api/projects/${projectIdForStatusActions}/report.pdf?${params.toString()}`;
+  }
+
+  const pdfReportActions = canGeneratePdfReports ? (
+    <div className="project-report-actions">
+      <a className="button button--secondary" href={projectPdfUrl("daily")} target="_blank" rel="noreferrer">
+        <Icon name="report" /> Raport dzienny / z dzisiejszych prac
+      </a>
+      <a className="button" href={projectPdfUrl("final")} target="_blank" rel="noreferrer">
+        <Icon name="report" /> Raport końcowy / podsumowanie zlecenia
+      </a>
+    </div>
+  ) : null;
 
   async function copyClientLink() {
     if (!clientLink?.url) return;
@@ -1714,6 +1735,7 @@ function ProjectView({
             <span className={`status status--${project.status}`}>● {statusLabels[project.status]}</span>
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
+            {pdfReportActions}
             {!guestToken && (
               <div className="field-mode-switcher">
                 <p>Tryb prosty: najważniejsze akcje do pracy w terenie.</p>
@@ -1763,7 +1785,7 @@ function ProjectView({
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
             {!guestToken && project.can_edit_details && <Button variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>}
-            {canUseReports && <Button icon="report" onClick={() => setShowReports(true)}>Raporty PDF</Button>}
+            {pdfReportActions}
           </div>
         </div>
         {showClientLink && clientLink?.url && (

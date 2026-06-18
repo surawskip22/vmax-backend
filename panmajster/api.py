@@ -8,7 +8,7 @@ from typing import Any, Literal
 from urllib.parse import quote
 
 from email_validator import EmailNotValidError, validate_email
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -34,7 +34,7 @@ from .access import (
 from .config import get_settings
 from .db import get_db
 from .mailer import send_email, send_otp
-from .reporting import render_pdf, transcribe_upload
+from .reporting import render_pdf, render_project_report_pdf, transcribe_upload
 from .security import hash_secret, normalize_email, otp_code, random_token, verify_secret
 from .storage import storage
 from .templates import STAGE_TEMPLATES
@@ -2223,6 +2223,37 @@ def delete_media(asset_id: str, request: Request, db: Session = Depends(get_db))
     db.delete(asset)
     db.commit()
     return {"ok": True}
+
+
+def require_project_pdf_access(access: ProjectAccess) -> None:
+    if access.guest and not access.can_view_history():
+        raise HTTPException(403, "Ten link nie ma dostępu do historii raportu")
+
+
+@router.get("/projects/{project_id}/report.pdf")
+def get_project_report_pdf(
+    project_id: str,
+    request: Request,
+    report_type: Literal["daily", "final"] = Query("daily", alias="type"),
+    report_date: date | None = Query(None, alias="date"),
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id, allow_guest=True)
+    require_project_pdf_access(access)
+    filename, pdf_bytes = render_project_report_pdf(
+        db,
+        access,
+        report_type=report_type,
+        report_date=report_date,
+    )
+    encoded_name = quote(filename.replace('"', ""))
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_name}"
+        },
+    )
 
 
 @router.get("/projects/{project_id}/reports")
