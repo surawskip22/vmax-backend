@@ -1703,11 +1703,7 @@ function ProjectView({
         <header className="field-mode__header">
           <button onClick={onBack}><Icon name="back" /></button>
           <div className="field-brand"><img src="/brand/app-icon.png" alt="" /><strong>Pan Majster</strong></div>
-          {!guestToken ? (
-            <button onClick={() => changeMode("expanded")} aria-label="Przejdź do trybu rozbudowanego">
-              <Icon name="menu" />
-            </button>
-          ) : <span />}
+          <span />
         </header>
         <main>
           <section className="field-project">
@@ -1718,7 +1714,15 @@ function ProjectView({
             <span className={`status status--${project.status}`}>● {statusLabels[project.status]}</span>
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
-            {!guestToken && <p className="field-mode-note">Tryb prosty: najważniejsze akcje do pracy w terenie.</p>}
+            {!guestToken && (
+              <div className="field-mode-switcher">
+                <p>Tryb prosty: najważniejsze akcje do pracy w terenie.</p>
+                <div className="ui-mode-switch ui-mode-switch--field" role="group" aria-label="Przełącz tryb widoku zlecenia">
+                  <button type="button" className="active" onClick={() => changeMode("field")}>Prosty</button>
+                  <button type="button" onClick={() => changeMode("expanded")}>Rozbudowany</button>
+                </div>
+              </div>
+            )}
           </section>
           {!navigator.onLine && <div className="offline-banner"><Icon name="sync" /> Tryb offline — wpis zostanie wysłany po odzyskaniu sieci.</div>}
           {canAdd && <div className="field-actions">
