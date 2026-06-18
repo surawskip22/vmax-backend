@@ -988,9 +988,13 @@ function ProjectsPage({
   const [workerFilter, setWorkerFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "start" | "end" | "status">("newest");
   const simpleMode = uiMode === "simple";
+  const canFilterWorkers = !simpleMode && canManagePeople(user);
   useEffect(() => {
     if (simpleMode && !["newest", "oldest"].includes(sortBy)) setSortBy("newest");
   }, [simpleMode, sortBy]);
+  useEffect(() => {
+    if (!canFilterWorkers && workerFilter !== "all") setWorkerFilter("all");
+  }, [canFilterWorkers, workerFilter]);
   const copy = projectListCopy(user);
   const query = filter.trim().toLowerCase();
   const statusOrder: Record<string, number> = { assigned: 1, in_progress: 2, completed: 3 };
@@ -1011,7 +1015,7 @@ function ProjectsPage({
       const matchesQuery = `${item.name} ${item.client_name} ${item.address} ${item.worker_profile?.label || ""}`.toLowerCase().includes(query);
       const matchesView = viewFilter === "all" || (viewFilter === "open" ? item.status !== "completed" : item.status === "completed");
       const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-      const matchesWorker = workerFilter === "all" || item.worker_profile?.id === workerFilter;
+      const matchesWorker = !canFilterWorkers || workerFilter === "all" || item.worker_profile?.id === workerFilter;
       return matchesQuery && matchesView && matchesStatus && matchesWorker;
     })
     .sort((left, right) => {
@@ -1045,7 +1049,7 @@ function ProjectsPage({
               <option value="in_progress">W realizacji</option>
               <option value="completed">Zakończono</option>
             </select>
-            {!simpleMode && workerOptions.length > 0 && (
+            {canFilterWorkers && workerOptions.length > 0 && (
               <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)} aria-label="Filtr wykonawcy">
                 <option value="all">{isInvestor(user) ? "Wszyscy wykonawcy" : "Wszyscy majstrowie / ekipy"}</option>
                 {workerOptions.map((worker) => (
@@ -1714,11 +1718,7 @@ function ProjectView({
             <span className={`status status--${project.status}`}>● {statusLabels[project.status]}</span>
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
-            {!guestToken && (
-              <button className="field-mode-label" onClick={() => changeMode("expanded")}>
-                Tryb terenowy / prosty · przejdź do rozbudowanego
-              </button>
-            )}
+            {!guestToken && <p className="field-mode-note">Tryb prosty: najważniejsze akcje do pracy w terenie.</p>}
           </section>
           {!navigator.onLine && <div className="offline-banner"><Icon name="sync" /> Tryb offline — wpis zostanie wysłany po odzyskaniu sieci.</div>}
           {canAdd && <div className="field-actions">
@@ -1755,7 +1755,6 @@ function ProjectView({
         <div className="project-header__main">
           <div><span className={`status status--${project.status}`}>{statusLabels[project.status]}</span><h1>{project.name}</h1><p>{project.client_name} · {project.address}</p></div>
           <div className="project-header__actions">
-            <Button variant="secondary" onClick={() => changeMode("field")}>Tryb terenowy / prosty</Button>
             {!guestToken && user?.profile_type !== "investor" && !isCompanyWorker(user) && clientLink && <Button variant="secondary" icon="link" onClick={copyClientLink}>Link klienta</Button>}
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
