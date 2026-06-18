@@ -786,6 +786,14 @@ def test_worker_link_without_email_is_project_scoped_and_visible_in_team():
             ).status_code
             == 403
         )
+        assert (
+            worker_link.get("/api/projects", headers={"x-guest-token": token}).status_code
+            == 401
+        )
+        assert (
+            worker_link.get("/api/workers", headers={"x-guest-token": token}).status_code
+            == 401
+        )
 
 
 def test_worker_link_with_email_creates_usable_project_invitation():
