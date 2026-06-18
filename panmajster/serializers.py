@@ -116,17 +116,33 @@ def project(item: models.Project, role: str | None = None, details: bool = False
 
 
 def report(item: models.Report):
+    content = item.content or {}
+    created_by = user(item.created_by) if item.created_by else None
+    generated_by_label = content.get("generated_by_label")
+    if not generated_by_label and created_by:
+        generated_by_label = created_by.get("name") or created_by.get("email")
+    report_date = content.get("report_date")
+    if not report_date and item.period_from:
+        report_date = item.period_from.date().isoformat()
     return {
         "id": item.id,
         "project_id": item.project_id,
         "title": item.title,
         "report_type": item.report_type,
         "status": item.status,
-        "content": item.content,
+        "content": content,
         "period_from": iso(item.period_from),
         "period_to": iso(item.period_to),
         "published_at": iso(item.published_at),
-        "pdf_url": f"/api/reports/{item.id}/pdf" if item.pdf_storage_key else None,
+        "report_date": report_date,
+        "generated_by": created_by,
+        "generated_by_label": generated_by_label,
+        "pdf_url": (
+            f"/api/projects/{item.project_id}/reports/{item.id}.pdf"
+            if item.pdf_storage_key
+            else None
+        ),
+        "legacy_pdf_url": f"/api/reports/{item.id}/pdf" if item.pdf_storage_key else None,
         "created_at": iso(item.created_at),
         "updated_at": iso(item.updated_at),
     }

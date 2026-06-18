@@ -339,6 +339,8 @@ class Report(Base, TimestampMixin):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pdf_storage_key: Mapped[str | None] = mapped_column(String(500))
 
+    created_by: Mapped[User] = relationship()
+
 
 class ReportShare(Base):
     __tablename__ = "report_shares"

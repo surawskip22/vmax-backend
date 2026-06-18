@@ -9,7 +9,7 @@ from urllib.parse import quote
 
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -221,7 +221,9 @@ class CommentCreate(BaseModel):
 
 
 class ReportCreate(BaseModel):
-    title: str = Field(min_length=2, max_length=220)
+    model_config = ConfigDict(extra="allow")
+
+    title: str | None = Field(default=None, min_length=2, max_length=220)
     report_type: Literal["periodic", "final"] = "periodic"
     period_from: datetime | None = None
     period_to: datetime | None = None
@@ -2230,6 +2232,41 @@ def require_project_pdf_access(access: ProjectAccess) -> None:
         raise HTTPException(403, "Ten link nie ma dostępu do historii raportu")
 
 
+def generated_report_title(report_type: str, report_date: date | None) -> str:
+    if report_type == "daily":
+        selected = report_date or now().date()
+        return f"Raport dzienny - {selected.strftime('%d.%m.%Y')}"
+    return f"Raport końcowy - {now().strftime('%d.%m.%Y')}"
+
+
+def generated_report_period(
+    report_type: str, report_date: date | None
+) -> tuple[datetime | None, datetime | None, str | None]:
+    if report_type != "daily":
+        return None, now(), None
+    selected = report_date or now().date()
+    start = datetime.combine(selected, datetime.min.time(), tzinfo=timezone.utc)
+    end = datetime.combine(selected, datetime.max.time(), tzinfo=timezone.utc)
+    return start, end, selected.isoformat()
+
+
+def generated_report_request(payload: ReportCreate) -> tuple[str | None, date | None]:
+    raw_type = (payload.model_extra or {}).get("type")
+    if raw_type is None:
+        return None, None
+    if raw_type not in {"daily", "final"}:
+        raise HTTPException(422, "Nieprawidlowy typ raportu PDF")
+    raw_date = (payload.model_extra or {}).get("date")
+    if raw_date in (None, ""):
+        return raw_type, None
+    if isinstance(raw_date, date):
+        return raw_type, raw_date
+    try:
+        return raw_type, date.fromisoformat(str(raw_date))
+    except ValueError:
+        raise HTTPException(422, "Nieprawidlowa data raportu")
+
+
 @router.get("/projects/{project_id}/report.pdf")
 def get_project_report_pdf(
     project_id: str,
@@ -2258,12 +2295,12 @@ def get_project_report_pdf(
 
 @router.get("/projects/{project_id}/reports")
 def list_reports(project_id: str, request: Request, db: Session = Depends(get_db)):
-    get_project_access(request, db, project_id)
-    items = db.scalars(
-        select(models.Report)
-        .where(models.Report.project_id == project_id)
-        .order_by(models.Report.created_at.desc())
-    ).all()
+    access = get_project_access(request, db, project_id, allow_guest=True)
+    require_project_pdf_access(access)
+    query = select(models.Report).where(models.Report.project_id == project_id)
+    if not access.can_manage():
+        query = query.where(models.Report.pdf_storage_key.isnot(None))
+    items = db.scalars(query.order_by(models.Report.created_at.desc())).all()
     return [serializers.report(item) for item in items]
 
 
@@ -2274,8 +2311,55 @@ def create_report(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    generated_type, report_date = generated_report_request(payload)
+    if generated_type:
+        access = get_project_access(request, db, project_id, allow_guest=True)
+        require_project_pdf_access(access)
+        filename, pdf_bytes = render_project_report_pdf(
+            db,
+            access,
+            report_type=generated_type,
+            report_date=report_date,
+        )
+        period_from, period_to, report_date_value = generated_report_period(
+            generated_type, report_date
+        )
+        report_id = models.uuid4()
+        pdf_key = storage.report_key(project_id, report_id)
+        created_by_id = access.user.id if access.user else access.project.created_by_id
+        generated_by_label = access.label
+        db.commit()
+        storage.write_bytes(pdf_key, pdf_bytes)
+        item = models.Report(
+            id=report_id,
+            project_id=project_id,
+            created_by_id=created_by_id,
+            title=generated_report_title(generated_type, report_date),
+            report_type=generated_type,
+            status="ready",
+            content={
+                "generated_by_label": generated_by_label,
+                "filename": filename,
+                "report_date": report_date_value,
+                "snapshot": True,
+            },
+            period_from=period_from,
+            period_to=period_to,
+            published_at=now(),
+            pdf_storage_key=pdf_key,
+        )
+        db.add(item)
+        try:
+            db.commit()
+        except Exception:
+            storage.delete(pdf_key)
+            raise
+        return serializers.report(item)
+
     access = get_project_access(request, db, project_id, allow_guest=False)
     access.require_manage()
+    if not payload.title:
+        raise HTTPException(422, "Podaj tytuł raportu")
     item = models.Report(
         project_id=project_id,
         created_by_id=access.user.id,
@@ -2297,6 +2381,27 @@ def create_report(
     return serializers.report(item)
 
 
+@router.get("/projects/{project_id}/reports/{report_id}.pdf")
+def get_project_report_pdf_snapshot(
+    project_id: str,
+    report_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id, allow_guest=True)
+    require_project_pdf_access(access)
+    item = db.get(models.Report, report_id)
+    if not item or item.project_id != project_id:
+        raise HTTPException(404, "Nie znaleziono raportu")
+    if not item.pdf_storage_key:
+        raise HTTPException(404, "Raport PDF nie jest jeszcze gotowy")
+    return stored_file_response(
+        item.pdf_storage_key,
+        "application/pdf",
+        f"{item.title}.pdf",
+    )
+
+
 def report_with_access(
     report_id: str, request: Request, db: Session, manage: bool = False
 ):
@@ -2306,6 +2411,8 @@ def report_with_access(
     access = get_project_access(request, db, item.project_id, allow_guest=not manage)
     if manage:
         access.require_manage()
+    else:
+        require_project_pdf_access(access)
     return item, access
 
 

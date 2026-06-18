@@ -61,6 +61,16 @@ def assert_pdf_response(response):
     assert len(response.content) > 1000
 
 
+def assert_generated_pdf_report(response):
+    assert response.status_code == 202
+    report = response.json()
+    assert report["status"] == "ready"
+    assert report["pdf_url"]
+    assert report["pdf_url"].endswith(f"/reports/{report['id']}.pdf")
+    assert report["content"]["snapshot"] is True
+    return report
+
+
 def test_complete_report_flow_and_media_integrity():
     with TestClient(app) as client:
         user = login(client, "admin@example.com")
@@ -356,6 +366,181 @@ def test_project_pdf_report_access_for_worker_guest_and_public_client():
         assert (
             public_client.get(
                 f"/api/projects/{assigned['id']}/report.pdf?type=final"
+            ).status_code
+            == 403
+        )
+
+
+def test_generated_pdf_report_panel_flow_for_owner():
+    report_day = datetime(2026, 6, 18, 9, 0, tzinfo=timezone.utc)
+
+    with TestClient(app) as client:
+        login(client, "generated-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Generated report project",
+                "client_name": "Anna Snapshot",
+                "address": "ul. Snapshot 1",
+                "template": "custom",
+            },
+        ).json()
+        client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "Wpis do zapisanego raportu dziennego.",
+                "stage_id": project["stages"][1]["id"],
+                "occurred_at": report_day.isoformat(),
+            },
+        )
+
+        assert client.get(f"/api/projects/{project['id']}/reports").json() == []
+        daily = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "daily", "date": "2026-06-18"},
+            )
+        )
+        assert daily["report_type"] == "daily"
+        assert daily["report_date"] == "2026-06-18"
+        assert daily["generated_by_label"]
+        assert_pdf_response(client.get(daily["pdf_url"]))
+
+        final = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+        assert final["report_type"] == "final"
+        assert_pdf_response(
+            client.get(f"/api/projects/{project['id']}/reports/{final['id']}.pdf")
+        )
+
+        listed = client.get(f"/api/projects/{project['id']}/reports").json()
+        assert [item["id"] for item in listed] == [final["id"], daily["id"]]
+
+
+def test_generated_pdf_reports_permissions_for_worker_guest_and_public_client():
+    with TestClient(app) as worker_seed:
+        login(worker_seed, "generated-worker@example.com")
+
+    with TestClient(app) as owner:
+        login(owner, "generated-access-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Generated Access"},
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Generated worker",
+                "email": "generated-worker@example.com",
+            },
+        ).json()
+        assigned = owner.post(
+            "/api/projects",
+            json={
+                "name": "Generated assigned project",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        unassigned = owner.post(
+            "/api/projects",
+            json={
+                "name": "Generated foreign project",
+                "workspace_id": workspace_id,
+                "template": "custom",
+            },
+        ).json()
+        foreign_report = assert_generated_pdf_report(
+            owner.post(
+                f"/api/projects/{unassigned['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+        history_link = owner.post(
+            f"/api/projects/{assigned['id']}/guest-links",
+            json={"label": "Generated history link", "kind": "worker", "permission": "history"},
+        ).json()
+        add_only_link = owner.post(
+            f"/api/projects/{assigned['id']}/guest-links",
+            json={"label": "Generated add link", "kind": "worker", "permission": "add"},
+        ).json()
+        client_token = owner.get(f"/api/projects/{assigned['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+    with TestClient(app) as worker_client:
+        login(worker_client, "generated-worker@example.com")
+        worker_report = assert_generated_pdf_report(
+            worker_client.post(
+                f"/api/projects/{assigned['id']}/reports",
+                json={"type": "daily", "date": "2026-06-18"},
+            )
+        )
+        assert_pdf_response(worker_client.get(worker_report["pdf_url"]))
+        assert (
+            worker_client.post(
+                f"/api/projects/{unassigned['id']}/reports",
+                json={"type": "final"},
+            ).status_code
+            == 403
+        )
+        listed = worker_client.get(f"/api/projects/{assigned['id']}/reports").json()
+        assert listed
+        assert all(item["project_id"] == assigned["id"] for item in listed)
+        assert foreign_report["id"] not in {item["id"] for item in listed}
+
+    with TestClient(app) as guest:
+        guest_report = assert_generated_pdf_report(
+            guest.post(
+                f"/api/projects/{assigned['id']}/reports",
+                json={"type": "final"},
+                headers={"x-guest-token": history_link["token"]},
+            )
+        )
+        assert_pdf_response(
+            guest.get(
+                guest_report["pdf_url"],
+                headers={"x-guest-token": history_link["token"]},
+            )
+        )
+        assert (
+            guest.post(
+                f"/api/projects/{unassigned['id']}/reports",
+                json={"type": "final"},
+                headers={"x-guest-token": history_link["token"]},
+            ).status_code
+            == 403
+        )
+        assert (
+            guest.post(
+                f"/api/projects/{assigned['id']}/reports",
+                json={"type": "daily"},
+                headers={"x-guest-token": add_only_link["token"]},
+            ).status_code
+            == 403
+        )
+        assert (
+            guest.get(
+                f"/api/projects/{assigned['id']}/reports",
+                headers={"x-guest-token": add_only_link["token"]},
+            ).status_code
+            == 403
+        )
+
+    with TestClient(app) as public_client:
+        assert public_client.get(f"/api/public/projects/{client_token}").status_code == 200
+        assert (
+            public_client.post(
+                f"/api/projects/{assigned['id']}/reports",
+                json={"type": "final"},
             ).status_code
             == 403
         )

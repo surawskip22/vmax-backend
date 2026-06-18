@@ -139,9 +139,13 @@ export type Report = {
   project_id: string;
   title: string;
   report_type: string;
-  status: "generating" | "draft" | "published" | "failed";
+  status: "generating" | "draft" | "published" | "ready" | "failed";
   content: {
     summary?: string;
+    generated_by_label?: string;
+    filename?: string;
+    report_date?: string;
+    snapshot?: boolean;
     stages?: Array<{
       title: string;
       entries: Array<{
@@ -156,7 +160,11 @@ export type Report = {
     problems?: unknown[];
   };
   published_at?: string;
+  report_date?: string;
+  generated_by?: User;
+  generated_by_label?: string;
   pdf_url?: string;
+  legacy_pdf_url?: string;
   created_at: string;
 };
 

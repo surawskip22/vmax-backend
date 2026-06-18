@@ -1519,6 +1519,153 @@ function ReportModal({
   );
 }
 
+function reportTypeLabel(report: Report): string {
+  if (report.report_type === "daily") return "Raport dzienny";
+  if (report.report_type === "final") return "Raport końcowy";
+  return report.title || "Raport";
+}
+
+function reportStatusLabel(report: Report): string {
+  if (report.status === "ready" || report.status === "published") return "Gotowy";
+  if (report.status === "generating") return "Generowanie...";
+  if (report.status === "failed") return "Błąd";
+  return "Szkic";
+}
+
+function reportDisplayDate(report: Report): string {
+  const value = report.report_date || report.published_at || report.created_at;
+  if (!value) return "Brak daty";
+  return new Intl.DateTimeFormat("pl").format(new Date(value));
+}
+
+function reportPdfHref(report: Report, guestToken?: string): string {
+  const url = report.pdf_url || "";
+  if (!guestToken || !url) return url;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}guest_token=${encodeURIComponent(guestToken)}`;
+}
+
+function GeneratedReportsPanel({
+  projectId,
+  reports,
+  guestToken,
+  onRefresh,
+  notify,
+}: {
+  projectId: string;
+  reports: Report[];
+  guestToken?: string;
+  onRefresh: () => Promise<void> | void;
+  notify: (toast: Toast) => void;
+}) {
+  const [busyType, setBusyType] = useState<"daily" | "final" | null>(null);
+  const [dailyDate, setDailyDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const generatedReports = reports.filter(
+    (report) => ["daily", "final"].includes(report.report_type) && report.pdf_url,
+  );
+
+  async function generateReport(type: "daily" | "final") {
+    setBusyType(type);
+    try {
+      await api<Report>(
+        `/projects/${projectId}/reports`,
+        {
+          method: "POST",
+          body: JSON.stringify(type === "daily" ? { type, date: dailyDate } : { type }),
+        },
+        guestToken,
+      );
+      notify({
+        kind: "success",
+        message: type === "daily" ? "Raport dzienny wygenerowany" : "Raport końcowy wygenerowany",
+      });
+      await onRefresh();
+    } catch (reason) {
+      notify({
+        kind: "error",
+        message: reason instanceof Error ? reason.message : "Nie udało się wygenerować raportu PDF",
+      });
+    } finally {
+      setBusyType(null);
+    }
+  }
+
+  return (
+    <section className="project-pdf-panel panel">
+      <div className="panel__header">
+        <div>
+          <h2>Raporty PDF</h2>
+          <p>Generuj raporty bez automatycznego otwierania PDF-a. Gotowe pliki znajdziesz na liście poniżej.</p>
+        </div>
+      </div>
+      <div className="project-pdf-panel__body">
+        <div className="pdf-generate-grid">
+          <article>
+            <div>
+              <h3>Raport dzienny</h3>
+              <p>Wpisy i zdjęcia z wybranego dnia.</p>
+            </div>
+            <label>
+              Data raportu
+              <input type="date" value={dailyDate} onChange={(event) => setDailyDate(event.target.value)} />
+            </label>
+            <Button
+              variant="secondary"
+              icon="report"
+              busy={busyType === "daily"}
+              onClick={() => void generateReport("daily")}
+            >
+              Wygeneruj dzienny raport PDF
+            </Button>
+          </article>
+          <article>
+            <div>
+              <h3>Raport końcowy</h3>
+              <p>Pełne podsumowanie zlecenia i historii prac.</p>
+            </div>
+            <Button
+              icon="report"
+              busy={busyType === "final"}
+              onClick={() => void generateReport("final")}
+            >
+              Wygeneruj końcowy raport PDF
+            </Button>
+          </article>
+        </div>
+
+        <div className="generated-report-list">
+          <h3>Wygenerowane raporty</h3>
+          {generatedReports.length === 0 ? (
+            <p className="empty-note">Brak wygenerowanych raportów. Wygeneruj raport dzienny albo końcowy.</p>
+          ) : (
+            generatedReports.map((report) => {
+              const pdfHref = reportPdfHref(report, guestToken);
+              return (
+                <article key={report.id}>
+                  <span><Icon name="report" /></span>
+                  <div>
+                    <strong>{reportTypeLabel(report)}</strong>
+                    <small>{reportDisplayDate(report)}</small>
+                  </div>
+                  <div>
+                    <small>Wygenerował</small>
+                    <b>{report.generated_by_label || report.generated_by?.name || report.generated_by?.email || "Nie podano"}</b>
+                  </div>
+                  <span className={`report-status report-status--${report.status}`}>{reportStatusLabel(report)}</span>
+                  <div className="generated-report-actions">
+                    {pdfHref && <a className="button button--secondary" href={pdfHref} target="_blank" rel="noreferrer">Otwórz</a>}
+                    {pdfHref && <a className="button" href={pdfHref} download>Pobierz</a>}
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProjectStageControls({
   project,
   canChangeStage,
@@ -1601,12 +1748,17 @@ function ProjectView({
       ]);
       setProject(projectData);
       setEntries(entryData);
-      if (!guestToken) {
-        const [reportData, linkData] = await Promise.all([
-          api<Report[]>(`/projects/${projectId}/reports`),
-          api<ClientLink>(`/projects/${projectId}/client-link`),
-        ]);
+      const canLoadReports = guestToken
+        ? projectData.guest && ["history", "view"].includes(projectData.guest.permission)
+        : true;
+      if (canLoadReports) {
+        const reportData = await api<Report[]>(`/projects/${projectId}/reports`, {}, guestToken);
         setReports(reportData);
+      } else {
+        setReports([]);
+      }
+      if (!guestToken) {
+        const linkData = await api<ClientLink>(`/projects/${projectId}/client-link`);
         setClientLink(linkData);
       }
     } catch (reason) {
@@ -1646,23 +1798,6 @@ function ProjectView({
   function changeMode(next: "field" | "expanded") {
     onUiModeChange?.(next === "field" ? "simple" : "advanced");
   }
-
-  function projectPdfUrl(type: "daily" | "final") {
-    const params = new URLSearchParams({ type });
-    if (guestToken) params.set("guest_token", guestToken);
-    return `/api/projects/${projectIdForStatusActions}/report.pdf?${params.toString()}`;
-  }
-
-  const pdfReportActions = canGeneratePdfReports ? (
-    <div className="project-report-actions">
-      <a className="button button--secondary" href={projectPdfUrl("daily")} target="_blank" rel="noreferrer">
-        <Icon name="report" /> Raport dzienny / z dzisiejszych prac
-      </a>
-      <a className="button" href={projectPdfUrl("final")} target="_blank" rel="noreferrer">
-        <Icon name="report" /> Raport końcowy / podsumowanie zlecenia
-      </a>
-    </div>
-  ) : null;
 
   async function copyClientLink() {
     if (!clientLink?.url) return;
@@ -1735,7 +1870,6 @@ function ProjectView({
             <span className={`status status--${project.status}`}>● {statusLabels[project.status]}</span>
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
-            {pdfReportActions}
             {!guestToken && (
               <div className="field-mode-switcher">
                 <p>Tryb prosty: najważniejsze akcje do pracy w terenie.</p>
@@ -1753,6 +1887,15 @@ function ProjectView({
             <FieldAction icon="send" title="Opis" subtitle="Krótka notatka tekstowa" tone="navy" onClick={() => setEntryModal({ kind: "update", mode: "text" })} />
             <FieldAction icon="alert" title="Problem" subtitle="Usterka lub decyzja" tone="red" onClick={() => setEntryModal({ kind: "problem", mode: "photo" })} />
           </div>}
+          {canGeneratePdfReports && (
+            <GeneratedReportsPanel
+              projectId={projectIdForStatusActions}
+              reports={reports}
+              guestToken={guestToken}
+              onRefresh={load}
+              notify={notify}
+            />
+          )}
           {showClientLink && clientLink?.url && (
             <div className="share-result">
               <input value={clientLink.url} readOnly />
@@ -1785,7 +1928,6 @@ function ProjectView({
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
             {!guestToken && project.can_edit_details && <Button variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>}
-            {pdfReportActions}
           </div>
         </div>
         {showClientLink && clientLink?.url && (
@@ -1812,6 +1954,15 @@ function ProjectView({
           {entries.length === 0 ? <EmptyState icon="camera" title="Tu powstanie historia pracy" text="Dodaj pierwszy postęp: zdjęcia oraz opis głosowy lub tekstowy." /> : <div className="timeline">{entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={load} key={entry.id} />)}</div>}
         </main>
       </div>
+      {canGeneratePdfReports && (
+        <GeneratedReportsPanel
+          projectId={projectIdForStatusActions}
+          reports={reports}
+          guestToken={guestToken}
+          onRefresh={load}
+          notify={notify}
+        />
+      )}
       {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); load(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
       {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={load} notify={notify} />}
       {showManage && <ManageProjectModal project={project} user={user} onClose={() => setShowManage(false)} onRefresh={load} notify={notify} />}
