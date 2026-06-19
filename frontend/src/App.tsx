@@ -1250,6 +1250,22 @@ function WorkerMobileHeader({ title = "Majster firmy" }: { title?: string }) {
   );
 }
 
+function WorkerModeSwitch({
+  uiMode,
+  onUiModeChange,
+}: {
+  uiMode: UiMode;
+  onUiModeChange: (mode: UiMode) => void;
+}) {
+  const simpleMode = uiMode === "simple";
+  return (
+    <div className="ui-mode-switch worker-mode-switch" role="group" aria-label="Przelacz tryb widoku">
+      <button type="button" className={simpleMode ? "active" : ""} onClick={() => onUiModeChange("simple")}>Prosty</button>
+      <button type="button" className={!simpleMode ? "active" : ""} onClick={() => onUiModeChange("advanced")}>Rozbudowany</button>
+    </div>
+  );
+}
+
 function CompanyWorkerProjectsPage({
   projects,
   onProject,
@@ -1297,13 +1313,10 @@ function CompanyWorkerProjectsPage({
     <div className="page worker-home">
       <WorkerMobileHeader />
       <header className="worker-page-header">
-        <div>
+        <div className="worker-title-row">
           <h1>Moje zlecenia</h1>
         </div>
-        <div className="ui-mode-switch worker-mode-switch" role="group" aria-label="Przelacz tryb widoku">
-          <button type="button" className={simpleMode ? "active" : ""} onClick={() => onUiModeChange("simple")}>Prosty</button>
-          <button type="button" className={!simpleMode ? "active" : ""} onClick={() => onUiModeChange("advanced")}>Rozbudowany</button>
-        </div>
+        <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
       </header>
 
       {!simpleMode && (
@@ -2213,7 +2226,12 @@ function ProjectView({
     && project.status !== "completed"
     && (["owner", "manager"].includes(project.role || "") || isCompanyWorker(user)),
   );
-  const canChangeStage = canAdd && project.status !== "completed";
+  const hasProjectStages = Boolean(project.stages?.length);
+  const canChangeStage = Boolean(
+    hasProjectStages
+    && project.status !== "completed"
+    && (user && isCompanyWorker(user) && !guestToken ? true : canAdd),
+  );
   const projectIdForStatusActions = project.id;
 
   function changeMode(next: "field" | "expanded") {
@@ -2281,7 +2299,10 @@ function ProjectView({
     return (
       <div className="worker-workspace">
         <header className="worker-detail-hero">
-          <button type="button" className="worker-back-button" onClick={onBack}><Icon name="back" /> Wróć do zleceń</button>
+          <div className="worker-detail-topbar">
+            <button type="button" className="worker-back-button" onClick={onBack}><Icon name="back" /> Wróć do zleceń</button>
+            <span><Icon name="clipboard" size={17} /> Majster firmy</span>
+          </div>
           <div className="worker-detail-hero__main">
             <span className="worker-detail-hero__icon"><Icon name="clipboard" /></span>
             <div>
@@ -2289,6 +2310,9 @@ function ProjectView({
               <p>{project.client_name || "Bez klienta"} · {project.address || "Adres nieuzupełniony"}</p>
             </div>
             <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+          </div>
+          <div className="worker-detail-mode">
+            <WorkerModeSwitch uiMode={uiMode || "simple"} onUiModeChange={(mode) => onUiModeChange?.(mode)} />
           </div>
         </header>
 
@@ -2362,6 +2386,17 @@ function ProjectView({
             )}
           </section>
 
+          {(canAdd || canCloseProject || project.status === "completed") && (
+            <section className="worker-action-panel">
+              {canAdd && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj postęp</Button>}
+              {canCloseProject ? (
+                <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zakończ robotę</Button>
+              ) : project.status === "completed" ? (
+                <div className="worker-completed-note"><Icon name="check" /> Zlecenie zakończone</div>
+              ) : null}
+            </section>
+          )}
+
           {uiMode === "advanced" && (
             <>
               <section className="worker-detail-card worker-advanced-stage-summary">
@@ -2391,13 +2426,6 @@ function ProjectView({
                 </section>
               )}
             </>
-          )}
-
-          {canAdd && (
-            <div className="worker-sticky-actions">
-              <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj postęp</Button>
-              {canCloseProject && <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zakończ robotę</Button>}
-            </div>
           )}
         </main>
 
@@ -3845,11 +3873,15 @@ function SettingsPage({
   onUpdated,
   onLogout,
   notify,
+  uiMode,
+  onUiModeChange,
 }: {
   user: User;
   onUpdated: (user: User) => void;
   onLogout: () => void;
   notify: (toast: Toast) => void;
+  uiMode: UiMode;
+  onUiModeChange: (mode: UiMode) => void;
 }) {
   const [admin, setAdmin] = useState<any>(null);
   useEffect(() => {
@@ -3889,10 +3921,10 @@ function SettingsPage({
         <section className="worker-settings-stack">
           <article className="worker-settings-card">
             <h2>Moje konto</h2>
-            <form className="form-stack" onSubmit={submit}>
-              <label>Imię i nazwisko<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
-              <label>E-mail / login<input value={user.email || "Konto dostępowe bez e-maila"} disabled /></label>
-              <label>Telefon<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
+            <form className="worker-settings-form" onSubmit={submit}>
+              <label><span><Icon name="users" /></span><div><strong>Imię i nazwisko</strong><input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></div></label>
+              <label><span><Icon name="send" /></span><div><strong>E-mail / login</strong><input value={user.email || "Konto dostępowe bez e-maila"} disabled /></div></label>
+              <label><span><Icon name="settings" /></span><div><strong>Telefon</strong><input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></div></label>
               <input type="hidden" name="preferred_mode" value={user.preferred_mode || "field"} />
               <Button type="submit">Zapisz profil</Button>
             </form>
@@ -3909,9 +3941,12 @@ function SettingsPage({
           </article>
           <article className="worker-settings-card">
             <h2>Preferencje</h2>
-            <div className="worker-settings-note">
-              <strong>Tryb prosty jest domyślny dla pracy w terenie.</strong>
-              <p>Przełącznik Prosty / Rozbudowany znajduje się u góry aplikacji i zapamiętuje wybór w tej przeglądarce.</p>
+            <div className="worker-settings-note worker-settings-mode">
+              <div>
+                <strong>Tryb domyślny</strong>
+                <p>Tryb uruchamiany po zalogowaniu.</p>
+              </div>
+              <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
             </div>
           </article>
           <article className="worker-settings-card">
@@ -4377,7 +4412,7 @@ export default function App() {
   ) : visibleSection === "team" ? (
     <TeamPage user={user} projects={projects} onProject={setSelectedProject} onUserUpdated={setUser} notify={notify} />
   ) : visibleSection === "settings" ? (
-    <SettingsPage user={user} onUpdated={setUser} onLogout={logout} notify={notify} />
+    <SettingsPage user={user} onUpdated={setUser} onLogout={logout} notify={notify} uiMode={uiMode} onUiModeChange={setUiMode} />
   ) : (
     <Dashboard user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} uiMode={uiMode} />
   );
