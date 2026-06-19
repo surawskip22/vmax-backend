@@ -38,6 +38,7 @@ import { useUiMode, type UiMode } from "./useUiMode";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
 type EntryTextTarget = "description" | "note";
+type EntryModalState = { kind: "update" | "problem"; mode: "photo" | "audio" | "text" };
 type SpeechRecognitionState = "idle" | "listening" | "unsupported" | "error" | "manual";
 type SpeechRecognitionInfo = {
   target: EntryTextTarget | null;
@@ -130,6 +131,20 @@ function projectStageProgress(project: Project): { completedCount: number; progr
     completedCount,
     progress: Math.floor((completedCount / stages.length) * 100),
   };
+}
+
+function activeProjectStage(project: Project): Stage | undefined {
+  return (
+    project.stages?.find((stage) => stage.status === "active") ||
+    project.stages?.find((stage) => stage.status === "planned") ||
+    project.stages?.[0]
+  );
+}
+
+function projectStageLabel(project: Project): string {
+  const active = activeProjectStage(project);
+  if (!active) return "Etap nieustawiony";
+  return active.title;
 }
 
 function stageStatusText(stage: Stage): string {
@@ -1005,12 +1020,18 @@ function ProjectsPage({
   onProject,
   onCreate,
   uiMode,
+  notify,
+  onQueue,
+  onChanged,
 }: {
   user: User;
   projects: Project[];
   onProject: (project: Project) => void;
   onCreate: () => void;
   uiMode: UiMode;
+  notify: (toast: Toast) => void;
+  onQueue: () => void;
+  onChanged: () => void;
 }) {
   const [filter, setFilter] = useState("");
   const [viewFilter, setViewFilter] = useState<"all" | "open" | "history">("all");
@@ -1058,6 +1079,18 @@ function ProjectsPage({
       const result = new Date(dateValue(left)).getTime() - new Date(dateValue(right)).getTime();
       return sortBy === "oldest" || sortBy === "start" || sortBy === "end" ? result : -result;
     });
+  if (isCompanyWorker(user)) {
+    return (
+      <CompanyWorkerProjectsPage
+        projects={projects}
+        onProject={onProject}
+        uiMode={uiMode}
+        notify={notify}
+        onQueue={onQueue}
+        onChanged={onChanged}
+      />
+    );
+  }
   return (
     <div className="page">
       <header className="page-header">
@@ -1159,6 +1192,180 @@ function FieldAction({
       <strong>{title}</strong>
       <small>{subtitle}</small>
     </button>
+  );
+}
+
+function AddProgressChoice({
+  onPick,
+  onClose,
+}: {
+  onPick: (entry: EntryModalState) => void;
+  onClose: () => void;
+}) {
+  const options: Array<{
+    icon: Parameters<typeof Icon>[0]["name"];
+    title: string;
+    subtitle: string;
+    tone: string;
+    entry: EntryModalState;
+  }> = [
+    { icon: "camera", title: "Zdjęcie", subtitle: "Dodaj zdjęcia", tone: "navy", entry: { kind: "update", mode: "photo" } },
+    { icon: "mic", title: "Audio", subtitle: "Nagraj opis", tone: "navy", entry: { kind: "update", mode: "audio" } },
+    { icon: "report", title: "Opis", subtitle: "Napisz co zrobiono", tone: "navy", entry: { kind: "update", mode: "text" } },
+    { icon: "alert", title: "Problem", subtitle: "Zgłoś problem", tone: "red", entry: { kind: "problem", mode: "photo" } },
+  ];
+
+  return (
+    <Modal title="Co chcesz dodać?" onClose={onClose}>
+      <div className="progress-choice-grid">
+        {options.map((option) => (
+          <button
+            type="button"
+            className={`progress-choice progress-choice--${option.tone}`}
+            onClick={() => onPick(option.entry)}
+            key={option.title}
+          >
+            <span><Icon name={option.icon} size={34} /></span>
+            <strong>{option.title}</strong>
+            <small>{option.subtitle}</small>
+          </button>
+        ))}
+      </div>
+      <div className="progress-choice-footer">
+        <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
+      </div>
+    </Modal>
+  );
+}
+
+function CompanyWorkerProjectsPage({
+  projects,
+  onProject,
+  uiMode,
+  notify,
+  onQueue,
+  onChanged,
+}: {
+  projects: Project[];
+  onProject: (project: Project) => void;
+  uiMode: UiMode;
+  notify: (toast: Toast) => void;
+  onQueue: () => void;
+  onChanged: () => void;
+}) {
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "end">("newest");
+  const [choiceProject, setChoiceProject] = useState<Project | null>(null);
+  const [entryModal, setEntryModal] = useState<{ project: Project; entry: EntryModalState } | null>(null);
+  const simpleMode = uiMode === "simple";
+  const statusOrder: Record<string, number> = { in_progress: 1, assigned: 2, completed: 3 };
+  const visible = [...projects]
+    .filter((project) => statusFilter === "all" || project.status === statusFilter)
+    .sort((left, right) => {
+      if (simpleMode) {
+        const statusResult = (statusOrder[left.status] || 99) - (statusOrder[right.status] || 99);
+        if (statusResult !== 0) return statusResult;
+      }
+      const value = (project: Project) => {
+        if (sortBy === "end") return project.planned_end_date ? `${project.planned_end_date}T00:00:00` : project.updated_at || project.created_at;
+        return project.updated_at || project.created_at;
+      };
+      const result = new Date(value(left)).getTime() - new Date(value(right)).getTime();
+      return sortBy === "oldest" || sortBy === "end" ? result : -result;
+    });
+
+  function openEntry(project: Project, entry: EntryModalState) {
+    setChoiceProject(null);
+    setEntryModal({ project, entry });
+  }
+
+  return (
+    <div className="page worker-home">
+      <header className="worker-page-header">
+        <div>
+          <span className="eyebrow">Praca w terenie</span>
+          <h1>Moje zlecenia</h1>
+          <p>Zlecenia przypisane do Ciebie. Bez panelu firmy i bez cudzych ekip.</p>
+        </div>
+      </header>
+
+      {!simpleMode && (
+        <section className="worker-filter-strip" aria-label="Filtry zlecen">
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Status">
+            <option value="all">Wszystkie statusy</option>
+            <option value="assigned">Zlecone</option>
+            <option value="in_progress">W realizacji</option>
+            <option value="completed">Zakończone</option>
+          </select>
+          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} aria-label="Sortowanie">
+            <option value="newest">Najnowsze</option>
+            <option value="oldest">Najstarsze</option>
+            <option value="end">Termin</option>
+          </select>
+        </section>
+      )}
+
+      {projects.length === 0 ? (
+        <EmptyState icon="clipboard" title="Brak przypisanych zleceń" text="Gdy szef firmy przypisze Ci pracę, pojawi się tutaj." />
+      ) : (
+        <section className={`worker-project-list ${simpleMode ? "worker-project-list--simple" : "worker-project-list--advanced"}`}>
+          {visible.map((project) => {
+            const stage = projectStageLabel(project);
+            const due = formatContractDate(project.planned_end_date || project.planned_start_date) || "Termin nieustawiony";
+            return (
+              <article className={`worker-job-card worker-job-card--${project.status}`} key={project.id}>
+                <button type="button" className="worker-job-card__main" onClick={() => onProject(project)}>
+                  <span className="worker-job-card__icon"><Icon name="clipboard" /></span>
+                  <div>
+                    <h2>{project.name}</h2>
+                    <p>{project.client_name || "Bez klienta"} · {project.address || "Adres nieuzupełniony"}</p>
+                  </div>
+                  <Icon name="back" className="worker-job-card__chevron" />
+                </button>
+                <div className="worker-job-card__meta">
+                  <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                  <span>{stage}</span>
+                  <span><Icon name="clipboard" size={16} /> {due}</span>
+                  {!simpleMode && <span>{project.entry_count || 0} wpisów</span>}
+                  {!simpleMode && <span>{project.open_problem_count || 0} problemów</span>}
+                </div>
+                <div className="worker-job-card__actions">
+                  {!simpleMode && <Button type="button" variant="secondary" onClick={() => onProject(project)}>Szczegóły</Button>}
+                  {project.status !== "completed" && (
+                    <Button type="button" icon="plus" onClick={() => setChoiceProject(project)}>Dodaj postęp</Button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {choiceProject && (
+        <AddProgressChoice
+          onClose={() => setChoiceProject(null)}
+          onPick={(entry) => openEntry(choiceProject, entry)}
+        />
+      )}
+      {entryModal && (
+        <NewEntryModal
+          project={entryModal.project}
+          kind={entryModal.entry.kind}
+          mode={entryModal.entry.mode}
+          onClose={() => setEntryModal(null)}
+          onSaved={() => {
+            setEntryModal(null);
+            onChanged();
+            notify({ kind: "success", message: "Wpis zapisany" });
+          }}
+          onQueued={() => {
+            setEntryModal(null);
+            onQueue();
+            notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" });
+          }}
+        />
+      )}
+    </div>
   );
 }
 
@@ -1906,7 +2113,8 @@ function ProjectView({
   const [reports, setReports] = useState<Report[]>([]);
   const [clientLink, setClientLink] = useState<ClientLink | null>(null);
   const [loading, setLoading] = useState(true);
-  const [entryModal, setEntryModal] = useState<{ kind: "update" | "problem"; mode: "photo" | "audio" | "text" } | null>(null);
+  const [entryModal, setEntryModal] = useState<EntryModalState | null>(null);
+  const [showAddProgressChoice, setShowAddProgressChoice] = useState(false);
   const [showReports, setShowReports] = useState(false);
   const [showManage, setShowManage] = useState(false);
   const [showClientLink, setShowClientLink] = useState(false);
@@ -1958,6 +2166,7 @@ function ProjectView({
     setShowReports(false);
     setShowManage(false);
     setShowClientLink(false);
+    setShowAddProgressChoice(false);
     setLoading(true);
   }, [guestToken, projectId]);
 
@@ -2045,6 +2254,125 @@ function ProjectView({
       onSetCurrent={(stageId) => void setCurrentStage(stageId)}
     />
   );
+  const currentStage = activeProjectStage(project);
+  const recentEntries = entries.slice(0, 3);
+
+  if (user && isCompanyWorker(user) && !guestToken) {
+    return (
+      <div className="worker-workspace">
+        <header className="worker-detail-hero">
+          <button type="button" className="worker-back-button" onClick={onBack}><Icon name="back" /> Wróć do zleceń</button>
+          <div className="worker-detail-hero__main">
+            <span className="worker-detail-hero__icon"><Icon name="clipboard" /></span>
+            <div>
+              <h1>{project.name}</h1>
+              <p>{project.client_name || "Bez klienta"} · {project.address || "Adres nieuzupełniony"}</p>
+            </div>
+            <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+          </div>
+        </header>
+
+        <main className="worker-detail-main">
+          <section className="worker-detail-card worker-stage-card">
+            <div>
+              <small>Aktualny etap</small>
+              <h2>{currentStage?.title || "Etap nieustawiony"}</h2>
+              <p>{currentStage ? stageStatusText(currentStage) : "Szef firmy nie ustawił jeszcze etapu."}</p>
+            </div>
+            {canChangeStage && <span><Icon name="settings" /></span>}
+          </section>
+
+          <section className="worker-detail-card worker-terms-card">
+            <div>
+              <small>Planowany start</small>
+              <strong>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</strong>
+            </div>
+            <div>
+              <small>Planowany koniec</small>
+              <strong>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</strong>
+            </div>
+            <div>
+              <small>Ostatnia aktywność</small>
+              <strong>{formatProjectActivityDate(project.updated_at || project.created_at) || "Brak daty"}</strong>
+            </div>
+            {contractAmountLabel(project) && (
+              <div>
+                <small>Kwota umowna</small>
+                <strong>{contractAmountLabel(project)}</strong>
+              </div>
+            )}
+          </section>
+
+          <section className="worker-detail-card">
+            <div className="worker-section-heading">
+              <div>
+                <h2>Ostatnie dodane</h2>
+              <p>Najświeższe wpisy z tej realizacji.</p>
+              </div>
+            </div>
+            {recentEntries.length === 0 ? (
+              <div className="worker-empty-history">
+                <Icon name="camera" />
+                <strong>Tu powstanie historia pracy</strong>
+                <p>Dodaj pierwszy postęp: zdjęcia, opis, audio albo problem.</p>
+              </div>
+            ) : (
+              <div className="worker-entry-list">
+                {recentEntries.map((entry) => (
+                  <article key={entry.id}>
+                    <span><Icon name={entry.kind === "problem" ? "alert" : entry.media.some((asset) => asset.kind === "audio") ? "mic" : "camera"} /></span>
+                    <div>
+                      <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
+                      <small>{new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}</small>
+                    </div>
+                    <Icon name="back" className="worker-entry-list__arrow" />
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {uiMode === "advanced" && (
+            <>
+              <section className="worker-detail-card">
+                <div className="worker-section-heading">
+                  <div><h2>Etapy pracy</h2><p>Widok informacyjny i zmiana etapu, jeśli obecne uprawnienia na to pozwalają.</p></div>
+                </div>
+                {stages}
+              </section>
+              {canGeneratePdfReports && (
+                <GeneratedReportsPanel
+                  projectId={projectIdForStatusActions}
+                  reports={reports}
+                  guestToken={guestToken}
+                  onRefresh={load}
+                  notify={notify}
+                />
+              )}
+            </>
+          )}
+
+          {canAdd && (
+            <div className="worker-sticky-actions">
+              <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj postęp</Button>
+              {canCloseProject && <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zakończ robotę</Button>}
+            </div>
+          )}
+        </main>
+
+        {showAddProgressChoice && (
+          <AddProgressChoice
+            onClose={() => setShowAddProgressChoice(false)}
+            onPick={(entry) => {
+              setShowAddProgressChoice(false);
+              setEntryModal(entry);
+            }}
+          />
+        )}
+        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); load(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
+      </div>
+    );
+  }
 
   if (fieldMode) {
     return (
@@ -3505,6 +3833,57 @@ function SettingsPage({
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zapisać profilu" });
     }
   }
+  if (isCompanyWorker(user)) {
+    const assignedWorkspace = user.workspaces[0];
+    return (
+      <div className="page worker-settings-page">
+        <header className="worker-page-header">
+          <div>
+            <span className="eyebrow">Konto pracownika</span>
+            <h1>Ustawienia</h1>
+            <p>Proste dane konta majstra firmy. Bez ustawień firmy i bez zarządzania ekipami.</p>
+          </div>
+        </header>
+        <section className="worker-settings-stack">
+          <article className="worker-settings-card">
+            <h2>Moje konto</h2>
+            <form className="form-stack" onSubmit={submit}>
+              <label>Imię i nazwisko<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
+              <label>E-mail / login<input value={user.email || "Konto dostępowe bez e-maila"} disabled /></label>
+              <label>Telefon<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
+              <input type="hidden" name="preferred_mode" value={user.preferred_mode || "field"} />
+              <Button type="submit">Zapisz profil</Button>
+            </form>
+          </article>
+          <article className="worker-settings-card">
+            <h2>Przypisana firma</h2>
+            <div className="worker-settings-row">
+              <span><Icon name="users" /></span>
+              <div>
+                <strong>{assignedWorkspace?.name || "Brak przypisanej firmy"}</strong>
+                <small>{assignedWorkspace?.role ? `Twoja rola: ${assignedWorkspace.role}` : "Firma pojawi się tutaj po przypisaniu przez szefa."}</small>
+              </div>
+            </div>
+          </article>
+          <article className="worker-settings-card">
+            <h2>Preferencje</h2>
+            <div className="worker-settings-note">
+              <strong>Tryb prosty jest domyślny dla pracy w terenie.</strong>
+              <p>Przełącznik Prosty / Rozbudowany znajduje się u góry aplikacji i zapamiętuje wybór w tej przeglądarce.</p>
+            </div>
+          </article>
+          <article className="worker-settings-card">
+            <h2>Bezpieczeństwo</h2>
+            <div className="worker-settings-note">
+              <strong>Hasło, kody i aktywacja linkiem będą osobnym krokiem.</strong>
+              <p>Ten redesign nie zmienia logowania. Flow dla majstrów bez e-maila zostaje na KROK 10B/10C.</p>
+            </div>
+          </article>
+          <Button type="button" variant="danger" onClick={onLogout}>Wyloguj się</Button>
+        </section>
+      </div>
+    );
+  }
   return (
     <div className="page">
       <header className="page-header"><div><span className="eyebrow">Konto</span><h1>Ustawienia</h1><p>Uzupełnij dane widoczne przy wpisach i raportach.</p></div></header>
@@ -3940,7 +4319,16 @@ export default function App() {
       onQueue={refreshQueue}
     />
   ) : visibleSection === "projects" ? (
-    <ProjectsPage user={user} projects={projects} onProject={setSelectedProject} onCreate={() => setCreateOpen(true)} uiMode={uiMode} />
+    <ProjectsPage
+      user={user}
+      projects={projects}
+      onProject={setSelectedProject}
+      onCreate={() => setCreateOpen(true)}
+      uiMode={uiMode}
+      notify={notify}
+      onQueue={refreshQueue}
+      onChanged={loadProjects}
+    />
   ) : visibleSection === "reports" ? (
     <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
   ) : visibleSection === "team" ? (

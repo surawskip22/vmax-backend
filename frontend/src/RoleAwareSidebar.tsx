@@ -101,7 +101,7 @@ export function BottomNav({
 }) {
   const nav = getNavigationForUser(user);
   return (
-    <nav className="bottom-nav">
+    <nav className={`bottom-nav bottom-nav--${nav.length}`}>
       {nav.slice(0, 4).map(({ id, label, icon }) => (
         <button className={active === id ? "active" : ""} onClick={() => onNavigate(id)} key={id}>
           <Icon name={icon} /><span>{label}</span>
