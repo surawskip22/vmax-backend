@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_transcription_model: str = "gpt-4o-mini-transcribe"
     openai_report_model: str = "gpt-4.1-mini"
+    enable_server_transcription: bool = False
 
     worker_enabled: bool = True
     worker_poll_seconds: int = 5

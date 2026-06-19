@@ -2102,6 +2102,8 @@ def transcribe_recording(
 ):
     access = get_project_access(request, db, project_id)
     access.require_add()
+    if not settings.enable_server_transcription:
+        raise HTTPException(503, "Transkrypcja backendowa jest wylaczona")
     content_type = (file.content_type or "audio/webm").lower()
     if not (
         content_type.startswith("audio/") or content_type.startswith("video/")
@@ -2181,7 +2183,7 @@ def upload_media(
         asset.size_bytes = size
         asset.sha256 = digest
         asset.status = "ready"
-        if kind == "audio":
+        if kind == "audio" and settings.enable_server_transcription:
             db.add(
                 models.Job(
                     job_type="transcribe",

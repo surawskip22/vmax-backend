@@ -71,6 +71,33 @@ def assert_generated_pdf_report(response):
     return report
 
 
+def create_project_with_entry(
+    client: TestClient, email: str, name: str = "Audio guard project"
+) -> tuple[dict, dict]:
+    login(client, email)
+    project_response = client.post(
+        "/api/projects",
+        json={
+            "name": name,
+            "client_name": "Klient audio",
+            "address": "ul. Audio 1",
+            "template": "remont",
+        },
+    )
+    assert project_response.status_code == 201
+    project = project_response.json()
+    entry_response = client.post(
+        f"/api/projects/{project['id']}/entries",
+        json={
+            "kind": "update",
+            "body": "Audio test",
+            "stage_id": project["stages"][0]["id"],
+        },
+    )
+    assert entry_response.status_code == 201
+    return project, entry_response.json()
+
+
 def test_complete_report_flow_and_media_integrity():
     with TestClient(app) as client:
         user = login(client, "admin@example.com")
@@ -168,6 +195,134 @@ def test_complete_report_flow_and_media_integrity():
         pdf = client.get(f"/api/public/reports/{token}/pdf?pin=1234")
         assert pdf.status_code == 200
         assert pdf.content.startswith(b"%PDF")
+
+
+def test_audio_upload_does_not_queue_server_transcription_by_default(monkeypatch):
+    from panmajster.api import settings as api_settings
+
+    monkeypatch.setattr(api_settings, "openai_api_key", "fake-key")
+    monkeypatch.setattr(api_settings, "enable_server_transcription", False)
+    with TestClient(app) as client:
+        project, entry = create_project_with_entry(
+            client, "audio-guard-default@example.com"
+        )
+        with SessionLocal() as db:
+            before = db.scalar(
+                select(func.count(models.Job.id)).where(
+                    models.Job.job_type == "transcribe"
+                )
+            )
+
+        upload = client.post(
+            f"/api/entries/{entry['id']}/media",
+            files={"file": ("opis.webm", b"fake-audio", "audio/webm")},
+            data={"purpose": "voice_description"},
+        )
+        assert upload.status_code == 201
+        assert upload.json()["kind"] == "audio"
+        disabled = client.post(
+            f"/api/projects/{project['id']}/transcribe",
+            files={"file": ("opis.webm", b"fake-audio", "audio/webm")},
+        )
+        assert disabled.status_code == 503
+        with SessionLocal() as db:
+            after = db.scalar(
+                select(func.count(models.Job.id)).where(
+                    models.Job.job_type == "transcribe"
+                )
+            )
+        assert after == before
+
+
+def test_audio_upload_does_not_queue_server_transcription_when_flag_is_false(
+    monkeypatch,
+):
+    from panmajster.api import settings as api_settings
+
+    monkeypatch.setattr(api_settings, "openai_api_key", "fake-key")
+    monkeypatch.setattr(api_settings, "enable_server_transcription", False)
+    with TestClient(app) as client:
+        _, entry = create_project_with_entry(client, "audio-guard-false@example.com")
+        with SessionLocal() as db:
+            before = db.scalar(
+                select(func.count(models.Job.id)).where(
+                    models.Job.job_type == "transcribe"
+                )
+            )
+
+        upload = client.post(
+            f"/api/entries/{entry['id']}/media",
+            files={"file": ("notatka.webm", b"fake-audio", "audio/webm")},
+            data={"purpose": "voice_note"},
+        )
+        assert upload.status_code == 201
+        with SessionLocal() as db:
+            after = db.scalar(
+                select(func.count(models.Job.id)).where(
+                    models.Job.job_type == "transcribe"
+                )
+            )
+        assert after == before
+
+
+def test_existing_transcribe_job_is_skipped_when_server_transcription_is_disabled(
+    monkeypatch,
+):
+    from panmajster.api import settings as api_settings
+
+    monkeypatch.setattr(api_settings, "enable_server_transcription", False)
+    monkeypatch.setattr(
+        "panmajster.worker.transcribe_asset",
+        lambda asset: pytest.fail("server transcription should be disabled"),
+    )
+    with SessionLocal() as db:
+        job = models.Job(
+            job_type="transcribe",
+            payload={"asset_id": "missing", "entry_id": "missing"},
+        )
+        db.add(job)
+        db.commit()
+        job_id = job.id
+
+    assert process_next_job() is True
+    with SessionLocal() as db:
+        skipped = db.get(models.Job, job_id)
+        assert skipped is not None
+        assert skipped.status == "done"
+        assert "disabled" in skipped.last_error
+
+
+def test_server_transcription_can_be_enabled_explicitly(monkeypatch):
+    from panmajster.api import settings as api_settings
+
+    monkeypatch.setattr(api_settings, "openai_api_key", "fake-key")
+    monkeypatch.setattr(api_settings, "enable_server_transcription", True)
+    monkeypatch.setattr(
+        "panmajster.worker.transcribe_asset",
+        lambda asset: "Transkrypcja z mocka",
+    )
+    with TestClient(app) as client:
+        _, entry = create_project_with_entry(client, "audio-guard-on@example.com")
+        upload = client.post(
+            f"/api/entries/{entry['id']}/media",
+            files={"file": ("notatka.webm", b"fake-audio", "audio/webm")},
+            data={"purpose": "voice_note"},
+        )
+        assert upload.status_code == 201
+
+    with SessionLocal() as db:
+        queued = db.scalar(
+            select(func.count(models.Job.id)).where(
+                models.Job.job_type == "transcribe",
+                models.Job.status == "queued",
+            )
+        )
+    assert queued >= 1
+    assert process_next_job() is True
+    with SessionLocal() as db:
+        updated = db.get(models.Entry, entry["id"])
+        assert updated is not None
+        assert updated.transcript == "Transkrypcja z mocka"
 
 
 def test_daily_and_final_project_pdf_reports_for_project_members():

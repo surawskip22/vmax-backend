@@ -53,6 +53,12 @@ def process_next_job() -> bool:
 
         try:
             if job.job_type == "transcribe":
+                if not get_settings().enable_server_transcription:
+                    job.status = "done"
+                    job.finished_at = now()
+                    job.last_error = "Server transcription disabled by ENABLE_SERVER_TRANSCRIPTION."
+                    db.commit()
+                    return True
                 asset = db.get(models.MediaAsset, job.payload["asset_id"])
                 entry = db.get(models.Entry, job.payload["entry_id"])
                 if not asset or not entry:
