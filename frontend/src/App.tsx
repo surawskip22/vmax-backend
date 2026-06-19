@@ -3583,57 +3583,129 @@ function PublicProject({ token }: { token: string }) {
   const entries = data.entries as Entry[];
   const reports = data.reports as Report[];
   const withPin = (url: string) => `${url}${pin ? `?pin=${encodeURIComponent(pin)}` : ""}`;
+  const { completedCount, progress } = projectStageProgress(project);
+  const stagesCount = project.stages?.length || 0;
+  const formatter = new Intl.DateTimeFormat("pl", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const timeFormatter = new Intl.DateTimeFormat("pl", { dateStyle: "medium", timeStyle: "short" });
+  const latestDate = entries[0]?.occurred_at || project.updated_at || project.created_at;
+  const latestImages = entries
+    .flatMap((entry) => entry.media.filter((asset) => asset.kind === "image").map((asset) => ({ ...asset, entry })))
+    .slice(0, 6);
+  const heroImage = latestImages[0];
+  const completedItems = entries
+    .filter((entry) => entry.kind !== "problem" && (entry.body || entry.transcript))
+    .slice(0, 4);
+  const contractorName = project.worker_profile?.label || "Nie podano";
+  const safeStatusLabel = statusLabels[project.status] || project.status;
+  const formatDate = (value?: string | null) => value ? formatter.format(new Date(value)) : "Nie ustawiono";
   return (
     <div className="client-project">
-      <header>
-        <Logo />
-        <div>
-          <small>STAŁY PODGLĄD ZLECENIA</small>
-          <h1>{project.name}</h1>
-          <p>{project.address || project.client_name}</p>
+      <header className="client-hero">
+        <div className="client-hero__brand">
+          <Logo />
+          <div>
+            <h1>Pan Majster</h1>
+            <p>Podsumowanie dla klienta</p>
+          </div>
         </div>
         <Button variant="secondary" icon="sync" onClick={() => void load()}>Odśwież</Button>
       </header>
       <main>
-        <section className="client-overview panel">
-          <div>
-            <span className={`status status--${project.status}`}>{statusLabels[project.status]}</span>
-            <h2>Postęp prac</h2>
-            <p>{project.description || "Tutaj pojawiają się zdjęcia, opisy, problemy i kolejne raporty."}</p>
-            <ContractTermsPanel project={project} />
+        <section className="client-summary-card">
+          <div className="client-summary-card__image">
+            {heroImage ? (
+              <button type="button" onClick={() => setLightbox({ src: withPin(heroImage.url), alt: heroImage.original_name })}>
+                <img src={withPin(heroImage.url)} alt={heroImage.original_name} loading="lazy" />
+              </button>
+            ) : (
+              <div className="client-image-placeholder"><Icon name="clipboard" /><span>Podgląd zlecenia</span></div>
+            )}
           </div>
-          <div className="simple-stages">
-            {project.stages?.map((stage, index) => <div className={`simple-stage simple-stage--${stage.status}`} key={stage.id}><span>{stage.status === "completed" ? "✓" : index + 1}</span><div><strong>{stage.title}</strong><small>{stage.status === "completed" ? "Zakończony" : stage.status === "active" ? "W trakcie" : "Przed nami"}</small></div></div>)}
+          <div className="client-summary-card__content">
+            <span className={`status status--${project.status}`}>{safeStatusLabel}</span>
+            <h2>{project.name}</h2>
+            <p>{project.description || project.address || project.client_name || "Aktualny podgląd postępu prac."}</p>
+            <div className="client-progress">
+              <div><span style={{ width: `${progress}%` }} /></div>
+              <strong>{progress}%</strong>
+            </div>
+            {stagesCount > 0 && <small>{completedCount} z {stagesCount} etapów ukończonych</small>}
           </div>
         </section>
-        <div className="client-layout">
-          <section className="client-timeline panel">
-            <div className="panel__header"><div><h2>Oś czasu zlecenia</h2><p>Nowe materiały pojawiają się tutaj automatycznie.</p></div></div>
-            {entries.length === 0 ? <EmptyState icon="camera" title="Jeszcze bez aktualizacji" text="Pierwsze zdjęcia i opisy pojawią się tutaj." /> : (
-              <div className="timeline">
-                {entries.map((entry) => (
-                  <article className={`timeline-entry timeline-entry--${entry.kind}`} key={entry.id}>
-                    <span className="timeline-entry__marker"><Icon name={entry.kind === "problem" ? "alert" : "camera"} /></span>
-                    <div className="timeline-entry__body">
-                      <header><div><strong>{entry.kind === "problem" ? "Zgłoszony problem" : "Aktualizacja prac"}</strong><span>{new Intl.DateTimeFormat("pl", { dateStyle: "medium", timeStyle: "short" }).format(new Date(entry.occurred_at))}</span></div></header>
-                      {entry.stage && <span className="stage-label">{entry.stage.title}</span>}
-                      {(entry.body || entry.transcript) && <p>{entry.body || entry.transcript}</p>}
-                      {entry.kind === "problem" && <span className={`problem-toggle problem-toggle--${entry.problem_status}`}>{entry.problem_status === "resolved" ? "Problem rozwiązany" : "Problem otwarty"}</span>}
-                      {entry.media.some((asset) => asset.kind === "image") && <div className="media-grid">{entry.media.filter((asset) => asset.kind === "image").map((asset) => { const src = withPin(asset.url); return <button type="button" className="media-button" onClick={() => setLightbox({ src, alt: asset.original_name })} key={asset.id}><img src={src} alt={asset.original_name} loading="lazy" /></button>; })}</div>}
-                      {entry.media.filter((asset) => asset.kind === "audio").map((asset) => <audio controls src={withPin(asset.url)} key={asset.id} />)}
+
+        <section className="client-info-card">
+          <div><Icon name="clipboard" /><span>Planowany start</span><strong>{formatDate(project.planned_start_date)}</strong></div>
+          <div><Icon name="clipboard" /><span>Planowany koniec</span><strong>{formatDate(project.planned_end_date)}</strong></div>
+          <div><Icon name="sync" /><span>Ostatnia aktualizacja</span><strong>{timeFormatter.format(new Date(latestDate))}</strong></div>
+          <div><Icon name="users" /><span>Wykonawca</span><strong>{contractorName}</strong></div>
+        </section>
+
+        {project.contract_amount && <ContractTermsPanel project={project} />}
+
+        <section className="client-section-card client-done-card">
+          <span className="client-section-icon client-section-icon--green"><Icon name="check" /></span>
+          <div>
+            <h2>Co zostało wykonane do tej pory</h2>
+            {completedItems.length === 0 ? (
+              <p className="client-muted">Pierwsze opisy postępu pojawią się tutaj po dodaniu aktualizacji.</p>
+            ) : (
+              <ul>
+                {completedItems.map((entry) => (
+                  <li key={entry.id}><Icon name="check" /><span>{entry.body || entry.transcript}</span></li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <section className="client-section-card client-photos-card">
+          <span className="client-section-icon client-section-icon--green"><Icon name="camera" /></span>
+          <div>
+            <h2>Zdjęcia z prac</h2>
+            {latestImages.length === 0 ? (
+              <p className="client-muted">Zdjęcia pojawią się tutaj po pierwszej aktualizacji z terenu.</p>
+            ) : (
+              <div className="client-photo-grid">
+                {latestImages.map((asset) => {
+                  const src = withPin(asset.url);
+                  return (
+                    <button type="button" className="media-button" onClick={() => setLightbox({ src, alt: asset.original_name })} key={asset.id}>
+                      <img src={src} alt={asset.original_name} loading="lazy" />
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="client-section-card client-reports-card">
+          <span className="client-section-icon client-section-icon--purple"><Icon name="report" /></span>
+          <div>
+            <h2>Raporty PDF</h2>
+            {reports.length === 0 ? (
+              <p className="client-muted">Gotowe raporty PDF pojawią się tutaj po publikacji.</p>
+            ) : (
+              <div className="client-report-list">
+                {reports.map((report) => (
+                  <a className="client-report-link" href={withPin(`/api/public/projects/${token}/reports/${report.id}/pdf`)} target="_blank" rel="noreferrer" key={report.id}>
+                    <Icon name="report" />
+                    <div>
+                      <strong>{report.title}</strong>
+                      <small>{report.published_at ? formatter.format(new Date(report.published_at)) : "Opublikowany raport"}</small>
                     </div>
-                  </article>
+                    <span>Otwórz</span>
+                  </a>
                 ))}
               </div>
             )}
-          </section>
-          <aside className="client-reports panel">
-            <div className="panel__header"><div><h2>Raporty PDF</h2><p>Wszystkie opublikowane raporty.</p></div></div>
-            {reports.length === 0 ? <EmptyState icon="report" title="Brak raportów" text="Raporty pojawią się tutaj po publikacji." /> : reports.map((report) => <a className="client-report-link" href={withPin(`/api/public/projects/${token}/reports/${report.id}/pdf`)} target="_blank" key={report.id}><Icon name="report" /><div><strong>{report.title}</strong><small>{report.published_at ? new Intl.DateTimeFormat("pl").format(new Date(report.published_at)) : ""}</small></div><span>Otwórz PDF</span></a>)}
-          </aside>
-        </div>
+          </div>
+        </section>
       </main>
-      <footer><Logo /><span>Zdjęcie. Głos. Raport.</span></footer>
+      <footer className="client-security-footer">
+        <Icon name="settings" />
+        <span>To bezpieczny podgląd postępu prac - bez logowania i bez dostępu do panelu wykonawcy.</span>
+      </footer>
       {lightbox && <ImageLightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />}
     </div>
   );
