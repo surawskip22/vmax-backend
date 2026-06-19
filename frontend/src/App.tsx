@@ -1020,6 +1020,7 @@ function ProjectsPage({
   onProject,
   onCreate,
   uiMode,
+  onUiModeChange,
   notify,
   onQueue,
   onChanged,
@@ -1029,6 +1030,7 @@ function ProjectsPage({
   onProject: (project: Project) => void;
   onCreate: () => void;
   uiMode: UiMode;
+  onUiModeChange: (mode: UiMode) => void;
   notify: (toast: Toast) => void;
   onQueue: () => void;
   onChanged: () => void;
@@ -1085,6 +1087,7 @@ function ProjectsPage({
         projects={projects}
         onProject={onProject}
         uiMode={uiMode}
+        onUiModeChange={onUiModeChange}
         notify={notify}
         onQueue={onQueue}
         onChanged={onChanged}
@@ -1238,10 +1241,20 @@ function AddProgressChoice({
   );
 }
 
+function WorkerMobileHeader({ title = "Majster firmy" }: { title?: string }) {
+  return (
+    <header className="worker-mobile-header">
+      <Logo />
+      <span><Icon name="clipboard" size={18} /> {title}</span>
+    </header>
+  );
+}
+
 function CompanyWorkerProjectsPage({
   projects,
   onProject,
   uiMode,
+  onUiModeChange,
   notify,
   onQueue,
   onChanged,
@@ -1249,6 +1262,7 @@ function CompanyWorkerProjectsPage({
   projects: Project[];
   onProject: (project: Project) => void;
   uiMode: UiMode;
+  onUiModeChange: (mode: UiMode) => void;
   notify: (toast: Toast) => void;
   onQueue: () => void;
   onChanged: () => void;
@@ -1281,11 +1295,14 @@ function CompanyWorkerProjectsPage({
 
   return (
     <div className="page worker-home">
+      <WorkerMobileHeader />
       <header className="worker-page-header">
         <div>
-          <span className="eyebrow">Praca w terenie</span>
           <h1>Moje zlecenia</h1>
-          <p>Zlecenia przypisane do Ciebie. Bez panelu firmy i bez cudzych ekip.</p>
+        </div>
+        <div className="ui-mode-switch worker-mode-switch" role="group" aria-label="Przelacz tryb widoku">
+          <button type="button" className={simpleMode ? "active" : ""} onClick={() => onUiModeChange("simple")}>Prosty</button>
+          <button type="button" className={!simpleMode ? "active" : ""} onClick={() => onUiModeChange("advanced")}>Rozbudowany</button>
         </div>
       </header>
 
@@ -1331,7 +1348,7 @@ function CompanyWorkerProjectsPage({
                 </div>
                 <div className="worker-job-card__actions">
                   {!simpleMode && <Button type="button" variant="secondary" onClick={() => onProject(project)}>Szczegóły</Button>}
-                  {project.status !== "completed" && (
+                  {!simpleMode && project.status !== "completed" && (
                     <Button type="button" icon="plus" onClick={() => setChoiceProject(project)}>Dodaj postęp</Button>
                   )}
                 </div>
@@ -2118,6 +2135,7 @@ function ProjectView({
   const [showReports, setShowReports] = useState(false);
   const [showManage, setShowManage] = useState(false);
   const [showClientLink, setShowClientLink] = useState(false);
+  const [showWorkerStagePicker, setShowWorkerStagePicker] = useState(false);
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const fieldMode = Boolean(guestToken) || uiMode !== "advanced";
 
@@ -2167,6 +2185,7 @@ function ProjectView({
     setShowManage(false);
     setShowClientLink(false);
     setShowAddProgressChoice(false);
+    setShowWorkerStagePicker(false);
     setLoading(true);
   }, [guestToken, projectId]);
 
@@ -2255,6 +2274,7 @@ function ProjectView({
     />
   );
   const currentStage = activeProjectStage(project);
+  const currentStageIndex = currentStage && project.stages ? project.stages.findIndex((stage) => stage.id === currentStage.id) + 1 : 0;
   const recentEntries = entries.slice(0, 3);
 
   if (user && isCompanyWorker(user) && !guestToken) {
@@ -2274,12 +2294,22 @@ function ProjectView({
 
         <main className="worker-detail-main">
           <section className="worker-detail-card worker-stage-card">
+            <span className="worker-stage-card__number">{currentStageIndex || "–"}</span>
             <div>
               <small>Aktualny etap</small>
               <h2>{currentStage?.title || "Etap nieustawiony"}</h2>
               <p>{currentStage ? stageStatusText(currentStage) : "Szef firmy nie ustawił jeszcze etapu."}</p>
             </div>
-            {canChangeStage && <span><Icon name="settings" /></span>}
+            {canChangeStage && (
+              <button type="button" className="worker-stage-change" onClick={() => setShowWorkerStagePicker((current) => !current)}>
+                Zmień etap
+              </button>
+            )}
+            {showWorkerStagePicker && (
+              <div className="worker-stage-picker">
+                {stages}
+              </div>
+            )}
           </section>
 
           <section className="worker-detail-card worker-terms-card">
@@ -2334,20 +2364,31 @@ function ProjectView({
 
           {uiMode === "advanced" && (
             <>
-              <section className="worker-detail-card">
+              <section className="worker-detail-card worker-advanced-stage-summary">
                 <div className="worker-section-heading">
                   <div><h2>Etapy pracy</h2><p>Widok informacyjny i zmiana etapu, jeśli obecne uprawnienia na to pozwalają.</p></div>
                 </div>
                 {stages}
               </section>
-              {canGeneratePdfReports && (
-                <GeneratedReportsPanel
-                  projectId={projectIdForStatusActions}
-                  reports={reports}
-                  guestToken={guestToken}
-                  onRefresh={load}
-                  notify={notify}
-                />
+              {canGeneratePdfReports && reports.length > 0 && (
+                <section className="worker-detail-card worker-report-list">
+                  <div className="worker-section-heading">
+                    <div><h2>Raporty PDF</h2><p>Gotowe raporty do podglądu.</p></div>
+                  </div>
+                  {reports.map((report) => {
+                    const href = reportPdfHref(report, guestToken);
+                    return (
+                      <article key={report.id}>
+                        <span><Icon name="report" /></span>
+                        <div>
+                          <strong>{reportTypeLabel(report)}</strong>
+                          <small>{reportDisplayDate(report)}</small>
+                        </div>
+                        {href && <a className="button button--secondary" href={href} target="_blank" rel="noreferrer">Otwórz</a>}
+                      </article>
+                    );
+                  })}
+                </section>
               )}
             </>
           )}
@@ -3837,6 +3878,7 @@ function SettingsPage({
     const assignedWorkspace = user.workspaces[0];
     return (
       <div className="page worker-settings-page">
+        <WorkerMobileHeader />
         <header className="worker-page-header">
           <div>
             <span className="eyebrow">Konto pracownika</span>
@@ -4325,6 +4367,7 @@ export default function App() {
       onProject={setSelectedProject}
       onCreate={() => setCreateOpen(true)}
       uiMode={uiMode}
+      onUiModeChange={setUiMode}
       notify={notify}
       onQueue={refreshQueue}
       onChanged={loadProjects}
