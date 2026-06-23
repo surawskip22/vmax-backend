@@ -1215,7 +1215,7 @@ function AddProgressChoice({
     { icon: "camera", title: "Zdjęcie", subtitle: "Dodaj zdjęcia", tone: "navy", entry: { kind: "update", mode: "photo" } },
     { icon: "mic", title: "Audio", subtitle: "Nagraj opis", tone: "navy", entry: { kind: "update", mode: "audio" } },
     { icon: "report", title: "Opis", subtitle: "Napisz co zrobiono", tone: "navy", entry: { kind: "update", mode: "text" } },
-    { icon: "alert", title: "Problem", subtitle: "Zgłoś problem", tone: "red", entry: { kind: "problem", mode: "photo" } },
+    { icon: "alert", title: "Problem", subtitle: "Zgłoś problem", tone: "red", entry: { kind: "problem", mode: "text" } },
   ];
 
   return (
@@ -1415,7 +1415,7 @@ function CompanyWorkerProjectsPage({
 function NewEntryModal({
   project,
   kind,
-  mode: _mode,
+  mode,
   guestToken,
   onClose,
   onSaved,
@@ -1440,6 +1440,7 @@ function NewEntryModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const recorder = useRef<MediaRecorder | null>(null);
+  const bodyInput = useRef<HTMLTextAreaElement | null>(null);
   const chunks = useRef<Blob[]>([]);
   const speechRecognition = useRef<SpeechRecognitionInstance | null>(null);
   const speechTarget = useRef<EntryTextTarget | null>(null);
@@ -1592,6 +1593,12 @@ function NewEntryModal({
     recorder.current?.stop();
   }, []);
 
+  useEffect(() => {
+    if (mode === "text" || kind === "problem") {
+      window.setTimeout(() => bodyInput.current?.focus(), 0);
+    }
+  }, [kind, mode]);
+
   async function startRecording(target: EntryTextTarget) {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1695,40 +1702,114 @@ function NewEntryModal({
     );
   }
 
+  const modalCopy = kind === "problem"
+    ? {
+      title: "Zgłoś problem",
+      eyebrow: "Problem",
+      heading: "Opisz problem lub blokadę",
+      description: "Najpierw wpisz, co się stało. Zdjęcia i audio możesz dodać jako kontekst.",
+    }
+    : mode === "photo"
+      ? {
+        title: "Dodaj zdjęcia",
+        eyebrow: "Zdjęcie",
+        heading: "Dodaj zdjęcia z realizacji",
+        description: "Najpierw wybierz lub zrób zdjęcia. Opis możesz dopisać niżej.",
+      }
+      : mode === "audio"
+        ? {
+          title: "Nagraj opis",
+          eyebrow: "Audio",
+          heading: "Nagraj krótki opis prac",
+          description: "Najpierw uruchom nagrywanie. Transkrypcja live beta uzupełni tekst, jeśli przeglądarka ją wspiera.",
+        }
+        : {
+          title: "Napisz co zrobiono",
+          eyebrow: "Opis",
+          heading: "Opisz wykonane prace",
+          description: "Najpierw wpisz krótką notatkę. Zdjęcia i audio możesz dodać jako załączniki.",
+        };
+
+  const uploadSection = (
+    <label className="upload-zone">
+      <Icon name="camera" size={34} />
+      <strong>
+        {stageId === project.stages?.[0]?.id
+          ? "Zrób zdjęcie stanu przed pracą"
+          : stageId === project.stages?.[2]?.id
+            ? "Zrób zdjęcie efektu końcowego"
+            : "Dodaj zdjęcia postępu prac"}
+      </strong>
+      <span>{files.filter((file) => file.type.startsWith("image/")).length ? `${files.filter((file) => file.type.startsWith("image/")).length} zdjęć wybranych` : "Możesz zrobić lub wybrać kilka zdjęć"}</span>
+      <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => setFiles((current) => [...current, ...Array.from(e.target.files || [])])} />
+    </label>
+  );
+
+  const recorderSection = (
+    <>
+      <div className={`recorder ${recordingTarget === "description" ? "recorder--active" : ""}`}>
+        <button
+          type="button"
+          onClick={recordingTarget === "description" ? stopRecording : () => startRecording("description")}
+          disabled={Boolean(recordingTarget && recordingTarget !== "description")}
+          aria-label={recordingTarget === "description" ? "Zatrzymaj nagrywanie opisu" : "Rozpocznij nagrywanie opisu prac"}
+        >
+          <Icon name="mic" size={30} />
+        </button>
+        <div>
+          <strong>{recordingTarget === "description" ? "Nagrywanie opisu..." : "Nagraj opis prac"}</strong>
+          <span>Powiedz krótko, co zostało zrobione. Transkrypcja live beta ruszy, jeśli przeglądarka ją wspiera; tekst możesz poprawić przed zapisem.</span>
+        </div>
+      </div>
+      {renderSpeechStatus("description")}
+    </>
+  );
+
+  const descriptionSection = (
+    <label>
+      {kind === "problem" ? "Opis problemu" : "Opis prac"}
+      <textarea
+        ref={bodyInput}
+        rows={5}
+        value={body}
+        onChange={(e) => { markManualTextEdit("description"); setBody(e.target.value); }}
+        placeholder={kind === "problem" ? "Co się wydarzyło i czego potrzeba?" : "Wpisz opis albo nagraj go przyciskiem powyżej."}
+      />
+    </label>
+  );
+
   return (
-    <Modal title={kind === "problem" ? "Zgłoś problem" : "Dodaj postęp prac"} onClose={onClose}>
+    <Modal title={modalCopy.title} onClose={onClose}>
       <form className="form-stack" onSubmit={submit}>
         {project.stages && project.stages.length > 0 && (
           <label>Etap<select value={stageId} onChange={(e) => setStageId(e.target.value)}><option value="">Bez etapu</option>{project.stages.map((stage) => <option value={stage.id} key={stage.id}>{stage.title}</option>)}</select></label>
         )}
-        <label className="upload-zone">
-          <Icon name="camera" size={34} />
-          <strong>
-            {stageId === project.stages?.[0]?.id
-              ? "Zrób zdjęcie stanu przed pracą"
-              : stageId === project.stages?.[2]?.id
-                ? "Zrób zdjęcie efektu końcowego"
-                : "Dodaj zdjęcia postępu prac"}
-          </strong>
-          <span>{files.filter((file) => file.type.startsWith("image/")).length ? `${files.filter((file) => file.type.startsWith("image/")).length} zdjęć wybranych` : "Możesz zrobić lub wybrać kilka zdjęć"}</span>
-          <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => setFiles((current) => [...current, ...Array.from(e.target.files || [])])} />
-        </label>
-        <div className={`recorder ${recordingTarget === "description" ? "recorder--active" : ""}`}>
-          <button
-            type="button"
-            onClick={recordingTarget === "description" ? stopRecording : () => startRecording("description")}
-            disabled={Boolean(recordingTarget && recordingTarget !== "description")}
-            aria-label={recordingTarget === "description" ? "Zatrzymaj nagrywanie opisu" : "Rozpocznij nagrywanie opisu prac"}
-          >
-            <Icon name="mic" size={30} />
-          </button>
-          <div>
-            <strong>{recordingTarget === "description" ? "Nagrywanie opisu..." : "Nagraj opis prac"}</strong>
-            <span>Powiedz krótko, co zostało zrobione. Transkrypcja live beta ruszy, jeśli przeglądarka ją wspiera; tekst możesz poprawić przed zapisem.</span>
-          </div>
+        <div className={`entry-modal-context entry-modal-context--${kind === "problem" ? "problem" : mode}`}>
+          <span>{modalCopy.eyebrow}</span>
+          <strong>{modalCopy.heading}</strong>
+          <p>{modalCopy.description}</p>
         </div>
-        {renderSpeechStatus("description")}
-        <label>{kind === "problem" ? "Opis problemu" : "Opis prac"}<textarea rows={5} value={body} onChange={(e) => { markManualTextEdit("description"); setBody(e.target.value); }} placeholder={kind === "problem" ? "Co się wydarzyło i czego potrzeba?" : "Wpisz opis albo nagraj go przyciskiem powyżej."} /></label>
+        {(kind === "problem" || mode === "text") && (
+          <>
+            {descriptionSection}
+            {uploadSection}
+            {recorderSection}
+          </>
+        )}
+        {kind !== "problem" && mode === "photo" && (
+          <>
+            {uploadSection}
+            {descriptionSection}
+            {recorderSection}
+          </>
+        )}
+        {kind !== "problem" && mode === "audio" && (
+          <>
+            {recorderSection}
+            {descriptionSection}
+            {uploadSection}
+          </>
+        )}
         <button className="optional-voice-toggle" type="button" onClick={() => setShowVoiceNote((current) => !current)}>
           <Icon name="mic" size={20} />
           <span><strong>Opcjonalna dłuższa notatka głosowa</strong><small>Dodaj szczegóły, ustalenia lub obszerniejszy komentarz.</small></span>
@@ -2684,7 +2765,7 @@ function ProjectView({
             <FieldAction icon="camera" title="Zdjęcie" subtitle="Dodaj postęp z placu" tone="navy" onClick={() => setEntryModal({ kind: "update", mode: "photo" })} />
             <FieldAction icon="mic" title="Audio" subtitle="Nagraj opis pracy" tone="orange" onClick={() => setEntryModal({ kind: "update", mode: "audio" })} />
             <FieldAction icon="send" title="Opis" subtitle="Krótka notatka tekstowa" tone="navy" onClick={() => setEntryModal({ kind: "update", mode: "text" })} />
-            <FieldAction icon="alert" title="Problem" subtitle="Usterka lub decyzja" tone="red" onClick={() => setEntryModal({ kind: "problem", mode: "photo" })} />
+            <FieldAction icon="alert" title="Problem" subtitle="Usterka lub decyzja" tone="red" onClick={() => setEntryModal({ kind: "problem", mode: "text" })} />
           </div>}
           {canGeneratePdfReports && (
             <GeneratedReportsPanel
@@ -2748,7 +2829,7 @@ function ProjectView({
         <main className="project-timeline panel">
           <div className="panel__header">
             <div><h2>Postęp i zarządzanie zleceniem</h2><p>Zdjęcia, opisy, ustalenia i problemy w jednej osi czasu.</p></div>
-            {canAdd && <div className="quick-buttons"><button onClick={() => setEntryModal({ kind: "update", mode: "photo" })}><Icon name="camera" /> Dodaj postęp</button><button className="problem" onClick={() => setEntryModal({ kind: "problem", mode: "photo" })}><Icon name="alert" /> Zgłoś problem</button></div>}
+            {canAdd && <div className="quick-buttons"><button onClick={() => setEntryModal({ kind: "update", mode: "photo" })}><Icon name="camera" /> Dodaj postęp</button><button className="problem" onClick={() => setEntryModal({ kind: "problem", mode: "text" })}><Icon name="alert" /> Zgłoś problem</button></div>}
           </div>
           {entries.length === 0 ? <EmptyState icon="camera" title="Tu powstanie historia pracy" text="Dodaj pierwszy postęp: zdjęcia oraz opis głosowy lub tekstowy." /> : <div className="timeline">{entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={load} key={entry.id} />)}</div>}
         </main>

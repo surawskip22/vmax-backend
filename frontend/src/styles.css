@@ -507,6 +507,13 @@ audio { width: 100%; margin-top: 13px; }
 .comments > div p { margin: 3px 0; color: #465466; font-size: 12px; }
 .comments form { display: flex; gap: 8px; }
 .comments .button { min-height: 39px; }
+.entry-modal-context { padding: 13px 14px; display: flex; flex-direction: column; gap: 4px; border: 1px solid #d8e5f6; border-radius: 12px; background: #f6f9ff; color: var(--navy); }
+.entry-modal-context span { color: var(--blue); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.entry-modal-context strong { font-size: 15px; }
+.entry-modal-context p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.entry-modal-context--problem { border-color: #ffd7d2; background: #fff8f6; }
+.entry-modal-context--problem span { color: var(--orange); }
+.entry-modal-context--audio { border-color: #dfe6ff; background: #f7f9ff; }
 .upload-zone { min-height: 155px; align-items: center; justify-content: center; border: 2px dashed #bdc8d6; border-radius: 12px; background: #f9fafb; text-align: center; cursor: pointer; }
 .upload-zone input { display: none; }
 .upload-zone svg { color: var(--navy); }
