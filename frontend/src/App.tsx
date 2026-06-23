@@ -1342,26 +1342,39 @@ function CompanyWorkerProjectsPage({
           {visible.map((project) => {
             const stage = projectStageLabel(project);
             const due = formatContractDate(project.planned_end_date || project.planned_start_date) || "Termin nieustawiony";
+            const startDate = formatContractDate(project.planned_start_date) || "Nie ustawiono";
+            const endDate = formatContractDate(project.planned_end_date) || "Nie ustawiono";
+            const activityDate = formatProjectActivityDate(project.updated_at || project.created_at) || "Brak daty";
+            const canQuickAdd = project.status !== "completed";
             return (
               <article className={`worker-job-card worker-job-card--${project.status}`} key={project.id}>
                 <button type="button" className="worker-job-card__main" onClick={() => onProject(project)}>
                   <span className="worker-job-card__icon"><Icon name="clipboard" /></span>
-                  <div>
-                    <h2>{project.name}</h2>
+                  <div className="worker-job-card__copy">
+                    <div className="worker-job-card__title">
+                      <h2>{project.name}</h2>
+                      <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                    </div>
                     <p>{project.client_name || "Bez klienta"} · {project.address || "Adres nieuzupełniony"}</p>
                   </div>
                   <Icon name="back" className="worker-job-card__chevron" />
                 </button>
                 <div className="worker-job-card__meta">
-                  <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
-                  <span>{stage}</span>
+                  <span className="worker-job-card__stage">{stage}</span>
                   <span><Icon name="clipboard" size={16} /> {due}</span>
                   {!simpleMode && <span>{project.entry_count || 0} wpisów</span>}
                   {!simpleMode && <span>{project.open_problem_count || 0} problemów</span>}
                 </div>
+                {!simpleMode && (
+                  <dl className="worker-job-card__details">
+                    <div><dt>Start</dt><dd>{startDate}</dd></div>
+                    <div><dt>Koniec</dt><dd>{endDate}</dd></div>
+                    <div><dt>Ost. aktywność</dt><dd>{activityDate}</dd></div>
+                  </dl>
+                )}
                 <div className="worker-job-card__actions">
                   {!simpleMode && <Button type="button" variant="secondary" onClick={() => onProject(project)}>Szczegóły</Button>}
-                  {!simpleMode && project.status !== "completed" && (
+                  {!simpleMode && canQuickAdd && (
                     <Button type="button" icon="plus" onClick={() => setChoiceProject(project)}>Dodaj postęp</Button>
                   )}
                 </div>
