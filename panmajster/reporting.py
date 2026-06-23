@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import io
 import json
-from html import escape
+from collections import Counter
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
+from html import escape
 from pathlib import Path
 
 import qrcode
 from openai import OpenAI
-from PIL import Image as PILImage
+from PIL import Image as PILImage, UnidentifiedImageError
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
@@ -32,6 +34,15 @@ from sqlalchemy.orm import Session, selectinload
 from . import models
 from .config import get_settings
 from .storage import storage
+
+PDF_MAX_IMAGE_SOURCE_BYTES = 10 * 1024 * 1024
+PDF_MAX_IMAGE_PIXELS = 16_000_000
+PDF_THUMBNAIL_MAX_SIZE = (900, 700)
+PDF_IMAGE_JPEG_QUALITY = 72
+PDF_MAX_IMAGES_PER_ENTRY = 4
+PDF_MAX_IMAGES_PER_REPORT = 24
+
+PILImage.MAX_IMAGE_PIXELS = PDF_MAX_IMAGE_PIXELS
 
 
 def _report_entries(db: Session, report: models.Report) -> list[models.Entry]:
@@ -235,21 +246,44 @@ def _logo_flowable(width: float = 48 * mm):
     return None
 
 
-def _photo_flowable(asset: models.MediaAsset):
+@dataclass
+class PdfMediaBudget:
+    remaining_images: int = PDF_MAX_IMAGES_PER_REPORT
+
+
+def _photo_flowable(asset: models.MediaAsset) -> tuple[Image | None, str | None]:
+    if asset.size_bytes > PDF_MAX_IMAGE_SOURCE_BYTES:
+        return None, "too_large"
     try:
         content = storage.read_bytes(asset.storage_key)
+        if len(content) > PDF_MAX_IMAGE_SOURCE_BYTES:
+            return None, "too_large"
         with PILImage.open(io.BytesIO(content)) as source:
             width, height = source.size
+            if width <= 0 or height <= 0 or width * height > PDF_MAX_IMAGE_PIXELS:
+                return None, "too_large"
+            source.load()
+            source.thumbnail(PDF_THUMBNAIL_MAX_SIZE, PILImage.Resampling.LANCZOS)
+            if source.mode not in ("RGB", "L"):
+                thumbnail = source.convert("RGB")
+            else:
+                thumbnail = source.copy()
+        output = io.BytesIO()
+        thumbnail.save(output, format="JPEG", quality=PDF_IMAGE_JPEG_QUALITY, optimize=True)
+        output.seek(0)
+        width, height = thumbnail.size
         max_width = 52 * mm
         max_height = 40 * mm
         ratio = min(max_width / width, max_height / height)
         return Image(
-            io.BytesIO(content),
+            output,
             width=max(1, width * ratio),
             height=max(1, height * ratio),
-        )
+        ), None
+    except (UnidentifiedImageError, PILImage.DecompressionBombError, OSError):
+        return None, "invalid"
     except Exception:
-        return None
+        return None, "read_error"
 
 
 STATUS_LABELS = {
@@ -399,15 +433,26 @@ def _card_table(rows: list[list], font: str, col_widths: list[float]):
     return table
 
 
-def _photo_grid(assets: list[models.MediaAsset]):
+def _photo_grid(
+    assets: list[models.MediaAsset],
+    media_budget: PdfMediaBudget,
+) -> tuple[Table | None, Counter[str]]:
     photos = []
+    skipped: Counter[str] = Counter()
     for asset in assets:
-        if asset.kind == "image":
-            photo = _photo_flowable(asset)
-            if photo:
-                photos.append(photo)
+        if asset.kind != "image":
+            continue
+        if len(photos) >= PDF_MAX_IMAGES_PER_ENTRY or media_budget.remaining_images <= 0:
+            skipped["limit"] += 1
+            continue
+        photo, reason = _photo_flowable(asset)
+        if photo:
+            photos.append(photo)
+            media_budget.remaining_images -= 1
+        elif reason:
+            skipped[reason] += 1
     if not photos:
-        return None
+        return None, skipped
     rows = []
     for index in range(0, len(photos), 3):
         row = photos[index : index + 3]
@@ -426,10 +471,32 @@ def _photo_grid(assets: list[models.MediaAsset]):
             ]
         )
     )
-    return table
+    return table, skipped
 
 
-def _entry_block(item: models.Entry, styles, font: str):
+def _skipped_media_notes(skipped: Counter[str]) -> list[str]:
+    notes = []
+    large = skipped.get("too_large", 0)
+    invalid = skipped.get("invalid", 0)
+    read_error = skipped.get("read_error", 0)
+    limit = skipped.get("limit", 0)
+    if large:
+        notes.append(f"Pominięto {large} zdjęć - zbyt duży plik lub rozdzielczość.")
+    if invalid:
+        notes.append(f"Pominięto {invalid} zdjęć - uszkodzony lub nierozpoznany plik.")
+    if read_error:
+        notes.append(f"Pominięto {read_error} zdjęć - nie udało się odczytać pliku.")
+    if limit:
+        notes.append(f"Pominięto {limit} zdjęć z powodu limitu raportu.")
+    return notes
+
+
+def _entry_block(
+    item: models.Entry,
+    styles,
+    font: str,
+    media_budget: PdfMediaBudget,
+):
     status = ""
     if item.kind == "problem":
         status = "Rozwiązany" if item.problem_status == "resolved" else "Otwarty"
@@ -467,9 +534,11 @@ def _entry_block(item: models.Entry, styles, font: str):
                 styles["SmallMuted"],
             )
         )
-    photos = _photo_grid(item.media)
+    photos, skipped = _photo_grid(item.media, media_budget)
     if photos:
         block.extend([Spacer(1, 2 * mm), photos])
+    for note in _skipped_media_notes(skipped):
+        block.append(Paragraph(escape(note), styles["SmallMuted"]))
     block.append(Spacer(1, 5 * mm))
     return KeepTogether(block)
 
@@ -486,6 +555,7 @@ def render_project_report_pdf(
     is_daily = report_type == "daily"
     selected_date = report_date or datetime.now(timezone.utc).date()
     entries = _project_report_entries(db, project.id, report_type, selected_date)
+    media_budget = PdfMediaBudget()
     problems = [item for item in entries if item.kind == "problem"]
     image_count = sum(1 for item in entries for asset in item.media if asset.kind == "image")
     title = (
@@ -638,7 +708,7 @@ def render_project_report_pdf(
         story.append(Spacer(1, 5 * mm))
     else:
         for entry in entries:
-            story.append(_entry_block(entry, styles, font))
+            story.append(_entry_block(entry, styles, font, media_budget))
 
     story.extend([Paragraph("Problemy i uwagi", styles["Heading1"]), Spacer(1, 2 * mm)])
     if not problems:
@@ -650,7 +720,7 @@ def render_project_report_pdf(
         )
     else:
         for entry in problems:
-            story.append(_entry_block(entry, styles, font))
+            story.append(_entry_block(entry, styles, font, media_budget))
 
     story.extend(
         [
@@ -753,6 +823,7 @@ def render_pdf(db: Session, report: models.Report, share_url: str) -> bytes:
         ]
     )
 
+    media_budget = PdfMediaBudget()
     for group in content.get("stages", []):
         story.append(
             Paragraph(escape(group.get("title", "Etap")), styles["Heading1"])
@@ -772,24 +843,13 @@ def render_pdf(db: Session, report: models.Report, share_url: str) -> bytes:
             for asset_id in item.get("media_ids", []):
                 asset = db.get(models.MediaAsset, asset_id)
                 if asset and asset.kind == "image":
-                    photo = _photo_flowable(asset)
-                    if photo:
-                        assets.append(photo)
+                    assets.append(asset)
             if assets:
-                rows = [assets[index : index + 3] for index in range(0, len(assets), 3)]
-                photo_table = Table(rows, hAlign="LEFT")
-                photo_table.setStyle(
-                    TableStyle(
-                        [
-                            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                            ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                            ("RIGHTPADDING", (0, 0), (-1, -1), 3 * mm),
-                            ("TOPPADDING", (0, 0), (-1, -1), 1 * mm),
-                            ("BOTTOMPADDING", (0, 0), (-1, -1), 2 * mm),
-                        ]
-                    )
-                )
-                block.append(photo_table)
+                photo_table, skipped = _photo_grid(assets, media_budget)
+                if photo_table:
+                    block.append(photo_table)
+                for note in _skipped_media_notes(skipped):
+                    block.append(Paragraph(escape(note), styles["Meta"]))
             block.append(Spacer(1, 4 * mm))
             story.append(KeepTogether(block))
         story.append(Spacer(1, 3 * mm))

@@ -27,6 +27,7 @@ from sqlalchemy import func, select
 from main import app
 from panmajster import models
 from panmajster import api as api_module
+from panmajster import reporting
 from panmajster.access import ProjectAccess
 from panmajster.db import SessionLocal
 from panmajster.demo_seed import seed_demo_data
@@ -97,6 +98,43 @@ def create_project_with_entry(
     )
     assert entry_response.status_code == 201
     return project, entry_response.json()
+
+
+def add_media_asset(
+    project_id: str,
+    entry_id: str,
+    *,
+    key: str,
+    kind: str,
+    content_type: str,
+    size_bytes: int,
+    content: bytes | None = None,
+):
+    with SessionLocal() as db:
+        asset = models.MediaAsset(
+            project_id=project_id,
+            entry_id=entry_id,
+            kind=kind,
+            purpose="attachment",
+            original_name=key.rsplit("/", 1)[-1],
+            content_type=content_type,
+            size_bytes=size_bytes,
+            sha256="a" * 64,
+            storage_provider="database",
+            storage_key=key,
+        )
+        db.add(asset)
+        if content is not None:
+            db.add(
+                models.StoredBlob(
+                    storage_key=key,
+                    content=content,
+                    size_bytes=len(content),
+                    sha256="b" * 64,
+                )
+            )
+        db.commit()
+        return asset.id
 
 
 def test_complete_report_flow_and_media_integrity():
@@ -673,6 +711,117 @@ def test_pdf_report_generation_failure_returns_controlled_error(monkeypatch):
         legacy = client.get(f"/api/projects/{project['id']}/report.pdf?type=final")
         assert legacy.status_code == 503
         assert legacy.json()["detail"] == "Nie udało się wygenerować raportu PDF"
+
+
+def test_generated_pdf_skips_oversized_image_without_reading_blob(monkeypatch):
+    with TestClient(app) as client:
+        project, entry = create_project_with_entry(
+            client, "pdf-oversized-owner@example.com", "PDF oversized image project"
+        )
+        add_media_asset(
+            project["id"],
+            entry["id"],
+            key="media/oversized-image.jpg",
+            kind="image",
+            content_type="image/jpeg",
+            size_bytes=reporting.PDF_MAX_IMAGE_SOURCE_BYTES + 1,
+        )
+
+        def fail_read(key: str):
+            pytest.fail(f"oversized image should not be read: {key}")
+
+        monkeypatch.setattr(reporting.storage, "read_bytes", fail_read)
+
+        generated = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+        assert generated["status"] == "ready"
+        assert client.get(f"/api/projects/{project['id']}").status_code == 200
+
+
+def test_generated_pdf_skips_corrupted_image_and_keeps_project_loadable():
+    with TestClient(app) as client:
+        project, entry = create_project_with_entry(
+            client, "pdf-corrupted-owner@example.com", "PDF corrupted image project"
+        )
+        add_media_asset(
+            project["id"],
+            entry["id"],
+            key="media/corrupted-image.jpg",
+            kind="image",
+            content_type="image/jpeg",
+            size_bytes=32,
+            content=b"this is not an image",
+        )
+
+        generated = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+        assert_pdf_response(client.get(generated["pdf_url"]))
+        assert client.get(f"/api/projects/{project['id']}").status_code == 200
+
+
+def test_generated_pdf_does_not_read_audio_blob(monkeypatch):
+    with TestClient(app) as client:
+        project, entry = create_project_with_entry(
+            client, "pdf-audio-owner@example.com", "PDF audio guard project"
+        )
+        add_media_asset(
+            project["id"],
+            entry["id"],
+            key="media/audio-note.webm",
+            kind="audio",
+            content_type="audio/webm;codecs=opus",
+            size_bytes=2_000_000,
+        )
+
+        def fail_read(key: str):
+            pytest.fail(f"audio blob should not be read during PDF render: {key}")
+
+        monkeypatch.setattr(reporting.storage, "read_bytes", fail_read)
+
+        generated = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+        assert generated["status"] == "ready"
+
+
+def test_generated_pdf_returns_conflict_when_project_report_is_already_generating():
+    with TestClient(app) as client:
+        login(client, "pdf-lock-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "PDF locked project",
+                "client_name": "Anna Lock",
+                "address": "ul. Lock 1",
+                "template": "custom",
+            },
+        ).json()
+
+        lock = api_module.acquire_report_generation_lock(project["id"])
+        assert lock is not None
+        try:
+            response = client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        finally:
+            api_module.release_report_generation_lock(project["id"], lock)
+
+        assert response.status_code == 409
+        assert "generowany" in response.json()["detail"]
+        assert client.get(f"/api/projects/{project['id']}").status_code == 200
+        assert client.get(f"/api/projects/{project['id']}/reports").json() == []
 
 
 def test_generated_pdf_reports_permissions_for_worker_guest_and_public_client():

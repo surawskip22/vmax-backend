@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from threading import Lock
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -57,6 +58,25 @@ PROJECT_CONTRACT_FIELDS = {
     "contract_amount",
     "contract_currency",
 }
+
+_report_generation_locks: dict[str, Lock] = {}
+_report_generation_locks_guard = Lock()
+
+
+def acquire_report_generation_lock(project_id: str) -> Lock | None:
+    with _report_generation_locks_guard:
+        lock = _report_generation_locks.setdefault(project_id, Lock())
+    if not lock.acquire(blocking=False):
+        return None
+    return lock
+
+
+def release_report_generation_lock(project_id: str, lock: Lock) -> None:
+    lock.release()
+    with _report_generation_locks_guard:
+        current = _report_generation_locks.get(project_id)
+        if current is lock and not lock.locked():
+            _report_generation_locks.pop(project_id, None)
 
 
 def stored_file_response(
@@ -2355,6 +2375,12 @@ def create_report(
     if generated_type:
         access = get_project_access(request, db, project_id, allow_guest=True)
         require_project_pdf_access(access)
+        generation_lock = acquire_report_generation_lock(project_id)
+        if generation_lock is None:
+            raise HTTPException(
+                409,
+                "Raport jest już generowany, spróbuj za chwilę",
+            )
         try:
             filename, pdf_bytes = render_project_report_pdf(
                 db,
@@ -2371,36 +2397,38 @@ def create_report(
             generated_by_label = access.label
             db.commit()
             storage.write_bytes(pdf_key, pdf_bytes)
+            item = models.Report(
+                id=report_id,
+                project_id=project_id,
+                created_by_id=created_by_id,
+                title=generated_report_title(generated_type, report_date),
+                report_type=generated_type,
+                status="ready",
+                content={
+                    "generated_by_label": generated_by_label,
+                    "filename": filename,
+                    "report_date": report_date_value,
+                    "snapshot": True,
+                },
+                period_from=period_from,
+                period_to=period_to,
+                published_at=now(),
+                pdf_storage_key=pdf_key,
+            )
+            db.add(item)
+            try:
+                db.commit()
+            except Exception:
+                storage.delete(pdf_key)
+                raise
+            return serializers.report(item)
         except HTTPException:
             raise
         except Exception as exc:
             db.rollback()
             raise report_pdf_generation_error(exc) from exc
-        item = models.Report(
-            id=report_id,
-            project_id=project_id,
-            created_by_id=created_by_id,
-            title=generated_report_title(generated_type, report_date),
-            report_type=generated_type,
-            status="ready",
-            content={
-                "generated_by_label": generated_by_label,
-                "filename": filename,
-                "report_date": report_date_value,
-                "snapshot": True,
-            },
-            period_from=period_from,
-            period_to=period_to,
-            published_at=now(),
-            pdf_storage_key=pdf_key,
-        )
-        db.add(item)
-        try:
-            db.commit()
-        except Exception:
-            storage.delete(pdf_key)
-            raise
-        return serializers.report(item)
+        finally:
+            release_report_generation_lock(project_id, generation_lock)
 
     access = get_project_access(request, db, project_id, allow_guest=False)
     access.require_manage()
