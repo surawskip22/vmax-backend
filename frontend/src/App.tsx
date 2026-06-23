@@ -2144,6 +2144,47 @@ function reportPdfHref(report: Report, guestToken?: string): string {
   return `${url}${separator}guest_token=${encodeURIComponent(guestToken)}`;
 }
 
+async function fetchPdfBlob(pdfHref: string, guestToken?: string): Promise<Blob> {
+  const headers = new Headers();
+  if (guestToken) headers.set("x-guest-token", guestToken);
+  const requestUrl = pdfHref.startsWith("/api/") ? pdfHref : `/api${pdfHref}`;
+  const response = await fetch(requestUrl, {
+    credentials: "include",
+    headers,
+  });
+  if (!response.ok) {
+    let detail = response.status >= 500
+      ? "Nie udało się otworzyć raportu PDF"
+      : response.statusText || "Nie udało się otworzyć raportu PDF";
+    if (response.status < 500) {
+      try {
+        const payload = await response.json();
+        detail = typeof payload?.detail === "string" ? payload.detail : detail;
+      } catch {
+        // The response can be an upstream HTML page. Keep a report-specific error.
+      }
+    }
+    throw new ApiError(response.status, detail);
+  }
+  return response.blob();
+}
+
+function openBlobUrl(blob: Blob, filename: string, download: boolean) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.rel = "noreferrer";
+  if (download) {
+    link.download = filename;
+  } else {
+    link.target = "_blank";
+  }
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 function GeneratedReportsPanel({
   projectId,
   reports,
@@ -2160,6 +2201,7 @@ function GeneratedReportsPanel({
   generatedReportLimit?: number;
 }) {
   const [busyType, setBusyType] = useState<"daily" | "final" | null>(null);
+  const [busyReportAction, setBusyReportAction] = useState<string | null>(null);
   const [dailyDate, setDailyDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [showAllGeneratedReports, setShowAllGeneratedReports] = useState(false);
   const generatedReports = reports.filter(
@@ -2200,6 +2242,26 @@ function GeneratedReportsPanel({
       });
     } finally {
       setBusyType(null);
+    }
+  }
+
+  async function handleReportPdf(report: Report, action: "open" | "download") {
+    const pdfHref = reportPdfHref(report, guestToken);
+    if (!pdfHref) {
+      notify({ kind: "error", message: "Raport PDF nie jest jeszcze gotowy" });
+      return;
+    }
+    setBusyReportAction(`${report.id}:${action}`);
+    try {
+      const blob = await fetchPdfBlob(pdfHref, guestToken);
+      openBlobUrl(blob, `${reportTypeLabel(report)}-${reportDisplayDate(report)}.pdf`, action === "download");
+    } catch (reason) {
+      notify({
+        kind: "error",
+        message: reason instanceof Error ? reason.message : "Nie udało się otworzyć raportu PDF",
+      });
+    } finally {
+      setBusyReportAction(null);
     }
   }
 
@@ -2267,8 +2329,25 @@ function GeneratedReportsPanel({
                   </div>
                   <span className={`report-status report-status--${report.status}`}>{reportStatusLabel(report)}</span>
                   <div className="generated-report-actions">
-                    {pdfHref && <a className="button button--secondary" href={pdfHref} target="_blank" rel="noreferrer">Otwórz</a>}
-                    {pdfHref && <a className="button" href={pdfHref} download>Pobierz</a>}
+                    {pdfHref && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        busy={busyReportAction === `${report.id}:open`}
+                        onClick={() => void handleReportPdf(report, "open")}
+                      >
+                        Otwórz
+                      </Button>
+                    )}
+                    {pdfHref && (
+                      <Button
+                        type="button"
+                        busy={busyReportAction === `${report.id}:download`}
+                        onClick={() => void handleReportPdf(report, "download")}
+                      >
+                        Pobierz
+                      </Button>
+                    )}
                   </div>
                 </article>
               );
@@ -2382,14 +2461,26 @@ function ProjectView({
         ? projectData.guest && ["history", "view"].includes(projectData.guest.permission)
         : true;
       if (canLoadReports) {
-        const reportData = await api<Report[]>(`/projects/${projectId}/reports`, {}, guestToken);
-        setReports(reportData);
+        try {
+          const reportData = await api<Report[]>(`/projects/${projectId}/reports`, {}, guestToken);
+          setReports(reportData);
+        } catch (reason) {
+          setReports([]);
+          notify({
+            kind: "error",
+            message: reason instanceof Error ? reason.message : "Nie udało się wczytać raportów PDF",
+          });
+        }
       } else {
         setReports([]);
       }
       if (!guestToken) {
-        const linkData = await api<ClientLink>(`/projects/${projectId}/client-link`);
-        setClientLink(linkData);
+        try {
+          const linkData = await api<ClientLink>(`/projects/${projectId}/client-link`);
+          setClientLink(linkData);
+        } catch {
+          setClientLink(null);
+        }
       }
     } catch (reason) {
       setProject(null);
@@ -2429,7 +2520,15 @@ function ProjectView({
   }, [load, reports]);
 
   if (loading) return <div className="page"><div className="loading-screen"><span className="spinner" /> Ładowanie projektu...</div></div>;
-  if (!project) return <div className="page"><EmptyState icon="alert" title="Nie udało się otworzyć projektu" text="Link może być nieaktywny albo nie masz dostępu." /></div>;
+  if (!project) {
+    return (
+      <div className="page">
+        <EmptyState icon="alert" title="Nie udało się otworzyć projektu" text="Link może być nieaktywny albo nie masz dostępu.">
+          <Button type="button" variant="secondary" onClick={onBack}>Wróć do zleceń</Button>
+        </EmptyState>
+      </div>
+    );
+  }
 
   const canAdd = !project.guest || ["add", "history"].includes(project.guest.permission);
   const { completedCount, progress } = projectStageProgress(project);

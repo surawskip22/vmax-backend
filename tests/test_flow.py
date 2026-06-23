@@ -26,6 +26,7 @@ from sqlalchemy import func, select
 
 from main import app
 from panmajster import models
+from panmajster import api as api_module
 from panmajster.access import ProjectAccess
 from panmajster.db import SessionLocal
 from panmajster.demo_seed import seed_demo_data
@@ -575,6 +576,36 @@ def test_generated_pdf_report_panel_flow_for_owner():
 
         listed = client.get(f"/api/projects/{project['id']}/reports").json()
         assert [item["id"] for item in listed] == [final["id"], daily["id"]]
+
+
+def test_pdf_report_generation_failure_returns_controlled_error(monkeypatch):
+    with TestClient(app) as client:
+        login(client, "pdf-failure-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "PDF failure project",
+                "client_name": "Anna Failure",
+                "address": "ul. Failure 1",
+                "template": "custom",
+            },
+        ).json()
+
+        def fail_pdf(*args, **kwargs):
+            raise RuntimeError("renderer crashed")
+
+        monkeypatch.setattr(api_module, "render_project_report_pdf", fail_pdf)
+
+        generated = client.post(
+            f"/api/projects/{project['id']}/reports",
+            json={"type": "final"},
+        )
+        assert generated.status_code == 503
+        assert generated.json()["detail"] == "Nie udało się wygenerować raportu PDF"
+
+        legacy = client.get(f"/api/projects/{project['id']}/report.pdf?type=final")
+        assert legacy.status_code == 503
+        assert legacy.json()["detail"] == "Nie udało się wygenerować raportu PDF"
 
 
 def test_generated_pdf_reports_permissions_for_worker_guest_and_public_client():

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -41,6 +42,7 @@ from .templates import STAGE_TEMPLATES
 
 
 router = APIRouter(prefix="/api")
+logger = logging.getLogger(__name__)
 settings = get_settings()
 SLUG_RE = re.compile(r"[^a-z0-9]+")
 PROJECT_STATUS_ASSIGNED = "assigned"
@@ -64,6 +66,9 @@ def stored_file_response(
         content = storage.read_bytes(storage_key)
     except FileNotFoundError:
         raise HTTPException(404, "Plik nie istnieje w magazynie")
+    except Exception as exc:
+        logger.exception("Failed to read stored file %s", storage_key)
+        raise HTTPException(503, "Nie udało się otworzyć pliku") from exc
     headers = {}
     if filename:
         encoded_name = quote(filename.replace('"', ""))
@@ -71,6 +76,11 @@ def stored_file_response(
             f"attachment; filename*=UTF-8''{encoded_name}"
         )
     return Response(content=content, media_type=media_type, headers=headers)
+
+
+def report_pdf_generation_error(exc: Exception) -> HTTPException:
+    logger.exception("PDF report generation failed")
+    return HTTPException(503, "Nie udało się wygenerować raportu PDF")
 
 
 class OtpRequest(BaseModel):
@@ -2302,12 +2312,17 @@ def get_project_report_pdf(
 ):
     access = get_project_access(request, db, project_id, allow_guest=True)
     require_project_pdf_access(access)
-    filename, pdf_bytes = render_project_report_pdf(
-        db,
-        access,
-        report_type=report_type,
-        report_date=report_date,
-    )
+    try:
+        filename, pdf_bytes = render_project_report_pdf(
+            db,
+            access,
+            report_type=report_type,
+            report_date=report_date,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise report_pdf_generation_error(exc) from exc
     encoded_name = quote(filename.replace('"', ""))
     return Response(
         content=pdf_bytes,
@@ -2340,21 +2355,27 @@ def create_report(
     if generated_type:
         access = get_project_access(request, db, project_id, allow_guest=True)
         require_project_pdf_access(access)
-        filename, pdf_bytes = render_project_report_pdf(
-            db,
-            access,
-            report_type=generated_type,
-            report_date=report_date,
-        )
-        period_from, period_to, report_date_value = generated_report_period(
-            generated_type, report_date
-        )
-        report_id = models.uuid4()
-        pdf_key = storage.report_key(project_id, report_id)
-        created_by_id = access.user.id if access.user else access.project.created_by_id
-        generated_by_label = access.label
-        db.commit()
-        storage.write_bytes(pdf_key, pdf_bytes)
+        try:
+            filename, pdf_bytes = render_project_report_pdf(
+                db,
+                access,
+                report_type=generated_type,
+                report_date=report_date,
+            )
+            period_from, period_to, report_date_value = generated_report_period(
+                generated_type, report_date
+            )
+            report_id = models.uuid4()
+            pdf_key = storage.report_key(project_id, report_id)
+            created_by_id = access.user.id if access.user else access.project.created_by_id
+            generated_by_label = access.label
+            db.commit()
+            storage.write_bytes(pdf_key, pdf_bytes)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            db.rollback()
+            raise report_pdf_generation_error(exc) from exc
         item = models.Report(
             id=report_id,
             project_id=project_id,
@@ -2509,8 +2530,12 @@ def publish_report(
     client_token = ensure_client_share(access.project)
     share_url = f"{settings.app_url}/c/{client_token}"
     pdf_key = storage.report_key(item.project_id, item.id)
-    pdf_bytes = render_pdf(db, item, share_url)
-    storage.write_bytes(pdf_key, pdf_bytes)
+    try:
+        pdf_bytes = render_pdf(db, item, share_url)
+        storage.write_bytes(pdf_key, pdf_bytes)
+    except Exception as exc:
+        db.rollback()
+        raise report_pdf_generation_error(exc) from exc
     item.pdf_storage_key = pdf_key
     db.commit()
     return {
