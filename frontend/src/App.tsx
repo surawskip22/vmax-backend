@@ -2307,6 +2307,10 @@ function ProjectView({
   const currentStage = activeProjectStage(project);
   const currentStageIndex = currentStage && project.stages ? project.stages.findIndex((stage) => stage.id === currentStage.id) + 1 : 0;
   const recentEntries = entries.slice(0, 3);
+  const workerHistoryEntries = uiMode === "advanced" ? entries.slice(0, 8) : recentEntries;
+  const workerProblemCount = entries.filter((entry) => entry.kind === "problem").length;
+  const workerImageCount = entries.reduce((sum, entry) => sum + entry.media.filter((asset) => asset.kind === "image").length, 0);
+  const workerAudioCount = entries.reduce((sum, entry) => sum + entry.media.filter((asset) => asset.kind === "audio").length, 0);
   const canAddWorkerProgress = canAdd && project.status !== "completed";
 
   if (user && isCompanyWorker(user) && !guestToken) {
@@ -2374,11 +2378,11 @@ function ProjectView({
           <section className="worker-detail-card">
             <div className="worker-section-heading">
               <div>
-                <h2>Ostatnie dodane</h2>
-                <p>Najświeższe wpisy z tej realizacji.</p>
+                <h2>{uiMode === "advanced" ? "Historia postępu" : "Ostatnie dodane"}</h2>
+                <p>{uiMode === "advanced" ? "Wpisy, problemy, zdjęcia, audio i komentarze z tej realizacji." : "Najświeższe wpisy z tej realizacji."}</p>
               </div>
             </div>
-            {recentEntries.length === 0 ? (
+            {workerHistoryEntries.length === 0 ? (
               <div className="worker-empty-history">
                 <Icon name="camera" />
                 <strong>Tu powstanie historia pracy</strong>
@@ -2386,12 +2390,21 @@ function ProjectView({
               </div>
             ) : (
               <div className="worker-entry-list">
-                {recentEntries.map((entry) => (
+                {workerHistoryEntries.map((entry) => (
                   <article key={entry.id}>
                     <span><Icon name={entry.kind === "problem" ? "alert" : entry.media.some((asset) => asset.kind === "audio") ? "mic" : "camera"} /></span>
                     <div>
                       <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
-                      <small>{new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}</small>
+                      <small>
+                        {new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}
+                        {entry.author?.name || entry.author?.email || entry.guest_label ? ` · ${entry.author?.name || entry.author?.email || entry.guest_label}` : ""}
+                      </small>
+                      {uiMode === "advanced" && (entry.body || entry.transcript) && <p>{entry.body || entry.transcript}</p>}
+                      {uiMode === "advanced" && (
+                        <small>
+                          {entry.media.filter((asset) => asset.kind === "image").length} zdjęć · {entry.media.filter((asset) => asset.kind === "audio").length} audio · {entry.comments.length} komentarzy
+                        </small>
+                      )}
                     </div>
                     <Icon name="back" className="worker-entry-list__arrow" />
                   </article>
@@ -2410,11 +2423,57 @@ function ProjectView({
               ) : project.status === "completed" ? (
                 <div className="worker-completed-note"><Icon name="check" /> Zlecenie zakończone</div>
               ) : null}
+              {uiMode === "advanced" && canGeneratePdfReports && (
+                <Button type="button" variant="secondary" icon="report" onClick={() => setShowReports((current) => !current)}>Raport PDF</Button>
+              )}
+              {uiMode === "advanced" && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon="link"
+                  disabled={!clientLink?.url}
+                  onClick={() => void copyClientLink()}
+                >
+                  Link dla klienta
+                </Button>
+              )}
             </section>
           )}
 
           {uiMode === "advanced" && (
             <>
+              <section className="worker-detail-card worker-advanced-overview">
+                <div><small>Start</small><strong>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</strong></div>
+                <div><small>Koniec</small><strong>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</strong></div>
+                <div><small>Ostatnia aktywność</small><strong>{formatProjectActivityDate(project.updated_at || project.created_at) || "Brak daty"}</strong></div>
+                <div><small>Materiały</small><strong>{entries.length} wpisów · {workerProblemCount} problemów</strong><span>{workerImageCount} zdjęć · {workerAudioCount} audio</span></div>
+              </section>
+              {showClientLink && (
+                <section className="worker-detail-card worker-client-link-card">
+                  <div className="worker-section-heading">
+                    <div><h2>Link dla klienta</h2><p>{clientLink?.url ? "Gotowy podgląd publiczny zlecenia." : "Brak linku klienta — poproś szefa o wygenerowanie linku."}</p></div>
+                  </div>
+                  {clientLink?.url ? (
+                    <div className="share-result client-link-result">
+                      <input value={clientLink.url} readOnly />
+                      <Button variant="secondary" onClick={() => void copyToClipboard(clientLink.url)}>Kopiuj link</Button>
+                      <a className="button button--secondary" href={clientLink.url} target="_blank" rel="noreferrer">Otwórz podgląd</a>
+                    </div>
+                  ) : (
+                    <p className="form-note">Link klienta tworzy i udostępnia szef firmy.</p>
+                  )}
+                </section>
+              )}
+              {showReports && canGeneratePdfReports && (
+                <div className="worker-generated-reports">
+                  <GeneratedReportsPanel
+                    projectId={project.id}
+                    reports={reports}
+                    onRefresh={load}
+                    notify={notify}
+                  />
+                </div>
+              )}
               <section className="worker-detail-card worker-advanced-stage-summary">
                 <div className="worker-section-heading">
                   <div><h2>Etapy pracy</h2><p>Widok informacyjny i zmiana etapu, jeśli obecne uprawnienia na to pozwalają.</p></div>
