@@ -2294,6 +2294,7 @@ function ProjectView({
   const currentStage = activeProjectStage(project);
   const currentStageIndex = currentStage && project.stages ? project.stages.findIndex((stage) => stage.id === currentStage.id) + 1 : 0;
   const recentEntries = entries.slice(0, 3);
+  const canAddWorkerProgress = canAdd && project.status !== "completed";
 
   if (user && isCompanyWorker(user) && !guestToken) {
     return (
@@ -2357,40 +2358,13 @@ function ProjectView({
             )}
           </section>
 
-          <section className="worker-detail-card">
-            <div className="worker-section-heading">
-              <div>
-                <h2>Ostatnie dodane</h2>
-              <p>Najświeższe wpisy z tej realizacji.</p>
-              </div>
-            </div>
-            {recentEntries.length === 0 ? (
-              <div className="worker-empty-history">
-                <Icon name="camera" />
-                <strong>Tu powstanie historia pracy</strong>
-                <p>Dodaj pierwszy postęp: zdjęcia, opis, audio albo problem.</p>
-              </div>
-            ) : (
-              <div className="worker-entry-list">
-                {recentEntries.map((entry) => (
-                  <article key={entry.id}>
-                    <span><Icon name={entry.kind === "problem" ? "alert" : entry.media.some((asset) => asset.kind === "audio") ? "mic" : "camera"} /></span>
-                    <div>
-                      <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
-                      <small>{new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}</small>
-                    </div>
-                    <Icon name="back" className="worker-entry-list__arrow" />
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {(canAdd || canCloseProject || project.status === "completed") && (
+          {(canAddWorkerProgress || canCloseProject || canReopenProject || project.status === "completed") && (
             <section className="worker-action-panel">
-              {canAdd && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj postęp</Button>}
+              {canAddWorkerProgress && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj postęp</Button>}
               {canCloseProject ? (
                 <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zakończ robotę</Button>
+              ) : canReopenProject && project.status === "completed" ? (
+                <Button type="button" variant="secondary" onClick={reopenProject}>Otwórz ponownie</Button>
               ) : project.status === "completed" ? (
                 <div className="worker-completed-note"><Icon name="check" /> Zlecenie zakończone</div>
               ) : null}
@@ -2399,6 +2373,34 @@ function ProjectView({
 
           {uiMode === "advanced" && (
             <>
+              <section className="worker-detail-card">
+                <div className="worker-section-heading">
+                  <div>
+                    <h2>Ostatnie dodane</h2>
+                    <p>Najświeższe wpisy z tej realizacji.</p>
+                  </div>
+                </div>
+                {recentEntries.length === 0 ? (
+                  <div className="worker-empty-history">
+                    <Icon name="camera" />
+                    <strong>Tu powstanie historia pracy</strong>
+                    <p>Dodaj pierwszy postęp: zdjęcia, opis, audio albo problem.</p>
+                  </div>
+                ) : (
+                  <div className="worker-entry-list">
+                    {recentEntries.map((entry) => (
+                      <article key={entry.id}>
+                        <span><Icon name={entry.kind === "problem" ? "alert" : entry.media.some((asset) => asset.kind === "audio") ? "mic" : "camera"} /></span>
+                        <div>
+                          <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
+                          <small>{new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}</small>
+                        </div>
+                        <Icon name="back" className="worker-entry-list__arrow" />
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
               <section className="worker-detail-card worker-advanced-stage-summary">
                 <div className="worker-section-heading">
                   <div><h2>Etapy pracy</h2><p>Widok informacyjny i zmiana etapu, jeśli obecne uprawnienia na to pozwalają.</p></div>
