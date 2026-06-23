@@ -2150,18 +2150,32 @@ function GeneratedReportsPanel({
   guestToken,
   onRefresh,
   notify,
+  generatedReportLimit,
 }: {
   projectId: string;
   reports: Report[];
   guestToken?: string;
   onRefresh: () => Promise<void> | void;
   notify: (toast: Toast) => void;
+  generatedReportLimit?: number;
 }) {
   const [busyType, setBusyType] = useState<"daily" | "final" | null>(null);
   const [dailyDate, setDailyDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [showAllGeneratedReports, setShowAllGeneratedReports] = useState(false);
   const generatedReports = reports.filter(
     (report) => ["daily", "final"].includes(report.report_type) && report.pdf_url,
   );
+  const hasGeneratedReportLimit = Boolean(generatedReportLimit && generatedReportLimit > 0);
+  const orderedGeneratedReports = hasGeneratedReportLimit
+    ? [...generatedReports].sort((first, second) => {
+      const firstTime = new Date(first.report_date || first.published_at || first.created_at).getTime();
+      const secondTime = new Date(second.report_date || second.published_at || second.created_at).getTime();
+      return (Number.isFinite(secondTime) ? secondTime : 0) - (Number.isFinite(firstTime) ? firstTime : 0);
+    })
+    : generatedReports;
+  const visibleGeneratedReports = hasGeneratedReportLimit && !showAllGeneratedReports
+    ? orderedGeneratedReports.slice(0, generatedReportLimit)
+    : orderedGeneratedReports;
 
   async function generateReport(type: "daily" | "final") {
     setBusyType(type);
@@ -2237,7 +2251,8 @@ function GeneratedReportsPanel({
           {generatedReports.length === 0 ? (
             <p className="empty-note">Brak wygenerowanych raportów. Wygeneruj raport dzienny albo końcowy.</p>
           ) : (
-            generatedReports.map((report) => {
+            <>
+            {visibleGeneratedReports.map((report) => {
               const pdfHref = reportPdfHref(report, guestToken);
               return (
                 <article key={report.id}>
@@ -2257,7 +2272,17 @@ function GeneratedReportsPanel({
                   </div>
                 </article>
               );
-            })
+            })}
+            {hasGeneratedReportLimit && generatedReports.length > (generatedReportLimit || 0) && (
+              <button
+                type="button"
+                className="generated-report-list__toggle"
+                onClick={() => setShowAllGeneratedReports((current) => !current)}
+              >
+                {showAllGeneratedReports ? "Zwiń" : `Pokaż wszystkie (${generatedReports.length})`}
+              </button>
+            )}
+            </>
           )}
         </div>
       </div>
@@ -2342,6 +2367,7 @@ function ProjectView({
   const [showWorkerStagePicker, setShowWorkerStagePicker] = useState(false);
   const [selectedWorkerEntry, setSelectedWorkerEntry] = useState<Entry | null>(null);
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
+  const workerReportsRef = useRef<HTMLDivElement | null>(null);
   const fieldMode = Boolean(guestToken) || uiMode !== "advanced";
 
   const load = useCallback(async () => {
@@ -2484,6 +2510,15 @@ function ProjectView({
     } finally {
       setBusyStageId(undefined);
     }
+  }
+
+  function showAndScrollWorkerReports() {
+    setShowReports(true);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        workerReportsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
   }
 
   const stages = (
@@ -2633,7 +2668,7 @@ function ProjectView({
                 <div className="worker-completed-note"><Icon name="check" /> Zlecenie zakończone</div>
               ) : null}
               {uiMode === "advanced" && canGeneratePdfReports && (
-                <Button type="button" variant="secondary" icon="report" onClick={() => setShowReports((current) => !current)}>Raport PDF</Button>
+                <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>Raport PDF</Button>
               )}
               {uiMode === "advanced" && (
                 <Button
@@ -2674,40 +2709,15 @@ function ProjectView({
                 </section>
               )}
               {showReports && canGeneratePdfReports && (
-                <div className="worker-generated-reports">
+                <div className="worker-generated-reports" ref={workerReportsRef}>
                   <GeneratedReportsPanel
                     projectId={project.id}
                     reports={reports}
                     onRefresh={load}
                     notify={notify}
+                    generatedReportLimit={3}
                   />
                 </div>
-              )}
-              <section className="worker-detail-card worker-advanced-stage-summary">
-                <div className="worker-section-heading">
-                  <div><h2>Etapy pracy</h2><p>Widok informacyjny i zmiana etapu, jeśli obecne uprawnienia na to pozwalają.</p></div>
-                </div>
-                {stages}
-              </section>
-              {canGeneratePdfReports && reports.length > 0 && (
-                <section className="worker-detail-card worker-report-list">
-                  <div className="worker-section-heading">
-                    <div><h2>Raporty PDF</h2><p>Gotowe raporty do podglądu.</p></div>
-                  </div>
-                  {reports.map((report) => {
-                    const href = reportPdfHref(report, guestToken);
-                    return (
-                      <article key={report.id}>
-                        <span><Icon name="report" /></span>
-                        <div>
-                          <strong>{reportTypeLabel(report)}</strong>
-                          <small>{reportDisplayDate(report)}</small>
-                        </div>
-                        {href && <a className="button button--secondary" href={href} target="_blank" rel="noreferrer">Otwórz</a>}
-                      </article>
-                    );
-                  })}
-                </section>
               )}
             </>
           )}
