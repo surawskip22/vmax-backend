@@ -4247,6 +4247,14 @@ function SettingsPage({
               <form className="worker-settings-edit-form" onSubmit={submit}>
                 <label>Imię i nazwisko<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
                 <label>Telefon<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
+                <div className="worker-settings-email-lock">
+                  <strong>E-mail / login</strong>
+                  <p>
+                    Obecnie e-mail jest loginem do konta. Login pozostaje bez zmian:
+                    {" "}<u>{displayEmail}</u>.
+                  </p>
+                  <small>Zmiana e-maila kontaktowego i osobna zmiana loginu wymagają kroku auth/model 10B/10C.</small>
+                </div>
                 <input type="hidden" name="preferred_mode" value={uiMode === "simple" ? "field" : "expanded"} />
                 <Button type="submit">Zapisz profil</Button>
               </form>

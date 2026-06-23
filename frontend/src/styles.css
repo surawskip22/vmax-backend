@@ -817,10 +817,15 @@ audio { width: 100%; margin-top: 13px; }
 .worker-settings-row--disabled b { color: var(--muted); }
 .worker-settings-row--mode { align-items: start; }
 .worker-settings-row--mode .worker-mode-switch { width: min(280px, 100%); min-width: 0; margin-top: 10px; }
-.worker-settings-edit-form { margin-top: 14px; padding: 14px; display: grid; gap: 12px; border: 1px solid #dce5ef; border-radius: 14px; background: #f8fbff; }
+.worker-settings-edit-form { margin-top: 8px; padding: 14px 0 0; display: grid; gap: 12px; border-top: 1px solid #edf1f5; background: transparent; }
 .worker-settings-edit-form label { display: grid; gap: 6px; color: var(--navy); font-size: 12px; font-weight: 900; }
-.worker-settings-edit-form input { min-height: 42px; border-radius: 10px; }
+.worker-settings-edit-form input { min-height: 42px; border-color: #dce5ef; border-radius: 10px; background: #fff; }
 .worker-settings-edit-form .button { min-height: 46px; border-radius: 11px; }
+.worker-settings-email-lock { padding: 12px; border: 1px solid #dce5ef; border-radius: 12px; background: #f8fbff; color: var(--navy); }
+.worker-settings-email-lock strong { display: block; margin-bottom: 5px; }
+.worker-settings-email-lock p { margin: 0; color: #42526a; line-height: 1.45; }
+.worker-settings-email-lock u { color: var(--navy); font-weight: 900; text-underline-offset: 3px; }
+.worker-settings-email-lock small { display: block; margin-top: 6px; color: var(--muted); line-height: 1.4; }
 .worker-settings-danger-row { min-height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 12px; border: 1px solid #f2c3c0; border-radius: 14px; color: var(--red); background: #fff; font: inherit; font-weight: 900; box-shadow: 0 8px 24px rgba(14,33,63,.035); }
 .worker-settings-danger-row span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #fff1f0; }
 .worker-settings-mode { display: grid; gap: 12px; }
