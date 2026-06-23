@@ -730,6 +730,7 @@ audio { width: 100%; margin-top: 13px; }
 .worker-stage-card h2 { margin: 0 0 4px; color: var(--navy); font-size: 20px; }
 .worker-stage-card p { margin: 0; color: var(--muted); }
 .worker-stage-change { min-height: 40px; padding: 0 13px; border: 1px solid #bfd0e4; border-radius: 10px; color: var(--navy); background: #fff; font-weight: 900; white-space: nowrap; }
+.worker-stage-change:disabled { color: #7b8798; background: #f5f7fa; cursor: not-allowed; opacity: 1; }
 .worker-stage-picker { grid-column: 1 / -1; padding-top: 12px; border-top: 1px solid #edf1f5; }
 .worker-advanced-stage-summary .simple-stages { margin-top: 10px; }
 .worker-terms-card { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
@@ -813,6 +814,8 @@ audio { width: 100%; margin-top: 13px; }
 .worker-settings-row small, .worker-settings-note p { margin: 4px 0 0; color: var(--muted); line-height: 1.45; }
 .worker-settings-row b, .worker-settings-row em { min-width: 0; justify-self: end; color: #34445b; font-style: normal; font-size: 12px; font-weight: 800; text-align: right; overflow-wrap: anywhere; }
 .worker-settings-row--action { width: 100%; cursor: pointer; }
+.worker-settings-row--action:focus { outline: none; }
+.worker-settings-row--action:focus-visible { outline: none; border-radius: 12px; box-shadow: 0 0 0 3px rgba(14,101,255,.12); }
 .worker-settings-row--action em { color: var(--blue); }
 .worker-settings-row--action:hover strong { color: var(--blue); }
 .worker-settings-row--disabled { opacity: .78; }
@@ -1228,9 +1231,9 @@ audio { width: 100%; margin-top: 13px; }
   .worker-detail-hero h1 { font-size: 23px; }
   .worker-detail-main { width: min(100% - 20px, 430px); }
   .worker-terms-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .worker-stage-card { grid-template-columns: 38px minmax(0, 1fr); }
+  .worker-stage-card { grid-template-columns: 38px minmax(0, 1fr) auto; }
   .worker-stage-card__number { width: 38px; height: 38px; }
-  .worker-stage-change { grid-column: 1 / -1; width: 100%; }
+  .worker-stage-change { min-height: 38px; padding: 0 10px; font-size: 12px; }
   .worker-stage-picker { grid-column: 1 / -1; }
   .worker-settings-card { padding: 16px; }
   .worker-settings-row { grid-template-columns: 38px minmax(0, 1fr); gap: 10px; }

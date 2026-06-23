@@ -2569,12 +2569,19 @@ function ProjectView({
               <h2>{currentStage?.title || "Etap nieustawiony"}</h2>
               <p>{currentStage ? stageStatusText(currentStage) : "Szef firmy nie ustawił jeszcze etapu."}</p>
             </div>
-            {canChangeStage && (
-              <button type="button" className="worker-stage-change" onClick={() => setShowWorkerStagePicker((current) => !current)}>
+            <button
+              type="button"
+              className="worker-stage-change"
+              disabled={!canChangeStage}
+              title={canChangeStage ? "Zmień etap pracy" : "Zmiana etapu jest niedostępna w obecnym stanie zlecenia."}
+              onClick={() => {
+                if (!canChangeStage) return;
+                setShowWorkerStagePicker((current) => !current);
+              }}
+            >
                 Zmień etap
-              </button>
-            )}
-            {showWorkerStagePicker && (
+            </button>
+            {showWorkerStagePicker && canChangeStage && (
               <div className="worker-stage-picker">
                 {stages}
               </div>
