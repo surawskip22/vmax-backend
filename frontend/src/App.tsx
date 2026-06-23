@@ -4174,6 +4174,7 @@ function SettingsPage({
   onUiModeChange: (mode: UiMode) => void;
 }) {
   const [admin, setAdmin] = useState<any>(null);
+  const [workerProfileEditorOpen, setWorkerProfileEditorOpen] = useState(false);
   useEffect(() => {
     if (user.is_admin) api("/admin/overview").then(setAdmin).catch(() => null);
   }, [user.is_admin]);
@@ -4198,6 +4199,10 @@ function SettingsPage({
   }
   if (isCompanyWorker(user)) {
     const assignedWorkspace = user.workspaces[0];
+    const displayName = user.name || user.email || "Majster firmy";
+    const displayEmail = user.email || "Konto dostępowe bez e-maila";
+    const displayPhone = user.phone || "Nie podano";
+    const defaultModeLabel = uiMode === "simple" ? "Prosty" : "Rozbudowany";
     return (
       <div className="page worker-settings-page">
         <WorkerMobileHeader />
@@ -4211,42 +4216,101 @@ function SettingsPage({
         <section className="worker-settings-stack">
           <article className="worker-settings-card">
             <h2>Moje konto</h2>
-            <form className="worker-settings-form" onSubmit={submit}>
-              <label><span><Icon name="users" /></span><div><strong>Imię i nazwisko</strong><input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></div></label>
-              <label><span><Icon name="send" /></span><div><strong>E-mail / login</strong><input value={user.email || "Konto dostępowe bez e-maila"} disabled /></div></label>
-              <label><span><Icon name="settings" /></span><div><strong>Telefon</strong><input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></div></label>
-              <input type="hidden" name="preferred_mode" value={user.preferred_mode || "field"} />
-              <Button type="submit">Zapisz profil</Button>
-            </form>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="users" /></span>
+                <div><strong>Imię i nazwisko</strong><small>{displayName}</small></div>
+                <b>{displayName}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="send" /></span>
+                <div><strong>E-mail / login</strong><small>{displayEmail}</small></div>
+                <b>{displayEmail}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="settings" /></span>
+                <div><strong>Telefon</strong><small>{displayPhone}</small></div>
+                <b>{displayPhone}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="clipboard" /></span>
+                <div><strong>Typ konta</strong><small>Majster firmy</small></div>
+                <b>Majster firmy</b>
+              </div>
+              <button className="worker-settings-row worker-settings-row--action" type="button" onClick={() => setWorkerProfileEditorOpen((open) => !open)}>
+                <span><Icon name="settings" /></span>
+                <div><strong>Edytuj dane</strong><small>{workerProfileEditorOpen ? "Ukryj formularz profilu" : "Zmień imię i telefon"}</small></div>
+                <em>{workerProfileEditorOpen ? "Ukryj" : "Edytuj"}</em>
+              </button>
+            </div>
+            {workerProfileEditorOpen && (
+              <form className="worker-settings-edit-form" onSubmit={submit}>
+                <label>Imię i nazwisko<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
+                <label>Telefon<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
+                <input type="hidden" name="preferred_mode" value={uiMode === "simple" ? "field" : "expanded"} />
+                <Button type="submit">Zapisz profil</Button>
+              </form>
+            )}
           </article>
           <article className="worker-settings-card">
             <h2>Przypisana firma</h2>
-            <div className="worker-settings-row">
-              <span><Icon name="users" /></span>
-              <div>
-                <strong>{assignedWorkspace?.name || "Brak przypisanej firmy"}</strong>
-                <small>{assignedWorkspace?.role ? `Twoja rola: ${assignedWorkspace.role}` : "Firma pojawi się tutaj po przypisaniu przez szefa."}</small>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="users" /></span>
+                <div>
+                  <strong>Firma</strong>
+                  <small>{assignedWorkspace?.name || "Brak przypisanej firmy"}</small>
+                </div>
+                <b>{assignedWorkspace?.name || "Brak"}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="clipboard" /></span>
+                <div>
+                  <strong>Rola w firmie</strong>
+                  <small>{assignedWorkspace?.role ? "Konto przypisane przez szefa firmy" : "Firma pojawi się tutaj po przypisaniu."}</small>
+                </div>
+                <b>Majster firmy</b>
               </div>
             </div>
           </article>
           <article className="worker-settings-card">
             <h2>Preferencje</h2>
-            <div className="worker-settings-note worker-settings-mode">
-              <div>
-                <strong>Tryb domyślny</strong>
-                <p>Tryb uruchamiany po zalogowaniu.</p>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row worker-settings-row--mode">
+                <span><Icon name="settings" /></span>
+                <div>
+                  <strong>Tryb domyślny</strong>
+                  <small>Tryb uruchamiany po zalogowaniu.</small>
+                  <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
+                </div>
+                <b>{defaultModeLabel}</b>
               </div>
-              <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
+              <div className="worker-settings-row">
+                <span><Icon name="send" /></span>
+                <div><strong>Język aplikacji</strong><small>Ustawiony dla konta</small></div>
+                <b>{user.locale === "pl" ? "Polski" : user.locale || "Polski"}</b>
+              </div>
             </div>
           </article>
           <article className="worker-settings-card">
             <h2>Bezpieczeństwo</h2>
-            <div className="worker-settings-note">
-              <strong>Hasło, kody i aktywacja linkiem będą osobnym krokiem.</strong>
-              <p>Ten redesign nie zmienia logowania. Flow dla majstrów bez e-maila zostaje na KROK 10B/10C.</p>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="settings" /></span>
+                <div><strong>Zmiana hasła</strong><small>Dostępne później</small></div>
+                <b>KROK 10B/10C</b>
+              </div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="link" /></span>
+                <div><strong>Kod dostępu</strong><small>Aktywacja linkiem będzie osobnym krokiem.</small></div>
+                <b>KROK 10B/10C</b>
+              </div>
             </div>
           </article>
-          <Button type="button" variant="danger" onClick={onLogout}>Wyloguj się</Button>
+          <button className="worker-settings-danger-row" type="button" onClick={onLogout}>
+            <span><Icon name="back" /></span>
+            <strong>Wyloguj się</strong>
+          </button>
         </section>
       </div>
     );

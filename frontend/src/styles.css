@@ -795,6 +795,7 @@ audio { width: 100%; margin-top: 13px; }
 .worker-settings-stack { display: grid; gap: 14px; max-width: none; }
 .worker-settings-card { padding: 18px; border: 1px solid #dce5ef; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px rgba(14,33,63,.045); }
 .worker-settings-card h2 { margin: 0 0 14px; color: var(--navy); font-size: 19px; }
+.worker-settings-rows { display: grid; gap: 0; }
 .worker-settings-form { display: grid; gap: 0; }
 .worker-settings-form label { min-height: 58px; padding: 10px 0; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 10px; align-items: center; border-bottom: 1px solid #edf1f5; color: var(--navy); font-size: 13px; font-weight: 900; }
 .worker-settings-form label > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; color: var(--navy); background: #edf4ff; }
@@ -803,10 +804,25 @@ audio { width: 100%; margin-top: 13px; }
 .worker-settings-form input { width: 100%; min-height: 36px; padding: 0; border: 0; color: var(--navy); background: transparent; font: inherit; font-weight: 700; }
 .worker-settings-form input:disabled { color: #516176; opacity: 1; }
 .worker-settings-form .button { margin-top: 14px; min-height: 50px; border-radius: 12px; }
-.worker-settings-row { display: grid; grid-template-columns: 42px 1fr; gap: 12px; align-items: center; }
+.worker-settings-row { min-height: 58px; padding: 10px 0; display: grid; grid-template-columns: 42px minmax(0, 1fr) minmax(90px, auto); gap: 12px; align-items: center; border-bottom: 1px solid #edf1f5; color: inherit; background: transparent; text-align: left; font: inherit; }
+.worker-settings-row:last-child { border-bottom: 0; }
 .worker-settings-row > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; color: var(--navy); background: #edf4ff; }
 .worker-settings-row strong, .worker-settings-note strong { display: block; color: var(--navy); }
 .worker-settings-row small, .worker-settings-note p { margin: 4px 0 0; color: var(--muted); line-height: 1.45; }
+.worker-settings-row b, .worker-settings-row em { min-width: 0; justify-self: end; color: #34445b; font-style: normal; font-size: 12px; font-weight: 800; text-align: right; overflow-wrap: anywhere; }
+.worker-settings-row--action { width: 100%; cursor: pointer; }
+.worker-settings-row--action em { color: var(--blue); }
+.worker-settings-row--action:hover strong { color: var(--blue); }
+.worker-settings-row--disabled { opacity: .78; }
+.worker-settings-row--disabled b { color: var(--muted); }
+.worker-settings-row--mode { align-items: start; }
+.worker-settings-row--mode .worker-mode-switch { width: min(280px, 100%); min-width: 0; margin-top: 10px; }
+.worker-settings-edit-form { margin-top: 14px; padding: 14px; display: grid; gap: 12px; border: 1px solid #dce5ef; border-radius: 14px; background: #f8fbff; }
+.worker-settings-edit-form label { display: grid; gap: 6px; color: var(--navy); font-size: 12px; font-weight: 900; }
+.worker-settings-edit-form input { min-height: 42px; border-radius: 10px; }
+.worker-settings-edit-form .button { min-height: 46px; border-radius: 11px; }
+.worker-settings-danger-row { min-height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 12px; border: 1px solid #f2c3c0; border-radius: 14px; color: var(--red); background: #fff; font: inherit; font-weight: 900; box-shadow: 0 8px 24px rgba(14,33,63,.035); }
+.worker-settings-danger-row span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: #fff1f0; }
 .worker-settings-mode { display: grid; gap: 12px; }
 .worker-settings-mode .worker-mode-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .field-actions { padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
@@ -1210,6 +1226,11 @@ audio { width: 100%; margin-top: 13px; }
   .worker-stage-change { grid-column: 1 / -1; width: 100%; }
   .worker-stage-picker { grid-column: 1 / -1; }
   .worker-settings-card { padding: 16px; }
+  .worker-settings-row { grid-template-columns: 38px minmax(0, 1fr); gap: 10px; }
+  .worker-settings-row b, .worker-settings-row em { grid-column: 2; justify-self: start; text-align: left; }
+  .worker-settings-row > span { width: 38px; height: 38px; }
+  .worker-settings-row--mode .worker-mode-switch { width: 100%; }
+  .worker-settings-danger-row { margin-bottom: 12px; }
   .filter-pills button { flex: 1; justify-content: center; }
   .project-row { padding: 12px; grid-template-columns: 38px 1fr 15px; }
   .project-row > .status { display: none; }
