@@ -1807,6 +1807,103 @@ function TimelineEntry({
   );
 }
 
+function WorkerEntryDetailsModal({
+  entry,
+  onClose,
+  guestToken,
+}: {
+  entry: Entry;
+  onClose: () => void;
+  guestToken?: string;
+}) {
+  const images = entry.media.filter((asset) => asset.kind === "image");
+  const audio = entry.media.filter((asset) => asset.kind === "audio");
+  const title = entry.kind === "problem" ? "Problem" : audio.length ? "Audio" : images.length ? "Dokumentacja" : "Opis";
+  const author = entry.author?.name || entry.author?.email || entry.guest_label || "Nieznany autor";
+  const mediaUrl = (url: string) => guestToken ? `${url}?guest_token=${encodeURIComponent(guestToken)}` : url;
+
+  return (
+    <Modal title="Szczegóły wpisu" onClose={onClose} wide>
+      <div className="worker-entry-details">
+        <section className="worker-entry-details__summary">
+          <span><Icon name={entry.kind === "problem" ? "alert" : audio.length ? "mic" : images.length ? "camera" : "clipboard"} /></span>
+          <div>
+            <small>Typ wpisu</small>
+            <h3>{title}</h3>
+            <p>{new Intl.DateTimeFormat("pl", { dateStyle: "medium", timeStyle: "short" }).format(new Date(entry.occurred_at))} · {author}</p>
+            {entry.stage && <span className="stage-label">{entry.stage.title}</span>}
+            {entry.kind === "problem" && entry.problem_status && (
+              <span className={`status status--${entry.problem_status === "resolved" ? "completed" : "in_progress"}`}>
+                {entry.problem_status === "resolved" ? "Problem rozwiązany" : "Problem otwarty"}
+              </span>
+            )}
+          </div>
+        </section>
+
+        {entry.body && (
+          <section>
+            <h4>Opis</h4>
+            <p>{entry.body}</p>
+          </section>
+        )}
+
+        {entry.transcript && (
+          <section>
+            <h4>Transkrypcja audio</h4>
+            <p>{entry.transcript}</p>
+          </section>
+        )}
+
+        {images.length > 0 && (
+          <section>
+            <h4>Zdjęcia</h4>
+            <div className="worker-entry-details__media-grid">
+              {images.map((asset) => (
+                <a href={mediaUrl(asset.url)} target="_blank" rel="noreferrer" key={asset.id}>
+                  <img src={mediaUrl(asset.url)} alt={asset.original_name} loading="lazy" />
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {audio.length > 0 && (
+          <section>
+            <h4>Audio</h4>
+            <div className="worker-entry-details__audio-list">
+              {audio.map((asset) => (
+                <div key={asset.id}>
+                  <strong>{asset.original_name || "Nagranie audio"}</strong>
+                  <audio controls src={mediaUrl(asset.url)} />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {entry.comments.length > 0 && (
+          <section>
+            <h4>Komentarze</h4>
+            <div className="worker-entry-details__comments">
+              {entry.comments.map((comment) => (
+                <article key={comment.id}>
+                  <strong>{comment.author?.name || comment.author?.email || comment.guest_label || "Komentarz"}</strong>
+                  <small>{new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(comment.created_at))}</small>
+                  <p>{comment.body}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!entry.body && !entry.transcript && images.length === 0 && audio.length === 0 && entry.comments.length === 0 && (
+          <p className="form-note">Ten wpis nie ma dodatkowych danych do pokazania.</p>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 
 function ReportModal({
   project,
@@ -2162,6 +2259,7 @@ function ProjectView({
   const [showManage, setShowManage] = useState(false);
   const [showClientLink, setShowClientLink] = useState(false);
   const [showWorkerStagePicker, setShowWorkerStagePicker] = useState(false);
+  const [selectedWorkerEntry, setSelectedWorkerEntry] = useState<Entry | null>(null);
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const fieldMode = Boolean(guestToken) || uiMode !== "advanced";
 
@@ -2212,6 +2310,7 @@ function ProjectView({
     setShowClientLink(false);
     setShowAddProgressChoice(false);
     setShowWorkerStagePicker(false);
+    setSelectedWorkerEntry(null);
     setLoading(true);
   }, [guestToken, projectId]);
 
@@ -2391,7 +2490,7 @@ function ProjectView({
             ) : (
               <div className="worker-entry-list">
                 {workerHistoryEntries.map((entry) => (
-                  <article key={entry.id}>
+                  <button type="button" className="worker-entry-list__item" onClick={() => setSelectedWorkerEntry(entry)} key={entry.id}>
                     <span><Icon name={entry.kind === "problem" ? "alert" : entry.media.some((asset) => asset.kind === "audio") ? "mic" : "camera"} /></span>
                     <div>
                       <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
@@ -2407,7 +2506,7 @@ function ProjectView({
                       )}
                     </div>
                     <Icon name="back" className="worker-entry-list__arrow" />
-                  </article>
+                  </button>
                 ))}
               </div>
             )}
@@ -2511,6 +2610,12 @@ function ProjectView({
               setShowAddProgressChoice(false);
               setEntryModal(entry);
             }}
+          />
+        )}
+        {selectedWorkerEntry && (
+          <WorkerEntryDetailsModal
+            entry={selectedWorkerEntry}
+            onClose={() => setSelectedWorkerEntry(null)}
           />
         )}
         {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); load(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
