@@ -2489,25 +2489,43 @@ function ProjectView({
               </div>
             ) : (
               <div className="worker-entry-list">
-                {workerHistoryEntries.map((entry) => (
-                  <button type="button" className="worker-entry-list__item" onClick={() => setSelectedWorkerEntry(entry)} key={entry.id}>
-                    <span><Icon name={entry.kind === "problem" ? "alert" : entry.media.some((asset) => asset.kind === "audio") ? "mic" : "camera"} /></span>
-                    <div>
-                      <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
-                      <small>
-                        {new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}
-                        {entry.author?.name || entry.author?.email || entry.guest_label ? ` · ${entry.author?.name || entry.author?.email || entry.guest_label}` : ""}
-                      </small>
-                      {uiMode === "advanced" && (entry.body || entry.transcript) && <p>{entry.body || entry.transcript}</p>}
-                      {uiMode === "advanced" && (
+                {workerHistoryEntries.map((entry) => {
+                  const imageAssets = entry.media.filter((asset) => asset.kind === "image");
+                  const visibleImages = imageAssets.slice(0, 3);
+                  const extraImageCount = Math.max(0, imageAssets.length - visibleImages.length);
+                  const audioCount = entry.media.filter((asset) => asset.kind === "audio").length;
+                  const hasMediaChips = imageAssets.length > 0 || audioCount > 0 || entry.comments.length > 0 || entry.kind === "problem";
+                  return (
+                    <button type="button" className="worker-entry-list__item" onClick={() => setSelectedWorkerEntry(entry)} key={entry.id}>
+                      <span><Icon name={entry.kind === "problem" ? "alert" : audioCount ? "mic" : "camera"} /></span>
+                      <div>
+                        <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
                         <small>
-                          {entry.media.filter((asset) => asset.kind === "image").length} zdjęć · {entry.media.filter((asset) => asset.kind === "audio").length} audio · {entry.comments.length} komentarzy
+                          {new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}
+                          {entry.author?.name || entry.author?.email || entry.guest_label ? ` · ${entry.author?.name || entry.author?.email || entry.guest_label}` : ""}
                         </small>
-                      )}
-                    </div>
-                    <Icon name="back" className="worker-entry-list__arrow" />
-                  </button>
-                ))}
+                        {uiMode === "advanced" && (entry.body || entry.transcript) && <p className="worker-entry-list__excerpt">{entry.body || entry.transcript}</p>}
+                        {uiMode === "advanced" && visibleImages.length > 0 && (
+                          <div className="worker-entry-media-preview" aria-label={`Zdjęcia: ${imageAssets.length}`}>
+                            {visibleImages.map((asset) => (
+                              <img src={asset.url} alt={asset.original_name || "Zdjęcie z wpisu"} loading="lazy" key={asset.id} />
+                            ))}
+                            {extraImageCount > 0 && <span>+{extraImageCount}</span>}
+                          </div>
+                        )}
+                        {uiMode === "advanced" && hasMediaChips && (
+                          <div className="worker-entry-media-chips">
+                            {imageAssets.length > 0 && <span>{imageAssets.length} zdjęć</span>}
+                            {audioCount > 0 && <span>Audio</span>}
+                            {entry.comments.length > 0 && <span>{entry.comments.length} komentarzy</span>}
+                            {entry.kind === "problem" && <span>{entry.problem_status === "resolved" ? "Problem rozwiązany" : "Problem otwarty"}</span>}
+                          </div>
+                        )}
+                      </div>
+                      <Icon name="back" className="worker-entry-list__arrow" />
+                    </button>
+                  );
+                })}
               </div>
             )}
           </section>

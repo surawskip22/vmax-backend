@@ -734,13 +734,21 @@ audio { width: 100%; margin-top: 13px; }
 .worker-empty-history strong { color: var(--navy); font-size: 18px; }
 .worker-empty-history p { margin: 0; }
 .worker-entry-list { display: grid; gap: 8px; }
-.worker-entry-list article, .worker-entry-list__item { min-height: 58px; display: grid; grid-template-columns: 42px minmax(0, 1fr) 20px; gap: 10px; align-items: center; border: 0; border-bottom: 1px solid #edf1f5; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.worker-entry-list article, .worker-entry-list__item { min-height: 58px; display: grid; grid-template-columns: 42px minmax(0, 1fr) 20px; gap: 10px; align-items: start; border: 0; border-bottom: 1px solid #edf1f5; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
 .worker-entry-list article:last-child, .worker-entry-list__item:last-child { border-bottom: 0; }
+.worker-entry-list__item { padding: 9px 0; }
 .worker-entry-list__item:hover { background: #f8fbff; }
 .worker-entry-list article > span, .worker-entry-list__item > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; color: var(--blue); background: #edf4ff; }
 .worker-entry-list strong { display: block; color: var(--navy); }
 .worker-entry-list small { color: var(--muted); font-size: 12px; }
 .worker-entry-list p { margin: 4px 0; color: #42526a; font-size: 13px; line-height: 1.35; }
+.worker-entry-list__excerpt { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.worker-entry-media-preview { margin-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.worker-entry-media-preview img, .worker-entry-media-preview span { width: 54px; height: 42px; flex: 0 0 auto; border-radius: 9px; background: #e8eef6; }
+.worker-entry-media-preview img { object-fit: cover; }
+.worker-entry-media-preview span { display: grid; place-items: center; color: var(--navy); font-size: 13px; font-weight: 900; }
+.worker-entry-media-chips { margin-top: 7px; display: flex; flex-wrap: wrap; gap: 6px; }
+.worker-entry-media-chips span { min-height: 24px; padding: 4px 8px; border-radius: 999px; color: var(--navy); background: #edf4ff; font-size: 11px; font-weight: 900; }
 .worker-entry-list__arrow { transform: rotate(180deg); color: #8490a1; }
 .worker-entry-details { padding: 18px; display: grid; gap: 18px; }
 .worker-entry-details section { padding: 14px; border: 1px solid #dce5ef; border-radius: 14px; background: #fff; }
