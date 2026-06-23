@@ -1328,6 +1328,13 @@ def require_close_project_access(access) -> None:
     require_final_status_manage(access)
 
 
+def require_reopen_project_access(access) -> None:
+    if is_company_worker(access.user):
+        access.require_add()
+        return
+    require_final_status_manage(access)
+
+
 @router.get("/projects/{project_id}")
 def get_project(project_id: str, request: Request, db: Session = Depends(get_db)):
     access = get_project_access(request, db, project_id)
@@ -1430,7 +1437,7 @@ def reopen_project(
     project_id: str, request: Request, db: Session = Depends(get_db)
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
-    require_final_status_manage(access)
+    require_reopen_project_access(access)
     access.project.status = PROJECT_STATUS_IN_PROGRESS
     access.project.finished_at = None
     db.commit()

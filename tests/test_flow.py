@@ -1894,8 +1894,14 @@ def test_project_close_and_reopen_permissions():
         worker_closed = worker_client.post(f"/api/projects/{project['id']}/close")
         assert worker_closed.status_code == 200
         assert worker_closed.json()["status"] == "completed"
-        assert worker_client.post(f"/api/projects/{project['id']}/reopen").status_code == 403
+        closed_stage_statuses = [stage["status"] for stage in worker_closed.json()["stages"]]
+        worker_reopened = worker_client.post(f"/api/projects/{project['id']}/reopen")
+        assert worker_reopened.status_code == 200
+        assert worker_reopened.json()["status"] == "in_progress"
+        assert worker_reopened.json()["finished_at"] is None
+        assert [stage["status"] for stage in worker_reopened.json()["stages"]] == closed_stage_statuses
         assert worker_client.post(f"/api/projects/{unassigned['id']}/close").status_code == 403
+        assert worker_client.post(f"/api/projects/{unassigned['id']}/reopen").status_code == 403
         assert worker_client.patch(
             f"/api/projects/{project['id']}",
             json={"status": "completed"},
@@ -1911,11 +1917,18 @@ def test_project_close_and_reopen_permissions():
             headers={"x-guest-token": link["token"]},
         ).status_code == 403
 
+    with TestClient(app) as worker_client:
+        login(worker_client, "close-worker@example.com")
+        worker_closed_again = worker_client.post(f"/api/projects/{project['id']}/close")
+        assert worker_closed_again.status_code == 200
+        assert worker_closed_again.json()["status"] == "completed"
+
     with TestClient(app) as public_client:
         assert public_client.get(f"/api/public/projects/{client_token}").json()[
             "project"
         ]["status"] == "completed"
         assert public_client.post(f"/api/projects/{project['id']}/close").status_code == 403
+        assert public_client.post(f"/api/projects/{project['id']}/reopen").status_code == 403
 
     with TestClient(app) as investor:
         login(investor, "close-investor@example.com")

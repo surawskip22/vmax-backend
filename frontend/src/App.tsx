@@ -2539,6 +2539,7 @@ function ProjectView({
   const canStartWorkerProject = canAdd && project.status === "assigned";
   const canAddWorkerProgress = canAdd && project.status === "in_progress";
   const canFinishWorkerProject = canCloseProject && project.status === "in_progress";
+  const canReopenWorkerProject = canAdd && project.status === "completed";
 
   if (user && isCompanyWorker(user) && !guestToken) {
     return (
@@ -2672,7 +2673,14 @@ function ProjectView({
               {canFinishWorkerProject ? (
                 <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zakończ robotę</Button>
               ) : project.status === "completed" ? (
-                <div className="worker-completed-note"><Icon name="check" /> Zlecenie zakończone</div>
+                <>
+                  <div className="worker-completed-note"><Icon name="check" /> Zlecenie zakończone</div>
+                  {canReopenWorkerProject && (
+                    <Button type="button" variant="secondary" onClick={reopenProject}>
+                      Otwórz ponownie
+                    </Button>
+                  )}
+                </>
               ) : null}
               {uiMode === "advanced" && canGeneratePdfReports && (
                 <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>Raport PDF</Button>
