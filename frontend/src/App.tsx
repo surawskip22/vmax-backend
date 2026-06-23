@@ -2192,6 +2192,8 @@ function GeneratedReportsPanel({
   onRefresh,
   notify,
   generatedReportLimit,
+  loading = false,
+  error = "",
 }: {
   projectId: string;
   reports: Report[];
@@ -2199,11 +2201,15 @@ function GeneratedReportsPanel({
   onRefresh: () => Promise<void> | void;
   notify: (toast: Toast) => void;
   generatedReportLimit?: number;
+  loading?: boolean;
+  error?: string;
 }) {
   const [busyType, setBusyType] = useState<"daily" | "final" | null>(null);
   const [busyReportAction, setBusyReportAction] = useState<string | null>(null);
   const [dailyDate, setDailyDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [showAllGeneratedReports, setShowAllGeneratedReports] = useState(false);
+  const generatingRef = useRef(false);
+  const isGeneratingReport = busyType !== null;
   const generatedReports = reports.filter(
     (report) => ["daily", "final"].includes(report.report_type) && report.pdf_url,
   );
@@ -2219,7 +2225,16 @@ function GeneratedReportsPanel({
     ? orderedGeneratedReports.slice(0, generatedReportLimit)
     : orderedGeneratedReports;
 
+  useEffect(() => {
+    generatingRef.current = false;
+    setBusyType(null);
+    setBusyReportAction(null);
+    setShowAllGeneratedReports(false);
+  }, [projectId]);
+
   async function generateReport(type: "daily" | "final") {
+    if (generatingRef.current) return;
+    generatingRef.current = true;
     setBusyType(type);
     try {
       await api<Report>(
@@ -2241,6 +2256,7 @@ function GeneratedReportsPanel({
         message: reason instanceof Error ? reason.message : "Nie udało się wygenerować raportu PDF",
       });
     } finally {
+      generatingRef.current = false;
       setBusyType(null);
     }
   }
@@ -2282,12 +2298,18 @@ function GeneratedReportsPanel({
             </div>
             <label>
               Data raportu
-              <input type="date" value={dailyDate} onChange={(event) => setDailyDate(event.target.value)} />
+              <input
+                type="date"
+                value={dailyDate}
+                disabled={isGeneratingReport || loading}
+                onChange={(event) => setDailyDate(event.target.value)}
+              />
             </label>
             <Button
               variant="secondary"
               icon="report"
               busy={busyType === "daily"}
+              disabled={isGeneratingReport || loading}
               onClick={() => void generateReport("daily")}
             >
               Wygeneruj dzienny raport PDF
@@ -2301,6 +2323,7 @@ function GeneratedReportsPanel({
             <Button
               icon="report"
               busy={busyType === "final"}
+              disabled={isGeneratingReport || loading}
               onClick={() => void generateReport("final")}
             >
               Wygeneruj końcowy raport PDF
@@ -2310,6 +2333,7 @@ function GeneratedReportsPanel({
 
         <div className="generated-report-list">
           <h3>Wygenerowane raporty</h3>
+          {error && <p className="form-error">{error}</p>}
           {generatedReports.length === 0 ? (
             <p className="empty-note">Brak wygenerowanych raportów. Wygeneruj raport dzienny albo końcowy.</p>
           ) : (
@@ -2436,6 +2460,8 @@ function ProjectView({
   const [project, setProject] = useState<Project | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
   const [clientLink, setClientLink] = useState<ClientLink | null>(null);
   const [loading, setLoading] = useState(true);
   const [entryModal, setEntryModal] = useState<EntryModalState | null>(null);
@@ -2448,6 +2474,37 @@ function ProjectView({
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const workerReportsRef = useRef<HTMLDivElement | null>(null);
   const fieldMode = Boolean(guestToken) || uiMode !== "advanced";
+
+  const loadReports = useCallback(async (targetProject: Project | null = project) => {
+    if (!targetProject) {
+      setReports([]);
+      setReportError("");
+      setReportsLoading(false);
+      return;
+    }
+    const canLoadReports = guestToken
+      ? targetProject.guest && ["history", "view"].includes(targetProject.guest.permission)
+      : true;
+    if (!canLoadReports) {
+      setReports([]);
+      setReportError("");
+      setReportsLoading(false);
+      return;
+    }
+    setReportsLoading(true);
+    setReportError("");
+    try {
+      const reportData = await api<Report[]>(`/projects/${targetProject.id}/reports`, {}, guestToken);
+      setReports(reportData);
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udaÅ‚o siÄ™ wczytaÄ‡ raportÃ³w PDF";
+      setReports([]);
+      setReportError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setReportsLoading(false);
+    }
+  }, [guestToken, notify, project]);
 
   const load = useCallback(async () => {
     try {
@@ -2464,8 +2521,10 @@ function ProjectView({
         try {
           const reportData = await api<Report[]>(`/projects/${projectId}/reports`, {}, guestToken);
           setReports(reportData);
+          setReportError("");
         } catch (reason) {
           setReports([]);
+          setReportError(reason instanceof Error ? reason.message : "Nie udaÅ‚o siÄ™ wczytaÄ‡ raportÃ³w PDF");
           notify({
             kind: "error",
             message: reason instanceof Error ? reason.message : "Nie udało się wczytać raportów PDF",
@@ -2486,6 +2545,8 @@ function ProjectView({
       setProject(null);
       setEntries([]);
       setReports([]);
+      setReportError("");
+      setReportsLoading(false);
       setClientLink(null);
       if (!guestToken && reason instanceof ApiError && [403, 404].includes(reason.status)) {
         notify({ kind: "info", message: "Nie masz dostępu do tego zlecenia w tej sesji. Wracam do listy." });
@@ -2502,6 +2563,8 @@ function ProjectView({
     setProject(null);
     setEntries([]);
     setReports([]);
+    setReportError("");
+    setReportsLoading(false);
     setClientLink(null);
     setShowReports(false);
     setShowManage(false);
@@ -2515,9 +2578,11 @@ function ProjectView({
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     if (!reports.some((report) => report.status === "generating")) return;
-    const timer = setInterval(load, 4000);
+    const timer = setInterval(() => {
+      void loadReports(project);
+    }, 4000);
     return () => clearInterval(timer);
-  }, [load, reports]);
+  }, [loadReports, project, reports]);
 
   if (loading) return <div className="page"><div className="loading-screen"><span className="spinner" /> Ładowanie projektu...</div></div>;
   if (!project) {
@@ -2827,9 +2892,11 @@ function ProjectView({
                   <GeneratedReportsPanel
                     projectId={project.id}
                     reports={reports}
-                    onRefresh={load}
+                    onRefresh={() => loadReports(project)}
                     notify={notify}
                     generatedReportLimit={3}
+                    loading={reportsLoading}
+                    error={reportError}
                   />
                 </div>
               )}
@@ -2896,8 +2963,10 @@ function ProjectView({
               projectId={projectIdForStatusActions}
               reports={reports}
               guestToken={guestToken}
-              onRefresh={load}
+              onRefresh={() => loadReports(project)}
               notify={notify}
+              loading={reportsLoading}
+              error={reportError}
             />
           )}
           {showClientLink && clientLink?.url && (
@@ -2963,8 +3032,10 @@ function ProjectView({
           projectId={projectIdForStatusActions}
           reports={reports}
           guestToken={guestToken}
-          onRefresh={load}
+          onRefresh={() => loadReports(project)}
           notify={notify}
+          loading={reportsLoading}
+          error={reportError}
         />
       )}
       {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); load(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}

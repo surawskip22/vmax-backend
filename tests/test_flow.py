@@ -578,6 +578,73 @@ def test_generated_pdf_report_panel_flow_for_owner():
         assert [item["id"] for item in listed] == [final["id"], daily["id"]]
 
 
+def test_generated_pdf_reports_can_be_created_sequentially_for_same_project():
+    with TestClient(app) as client:
+        login(client, "generated-sequential-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Sequential report project",
+                "client_name": "Anna Sequential",
+                "address": "ul. Sequential 1",
+                "template": "custom",
+            },
+        ).json()
+
+        first = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "daily", "date": "2026-06-18"},
+            )
+        )
+        second = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "daily", "date": "2026-06-18"},
+            )
+        )
+
+        assert first["id"] != second["id"]
+        assert client.get(f"/api/projects/{project['id']}").status_code == 200
+        reports_response = client.get(f"/api/projects/{project['id']}/reports")
+        assert reports_response.status_code == 200
+        listed = reports_response.json()
+        assert [item["status"] for item in listed] == ["ready", "ready"]
+        assert all(item["pdf_url"] for item in listed)
+        assert_pdf_response(client.get(first["pdf_url"]))
+        assert_pdf_response(client.get(second["pdf_url"]))
+
+
+def test_generated_pdf_report_storage_failure_does_not_create_ready_report(monkeypatch):
+    with TestClient(app) as client:
+        login(client, "pdf-storage-failure-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "PDF storage failure project",
+                "client_name": "Anna Storage",
+                "address": "ul. Storage 1",
+                "template": "custom",
+            },
+        ).json()
+
+        def fail_write(*args, **kwargs):
+            raise RuntimeError("storage write failed")
+
+        monkeypatch.setattr(api_module.storage, "write_bytes", fail_write)
+
+        generated = client.post(
+            f"/api/projects/{project['id']}/reports",
+            json={"type": "final"},
+        )
+        assert generated.status_code == 503
+        assert generated.json()["detail"].endswith("raportu PDF")
+        assert client.get(f"/api/projects/{project['id']}").status_code == 200
+        reports_response = client.get(f"/api/projects/{project['id']}/reports")
+        assert reports_response.status_code == 200
+        assert reports_response.json() == []
+
+
 def test_pdf_report_generation_failure_returns_controlled_error(monkeypatch):
     with TestClient(app) as client:
         login(client, "pdf-failure-owner@example.com")

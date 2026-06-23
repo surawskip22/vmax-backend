@@ -140,6 +140,31 @@ if (!/onUnavailable=\{\(\) => \{ setSelectedProject\(null\); setSection\("projec
   throw new Error("Niedostepny projekt po relogu powinien wracac do listy zamiast zostawiac ekran bledu.");
 }
 
+assertIncludes(
+  "const isGeneratingReport = busyType !== null;",
+  "Generowanie raportu PDF powinno miec wspolny guard dla przyciskow daily/final.",
+);
+assertIncludes(
+  "if (generatingRef.current) return;",
+  "Drugi szybki klik generowania raportu PDF nie powinien wysylac kolejnego POST.",
+);
+assertIncludes(
+  "generatingRef.current = false;",
+  "Guard generowania PDF powinien resetowac sie po sukcesie, bledzie i zmianie projektu.",
+);
+assertIncludes(
+  "disabled={isGeneratingReport || loading}",
+  "Przyciski generowania PDF powinny byc disabled podczas generowania albo odswiezania raportow.",
+);
+assertIncludes(
+  "onRefresh={() => loadReports(project)}",
+  "Panel wygenerowanych PDF powinien odswiezac tylko raporty, a nie caly projekt.",
+);
+assertIncludes(
+  "setReportError(\"\");",
+  "Zmiana projektu i poprawne odswiezenie powinny czyscic lokalny blad raportow.",
+);
+
 const companyWorkerNavigation = extractCompanyWorkerNavigation();
 if (companyWorkerNavigation.includes('id: "team"')) {
   throw new Error("company_worker nie powinien widziec panelu ludzi.");
