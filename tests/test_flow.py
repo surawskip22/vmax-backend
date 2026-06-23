@@ -1621,6 +1621,69 @@ def test_company_worker_account_sees_project_assigned_at_creation():
         ).status_code == 403
 
 
+def test_company_worker_can_start_assigned_project_without_changing_stage():
+    with TestClient(app) as owner:
+        login(owner, "owner-worker-start@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Firma start worker",
+            },
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik start",
+                "email": "worker-start@example.com",
+            },
+        ).json()
+        project = owner.post(
+            "/api/projects",
+            json={
+                "name": "Start przypisanego zlecenia",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        unassigned = owner.post(
+            "/api/projects",
+            json={
+                "name": "Start nieprzypisanego zlecenia",
+                "workspace_id": workspace_id,
+                "template": "custom",
+            },
+        ).json()
+        completed = owner.post(
+            "/api/projects",
+            json={
+                "name": "Start zakonczonego zlecenia",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        owner.post(f"/api/projects/{completed['id']}/close")
+
+    with TestClient(app) as worker_client:
+        login(worker_client, "worker-start@example.com")
+        started = worker_client.post(f"/api/projects/{project['id']}/start")
+        assert started.status_code == 200
+        payload = started.json()
+        assert payload["status"] == "in_progress"
+        assert payload["started_at"]
+        assert [stage["status"] for stage in payload["stages"]] == [
+            "active",
+            "planned",
+            "planned",
+        ]
+        assert worker_client.post(f"/api/projects/{unassigned['id']}/start").status_code == 403
+        assert worker_client.post(f"/api/projects/{completed['id']}/start").status_code == 400
+
+
 def test_investor_can_assign_worker_after_project_creation():
     with TestClient(app) as investor:
         login(investor, "investor-assign-worker@example.com")

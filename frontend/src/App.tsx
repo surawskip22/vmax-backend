@@ -2368,6 +2368,16 @@ function ProjectView({
     }
   }
 
+  async function startProject() {
+    try {
+      await api(`/projects/${projectIdForStatusActions}/start`, { method: "POST", body: JSON.stringify({}) });
+      await load();
+      notify({ kind: "success", message: "Zlecenie jest w realizacji." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się rozpocząć roboty" });
+    }
+  }
+
   async function reopenProject() {
     if (!window.confirm("Czy chcesz ponownie otworzyć zlecenie? Status wróci do W realizacji.")) return;
     try {
@@ -2410,7 +2420,9 @@ function ProjectView({
   const workerProblemCount = entries.filter((entry) => entry.kind === "problem").length;
   const workerImageCount = entries.reduce((sum, entry) => sum + entry.media.filter((asset) => asset.kind === "image").length, 0);
   const workerAudioCount = entries.reduce((sum, entry) => sum + entry.media.filter((asset) => asset.kind === "audio").length, 0);
-  const canAddWorkerProgress = canAdd && project.status !== "completed";
+  const canStartWorkerProject = canAdd && project.status === "assigned";
+  const canAddWorkerProgress = canAdd && project.status === "in_progress";
+  const canFinishWorkerProject = canCloseProject && project.status === "in_progress";
 
   if (user && isCompanyWorker(user) && !guestToken) {
     return (
@@ -2530,13 +2542,12 @@ function ProjectView({
             )}
           </section>
 
-          {(canAddWorkerProgress || canCloseProject || canReopenProject || project.status === "completed") && (
+          {(canStartWorkerProject || canAddWorkerProgress || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
             <section className="worker-action-panel">
+              {canStartWorkerProject && <Button type="button" icon="plus" onClick={startProject}>Rozpocznij robotę</Button>}
               {canAddWorkerProgress && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj postęp</Button>}
-              {canCloseProject ? (
+              {canFinishWorkerProject ? (
                 <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zakończ robotę</Button>
-              ) : canReopenProject && project.status === "completed" ? (
-                <Button type="button" variant="secondary" onClick={reopenProject}>Otwórz ponownie</Button>
               ) : project.status === "completed" ? (
                 <div className="worker-completed-note"><Icon name="check" /> Zlecenie zakończone</div>
               ) : null}

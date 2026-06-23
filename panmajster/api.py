@@ -1409,6 +1409,22 @@ def close_project(
     return project_detail_data(db, access)
 
 
+@router.post("/projects/{project_id}/start")
+def start_project(
+    project_id: str, request: Request, db: Session = Depends(get_db)
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    access.require_add()
+    if access.project.status == PROJECT_STATUS_COMPLETED:
+        raise HTTPException(400, "Zakonczone zlecenie wymaga ponownego otwarcia")
+    if access.project.status == PROJECT_STATUS_ASSIGNED:
+        access.project.status = PROJECT_STATUS_IN_PROGRESS
+        if not access.project.started_at:
+            access.project.started_at = now()
+        db.commit()
+    return project_detail_data(db, access)
+
+
 @router.post("/projects/{project_id}/reopen")
 def reopen_project(
     project_id: str, request: Request, db: Session = Depends(get_db)
