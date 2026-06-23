@@ -4254,7 +4254,12 @@ function SettingsPage({
                 <div><strong>Typ konta</strong><small>Majster firmy</small></div>
                 <b>Majster firmy</b>
               </div>
-              <button className="worker-settings-row worker-settings-row--action" type="button" onClick={() => setWorkerProfileEditorOpen((open) => !open)}>
+              <button
+                className="worker-settings-row worker-settings-row--action"
+                type="button"
+                aria-expanded={workerProfileEditorOpen}
+                onClick={() => setWorkerProfileEditorOpen((open) => !open)}
+              >
                 <span><Icon name="settings" /></span>
                 <div><strong>Edytuj dane</strong><small>{workerProfileEditorOpen ? "Ukryj formularz profilu" : "Zmień imię i telefon"}</small></div>
                 <em>{workerProfileEditorOpen ? "Ukryj" : "Edytuj"}</em>
