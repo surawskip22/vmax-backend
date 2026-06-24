@@ -20,6 +20,7 @@ import { AppShell } from "./AppShell";
 import { ManageProjectModal } from "./ManageProjectModal";
 import { ApiError, api } from "./api";
 import { Icon } from "./icons";
+import { IndependentPortfolioPage } from "./IndependentPortfolioPage";
 import {
   deleteQueuedEntry,
   queueEntry,
@@ -5513,6 +5514,8 @@ export default function App() {
     />
   ) : visibleSection === "reports" ? (
     <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
+  ) : visibleSection === "portfolio" ? (
+    <IndependentPortfolioPage user={user} projects={projects} onOpenSettings={() => setSection("settings")} />
   ) : visibleSection === "team" ? (
     <TeamPage user={user} projects={projects} onProject={setSelectedProject} onUserUpdated={setUser} notify={notify} />
   ) : visibleSection === "settings" ? (
