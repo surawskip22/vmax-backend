@@ -15,6 +15,19 @@ type PortfolioRealization = {
   showAmount: boolean;
   status: PortfolioStatus;
   coverTone: number;
+  coverUrl?: string;
+  galleryUrls?: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type PortfolioReview = {
+  id: string;
+  clientName: string;
+  date: string;
+  rating: number;
+  body: string;
+  published: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -29,13 +42,36 @@ type PortfolioDraft = {
   dateEnd: string;
   amount: string;
   showAmount: boolean;
+  coverUrl?: string;
+  galleryUrls: string[];
 };
 
-const storagePrefix = "panmajster_independent_portfolio_";
+type ReviewDraft = {
+  clientName: string;
+  date: string;
+  rating: number;
+  body: string;
+  published: boolean;
+};
+
+type DeleteTarget =
+  | { kind: "realization"; id: string; title: string }
+  | { kind: "review"; id: string; title: string };
+
+const portfolioStoragePrefix = "panmajster_independent_portfolio_";
+const reviewStoragePrefix = "panmajster_independent_portfolio_reviews_";
 const portfolioTags = ["Remonty łazienek", "Wykończenia wnętrz", "Biały montaż", "Glazura i terakota", "Kuchnie na wymiar"];
 
-function storageKey(user: User) {
-  return `${storagePrefix}${user.id}`;
+function storageIdentity(user: User) {
+  return user.id || user.email || "anonymous";
+}
+
+function portfolioStorageKey(user: User) {
+  return `${portfolioStoragePrefix}${storageIdentity(user)}`;
+}
+
+function reviewsStorageKey(user: User) {
+  return `${reviewStoragePrefix}${storageIdentity(user)}`;
 }
 
 function safeSlug(value: string) {
@@ -46,6 +82,10 @@ function safeSlug(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 42) || "samodzielnymajster";
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function formatDate(value?: string | null) {
@@ -82,6 +122,8 @@ function draftFromProject(project?: Project): PortfolioDraft {
     dateEnd: project?.planned_end_date || "",
     amount: project ? projectAmount(project) : "",
     showAmount: Boolean(project?.contract_amount),
+    coverUrl: undefined,
+    galleryUrls: [],
   };
 }
 
@@ -98,6 +140,7 @@ function realizationFromProject(project: Project, index: number): PortfolioReali
     showAmount: Boolean(project.contract_amount),
     status: index < 3 ? "published" : "draft",
     coverTone: index,
+    galleryUrls: [],
     createdAt: now,
     updatedAt: now,
   };
@@ -105,7 +148,7 @@ function realizationFromProject(project: Project, index: number): PortfolioReali
 
 function loadPortfolio(user: User): PortfolioRealization[] {
   try {
-    const raw = localStorage.getItem(storageKey(user));
+    const raw = localStorage.getItem(portfolioStorageKey(user));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -116,9 +159,28 @@ function loadPortfolio(user: User): PortfolioRealization[] {
 
 function savePortfolio(user: User, items: PortfolioRealization[]) {
   try {
-    localStorage.setItem(storageKey(user), JSON.stringify(items));
+    localStorage.setItem(portfolioStorageKey(user), JSON.stringify(items));
   } catch {
     // Local persistence is best-effort; saving the project itself is not affected.
+  }
+}
+
+function loadReviews(user: User): PortfolioReview[] {
+  try {
+    const raw = localStorage.getItem(reviewsStorageKey(user));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveReviews(user: User, reviews: PortfolioReview[]) {
+  try {
+    localStorage.setItem(reviewsStorageKey(user), JSON.stringify(reviews));
+  } catch {
+    // Reviews are local MVP data; failing to persist does not affect the app.
   }
 }
 
@@ -126,10 +188,39 @@ function statusLabel(status: PortfolioStatus) {
   return status === "published" ? "Opublikowana" : "Szkic";
 }
 
-function PortfolioImage({ tone, large = false }: { tone: number; large?: boolean }) {
+function reviewDraft(review?: PortfolioReview | null): ReviewDraft {
+  return {
+    clientName: review?.clientName || "",
+    date: review?.date || todayIso(),
+    rating: review?.rating || 5,
+    body: review?.body || "",
+    published: review?.published ?? true,
+  };
+}
+
+function averageRating(reviews: PortfolioReview[]) {
+  const visible = reviews.filter((review) => review.published);
+  if (visible.length === 0) return null;
+  const score = visible.reduce((sum, review) => sum + review.rating, 0) / visible.length;
+  return score.toFixed(1);
+}
+
+function stars(rating: number) {
+  return "★★★★★".slice(0, Math.max(1, Math.min(5, rating)));
+}
+
+function PortfolioImage({
+  tone,
+  src,
+  large = false,
+}: {
+  tone: number;
+  src?: string;
+  large?: boolean;
+}) {
   return (
     <div className={`ic-portfolio-image ic-portfolio-image--${tone % 5} ${large ? "ic-portfolio-image--large" : ""}`}>
-      <span />
+      {src ? <img src={src} alt="" loading="lazy" /> : <span />}
     </div>
   );
 }
@@ -154,6 +245,8 @@ function PortfolioModal({
     dateEnd: editing.dateEnd,
     amount: editing.amount,
     showAmount: editing.showAmount,
+    coverUrl: editing.coverUrl,
+    galleryUrls: editing.galleryUrls || [],
   } : draftFromProject(initialProject));
   const selectedProject = projects.find((project) => project.id === draft.projectId);
 
@@ -176,6 +269,8 @@ function PortfolioModal({
       showAmount: draft.showAmount,
       status,
       coverTone: editing?.coverTone ?? Math.max(0, projects.findIndex((project) => project.id === draft.projectId)),
+      coverUrl: draft.coverUrl,
+      galleryUrls: draft.galleryUrls,
       createdAt: editing?.createdAt || now,
       updatedAt: now,
     });
@@ -186,7 +281,7 @@ function PortfolioModal({
     save("published");
   }
 
-  const galleryCount = Math.min(6, Math.max(4, selectedProject?.entry_count || 0));
+  const galleryCount = Math.min(6, Math.max(4, draft.galleryUrls.length || selectedProject?.entry_count || 0));
 
   if (projects.length === 0) {
     return (
@@ -268,17 +363,17 @@ function PortfolioModal({
             <div className="ic-portfolio-photo-picker">
               <div>
                 <small>Zdjęcie główne</small>
-                <PortfolioImage tone={editing?.coverTone ?? 0} large />
+                <PortfolioImage tone={editing?.coverTone ?? 0} src={draft.coverUrl} large />
               </div>
               <div>
                 <small>Galeria zdjęć z wpisów</small>
                 <div className="ic-portfolio-gallery-picker">
                   {Array.from({ length: galleryCount }).map((_, index) => (
-                    <PortfolioImage tone={index + 1} key={index} />
+                    <PortfolioImage tone={index + 1} src={draft.galleryUrls[index]} key={index} />
                   ))}
                   <button type="button" disabled><Icon name="plus" /> Dodaj zdjęcia</button>
                 </div>
-                <p>Na razie pokazujemy selekcję w UI. Trwałe podpięcie zdjęć portfolio zostaje w kolejnym kroku.</p>
+                <p>Jeśli realizacja ma zapisane zdjęcia, pokażą się tutaj. Nowy upload i trwałe podpięcie galerii portfolio zostają w kolejnym kroku.</p>
               </div>
             </div>
           </section>
@@ -293,6 +388,180 @@ function PortfolioModal({
   );
 }
 
+function ReviewModal({
+  editing,
+  onClose,
+  onSave,
+}: {
+  editing: PortfolioReview | null;
+  onClose: () => void;
+  onSave: (review: PortfolioReview) => void;
+}) {
+  const [draft, setDraft] = useState<ReviewDraft>(() => reviewDraft(editing));
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!draft.clientName.trim() || !draft.body.trim()) return;
+    const now = new Date().toISOString();
+    onSave({
+      id: editing?.id || `review-${Date.now()}`,
+      clientName: draft.clientName.trim(),
+      date: draft.date,
+      rating: Math.max(1, Math.min(5, Number(draft.rating) || 5)),
+      body: draft.body.trim(),
+      published: draft.published,
+      createdAt: editing?.createdAt || now,
+      updatedAt: now,
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal ic-portfolio-modal" role="dialog" aria-modal="true" aria-labelledby="portfolio-review-modal-title">
+        <header className="modal__header">
+          <div>
+            <h2 id="portfolio-review-modal-title">{editing ? "Edytuj opinię" : "Dodaj opinię klienta"}</h2>
+            <p>W przyszłości klienci będą mogli wystawiać opinie po zakończonym zleceniu. Teraz możesz dodać opinię ręcznie.</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Zamknij"><Icon name="close" /></button>
+        </header>
+        <form className="ic-portfolio-form" onSubmit={submit}>
+          <section>
+            <label>
+              Imię klienta
+              <input value={draft.clientName} onChange={(event) => setDraft((current) => ({ ...current, clientName: event.target.value }))} placeholder="np. Anna K." required />
+            </label>
+            <div className="ic-portfolio-form__row">
+              <label>
+                Ocena
+                <select value={draft.rating} onChange={(event) => setDraft((current) => ({ ...current, rating: Number(event.target.value) }))}>
+                  {[5, 4, 3, 2, 1].map((rating) => <option value={rating} key={rating}>{rating} gwiazdek</option>)}
+                </select>
+              </label>
+              <label>
+                Data
+                <input type="date" value={draft.date} onChange={(event) => setDraft((current) => ({ ...current, date: event.target.value }))} />
+              </label>
+              <label className="ic-portfolio-toggle">
+                <input type="checkbox" checked={draft.published} onChange={(event) => setDraft((current) => ({ ...current, published: event.target.checked }))} />
+                Pokaż na wizytówce
+              </label>
+            </div>
+            <label>
+              Treść opinii
+              <textarea value={draft.body} onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))} placeholder="Krótka opinia klienta o realizacji..." required />
+            </label>
+          </section>
+          <footer className="modal-actions ic-portfolio-form__actions">
+            <button type="button" className="button button--secondary" onClick={onClose}>Anuluj</button>
+            <button type="submit" className="button button--primary">Zapisz opinię</button>
+          </footer>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDeleteModal({
+  target,
+  onCancel,
+  onConfirm,
+}: {
+  target: DeleteTarget;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const isRealization = target.kind === "realization";
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal ic-portfolio-confirm" role="dialog" aria-modal="true" aria-labelledby="portfolio-delete-title">
+        <header className="modal__header">
+          <div>
+            <h2 id="portfolio-delete-title">{isRealization ? "Usunąć realizację z wizytówki?" : "Usunąć opinię?"}</h2>
+            <p>{target.title}</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onCancel} aria-label="Zamknij"><Icon name="close" /></button>
+        </header>
+        <div className="ic-portfolio-confirm__body">
+          <p>
+            {isRealization
+              ? "Realizacja zniknie z Twojej publicznej wizytówki. Zlecenie, wpisy i zdjęcia robocze nie zostaną usunięte."
+              : "Opinia zostanie usunięta tylko z lokalnej wizytówki. Dane zleceń i wpisów pozostaną bez zmian."}
+          </p>
+        </div>
+        <footer className="modal-actions">
+          <button type="button" className="button button--secondary" onClick={onCancel}>Anuluj</button>
+          <button type="button" className="button button--danger" onClick={onConfirm}>{isRealization ? "Usuń z wizytówki" : "Usuń opinię"}</button>
+        </footer>
+      </div>
+    </div>
+  );
+}
+
+function ReviewsSection({
+  reviews,
+  publicOnly = false,
+  onAdd,
+  onEdit,
+  onToggle,
+  onDelete,
+}: {
+  reviews: PortfolioReview[];
+  publicOnly?: boolean;
+  onAdd?: () => void;
+  onEdit?: (review: PortfolioReview) => void;
+  onToggle?: (review: PortfolioReview) => void;
+  onDelete?: (review: PortfolioReview) => void;
+}) {
+  const visibleReviews = publicOnly ? reviews.filter((review) => review.published) : reviews;
+  const recentReviews = publicOnly ? visibleReviews : visibleReviews.slice(0, 3);
+  const rating = averageRating(reviews);
+
+  return (
+    <section className={`ic-portfolio-reviews panel ${publicOnly ? "ic-portfolio-reviews--public" : ""}`}>
+      <header>
+        <div>
+          <span className="ic-portfolio-review-icon"><Icon name="check" /></span>
+          <div>
+            <h2>Opinie klientów</h2>
+            <p>{rating ? `Średnia ocena ${rating}/5 z ${reviews.filter((review) => review.published).length} widocznych opinii.` : "Opinie pojawią się tutaj po dodaniu."}</p>
+          </div>
+        </div>
+        {!publicOnly && <button type="button" className="button button--secondary" onClick={onAdd}>Dodaj opinię</button>}
+      </header>
+
+      {recentReviews.length === 0 ? (
+        <div className="ic-portfolio-empty ic-portfolio-empty--compact">
+          <Icon name="report" />
+          <strong>Brak opinii klientów</strong>
+          <p>Opinie pojawią się tutaj, gdy dodasz je ręcznie lub gdy w przyszłości klient wystawi opinię po zakończonym zleceniu.</p>
+          {!publicOnly && <button type="button" className="button button--primary" onClick={onAdd}>Dodaj opinię ręcznie</button>}
+        </div>
+      ) : (
+        <div className="ic-portfolio-review-list">
+          {recentReviews.map((review) => (
+            <article key={review.id}>
+              <div>
+                <strong>{review.clientName}</strong>
+                <span>{stars(review.rating)} · {formatDate(review.date)}</span>
+                <p>{review.body}</p>
+              </div>
+              {!publicOnly && (
+                <div className="ic-portfolio-review-actions">
+                  <span className={`ic-portfolio-status ic-portfolio-status--${review.published ? "published" : "draft"}`}>{review.published ? "Widoczna" : "Ukryta"}</span>
+                  <button type="button" className="text-button" onClick={() => onEdit?.(review)}>Edytuj</button>
+                  <button type="button" className="text-button" onClick={() => onToggle?.(review)}>{review.published ? "Ukryj" : "Pokaż"}</button>
+                  <button type="button" className="text-button text-button--danger" onClick={() => onDelete?.(review)}>Usuń</button>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function IndependentPortfolioPage({
   user,
   projects,
@@ -304,28 +573,44 @@ export function IndependentPortfolioPage({
 }) {
   const [view, setView] = useState<PortfolioView>("dashboard");
   const [items, setItems] = useState<PortfolioRealization[]>([]);
+  const [reviews, setReviews] = useState<PortfolioReview[]>([]);
+  const [portfolioLoadedFor, setPortfolioLoadedFor] = useState("");
+  const [reviewsLoadedFor, setReviewsLoadedFor] = useState("");
   const [editing, setEditing] = useState<PortfolioRealization | null>(null);
+  const [editingReview, setEditingReview] = useState<PortfolioReview | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [manageTab, setManageTab] = useState<"all" | PortfolioStatus>("all");
   const [copied, setCopied] = useState(false);
+  const userStorageId = storageIdentity(user);
   const completedProjects = useMemo(() => projects.filter((project) => project.status === "completed"), [projects]);
   const projectsById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
   const profileSlug = safeSlug(user.name || user.email || "samodzielnymajster");
   const profileUrl = `panmajster.pl/wizytowka/${profileSlug}`;
 
   useEffect(() => {
-    const saved = loadPortfolio(user);
-    setItems(saved);
-  }, [user.id]);
+    const identity = storageIdentity(user);
+    setItems(loadPortfolio(user));
+    setReviews(loadReviews(user));
+    setPortfolioLoadedFor(identity);
+    setReviewsLoadedFor(identity);
+  }, [user.id, user.email]);
 
   useEffect(() => {
-    if (items.length > 0 || completedProjects.length === 0) return;
+    if (portfolioLoadedFor !== userStorageId || items.length > 0 || completedProjects.length === 0) return;
     setItems(completedProjects.slice(0, 3).map(realizationFromProject));
-  }, [completedProjects, items.length]);
+  }, [completedProjects, items.length, portfolioLoadedFor, userStorageId]);
 
   useEffect(() => {
+    if (portfolioLoadedFor !== userStorageId) return;
     savePortfolio(user, items);
-  }, [items, user]);
+  }, [items, portfolioLoadedFor, user, userStorageId]);
+
+  useEffect(() => {
+    if (reviewsLoadedFor !== userStorageId) return;
+    saveReviews(user, reviews);
+  }, [reviews, reviewsLoadedFor, user, userStorageId]);
 
   const publishedItems = items.filter((item) => item.status === "published");
   const visibleItems = manageTab === "all" ? items : items.filter((item) => item.status === manageTab);
@@ -343,6 +628,17 @@ export function IndependentPortfolioPage({
     setEditing(null);
   }
 
+  function upsertReview(review: PortfolioReview) {
+    setReviews((current) => {
+      const exists = current.some((candidate) => candidate.id === review.id);
+      return exists
+        ? current.map((candidate) => candidate.id === review.id ? review : candidate)
+        : [review, ...current];
+    });
+    setReviewModalOpen(false);
+    setEditingReview(null);
+  }
+
   function openCreate() {
     setEditing(null);
     setModalOpen(true);
@@ -353,9 +649,33 @@ export function IndependentPortfolioPage({
     setModalOpen(true);
   }
 
-  async function copyLink() {
+  function openReview(review: PortfolioReview | null) {
+    setEditingReview(review);
+    setReviewModalOpen(true);
+  }
+
+  function toggleItemStatus(item: PortfolioRealization) {
+    upsertItem({ ...item, status: item.status === "published" ? "draft" : "published", updatedAt: new Date().toISOString() });
+  }
+
+  function toggleReviewStatus(review: PortfolioReview) {
+    upsertReview({ ...review, published: !review.published, updatedAt: new Date().toISOString() });
+  }
+
+  function deleteSelectedTarget() {
+    if (!deleteTarget) return;
+    if (deleteTarget.kind === "realization") {
+      setItems((current) => current.filter((item) => item.id !== deleteTarget.id));
+    } else {
+      setReviews((current) => current.filter((review) => review.id !== deleteTarget.id));
+    }
+    setDeleteTarget(null);
+  }
+
+  async function copyLink(item?: PortfolioRealization) {
     try {
-      await navigator.clipboard?.writeText(`https://${profileUrl}`);
+      const suffix = item ? `#${item.id}` : "";
+      await navigator.clipboard?.writeText(`https://${profileUrl}${suffix}`);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
     } catch {
@@ -363,19 +683,95 @@ export function IndependentPortfolioPage({
     }
   }
 
+  if (view === "preview") {
+    return (
+      <div className="page ic-portfolio-page ic-portfolio-page--public-preview">
+        <div className="ic-portfolio-preview-bar">
+          <strong>Podgląd publiczny — tak klient zobaczy Twoją wizytówkę</strong>
+          <button type="button" className="button button--secondary" onClick={() => setView("dashboard")}><Icon name="back" /> Wróć do edycji</button>
+        </div>
+        <section className="ic-portfolio-public">
+          <nav>
+            <strong>{user.name || "Samodzielny Majster"}</strong>
+            <span>O mnie</span>
+            <span>Realizacje</span>
+            <span>Opinie</span>
+            <span>Kontakt</span>
+          </nav>
+          <section className="ic-portfolio-public-profile">
+            <span className="ic-portfolio-profile__avatar"><Icon name="home" size={54} /></span>
+            <div>
+              <small>Profil wykonawcy</small>
+              <h1>{user.name || "Samodzielny Majster"}</h1>
+              <p>Specjalizuję się w remontach, wykończeniach wnętrz i pracach wykończeniowych na wysokim poziomie.</p>
+              <div>{portfolioTags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+            </div>
+            <button type="button" className="button button--primary"><Icon name="send" /> Skontaktuj się</button>
+          </section>
+          {!previewItem ? (
+            <div className="ic-portfolio-empty"><Icon name="image" /><strong>Brak realizacji do podglądu</strong><p>Dodaj pierwszą realizację z zakończonego zlecenia.</p></div>
+          ) : (
+            <article className="ic-portfolio-public-card">
+              <div>
+                <PortfolioImage tone={previewItem.coverTone} src={previewItem.coverUrl} large />
+                <div className="ic-portfolio-public-thumbs">
+                  {(previewItem.galleryUrls?.length ? previewItem.galleryUrls : [undefined, undefined, undefined, undefined]).slice(0, 4).map((src, index) => (
+                    <PortfolioImage tone={previewItem.coverTone + index} src={src} key={`${previewItem.id}-${index}`} />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h2>{previewItem.title}</h2>
+                <p className="ic-portfolio-location">{projectLocation(previewProject)}</p>
+                <p>{previewItem.description}</p>
+                <dl>
+                  <div><dt>Data realizacji</dt><dd>{dateRange(previewItem)}</dd></div>
+                  {previewItem.showAmount && previewItem.amount && <div><dt>Kwota realizacji</dt><dd>{previewItem.amount}</dd></div>}
+                  <div><dt>Zakres prac</dt><dd>{portfolioTags.slice(0, 2).join(", ")}</dd></div>
+                </dl>
+              </div>
+            </article>
+          )}
+          <section className="ic-portfolio-public-section">
+            <h2>Realizacje</h2>
+            {publishedItems.length === 0 ? (
+              <p className="form-note">Ta wizytówka nie ma jeszcze opublikowanych realizacji.</p>
+            ) : (
+              <div className="ic-portfolio-public-realization-grid">
+                {publishedItems.slice(0, 6).map((item) => {
+                  const project = projectsById.get(item.projectId);
+                  return (
+                    <article key={item.id}>
+                      <PortfolioImage tone={item.coverTone} src={item.coverUrl} />
+                      <div>
+                        <strong>{item.title}</strong>
+                        <small>{dateRange(item)} · {projectLocation(project)}</small>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+          <ReviewsSection reviews={reviews} publicOnly />
+          <section className="ic-portfolio-public-contact">
+            <h2>Kontakt</h2>
+            <p><Icon name="phone" /> {user.phone || "+48 123 456 789"}</p>
+            <p><Icon name="link" /> {user.email}</p>
+            <button type="button" className="button button--primary"><Icon name="send" /> Skontaktuj się</button>
+          </section>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="page ic-portfolio-page">
       <header className="ic-portfolio-header">
         <div>
           <span className="eyebrow">Moja wizytówka</span>
-          <h1>{view === "manage" ? "Realizacje na mojej wizytówce" : view === "preview" ? "Podgląd publiczny" : "Moja wizytówka"}</h1>
-          <p>
-            {view === "manage"
-              ? "Zarządzaj swoimi realizacjami widocznymi publicznie."
-              : view === "preview"
-                ? "Sprawdź, jak klient zobaczy wybraną realizację."
-                : "Pokaż swoje najlepsze realizacje i zyskaj zaufanie klientów."}
-          </p>
+          <h1>{view === "manage" ? "Realizacje na mojej wizytówce" : "Moja wizytówka"}</h1>
+          <p>{view === "manage" ? "Zarządzaj swoimi realizacjami widocznymi publicznie." : "Pokaż swoje najlepsze realizacje i zyskaj zaufanie klientów."}</p>
         </div>
         <div className="ic-portfolio-header__actions">
           {view !== "dashboard" && <button type="button" className="button button--secondary" onClick={() => setView("dashboard")}><Icon name="back" /> Wróć</button>}
@@ -405,50 +801,22 @@ export function IndependentPortfolioPage({
               const project = projectsById.get(item.projectId);
               return (
                 <article key={item.id}>
-                  <PortfolioImage tone={item.coverTone} />
+                  <PortfolioImage tone={item.coverTone} src={item.coverUrl} />
                   <div>
                     <strong>{item.title}</strong>
                     <small>{dateRange(item)} · {projectLocation(project)}</small>
                   </div>
                   <span className={`ic-portfolio-status ic-portfolio-status--${item.status}`}>{statusLabel(item.status)}</span>
-                  <button type="button" className="icon-button" onClick={() => openEdit(item)} aria-label="Edytuj realizację"><Icon name="settings" /></button>
-                  <button type="button" className="icon-button" aria-label="Więcej opcji"><Icon name="menu" /></button>
+                  <div className="ic-portfolio-actions">
+                    <button type="button" onClick={() => openEdit(item)}>Edytuj</button>
+                    <button type="button" onClick={() => toggleItemStatus(item)}>{item.status === "published" ? "Przenieś do szkiców" : "Opublikuj"}</button>
+                    {item.status === "published" && <button type="button" onClick={() => copyLink(item)}>Kopiuj link</button>}
+                    <button type="button" className="danger" onClick={() => setDeleteTarget({ kind: "realization", id: item.id, title: item.title })}>{item.status === "published" ? "Usuń z wizytówki" : "Usuń"}</button>
+                  </div>
                 </article>
               );
             })}
           </div>
-        </section>
-      ) : view === "preview" ? (
-        <section className="ic-portfolio-public">
-          <nav>
-            <strong>{user.name || "Samodzielny Majster"}</strong>
-            <span>O mnie</span>
-            <span>Realizacje</span>
-            <span>Kontakt</span>
-          </nav>
-          {!previewItem ? (
-            <div className="ic-portfolio-empty"><Icon name="image" /><strong>Brak realizacji do podglądu</strong><p>Dodaj pierwszą realizację z zakończonego zlecenia.</p></div>
-          ) : (
-            <article className="ic-portfolio-public-card">
-              <div>
-                <PortfolioImage tone={previewItem.coverTone} large />
-                <div className="ic-portfolio-public-thumbs">
-                  {[0, 1, 2, 3].map((offset) => <PortfolioImage tone={previewItem.coverTone + offset} key={offset} />)}
-                </div>
-              </div>
-              <div>
-                <h2>{previewItem.title}</h2>
-                <p className="ic-portfolio-location">{projectLocation(previewProject)}</p>
-                <p>{previewItem.description}</p>
-                <dl>
-                  <div><dt>Data realizacji</dt><dd>{dateRange(previewItem)}</dd></div>
-                  {previewItem.showAmount && previewItem.amount && <div><dt>Kwota realizacji</dt><dd>{previewItem.amount}</dd></div>}
-                  <div><dt>Zakres prac</dt><dd>{portfolioTags.slice(0, 2).join(", ")}</dd></div>
-                </dl>
-                <button type="button" className="button button--primary"><Icon name="send" /> Skontaktuj się</button>
-              </div>
-            </article>
-          )}
         </section>
       ) : (
         <>
@@ -461,7 +829,7 @@ export function IndependentPortfolioPage({
               <small>Link do wizytówki</small>
               <strong>{profileUrl}</strong>
             </div>
-            <button type="button" className="icon-button" onClick={copyLink} aria-label="Kopiuj link"><Icon name={copied ? "check" : "link"} /></button>
+            <button type="button" className="icon-button" onClick={() => copyLink()} aria-label="Kopiuj link"><Icon name={copied ? "check" : "link"} /></button>
           </section>
 
           <div className="ic-portfolio-dashboard">
@@ -481,7 +849,7 @@ export function IndependentPortfolioPage({
                     const project = projectsById.get(item.projectId);
                     return (
                       <article key={item.id}>
-                        <PortfolioImage tone={item.coverTone} large />
+                        <PortfolioImage tone={item.coverTone} src={item.coverUrl} large />
                         <div>
                           <strong>{item.title}</strong>
                           <span>{formatDate(item.dateEnd || item.updatedAt.slice(0, 10))} · {projectLocation(project)}</span>
@@ -501,11 +869,19 @@ export function IndependentPortfolioPage({
               <p>Specjalizuję się w remontach, wykończeniach wnętrz i pracach wykończeniowych na wysokim poziomie.</p>
               <div>{portfolioTags.map((tag) => <span key={tag}>{tag}</span>)}</div>
               <footer>
-                <p><Icon name="send" /> {user.phone || "+48 123 456 789"}</p>
+                <p><Icon name="phone" /> {user.phone || "+48 123 456 789"}</p>
                 <p><Icon name="link" /> {user.email}</p>
               </footer>
             </aside>
           </div>
+
+          <ReviewsSection
+            reviews={reviews}
+            onAdd={() => openReview(null)}
+            onEdit={openReview}
+            onToggle={toggleReviewStatus}
+            onDelete={(review) => setDeleteTarget({ kind: "review", id: review.id, title: review.clientName })}
+          />
 
           <section className="ic-portfolio-cta panel">
             <span><Icon name="phone" /></span>
@@ -523,6 +899,20 @@ export function IndependentPortfolioPage({
           editing={editing}
           onClose={() => { setModalOpen(false); setEditing(null); }}
           onSave={upsertItem}
+        />
+      )}
+      {reviewModalOpen && (
+        <ReviewModal
+          editing={editingReview}
+          onClose={() => { setReviewModalOpen(false); setEditingReview(null); }}
+          onSave={upsertReview}
+        />
+      )}
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          target={deleteTarget}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={deleteSelectedTarget}
         />
       )}
     </div>
