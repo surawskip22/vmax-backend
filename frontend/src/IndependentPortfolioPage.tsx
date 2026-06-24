@@ -54,13 +54,57 @@ type ReviewDraft = {
   published: boolean;
 };
 
+const portfolioAvatarOptions = [
+  { icon: "home", label: "Dom" },
+  { icon: "wrench", label: "Hydraulika" },
+  { icon: "hammer", label: "Remonty" },
+  { icon: "paint", label: "Malowanie" },
+  { icon: "brush", label: "Wykończenia" },
+  { icon: "pipe", label: "Instalacje" },
+  { icon: "electric", label: "Elektryka" },
+  { icon: "tile", label: "Glazura" },
+  { icon: "kitchen", label: "Kuchnie" },
+  { icon: "leaf", label: "Ogród" },
+  { icon: "broom", label: "Sprzątanie" },
+  { icon: "laptop", label: "IT" },
+  { icon: "car", label: "Mechanika" },
+  { icon: "camera", label: "Foto" },
+  { icon: "tools", label: "Usługi" },
+] as const;
+
+type PortfolioAvatarIcon = (typeof portfolioAvatarOptions)[number]["icon"];
+
+type PortfolioProfile = {
+  displayName: string;
+  publicDescription: string;
+  serviceArea: string;
+  publicPhone: string;
+  publicEmail: string;
+  whatsapp: string;
+  tags: string[];
+  avatarIcon: PortfolioAvatarIcon;
+  updatedAt: string;
+};
+
+type PortfolioProfileDraft = {
+  displayName: string;
+  publicDescription: string;
+  serviceArea: string;
+  publicPhone: string;
+  publicEmail: string;
+  whatsapp: string;
+  tags: string[];
+  avatarIcon: PortfolioAvatarIcon;
+};
+
 type DeleteTarget =
   | { kind: "realization"; id: string; title: string }
   | { kind: "review"; id: string; title: string };
 
 const portfolioStoragePrefix = "panmajster_independent_portfolio_";
 const reviewStoragePrefix = "panmajster_independent_portfolio_reviews_";
-const portfolioTags = ["Remonty łazienek", "Wykończenia wnętrz", "Biały montaż", "Glazura i terakota", "Kuchnie na wymiar"];
+const profileStoragePrefix = "panmajster_independent_portfolio_profile_";
+const defaultPortfolioTags = ["Remonty łazienek", "Wykończenia wnętrz", "Biały montaż", "Glazura i terakota", "Kuchnie na wymiar"];
 
 function storageIdentity(user: User) {
   return user.id || user.email || "anonymous";
@@ -72,6 +116,10 @@ function portfolioStorageKey(user: User) {
 
 function reviewsStorageKey(user: User) {
   return `${reviewStoragePrefix}${storageIdentity(user)}`;
+}
+
+function profileStorageKey(user: User) {
+  return `${profileStoragePrefix}${storageIdentity(user)}`;
 }
 
 function safeSlug(value: string) {
@@ -103,6 +151,92 @@ function projectAmount(project: Project) {
 function projectLocation(project?: Project) {
   if (!project) return "Bez lokalizacji";
   return project.address || project.client_name || "Bez lokalizacji";
+}
+
+function defaultPortfolioProfile(user: User): PortfolioProfile {
+  return {
+    displayName: user.name || "Samodzielny Majster",
+    publicDescription: "Specjalizuję się w remontach, wykończeniach wnętrz i pracach wykończeniowych na wysokim poziomie.",
+    serviceArea: "Warszawa i okolice",
+    publicPhone: user.phone || "+48 123 456 789",
+    publicEmail: user.email || "",
+    whatsapp: user.phone || "",
+    tags: defaultPortfolioTags,
+    avatarIcon: "home",
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function normalizeProfile(value: unknown, user: User): PortfolioProfile {
+  const defaults = defaultPortfolioProfile(user);
+  if (!value || typeof value !== "object") return defaults;
+  const data = value as Partial<PortfolioProfile>;
+  const iconExists = portfolioAvatarOptions.some((option) => option.icon === data.avatarIcon);
+  return {
+    ...defaults,
+    ...data,
+    displayName: data.displayName || defaults.displayName,
+    publicDescription: data.publicDescription || defaults.publicDescription,
+    publicPhone: data.publicPhone ?? defaults.publicPhone,
+    publicEmail: data.publicEmail ?? defaults.publicEmail,
+    whatsapp: data.whatsapp ?? defaults.whatsapp,
+    tags: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags.filter(Boolean).slice(0, 12) : defaults.tags,
+    avatarIcon: iconExists ? data.avatarIcon as PortfolioAvatarIcon : defaults.avatarIcon,
+    updatedAt: data.updatedAt || defaults.updatedAt,
+  };
+}
+
+function loadProfile(user: User): PortfolioProfile {
+  try {
+    const raw = localStorage.getItem(profileStorageKey(user));
+    return raw ? normalizeProfile(JSON.parse(raw), user) : defaultPortfolioProfile(user);
+  } catch {
+    return defaultPortfolioProfile(user);
+  }
+}
+
+function saveProfile(user: User, profile: PortfolioProfile) {
+  try {
+    localStorage.setItem(profileStorageKey(user), JSON.stringify(profile));
+  } catch {
+    // Public profile persistence is best-effort local MVP storage.
+  }
+}
+
+function profileDraft(profile: PortfolioProfile): PortfolioProfileDraft {
+  return {
+    displayName: profile.displayName,
+    publicDescription: profile.publicDescription,
+    serviceArea: profile.serviceArea,
+    publicPhone: profile.publicPhone,
+    publicEmail: profile.publicEmail,
+    whatsapp: profile.whatsapp,
+    tags: profile.tags,
+    avatarIcon: profile.avatarIcon,
+  };
+}
+
+function cleanPhone(value: string) {
+  return value.trim().replace(/[^\d+]/g, "");
+}
+
+function phoneHref(value: string) {
+  const phone = cleanPhone(value);
+  return phone ? `tel:${phone}` : "";
+}
+
+function mailHref(value: string) {
+  const email = value.trim();
+  return email ? `mailto:${email}` : "";
+}
+
+function whatsappHref(value: string) {
+  const phone = value.trim().replace(/\D/g, "");
+  return phone ? `https://wa.me/${phone}` : "";
+}
+
+function scrollToPublicSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function dateRange(item: PortfolioRealization) {
@@ -462,6 +596,181 @@ function ReviewModal({
   );
 }
 
+function ProfileModal({
+  profile,
+  onClose,
+  onSave,
+}: {
+  profile: PortfolioProfile;
+  onClose: () => void;
+  onSave: (profile: PortfolioProfile) => void;
+}) {
+  const [draft, setDraft] = useState<PortfolioProfileDraft>(() => profileDraft(profile));
+  const [tagInput, setTagInput] = useState("");
+
+  function addTag() {
+    const value = tagInput.trim();
+    if (!value) return;
+    setDraft((current) => {
+      if (current.tags.some((tag) => tag.toLowerCase() === value.toLowerCase())) return current;
+      return { ...current, tags: [...current.tags, value].slice(0, 12) };
+    });
+    setTagInput("");
+  }
+
+  function removeTag(tagToRemove: string) {
+    setDraft((current) => ({ ...current, tags: current.tags.filter((tag) => tag !== tagToRemove) }));
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    const displayName = draft.displayName.trim() || profile.displayName;
+    onSave({
+      displayName,
+      publicDescription: draft.publicDescription.trim() || profile.publicDescription,
+      serviceArea: draft.serviceArea.trim(),
+      publicPhone: draft.publicPhone.trim(),
+      publicEmail: draft.publicEmail.trim(),
+      whatsapp: draft.whatsapp.trim(),
+      tags: draft.tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 12),
+      avatarIcon: draft.avatarIcon,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal modal--wide ic-portfolio-modal ic-profile-modal" role="dialog" aria-modal="true" aria-labelledby="portfolio-profile-modal-title">
+        <header className="modal__header">
+          <div>
+            <h2 id="portfolio-profile-modal-title">Edytuj dane wyświetlane</h2>
+            <p>Te dane są widoczne na Twojej publicznej wizytówce. Nie zmieniają loginu ani danych konta.</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Zamknij"><Icon name="close" /></button>
+        </header>
+        <form className="ic-portfolio-form ic-profile-form" onSubmit={submit}>
+          <section>
+            <h3>Dane publiczne</h3>
+            <div className="ic-portfolio-form__row ic-profile-form__row">
+              <label>
+                Nazwa wyświetlana
+                <input value={draft.displayName} onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))} required />
+              </label>
+              <label>
+                Obszar działania
+                <input value={draft.serviceArea} onChange={(event) => setDraft((current) => ({ ...current, serviceArea: event.target.value }))} placeholder="np. Warszawa i okolice" />
+              </label>
+            </div>
+            <label>
+              Opis publiczny
+              <textarea rows={5} value={draft.publicDescription} onChange={(event) => setDraft((current) => ({ ...current, publicDescription: event.target.value }))} />
+            </label>
+          </section>
+
+          <section>
+            <h3>Kontakt publiczny</h3>
+            <div className="ic-portfolio-form__row">
+              <label>
+                Telefon publiczny
+                <input value={draft.publicPhone} onChange={(event) => setDraft((current) => ({ ...current, publicPhone: event.target.value }))} placeholder="+48 123 456 789" />
+              </label>
+              <label>
+                E-mail publiczny
+                <input type="email" value={draft.publicEmail} onChange={(event) => setDraft((current) => ({ ...current, publicEmail: event.target.value }))} placeholder="kontakt@example.com" />
+              </label>
+              <label>
+                Numer WhatsApp
+                <input value={draft.whatsapp} onChange={(event) => setDraft((current) => ({ ...current, whatsapp: event.target.value }))} placeholder="+48 123 456 789" />
+              </label>
+            </div>
+          </section>
+
+          <section>
+            <h3>Tagi / usługi</h3>
+            <div className="ic-profile-tag-editor">
+              <input value={tagInput} onChange={(event) => setTagInput(event.target.value)} placeholder="np. Hydraulika" />
+              <button type="button" className="button button--secondary" onClick={addTag}>Dodaj</button>
+            </div>
+            <div className="ic-profile-tags" aria-label="Wybrane tagi profilu">
+              {draft.tags.length === 0 ? <span>Brak tagów. Dodaj usługi, które chcesz pokazać klientom.</span> : draft.tags.map((tag) => (
+                <button type="button" key={tag} onClick={() => removeTag(tag)}>
+                  {tag}
+                  <Icon name="close" size={14} />
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h3>Ikona / avatar profilu</h3>
+            <div className="ic-avatar-grid">
+              {portfolioAvatarOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option.icon}
+                  className={`ic-avatar-choice ${draft.avatarIcon === option.icon ? "active" : ""}`}
+                  onClick={() => setDraft((current) => ({ ...current, avatarIcon: option.icon }))}
+                >
+                  <Icon name={option.icon} />
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <footer className="modal-actions ic-portfolio-form__actions">
+            <button type="button" className="button button--secondary" onClick={onClose}>Anuluj</button>
+            <button type="submit" className="button button--primary">Zapisz dane wyświetlane</button>
+          </footer>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ContactModal({
+  profile,
+  onClose,
+}: {
+  profile: PortfolioProfile;
+  onClose: () => void;
+}) {
+  const contacts = [
+    { label: "Zadzwoń", detail: profile.publicPhone, href: phoneHref(profile.publicPhone), icon: "phone" },
+    { label: "Wyślij e-mail", detail: profile.publicEmail, href: mailHref(profile.publicEmail), icon: "link" },
+    { label: "Napisz na WhatsApp", detail: profile.whatsapp, href: whatsappHref(profile.whatsapp), icon: "send" },
+  ].filter((item) => item.href);
+
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal ic-portfolio-modal ic-contact-modal" role="dialog" aria-modal="true" aria-labelledby="portfolio-contact-modal-title">
+        <header className="modal__header">
+          <div>
+            <h2 id="portfolio-contact-modal-title">Skontaktuj się</h2>
+            <p>Wybierz wygodny sposób kontaktu z wykonawcą.</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Zamknij"><Icon name="close" /></button>
+        </header>
+        <div className="ic-contact-options">
+          {contacts.length === 0 ? (
+            <div className="ic-portfolio-empty ic-portfolio-empty--compact">
+              <Icon name="phone" />
+              <strong>Brak publicznych danych kontaktowych</strong>
+              <p>Ten wykonawca nie udostępnił jeszcze telefonu, e-maila ani WhatsApp.</p>
+            </div>
+          ) : contacts.map((contact) => (
+            <a className="ic-contact-option" href={contact.href} target={contact.href.startsWith("http") ? "_blank" : undefined} rel={contact.href.startsWith("http") ? "noreferrer" : undefined} key={contact.label}>
+              <Icon name={contact.icon} />
+              <span>{contact.label}</span>
+              <small>{contact.detail}</small>
+            </a>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConfirmDeleteModal({
   target,
   onCancel,
@@ -524,7 +833,13 @@ function ReviewsSection({
           <span className="ic-portfolio-review-icon"><Icon name="check" /></span>
           <div>
             <h2>Opinie klientów</h2>
-            <p>{rating ? `Średnia ocena ${rating}/5 z ${reviews.filter((review) => review.published).length} widocznych opinii.` : "Opinie pojawią się tutaj po dodaniu."}</p>
+            <p>
+              {rating
+                ? `Średnia ocena ${rating}/5 z ${reviews.filter((review) => review.published).length} widocznych opinii.`
+                : publicOnly
+                  ? "Ten wykonawca nie ma jeszcze publicznych opinii."
+                  : "Opinie pojawią się tutaj po dodaniu."}
+            </p>
           </div>
         </div>
         {!publicOnly && <button type="button" className="button button--secondary" onClick={onAdd}>Dodaj opinię</button>}
@@ -533,8 +848,12 @@ function ReviewsSection({
       {recentReviews.length === 0 ? (
         <div className="ic-portfolio-empty ic-portfolio-empty--compact">
           <Icon name="report" />
-          <strong>Brak opinii klientów</strong>
-          <p>Opinie pojawią się tutaj, gdy dodasz je ręcznie lub gdy w przyszłości klient wystawi opinię po zakończonym zleceniu.</p>
+          <strong>{publicOnly ? "Brak publicznych opinii" : "Brak opinii klientów"}</strong>
+          <p>
+            {publicOnly
+              ? "Ten wykonawca nie ma jeszcze publicznych opinii."
+              : "Opinie pojawią się tutaj, gdy dodasz je ręcznie lub gdy w przyszłości klient wystawi opinię po zakończonym zleceniu."}
+          </p>
           {!publicOnly && <button type="button" className="button button--primary" onClick={onAdd}>Dodaj opinię ręcznie</button>}
         </div>
       ) : (
@@ -583,18 +902,25 @@ export function IndependentPortfolioPage({
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [manageTab, setManageTab] = useState<"all" | PortfolioStatus>("all");
   const [copied, setCopied] = useState(false);
+  const [profile, setProfile] = useState<PortfolioProfile>(() => defaultPortfolioProfile(user));
+  const [profileLoadedFor, setProfileLoadedFor] = useState("");
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
   const userStorageId = storageIdentity(user);
   const completedProjects = useMemo(() => projects.filter((project) => project.status === "completed"), [projects]);
   const projectsById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
-  const profileSlug = safeSlug(user.name || user.email || "samodzielnymajster");
+  const profileSlug = safeSlug(profile.displayName || user.name || user.email || "samodzielnymajster");
   const profileUrl = `panmajster.pl/wizytowka/${profileSlug}`;
+  void onOpenSettings;
 
   useEffect(() => {
     const identity = storageIdentity(user);
     setItems(loadPortfolio(user));
     setReviews(loadReviews(user));
+    setProfile(loadProfile(user));
     setPortfolioLoadedFor(identity);
     setReviewsLoadedFor(identity);
+    setProfileLoadedFor(identity);
   }, [user.id, user.email]);
 
   useEffect(() => {
@@ -611,6 +937,11 @@ export function IndependentPortfolioPage({
     if (reviewsLoadedFor !== userStorageId) return;
     saveReviews(user, reviews);
   }, [reviews, reviewsLoadedFor, user, userStorageId]);
+
+  useEffect(() => {
+    if (profileLoadedFor !== userStorageId) return;
+    saveProfile(user, profile);
+  }, [profile, profileLoadedFor, user, userStorageId]);
 
   const publishedItems = items.filter((item) => item.status === "published");
   const visibleItems = manageTab === "all" ? items : items.filter((item) => item.status === manageTab);
@@ -685,83 +1016,89 @@ export function IndependentPortfolioPage({
 
   if (view === "preview") {
     return (
-      <div className="page ic-portfolio-page ic-portfolio-page--public-preview">
-        <div className="ic-portfolio-preview-bar">
-          <strong>Podgląd publiczny — tak klient zobaczy Twoją wizytówkę</strong>
-          <button type="button" className="button button--secondary" onClick={() => setView("dashboard")}><Icon name="back" /> Wróć do edycji</button>
-        </div>
-        <section className="ic-portfolio-public">
-          <nav>
-            <strong>{user.name || "Samodzielny Majster"}</strong>
-            <span>O mnie</span>
-            <span>Realizacje</span>
-            <span>Opinie</span>
-            <span>Kontakt</span>
-          </nav>
-          <section className="ic-portfolio-public-profile">
-            <span className="ic-portfolio-profile__avatar"><Icon name="home" size={54} /></span>
-            <div>
-              <small>Profil wykonawcy</small>
-              <h1>{user.name || "Samodzielny Majster"}</h1>
-              <p>Specjalizuję się w remontach, wykończeniach wnętrz i pracach wykończeniowych na wysokim poziomie.</p>
-              <div>{portfolioTags.map((tag) => <span key={tag}>{tag}</span>)}</div>
-            </div>
-            <button type="button" className="button button--primary"><Icon name="send" /> Skontaktuj się</button>
-          </section>
-          {!previewItem ? (
-            <div className="ic-portfolio-empty"><Icon name="image" /><strong>Brak realizacji do podglądu</strong><p>Dodaj pierwszą realizację z zakończonego zlecenia.</p></div>
-          ) : (
-            <article className="ic-portfolio-public-card">
+      <>
+        <div className="page ic-portfolio-page ic-portfolio-page--public-preview">
+          <div className="ic-portfolio-preview-bar">
+            <strong>Podgląd publiczny — tak klient zobaczy Twoją wizytówkę</strong>
+            <button type="button" className="button button--secondary" onClick={() => setView("dashboard")}><Icon name="back" /> Wróć do edycji</button>
+          </div>
+          <section className="ic-portfolio-public">
+            <nav>
+              <strong>{profile.displayName}</strong>
+              <button type="button" onClick={() => scrollToPublicSection("portfolio-about")}>O mnie</button>
+              <button type="button" onClick={() => scrollToPublicSection("portfolio-realizations")}>Realizacje</button>
+              <button type="button" onClick={() => scrollToPublicSection("portfolio-reviews")}>Opinie</button>
+              <button type="button" onClick={() => scrollToPublicSection("portfolio-contact")}>Kontakt</button>
+            </nav>
+            <section className="ic-portfolio-public-profile" id="portfolio-about">
+              <span className="ic-portfolio-profile__avatar"><Icon name={profile.avatarIcon} size={54} /></span>
               <div>
-                <PortfolioImage tone={previewItem.coverTone} src={previewItem.coverUrl} large />
-                <div className="ic-portfolio-public-thumbs">
-                  {(previewItem.galleryUrls?.length ? previewItem.galleryUrls : [undefined, undefined, undefined, undefined]).slice(0, 4).map((src, index) => (
-                    <PortfolioImage tone={previewItem.coverTone + index} src={src} key={`${previewItem.id}-${index}`} />
-                  ))}
-                </div>
+                <small>Profil wykonawcy</small>
+                <h1>{profile.displayName}</h1>
+                <p>{profile.publicDescription}</p>
+                <div>{profile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
               </div>
-              <div>
-                <h2>{previewItem.title}</h2>
-                <p className="ic-portfolio-location">{projectLocation(previewProject)}</p>
-                <p>{previewItem.description}</p>
-                <dl>
-                  <div><dt>Data realizacji</dt><dd>{dateRange(previewItem)}</dd></div>
-                  {previewItem.showAmount && previewItem.amount && <div><dt>Kwota realizacji</dt><dd>{previewItem.amount}</dd></div>}
-                  <div><dt>Zakres prac</dt><dd>{portfolioTags.slice(0, 2).join(", ")}</dd></div>
-                </dl>
-              </div>
-            </article>
-          )}
-          <section className="ic-portfolio-public-section">
-            <h2>Realizacje</h2>
-            {publishedItems.length === 0 ? (
-              <p className="form-note">Ta wizytówka nie ma jeszcze opublikowanych realizacji.</p>
+              <button type="button" className="button button--primary" onClick={() => setContactModalOpen(true)}><Icon name="send" /> Skontaktuj się</button>
+            </section>
+            {!previewItem ? (
+              <div className="ic-portfolio-empty"><Icon name="image" /><strong>Brak realizacji do podglądu</strong><p>Ten wykonawca nie opublikował jeszcze realizacji.</p></div>
             ) : (
-              <div className="ic-portfolio-public-realization-grid">
-                {publishedItems.slice(0, 6).map((item) => {
-                  const project = projectsById.get(item.projectId);
-                  return (
-                    <article key={item.id}>
-                      <PortfolioImage tone={item.coverTone} src={item.coverUrl} />
-                      <div>
-                        <strong>{item.title}</strong>
-                        <small>{dateRange(item)} · {projectLocation(project)}</small>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+              <article className="ic-portfolio-public-card">
+                <div>
+                  <PortfolioImage tone={previewItem.coverTone} src={previewItem.coverUrl} large />
+                  <div className="ic-portfolio-public-thumbs">
+                    {(previewItem.galleryUrls?.length ? previewItem.galleryUrls : [undefined, undefined, undefined, undefined]).slice(0, 4).map((src, index) => (
+                      <PortfolioImage tone={previewItem.coverTone + index} src={src} key={`${previewItem.id}-${index}`} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h2>{previewItem.title}</h2>
+                  <p className="ic-portfolio-location">{projectLocation(previewProject)}</p>
+                  <p>{previewItem.description}</p>
+                  <dl>
+                    <div><dt>Data realizacji</dt><dd>{dateRange(previewItem)}</dd></div>
+                    {previewItem.showAmount && previewItem.amount && <div><dt>Kwota realizacji</dt><dd>{previewItem.amount}</dd></div>}
+                    <div><dt>Zakres prac</dt><dd>{profile.tags.slice(0, 2).join(", ") || "Usługi remontowe"}</dd></div>
+                  </dl>
+                </div>
+              </article>
             )}
+            <section className="ic-portfolio-public-section" id="portfolio-realizations">
+              <h2>Realizacje</h2>
+              {publishedItems.length === 0 ? (
+                <p className="form-note">Ten wykonawca nie opublikował jeszcze realizacji.</p>
+              ) : (
+                <div className="ic-portfolio-public-realization-grid">
+                  {publishedItems.slice(0, 6).map((item) => {
+                    const project = projectsById.get(item.projectId);
+                    return (
+                      <article key={item.id}>
+                        <PortfolioImage tone={item.coverTone} src={item.coverUrl} />
+                        <div>
+                          <strong>{item.title}</strong>
+                          <small>{dateRange(item)} · {projectLocation(project)}</small>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+            <div id="portfolio-reviews">
+              <ReviewsSection reviews={reviews} publicOnly />
+            </div>
+            <section className="ic-portfolio-public-contact" id="portfolio-contact">
+              <h2>Kontakt</h2>
+              <p><Icon name="phone" /> {profile.publicPhone || "Telefon nieudostępniony"}</p>
+              <p><Icon name="link" /> {profile.publicEmail || "E-mail nieudostępniony"}</p>
+              <p><Icon name="send" /> {profile.serviceArea || "Obszar działania nieuzupełniony"}</p>
+              <button type="button" className="button button--primary" onClick={() => setContactModalOpen(true)}><Icon name="send" /> Skontaktuj się</button>
+            </section>
           </section>
-          <ReviewsSection reviews={reviews} publicOnly />
-          <section className="ic-portfolio-public-contact">
-            <h2>Kontakt</h2>
-            <p><Icon name="phone" /> {user.phone || "+48 123 456 789"}</p>
-            <p><Icon name="link" /> {user.email}</p>
-            <button type="button" className="button button--primary"><Icon name="send" /> Skontaktuj się</button>
-          </section>
-        </section>
-      </div>
+        </div>
+        {contactModalOpen && <ContactModal profile={profile} onClose={() => setContactModalOpen(false)} />}
+      </>
     );
   }
 
@@ -776,7 +1113,7 @@ export function IndependentPortfolioPage({
         <div className="ic-portfolio-header__actions">
           {view !== "dashboard" && <button type="button" className="button button--secondary" onClick={() => setView("dashboard")}><Icon name="back" /> Wróć</button>}
           <button type="button" className="button button--secondary" onClick={() => setView("preview")}><Icon name="link" /> Podgląd publiczny</button>
-          <button type="button" className="button button--primary" onClick={onOpenSettings}><Icon name="settings" /> Edytuj profil</button>
+          <button type="button" className="button button--primary" onClick={() => setProfileModalOpen(true)}><Icon name="settings" /> Edytuj dane</button>
         </div>
       </header>
 
@@ -863,14 +1200,14 @@ export function IndependentPortfolioPage({
             </section>
 
             <aside className="ic-portfolio-profile panel">
-              <button type="button" className="text-button" onClick={onOpenSettings}>Edytuj</button>
-              <span className="ic-portfolio-profile__avatar"><Icon name="home" size={54} /></span>
-              <h2>{user.name || "Samodzielny Majster"}</h2>
-              <p>Specjalizuję się w remontach, wykończeniach wnętrz i pracach wykończeniowych na wysokim poziomie.</p>
-              <div>{portfolioTags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+              <button type="button" className="text-button" onClick={() => setProfileModalOpen(true)}>Edytuj dane wyświetlane</button>
+              <span className="ic-portfolio-profile__avatar"><Icon name={profile.avatarIcon} size={54} /></span>
+              <h2>{profile.displayName}</h2>
+              <p>{profile.publicDescription}</p>
+              <div>{profile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
               <footer>
-                <p><Icon name="phone" /> {user.phone || "+48 123 456 789"}</p>
-                <p><Icon name="link" /> {user.email}</p>
+                <p><Icon name="phone" /> {profile.publicPhone || "Telefon nieudostępniony"}</p>
+                <p><Icon name="link" /> {profile.publicEmail || "E-mail nieudostępniony"}</p>
               </footer>
             </aside>
           </div>
@@ -908,6 +1245,17 @@ export function IndependentPortfolioPage({
           onSave={upsertReview}
         />
       )}
+      {profileModalOpen && (
+        <ProfileModal
+          profile={profile}
+          onClose={() => setProfileModalOpen(false)}
+          onSave={(nextProfile) => {
+            setProfile(nextProfile);
+            setProfileModalOpen(false);
+          }}
+        />
+      )}
+      {contactModalOpen && <ContactModal profile={profile} onClose={() => setContactModalOpen(false)} />}
       {deleteTarget && (
         <ConfirmDeleteModal
           target={deleteTarget}

@@ -747,10 +747,11 @@ audio { width: 100%; margin-top: 13px; }
 .ic-portfolio-status { padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 900; }
 .ic-portfolio-status--published { color: #167134; background: #dff7e6; }
 .ic-portfolio-status--draft { color: #536174; background: #edf1f5; }
-.ic-portfolio-public { width: min(1180px, calc(100% - 40px)); margin: 24px auto 44px; overflow: hidden; border: 1px solid #dce5ef; border-radius: 16px; background: #fff; box-shadow: 0 14px 34px rgba(18,38,69,.07); }
+.ic-portfolio-public { width: min(1180px, calc(100% - 40px)); margin: 24px auto 44px; overflow: hidden; border: 1px solid #dce5ef; border-radius: 16px; background: #fff; box-shadow: 0 14px 34px rgba(18,38,69,.07); scroll-behavior: smooth; }
 .ic-portfolio-public nav { min-height: 58px; padding: 0 18px; display: flex; align-items: center; gap: 24px; color: #fff; background: linear-gradient(145deg, #031e49, #0b3a76); }
 .ic-portfolio-public nav strong { margin-right: auto; }
-.ic-portfolio-public nav span { font-size: 13px; font-weight: 800; }
+.ic-portfolio-public nav button { border: 0; color: #fff; background: transparent; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.ic-portfolio-public nav button:hover { color: #ff6500; }
 .ic-portfolio-public-profile { padding: 20px; display: grid; grid-template-columns: 104px minmax(0, 1fr) auto; gap: 18px; align-items: center; border-bottom: 1px solid #edf1f5; }
 .ic-portfolio-public-profile small { color: var(--muted); font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; }
 .ic-portfolio-public-profile h1 { margin: 5px 0 7px; color: var(--navy); font: 800 38px/1 "Barlow Condensed"; }
@@ -797,6 +798,22 @@ audio { width: 100%; margin-top: 13px; }
 .ic-portfolio-gallery-picker button { min-height: 74px; display: grid; place-items: center; gap: 5px; border: 1px dashed #94a3b8; border-radius: 10px; color: var(--blue); background: #f8fbff; font-weight: 900; }
 .ic-portfolio-photo-picker p { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .ic-portfolio-form__actions { position: sticky; bottom: -20px; z-index: 1; margin: 0 -20px -20px; padding: 14px 20px; border-top: 1px solid #e3eaf2; background: #fff; }
+.ic-profile-form__row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ic-profile-tag-editor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.ic-profile-tags { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.ic-profile-tags > span { color: var(--muted); font-size: 13px; }
+.ic-profile-tags button { min-height: 34px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cbd8e8; border-radius: 999px; color: var(--navy); background: #edf3fb; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
+.ic-profile-tags button:hover { border-color: var(--blue); color: var(--blue); }
+.ic-avatar-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.ic-avatar-choice { min-height: 92px; padding: 12px 10px; display: grid; place-items: center; gap: 8px; border: 1px solid #d6e0ec; border-radius: 14px; color: var(--navy); background: #f8fbff; font: inherit; font-size: 12px; font-weight: 900; cursor: pointer; }
+.ic-avatar-choice svg { width: 26px; height: 26px; color: var(--blue); }
+.ic-avatar-choice.active { border-color: var(--blue); color: var(--blue); background: #edf5ff; box-shadow: 0 0 0 3px rgba(29,111,237,.12); }
+.ic-contact-modal { max-width: 560px; }
+.ic-contact-options { padding: 20px; display: grid; gap: 12px; }
+.ic-contact-option { min-height: 70px; padding: 14px; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 3px 12px; align-items: center; border: 1px solid #dce5ef; border-radius: 14px; color: var(--navy); background: #fff; text-decoration: none; font-weight: 900; }
+.ic-contact-option svg { grid-row: span 2; width: 42px; height: 42px; padding: 10px; border-radius: 13px; color: var(--blue); background: #edf3fb; }
+.ic-contact-option small { color: var(--muted); font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+.ic-contact-option:hover { border-color: var(--blue); box-shadow: 0 10px 22px rgba(29,111,237,.10); }
 .ic-portfolio-reviews { margin-top: 16px; padding: 18px; }
 .ic-portfolio-reviews--public { margin: 0 18px 18px; box-shadow: none; }
 .ic-portfolio-reviews > header { margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
@@ -1368,6 +1385,8 @@ audio { width: 100%; margin-top: 13px; }
   .ic-portfolio-grid { grid-template-columns: 1fr; }
   .ic-portfolio-public-card { grid-template-columns: 1fr; }
   .ic-portfolio-form__row,
+  .ic-profile-form__row,
+  .ic-profile-tag-editor,
   .ic-portfolio-photo-picker { grid-template-columns: 1fr; }
   .ic-portfolio-manage-list article { grid-template-columns: 62px minmax(0, 1fr); }
   .ic-portfolio-manage-list article > .ic-portfolio-status,
@@ -1463,8 +1482,8 @@ audio { width: 100%; margin-top: 13px; }
   .ic-portfolio-status-card { padding: 14px; }
   .ic-portfolio-status-card > div:first-child,
   .ic-portfolio-cta { grid-template-columns: 46px minmax(0, 1fr); gap: 12px; }
-  .ic-portfolio-public nav { flex-wrap: wrap; gap: 12px; padding: 12px 14px; }
-  .ic-portfolio-public nav strong { width: 100%; }
+  .ic-portfolio-public nav { gap: 12px; padding: 12px 14px; overflow-x: auto; }
+  .ic-portfolio-public nav strong { min-width: max-content; }
   .ic-portfolio-public-profile { padding: 14px; grid-template-columns: 1fr; text-align: center; }
   .ic-portfolio-public-profile .ic-portfolio-profile__avatar { margin: 0 auto; }
   .ic-portfolio-public-profile > div > div { justify-content: center; }
@@ -1472,6 +1491,8 @@ audio { width: 100%; margin-top: 13px; }
   .ic-portfolio-public-card .ic-portfolio-image--large { min-height: 220px; }
   .ic-portfolio-public-thumbs,
   .ic-portfolio-gallery-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ic-avatar-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ic-contact-options { padding: 16px; }
   .ic-portfolio-public-card dl div { grid-template-columns: 1fr; gap: 4px; }
   .ic-portfolio-public-section,
   .ic-portfolio-public-contact,

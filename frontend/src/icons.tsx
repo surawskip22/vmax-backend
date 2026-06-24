@@ -19,6 +19,19 @@ const paths: Record<string, React.ReactNode> = {
   check: <path d="m5 12 4 4L19 6"/>,
   menu: <path d="M4 6h16M4 12h16M4 18h16"/>,
   image: <><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 20"/></>,
+  wrench: <><path d="M14.7 6.3a4 4 0 0 0-5 5L3 18l3 3 6.7-6.7a4 4 0 0 0 5-5l-2.8 2.8-2.8-2.8z"/></>,
+  hammer: <><path d="m15 12-8.5 8.5a2.1 2.1 0 0 1-3-3L12 9"/><path d="m14 3 7 7-3 3-7-7z"/><path d="m5 7 3-3 3 3-3 3z"/></>,
+  paint: <><path d="M3 6h13v6H3z"/><path d="M16 8h3a2 2 0 0 1 2 2v1a2 2 0 0 1-2 2h-5"/><path d="M7 12v8a2 2 0 0 0 4 0v-8"/></>,
+  brush: <><path d="M18 3c-4 1-7 4-8 8"/><path d="M9 12c-3 0-5 2-5 5 0 2 1 4 4 4 3 0 5-2 5-5"/><path d="m14 7 3 3"/></>,
+  pipe: <><path d="M5 4v8a7 7 0 0 0 14 0V4"/><path d="M5 8h14"/><path d="M9 20v2M15 20v2"/></>,
+  electric: <path d="m13 2-8 12h6l-1 8 9-13h-6z"/>,
+  tile: <><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></>,
+  kitchen: <><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M9 3v18M14 13h2"/></>,
+  leaf: <><path d="M5 21c8-2 13-8 14-18C9 4 3 10 5 21Z"/><path d="M5 21c3-6 7-10 14-18"/></>,
+  broom: <><path d="M16 3 8 11"/><path d="M6 13l5 5"/><path d="M5 14c-2 2-2 5-1 7 3 1 6 1 8-1z"/></>,
+  laptop: <><rect x="5" y="4" width="14" height="10" rx="1"/><path d="M3 20h18l-2-4H5z"/></>,
+  car: <><path d="M5 17h14l1-6-3-5H7l-3 5z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M6 11h12"/></>,
+  tools: <><path d="m14 7 3-3 3 3-3 3z"/><path d="m2 22 7-7"/><path d="m16 10 6 6-3 3-6-6"/><path d="M8 3 3 8l4 4 5-5z"/></>,
 };
 
 export function Icon({
