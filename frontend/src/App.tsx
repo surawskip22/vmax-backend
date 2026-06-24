@@ -859,7 +859,7 @@ function CreateProjectModal({
     <Modal title={user.profile_type === "investor" ? "Nowa inwestycja" : "Nowe zlecenie"} onClose={onClose} wide>
       <form className="form-stack job-form" onSubmit={submit}>
         <p className="job-form-intro">
-          UzupeÅ‚nij najwaÅ¼niejsze dane. Zapis nie zmienia uprawnieÅ„, linkÃ³w ani raportÃ³w.
+          Uzupełnij najważniejsze dane. Zapis nie zmienia uprawnień, linków ani raportów.
         </p>
         <section className="job-form-section">
           <header className="job-form-section__header">
@@ -2570,7 +2570,7 @@ function ProjectView({
       const reportData = await api<Report[]>(`/projects/${targetProject.id}/reports`, {}, guestToken);
       setReports(reportData);
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : "Nie udaÅ‚o siÄ™ wczytaÄ‡ raportÃ³w PDF";
+      const message = reason instanceof Error ? reason.message : "Nie udało się wczytać raportów PDF";
       setReports([]);
       setReportError(message);
       notify({ kind: "error", message });
@@ -2597,7 +2597,7 @@ function ProjectView({
           setReportError("");
         } catch (reason) {
           setReports([]);
-          setReportError(reason instanceof Error ? reason.message : "Nie udaÅ‚o siÄ™ wczytaÄ‡ raportÃ³w PDF");
+          setReportError(reason instanceof Error ? reason.message : "Nie udało się wczytać raportów PDF");
           notify({
             kind: "error",
             message: reason instanceof Error ? reason.message : "Nie udało się wczytać raportów PDF",
