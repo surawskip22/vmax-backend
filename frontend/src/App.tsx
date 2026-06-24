@@ -2713,6 +2713,10 @@ function ProjectView({
   );
   const currentStage = activeProjectStage(project);
   const currentStageIndex = currentStage && project.stages ? project.stages.findIndex((stage) => stage.id === currentStage.id) + 1 : 0;
+  const isCompanyWorkerFieldUser = Boolean(user && isCompanyWorker(user) && !guestToken);
+  const isIndependentFieldUser = Boolean(user && isIndependentContractor(user) && !guestToken);
+  const isRoleFieldUser = isCompanyWorkerFieldUser || isIndependentFieldUser;
+  const fieldRoleTitle = isIndependentFieldUser ? "Samodzielny majster" : "Majster firmy";
   const recentEntries = entries.slice(0, 3);
   const workerHistoryEntries = uiMode === "advanced" ? entries.slice(0, 8) : recentEntries;
   const workerProblemCount = entries.filter((entry) => entry.kind === "problem").length;
@@ -2721,15 +2725,15 @@ function ProjectView({
   const canStartWorkerProject = canAdd && project.status === "assigned";
   const canAddWorkerProgress = canAdd && project.status === "in_progress";
   const canFinishWorkerProject = canCloseProject && project.status === "in_progress";
-  const canReopenWorkerProject = canAdd && project.status === "completed";
+  const canReopenWorkerProject = project.status === "completed" && (isIndependentFieldUser ? canReopenProject : canAdd);
 
-  if (user && isCompanyWorker(user) && !guestToken) {
+  if (isRoleFieldUser) {
     return (
       <div className="worker-workspace">
         <header className="worker-detail-hero">
           <div className="worker-detail-topbar">
             <button type="button" className="worker-back-button" onClick={onBack}><Icon name="back" /> Wróć do zleceń</button>
-            <span><Icon name="clipboard" size={17} /> Majster firmy</span>
+            <span><Icon name="clipboard" size={17} /> {fieldRoleTitle}</span>
           </div>
           <div className="worker-detail-hero__main">
             <span className="worker-detail-hero__icon"><Icon name="clipboard" /></span>
@@ -2750,7 +2754,7 @@ function ProjectView({
             <div>
               <small>Aktualny etap</small>
               <h2>{currentStage?.title || "Etap nieustawiony"}</h2>
-              <p>{currentStage ? stageStatusText(currentStage) : "Szef firmy nie ustawił jeszcze etapu."}</p>
+              <p>{currentStage ? stageStatusText(currentStage) : isIndependentFieldUser ? "Ustaw aktualny etap swojej pracy." : "Szef firmy nie ustawił jeszcze etapu."}</p>
             </div>
             <button
               type="button"
@@ -2867,6 +2871,9 @@ function ProjectView({
               {uiMode === "advanced" && canGeneratePdfReports && (
                 <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>Raport PDF</Button>
               )}
+              {uiMode === "advanced" && isIndependentFieldUser && project.can_edit_details && (
+                <Button type="button" variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>
+              )}
               {uiMode === "advanced" && (
                 <Button
                   type="button"
@@ -2892,7 +2899,7 @@ function ProjectView({
               {showClientLink && (
                 <section className="worker-detail-card worker-client-link-card">
                   <div className="worker-section-heading">
-                    <div><h2>Link dla klienta</h2><p>{clientLink?.url ? "Gotowy podgląd publiczny zlecenia." : "Brak linku klienta — poproś szefa o wygenerowanie linku."}</p></div>
+                    <div><h2>Link dla klienta</h2><p>{clientLink?.url ? "Gotowy podgląd publiczny zlecenia." : isIndependentFieldUser ? "Brak aktywnego linku klienta dla tego zlecenia." : "Brak linku klienta — poproś szefa o wygenerowanie linku."}</p></div>
                   </div>
                   {clientLink?.url ? (
                     <div className="share-result client-link-result">
@@ -2901,7 +2908,7 @@ function ProjectView({
                       <a className="button button--secondary" href={clientLink.url} target="_blank" rel="noreferrer">Otwórz podgląd</a>
                     </div>
                   ) : (
-                    <p className="form-note">Link klienta tworzy i udostępnia szef firmy.</p>
+                    <p className="form-note">{isIndependentFieldUser ? "Link klienta utworzysz w edycji zlecenia, jeśli jest potrzebny." : "Link klienta tworzy i udostępnia szef firmy."}</p>
                   )}
                 </section>
               )}
@@ -2938,6 +2945,7 @@ function ProjectView({
           />
         )}
         {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); load(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
+        {isIndependentFieldUser && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={load} notify={notify} />}
       </div>
     );
   }
