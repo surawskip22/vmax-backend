@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useState } from "react";
 import {
   canAssignWorkers as canAssignWorkersForUser,
   isCompanyWorker,
+  isIndependentContractor,
 } from "./access";
 import { api } from "./api";
 import { Icon } from "./icons";
@@ -178,6 +179,7 @@ export function ManageProjectModal({
   const canManageFinalStatus = canManagePeople && !isCompanyWorker(user);
   const canEditContractTerms = canManagePeople && !isCompanyWorker(user);
   const canAssignWorkers = canAssignWorkersForUser(user, canManagePeople);
+  const canShowDetailsLock = canManagePeople && !isIndependentContractor(user);
   const workerLabels = peopleLabelsForUser(user);
   const workerAssignmentLabel = workerLabels.assignment;
   const assignActionLabel = workerLabels.assignAction;
@@ -201,9 +203,6 @@ export function ManageProjectModal({
         client_email: data.get("client_email"),
         address: data.get("address"),
         description: data.get("description"),
-        portfolio_enabled: data.get("portfolio_enabled") === "on",
-        portfolio_slug: data.get("portfolio_slug") || null,
-        portfolio_summary: data.get("portfolio_summary"),
       };
       if (canEditContractTerms) {
         payload.planned_start_date = formNullableString(data, "planned_start_date");
@@ -211,7 +210,7 @@ export function ManageProjectModal({
         payload.schedule_uncertainty_days = formOptionalNumber(data, "schedule_uncertainty_days");
         payload.contract_amount = formMoneyString(data, "contract_amount");
       }
-      if (canManagePeople) {
+      if (canShowDetailsLock) {
         payload.details_locked = data.get("details_locked") === "on";
       }
       if (canManageFinalStatus) {
@@ -293,18 +292,39 @@ export function ManageProjectModal({
         {canAssignWorkers && <button className={tab === "people" ? "active" : ""} onClick={() => setTab("people")}>Wykonawca</button>}
       </div>
       {tab === "details" && (
-        <form className="form-stack" onSubmit={saveDetails}>
-          <div className="form-row">
-            <label>Nazwa<input name="name" defaultValue={project.name} required /></label>
-            {canManageFinalStatus && <label>Status<select name="status" defaultValue={project.status}><option value="assigned">Zlecone</option><option value="in_progress">W realizacji</option><option value="completed">Zakończono</option></select></label>}
-          </div>
-          <div className="form-row">
-            <label>Klient<input name="client_name" defaultValue={project.client_name} /></label>
-            <label>E-mail klienta<input name="client_email" type="email" defaultValue={project.client_email} /></label>
-          </div>
-          <label>Adres<input name="address" defaultValue={project.address} /></label>
+        <form className="form-stack job-form" onSubmit={saveDetails}>
+          <p className="job-form-intro">
+            Zaktualizuj podstawowe dane zlecenia. Zmiany będą widoczne w panelu i w podglądzie klienta.
+          </p>
+          <section className="job-form-section">
+            <header className="job-form-section__header">
+              <span><Icon name="clipboard" /></span>
+              <div>
+                <h3>Dane</h3>
+                <p>Nazwa, klient, status i lokalizacja zlecenia.</p>
+              </div>
+            </header>
+            <div className="form-row">
+              <label>Nazwa zlecenia<input name="name" defaultValue={project.name} required /></label>
+              {canManageFinalStatus && <label>Status<select name="status" defaultValue={project.status}><option value="assigned">Zlecone</option><option value="in_progress">W realizacji</option><option value="completed">Zakończono</option></select></label>}
+            </div>
+            <div className="form-row">
+              <label>Klient<input name="client_name" defaultValue={project.client_name} /></label>
+              <label>E-mail klienta<input name="client_email" type="email" defaultValue={project.client_email} /></label>
+            </div>
+            <label>Adres<input name="address" defaultValue={project.address} /></label>
+            <p className="job-form-note">Adres pomaga zorganizować zlecenie. Nie jest widoczny publicznie.</p>
+          </section>
+          <section className="job-form-section">
+            <header className="job-form-section__header">
+              <span><Icon name="report" /></span>
+              <div>
+                <h3>Terminy i budżet</h3>
+                <p>Planowane daty, tolerancja terminu i kwota umowna.</p>
+              </div>
+            </header>
           {canEditContractTerms ? (
-            <div className="contract-fields">
+            <>
               <div className="form-row">
                 <label>Planowany start<input type="date" name="planned_start_date" defaultValue={project.planned_start_date || ""} /></label>
                 <label>Planowany koniec<input type="date" name="planned_end_date" defaultValue={project.planned_end_date || ""} /></label>
@@ -313,8 +333,8 @@ export function ManageProjectModal({
                 <label>Niepewnosc terminu (+/- dni)<input type="number" name="schedule_uncertainty_days" min="0" step="1" placeholder="np. 3" defaultValue={project.schedule_uncertainty_days ?? ""} /></label>
                 <label>Kwota umowna (PLN)<input type="text" name="contract_amount" inputMode="decimal" placeholder="np. 12000" defaultValue={project.contract_amount || ""} /></label>
               </div>
-              <p className="form-note">{contractTermsDisclaimer}</p>
-            </div>
+              <p className="job-form-note">{contractTermsDisclaimer}</p>
+            </>
           ) : (
             <div className="contract-fields contract-fields--readonly">
               <ContractTermsPanel project={project} />
@@ -322,13 +342,32 @@ export function ManageProjectModal({
               <p className="form-note">{contractTermsReadonlyMessage}</p>
             </div>
           )}
-          <label>Opis<textarea name="description" rows={3} defaultValue={project.description} /></label>
-          <div className="portfolio-settings">
-            <label className="check-label"><input type="checkbox" name="portfolio_enabled" defaultChecked={project.portfolio_enabled} /> Pokaż realizację w publicznym portfolio</label>
-            <label>Adres portfolio<input name="portfolio_slug" defaultValue={project.portfolio_slug || ""} placeholder="np. firma-kowalski" /></label>
-            <label>Opis realizacji<textarea name="portfolio_summary" rows={3} defaultValue={project.portfolio_summary} /></label>
-          </div>
-          {canManagePeople && (
+          </section>
+          <section className="job-form-section">
+            <header className="job-form-section__header">
+              <span><Icon name="send" /></span>
+              <div>
+                <h3>Opis</h3>
+                <p>Krótki opis zlecenia i ustaleń.</p>
+              </div>
+            </header>
+            <label>Opis zlecenia<textarea name="description" rows={4} defaultValue={project.description} /></label>
+          </section>
+          <section className="job-form-section job-form-section--disabled">
+            <header className="job-form-section__header">
+              <span><Icon name="image" /></span>
+              <div>
+                <h3>Publiczna realizacja / portfolio</h3>
+                <p>Portfolio realizacji — dostępne w kolejnym kroku. Funkcja będzie aktywna później.</p>
+              </div>
+            </header>
+            <label className="check-label"><input type="checkbox" checked={Boolean(project.portfolio_enabled)} disabled readOnly /> Pokaż realizację w publicznym portfolio</label>
+            <div className="form-row">
+              <label>Adres portfolio<input disabled readOnly value={project.portfolio_slug || ""} placeholder="np. firma-kowalski" /></label>
+              <label>Opis realizacji<textarea disabled readOnly rows={3} value={project.portfolio_summary || ""} placeholder="Opis realizacji będzie aktywny później" /></label>
+            </div>
+          </section>
+          {canShowDetailsLock && (
             <label className="check-label">
               <input type="checkbox" name="details_locked" defaultChecked={project.details_locked} />
               Zablokuj majstrom edycję danych zlecenia. Nadal mogą dodawać zdjęcia, opisy i problemy.

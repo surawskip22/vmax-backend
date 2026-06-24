@@ -187,6 +187,24 @@ h1, h2, h3, p { margin-top: 0; }
 .form-stack input:focus, .form-stack textarea:focus, .form-stack select:focus, .toolbar input:focus, .project-controls input:focus, .project-controls select:focus, .directory-toolbar input:focus, .report-toolbar input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(255, 90, 0, 0.12); }
 .form-stack textarea { resize: vertical; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.job-form { gap: 16px; background: linear-gradient(180deg, #fbfdff, #f6f8fb); }
+.job-form-intro { margin: -4px 0 2px; color: var(--muted); line-height: 1.55; }
+.job-form-section { padding: 18px; display: grid; gap: 15px; border: 1px solid #dbe4ef; border-radius: 16px; background: #fff; box-shadow: 0 14px 34px rgba(15, 35, 66, .05); }
+.job-form-section__header { display: flex; align-items: flex-start; gap: 12px; }
+.job-form-section__header > span { width: 38px; height: 38px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 12px; color: var(--navy); background: #edf4ff; }
+.job-form-section__header h3 { margin: 0; color: var(--navy); font-size: 18px; line-height: 1.25; }
+.job-form-section__header p { margin: 3px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.job-form-note { margin: 0; padding: 10px 12px; border-radius: 10px; color: #52637a; background: #eef4fb; font-size: 12px; line-height: 1.45; }
+.job-form-section--disabled { border-color: #d7e0ec; background: #f8fafc; }
+.job-form-section--disabled .job-form-section__header > span { color: #64748b; background: #edf1f6; }
+.job-form-section--disabled input:disabled, .job-form-section--disabled textarea:disabled {
+  color: #7a8797;
+  background: #eef2f7;
+  border-color: #d5deea;
+  cursor: not-allowed;
+}
+.job-form-section--disabled .check-label { padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px solid #dde6f0; }
+.job-form-actions { position: sticky; bottom: -24px; z-index: 1; margin: 2px -24px -24px; padding: 16px 24px; border-top: 1px solid #dbe4ef; background: rgba(255,255,255,.95); backdrop-filter: blur(8px); }
 .form-intro { color: var(--muted); line-height: 1.6; }
 .form-error { color: var(--red); font-size: 13px; }
 .otp-input { font-size: 32px !important; letter-spacing: 0.35em; text-align: center; font-weight: 800; }
@@ -1280,6 +1298,11 @@ audio { width: 100%; margin-top: 13px; }
   .project-report-actions .button { width: 100%; min-width: 0; }
   .modal-backdrop { padding: 0; align-items: end; }
   .modal { max-height: 94vh; border-radius: 18px 18px 0 0; }
+  .job-form { padding: 16px; gap: 12px; }
+  .job-form-section { padding: 14px; border-radius: 14px; }
+  .job-form-section__header > span { width: 34px; height: 34px; border-radius: 10px; }
+  .job-form-section__header h3 { font-size: 16px; }
+  .job-form-actions { bottom: -16px; margin: 0 -16px -16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: grid; grid-template-columns: 1fr; }
   .field-mode > main { padding: 14px 12px 60px; }
   .field-brand strong { font-size: 14px; }
   .field-project { padding: 17px; }

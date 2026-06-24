@@ -856,8 +856,19 @@ function CreateProjectModal({
     }
   }
   return (
-    <Modal title={user.profile_type === "investor" ? "Nowa inwestycja" : "Nowe zlecenie"} onClose={onClose}>
-      <form className="form-stack" onSubmit={submit}>
+    <Modal title={user.profile_type === "investor" ? "Nowa inwestycja" : "Nowe zlecenie"} onClose={onClose} wide>
+      <form className="form-stack job-form" onSubmit={submit}>
+        <p className="job-form-intro">
+          UzupeÅ‚nij najwaÅ¼niejsze dane. Zapis nie zmienia uprawnieÅ„, linkÃ³w ani raportÃ³w.
+        </p>
+        <section className="job-form-section">
+          <header className="job-form-section__header">
+            <span><Icon name="clipboard" /></span>
+            <div>
+              <h3>Dane</h3>
+              <p>Nazwa, klient i lokalizacja zlecenia.</p>
+            </div>
+          </header>
         <label>Nazwa {projectLabel}<input name="name" placeholder={user.profile_type === "investor" ? "np. Budowa domu - etap instalacji" : "np. Remont łazienki"} required autoFocus /></label>
         {!isInvestor(user) && (
           <div className="form-row">
@@ -879,6 +890,7 @@ function CreateProjectModal({
           </label>
         )}
         <label>Adres<input name="address" placeholder="ul. Kwiatowa 15, Kraków" /></label>
+        <p className="job-form-note">Adres pomaga zorganizować zlecenie. Nie jest widoczny publicznie.</p>
         <label>
           Szablon etapów
           <select name="template" defaultValue="remont">
@@ -891,7 +903,15 @@ function CreateProjectModal({
             <option value="custom">Uniwersalny</option>
           </select>
         </label>
-        <div className="contract-fields">
+        </section>
+        <section className="job-form-section">
+          <header className="job-form-section__header">
+            <span><Icon name="report" /></span>
+            <div>
+              <h3>Terminy i budżet</h3>
+              <p>Planowane daty, tolerancja terminu i kwota umowna.</p>
+            </div>
+          </header>
           <div className="form-row">
             <label>Planowany start<input type="date" name="planned_start_date" /></label>
             <label>Planowany koniec<input type="date" name="planned_end_date" /></label>
@@ -900,22 +920,57 @@ function CreateProjectModal({
             <label>Niepewnosc terminu (+/- dni)<input type="number" name="schedule_uncertainty_days" min="0" step="1" placeholder="np. 3" /></label>
             <label>Kwota umowna (PLN)<input type="text" name="contract_amount" inputMode="decimal" placeholder="np. 12000" /></label>
           </div>
-          <p className="form-note">{contractTermsDisclaimer}</p>
-        </div>
+          <p className="job-form-note">{contractTermsDisclaimer}</p>
+        </section>
         {!isInvestor(user) && user.workspaces.length > 0 && (
-          <label>
-            Firma
-            <select name="workspace_id" defaultValue="">
-              <option value="">Projekt prywatny</option>
-              {user.workspaces.map((workspace) => (
-                <option value={workspace.id} key={workspace.id}>{workspace.name}</option>
-              ))}
-            </select>
-          </label>
+          <section className="job-form-section">
+            <header className="job-form-section__header">
+              <span><Icon name="users" /></span>
+              <div>
+                <h3>Dodatkowe opcje</h3>
+                <p>Istniejące ustawienia przypisania zlecenia.</p>
+              </div>
+            </header>
+            <label>
+              Firma
+              <select name="workspace_id" defaultValue="">
+                <option value="">Projekt prywatny</option>
+                {user.workspaces.map((workspace) => (
+                  <option value={workspace.id} key={workspace.id}>{workspace.name}</option>
+                ))}
+              </select>
+            </label>
+          </section>
         )}
-        <label>Opis<textarea name="description" rows={3} placeholder="Krótki zakres prac..." /></label>
+        <section className="job-form-section">
+          <header className="job-form-section__header">
+            <span><Icon name="send" /></span>
+            <div>
+              <h3>Opis</h3>
+              <p>Krótki zakres prac widoczny w szczegółach zlecenia.</p>
+            </div>
+          </header>
+          <label>Opis zlecenia<textarea name="description" rows={4} placeholder="Krótki zakres prac..." /></label>
+        </section>
+        <section className="job-form-section job-form-section--disabled">
+          <header className="job-form-section__header">
+            <span><Icon name="image" /></span>
+            <div>
+              <h3>Publiczna realizacja / portfolio</h3>
+              <p>Portfolio realizacji — dostępne w kolejnym kroku. Funkcja będzie aktywna później.</p>
+            </div>
+          </header>
+          <label className="check-label"><input type="checkbox" disabled /> Pokaż realizację w publicznym portfolio</label>
+          <div className="form-row">
+            <label>Adres portfolio<input disabled placeholder="np. firma-kowalski" /></label>
+            <label>Opis realizacji<textarea disabled rows={3} placeholder="Opis realizacji będzie aktywny później" /></label>
+          </div>
+        </section>
         {error && <p className="form-error">{error}</p>}
-        <Button type="submit" busy={busy} icon="plus">Utwórz {projectLabel}</Button>
+        <div className="modal-actions job-form-actions">
+          <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
+          <Button type="submit" busy={busy} icon="plus">Utwórz {projectLabel}</Button>
+        </div>
       </form>
     </Modal>
   );
