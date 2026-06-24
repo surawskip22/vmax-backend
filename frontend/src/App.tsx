@@ -4604,6 +4604,169 @@ function SettingsPage({
       </div>
     );
   }
+  if (isIndependentContractor(user)) {
+    const displayName = user.name || user.email || "Samodzielny majster";
+    const displayEmail = user.email || "Konto dostępowe bez e-maila";
+    const displayPhone = user.phone || "Nie podano";
+    const defaultModeLabel = uiMode === "simple" ? "Prosty" : "Rozbudowany";
+    return (
+      <div className="page worker-settings-page">
+        <WorkerMobileHeader />
+        <header className="worker-page-header">
+          <div>
+            <span className="eyebrow">Konto wykonawcy</span>
+            <h1>Ustawienia</h1>
+            <p>Proste dane samodzielnego majstra. Bez panelu firmy, ludzi i ekip.</p>
+          </div>
+        </header>
+        <section className="worker-settings-stack">
+          <article className="worker-settings-card">
+            <h2>Moje konto</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="users" /></span>
+                <div><strong>Imię i nazwisko</strong><small>{displayName}</small></div>
+                <b>{displayName}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="send" /></span>
+                <div><strong>E-mail / login</strong><small>{displayEmail}</small></div>
+                <b>{displayEmail}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="settings" /></span>
+                <div><strong>Telefon</strong><small>{displayPhone}</small></div>
+                <b>{displayPhone}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="clipboard" /></span>
+                <div><strong>Typ konta</strong><small>Samodzielny majster</small></div>
+                <b>Samodzielny majster</b>
+              </div>
+              <button
+                className="worker-settings-row worker-settings-row--action"
+                type="button"
+                aria-expanded={workerProfileEditorOpen}
+                onClick={() => setWorkerProfileEditorOpen((open) => !open)}
+              >
+                <span><Icon name="settings" /></span>
+                <div><strong>Edytuj dane</strong><small>{workerProfileEditorOpen ? "Ukryj formularz profilu" : "Zmień imię i telefon"}</small></div>
+                <em>{workerProfileEditorOpen ? "Ukryj" : "Edytuj"}</em>
+              </button>
+            </div>
+            {workerProfileEditorOpen && (
+              <form className="worker-settings-edit-form" onSubmit={submit}>
+                <label>Imię i nazwisko<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
+                <label>Telefon<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
+                <div className="worker-settings-email-lock">
+                  <strong>E-mail / login</strong>
+                  <p>
+                    Obecnie e-mail jest loginem do konta. Login pozostaje bez zmian:
+                    {" "}<u>{displayEmail}</u>.
+                  </p>
+                  <small>Zmiana e-maila kontaktowego i osobna zmiana loginu będą dostępne w kroku 10B/10C.</small>
+                </div>
+                <input type="hidden" name="preferred_mode" value={uiMode === "simple" ? "field" : "expanded"} />
+                <Button type="submit">Zapisz profil</Button>
+              </form>
+            )}
+          </article>
+          <article className="worker-settings-card">
+            <h2>Profil wykonawcy</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="clipboard" /></span>
+                <div>
+                  <strong>Nazwa profilu</strong>
+                  <small>Profil widoczny przy zleceniach i wpisach postępu.</small>
+                </div>
+                <b>{displayName}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="users" /></span>
+                <div>
+                  <strong>Domyślna rola</strong>
+                  <small>Samodzielny wykonawca bez przypisanej firmy.</small>
+                </div>
+                <b>Samodzielny majster</b>
+              </div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="image" /></span>
+                <div>
+                  <strong>Profil wykonawcy</strong>
+                  <small>Profil wykonawcy będzie bazą pod portfolio i publiczną wizytówkę.</small>
+                </div>
+                <b>Dostępne później</b>
+              </div>
+            </div>
+          </article>
+          <article className="worker-settings-card">
+            <h2>Preferencje</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row worker-settings-row--mode">
+                <span><Icon name="settings" /></span>
+                <div>
+                  <strong>Tryb domyślny</strong>
+                  <small>Tryb uruchamiany po zalogowaniu.</small>
+                  <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
+                </div>
+                <b>{defaultModeLabel}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="send" /></span>
+                <div><strong>Język aplikacji</strong><small>Ustawiony dla konta</small></div>
+                <b>{user.locale === "pl" ? "Polski" : user.locale || "Polski"}</b>
+              </div>
+            </div>
+          </article>
+          <article className="worker-settings-card">
+            <h2>Bezpieczeństwo</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="send" /></span>
+                <div><strong>E-mail / login</strong><small>{displayEmail}</small></div>
+                <b>{displayEmail}</b>
+              </div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="settings" /></span>
+                <div><strong>Zmiana hasła</strong><small>Dostępne w kroku 10B/10C</small></div>
+                <b>KROK 10B/10C</b>
+              </div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="link" /></span>
+                <div><strong>Kod dostępu</strong><small>Dostępne w kroku 10B/10C</small></div>
+                <b>KROK 10B/10C</b>
+              </div>
+            </div>
+          </article>
+          <article className="worker-settings-card">
+            <h2>Portfolio / wizytówka</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="image" /></span>
+                <div><strong>Publiczna wizytówka</strong><small>Portfolio i publiczna wizytówka będą dostępne później.</small></div>
+                <b>Dostępne później</b>
+              </div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="clipboard" /></span>
+                <div><strong>Realizacje w portfolio</strong><small>Lista publicznych realizacji zostanie podpięta w osobnym kroku.</small></div>
+                <b>Future-only</b>
+              </div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="link" /></span>
+                <div><strong>Adres strony portfolio</strong><small>Adres publicznej wizytówki nie jest jeszcze aktywny.</small></div>
+                <b>Dostępne później</b>
+              </div>
+            </div>
+          </article>
+          <button className="worker-settings-danger-row" type="button" onClick={onLogout}>
+            <span><Icon name="back" /></span>
+            <strong>Wyloguj się</strong>
+          </button>
+        </section>
+      </div>
+    );
+  }
   return (
     <div className="page">
       <header className="page-header"><div><span className="eyebrow">Konto</span><h1>Ustawienia</h1><p>Uzupełnij dane widoczne przy wpisach i raportach.</p></div></header>
