@@ -3133,6 +3133,32 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
   const [sortBy, setSortBy] = useState<"issued" | "ended" | "name">("issued");
   const [sortDirection, setSortDirection] = useState<"newest" | "oldest">("newest");
   const [collapsedReports, setCollapsedReports] = useState<string[]>([]);
+  const [reportModalProject, setReportModalProject] = useState<Project | null>(null);
+  const [reportModalReports, setReportModalReports] = useState<Report[]>([]);
+  const [reportModalLoading, setReportModalLoading] = useState(false);
+  const [reportModalError, setReportModalError] = useState("");
+  const [busyReportAction, setBusyReportAction] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!reportModalProject) return;
+    let active = true;
+    setReportModalLoading(true);
+    setReportModalError("");
+    api<Report[]>(`/projects/${reportModalProject.id}/reports`)
+      .then((items) => {
+        if (active) setReportModalReports(items);
+      })
+      .catch((reason) => {
+        if (active) {
+          setReportModalReports([]);
+          setReportModalError(reason instanceof Error ? reason.message : "Nie udało się wczytać raportów PDF");
+        }
+      })
+      .finally(() => {
+        if (active) setReportModalLoading(false);
+      });
+    return () => { active = false; };
+  }, [reportModalProject]);
 
   function reportMaterialCount(project: Project): number {
     return project.entry_count || 0;
@@ -3159,6 +3185,30 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
     setCollapsedReports((current) => current.includes(projectId)
       ? current.filter((item) => item !== projectId)
       : [...current, projectId]);
+  }
+
+  function openReportModal(project: Project) {
+    setReportModalReports([]);
+    setReportModalError("");
+    setReportModalProject(project);
+  }
+
+  async function handleReportPdf(report: Report, action: "open" | "download") {
+    const pdfHref = reportPdfHref(report);
+    if (!pdfHref) {
+      setReportModalError("Raport PDF nie jest jeszcze gotowy");
+      return;
+    }
+    setBusyReportAction(`${report.id}:${action}`);
+    setReportModalError("");
+    try {
+      const blob = await fetchPdfBlob(pdfHref);
+      openBlobUrl(blob, `${reportTypeLabel(report)}-${reportDisplayDate(report)}.pdf`, action === "download");
+    } catch (reason) {
+      setReportModalError(reason instanceof Error ? reason.message : "Nie udało się otworzyć raportu PDF");
+    } finally {
+      setBusyReportAction(null);
+    }
   }
 
   const openProjects = projects.filter((project) => project.status !== "completed");
@@ -3266,29 +3316,19 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
           ))}
         </section>
 
-        <section className="report-control-panel" aria-label="Wyszukiwanie i sortowanie raportów">
+        <section className="report-toolbar independent-report-toolbar" aria-label="Wyszukiwanie i sortowanie raportów">
           <input
             type="search"
-            placeholder="Szukaj po nazwie zlecenia, kliencie lub raporcie..."
+            placeholder="Szukaj po nazwie zlecenia, kliencie lub wykonawcy..."
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
-            <option value="all">Status: Wszystkie</option>
-            <option value="assigned">Status: Zlecone</option>
-            <option value="in_progress">Status: W realizacji</option>
-            <option value="completed">Status: Zakończone</option>
-          </select>
-          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
-            <option value="issued">Sortuj: Data wystawienia</option>
-            <option value="ended">Sortuj: Data zakończenia zlecenia</option>
-            <option value="name">Sortuj: Nazwa zlecenia</option>
-          </select>
-          <select value={sortDirection} onChange={(event) => setSortDirection(event.target.value as typeof sortDirection)}>
-            <option value="newest">Kolejność: Najnowsze</option>
-            <option value="oldest">Kolejność: Najstarsze</option>
-          </select>
-          <button type="button" className="report-filter-button">Filtry (0)</button>
+          <div className="report-sort-controls" aria-label="Sortowanie raportów">
+            <button type="button" className={sortBy === "issued" ? "active" : ""} onClick={() => setSortBy("issued")}>Data wystawienia</button>
+            <button type="button" className={sortBy === "ended" ? "active" : ""} onClick={() => setSortBy("ended")}>Data zakończenia zlecenia</button>
+            <button type="button" className={sortDirection === "newest" ? "active" : ""} onClick={() => setSortDirection("newest")}>Najnowsze</button>
+            <button type="button" className={sortDirection === "oldest" ? "active" : ""} onClick={() => setSortDirection("oldest")}>Najstarsze</button>
+          </div>
         </section>
 
         <section className="report-project-list independent-report-list">
@@ -3298,12 +3338,12 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
             <EmptyState icon="report" title="Brak wyników" text="Zmień filtr lub wyszukiwaną frazę." />
           ) : filteredProjects.map((project) => {
             const count = reportMaterialCount(project);
-            const isExpanded = !collapsedReports.includes(project.id);
+            const isExpanded = collapsedReports.includes(project.id);
             const issuedDate = new Intl.DateTimeFormat("pl").format(new Date(project.updated_at || project.created_at));
             const safeStatusLabel = statusLabels[project.status] || project.status;
             return (
               <article className={`report-project-card independent-report-card ${isExpanded ? "is-expanded" : ""}`} key={project.id}>
-                <header onClick={() => toggleReportDetails(project.id)}>
+                <header>
                   <span className="report-project-card__icon"><Icon name="report" /></span>
                   <div className="report-project-card__main">
                     <h2>{project.name}</h2>
@@ -3326,6 +3366,10 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
                     {reportBadge(project)}
                     <Icon name="back" size={15} />
                   </button>
+                  <div className="independent-report-card__actions">
+                    <Button type="button" variant="secondary" onClick={() => onOpen(project)}>Otwórz zlecenie</Button>
+                    <Button type="button" variant="secondary" icon="report" onClick={() => openReportModal(project)}>Otwórz raporty PDF</Button>
+                  </div>
                 </header>
                 {isExpanded && (
                   <section className="report-materials">
@@ -3343,7 +3387,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
                         </div>
                         <div><small>Data wystawienia</small><strong>{issuedDate}</strong></div>
                         <div><small>Etap / Status</small><span className={`status status--${project.status}`}>{safeStatusLabel}</span></div>
-                        <Button type="button" variant="secondary" icon="report" onClick={() => onOpen(project)}>Otwórz raport</Button>
+                        <Button type="button" variant="secondary" icon="report" onClick={() => openReportModal(project)}>Otwórz raporty PDF</Button>
                       </article>
                     </div>
                   </section>
@@ -3362,6 +3406,71 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
               <button type="button" disabled><Icon name="back" size={15} /></button>
             </div>
           </footer>
+        )}
+        {reportModalProject && (
+          <Modal title="Raporty PDF" onClose={() => setReportModalProject(null)} wide>
+            <div className="report-pdf-modal">
+              <section className="report-pdf-modal__preview">
+                <span><Icon name="report" /></span>
+                <div>
+                  <h3>{reportModalProject.name}</h3>
+                  <p>
+                    {[reportModalProject.client_name ? `Klient: ${reportModalProject.client_name}` : "", reportModalProject.address || ""]
+                      .filter(Boolean)
+                      .join(" · ") || "Materiały raportowe z tego zlecenia"}
+                  </p>
+                  <small>Podgląd materiałów raportowych</small>
+                </div>
+              </section>
+              {reportModalError && <p className="form-error">{reportModalError}</p>}
+              {reportModalLoading ? (
+                <div className="loading-screen"><span className="spinner" /> Ładowanie raportów...</div>
+              ) : reportModalReports.filter((report) => ["daily", "final"].includes(report.report_type) && report.pdf_url).length === 0 ? (
+                <EmptyState icon="report" title="Brak raportów PDF" text="Raporty pojawią się tutaj po wygenerowaniu raportu w szczególe zlecenia.">
+                  <Button type="button" variant="secondary" onClick={() => { const project = reportModalProject; setReportModalProject(null); onOpen(project); }}>Otwórz zlecenie</Button>
+                </EmptyState>
+              ) : (
+                <div className="report-pdf-modal__list">
+                  {reportModalReports
+                    .filter((report) => ["daily", "final"].includes(report.report_type) && report.pdf_url)
+                    .map((report) => (
+                      <article key={report.id}>
+                        <span><Icon name="report" /></span>
+                        <div>
+                          <strong>{reportTypeLabel(report)}</strong>
+                          <small>{reportDisplayDate(report)}</small>
+                        </div>
+                        <div>
+                          <small>Status</small>
+                          <span className={`report-status report-status--${report.status}`}>{reportStatusLabel(report)}</span>
+                        </div>
+                        <div>
+                          <small>Materiały</small>
+                          <b>{reportMaterialCount(reportModalProject)} wpisów</b>
+                        </div>
+                        <div className="generated-report-actions">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            busy={busyReportAction === `${report.id}:open`}
+                            onClick={() => void handleReportPdf(report, "open")}
+                          >
+                            Otwórz PDF
+                          </Button>
+                          <Button
+                            type="button"
+                            busy={busyReportAction === `${report.id}:download`}
+                            onClick={() => void handleReportPdf(report, "download")}
+                          >
+                            Pobierz
+                          </Button>
+                        </div>
+                      </article>
+                    ))}
+                </div>
+              )}
+            </div>
+          </Modal>
         )}
       </div>
     );
