@@ -9,6 +9,8 @@ type PortfolioRealization = {
   projectId: string;
   title: string;
   description: string;
+  locationPublic: string;
+  workScope: string[];
   dateStart: string;
   dateEnd: string;
   amount: string;
@@ -38,6 +40,8 @@ type PortfolioDraft = {
   projectId: string;
   title: string;
   description: string;
+  locationPublic: string;
+  workScope: string[];
   dateStart: string;
   dateEnd: string;
   amount: string;
@@ -105,6 +109,8 @@ const portfolioStoragePrefix = "panmajster_independent_portfolio_";
 const reviewStoragePrefix = "panmajster_independent_portfolio_reviews_";
 const profileStoragePrefix = "panmajster_independent_portfolio_profile_";
 const defaultPortfolioTags = ["Remonty łazienek", "Wykończenia wnętrz", "Biały montaż", "Glazura i terakota", "Kuchnie na wymiar"];
+const defaultWorkScopeTags = ["Demontaż", "Hydraulika", "Glazura", "Biały montaż", "Malowanie", "Zabudowa GK"];
+const galleryLimit = 10;
 
 function storageIdentity(user: User) {
   return user.id || user.email || "anonymous";
@@ -148,9 +154,64 @@ function projectAmount(project: Project) {
   return `${project.contract_amount} ${project.contract_currency || "PLN"}`;
 }
 
+function publicLocationFromProject(project?: Project) {
+  if (!project) return "Warszawa i okolice";
+  const source = project.address || project.client_name || "";
+  const parts = source.split(",").map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : parts[0] || "Warszawa i okolice";
+}
+
 function projectLocation(project?: Project) {
   if (!project) return "Bez lokalizacji";
   return project.address || project.client_name || "Bez lokalizacji";
+}
+
+function realizationLocation(item: PortfolioRealization, project?: Project) {
+  return item.locationPublic || publicLocationFromProject(project);
+}
+
+function realizationScope(item: PortfolioRealization, profile?: PortfolioProfile) {
+  const tags = Array.isArray(item.workScope) ? item.workScope.filter(Boolean) : [];
+  if (tags.length > 0) return tags;
+  return profile?.tags?.slice(0, 3) || defaultWorkScopeTags.slice(0, 3);
+}
+
+function projectImageUrls(project?: Project) {
+  const entries = (project as Project & { entries?: Array<{ media?: Array<{ kind?: string; url?: string }> }> } | undefined)?.entries || [];
+  return entries
+    .flatMap((entry) => entry.media || [])
+    .filter((media) => media.kind === "image" && media.url)
+    .map((media) => media.url as string)
+    .slice(0, galleryLimit);
+}
+
+function normalizeRealization(value: unknown, index: number): PortfolioRealization | null {
+  if (!value || typeof value !== "object") return null;
+  const data = value as Partial<PortfolioRealization> & { tags?: string[]; location?: string };
+  const now = new Date().toISOString();
+  const title = data.title?.trim();
+  if (!title) return null;
+  const galleryUrls = Array.isArray(data.galleryUrls) ? data.galleryUrls.filter(Boolean).slice(0, galleryLimit) : [];
+  return {
+    id: data.id || `realization-${Date.now()}-${index}`,
+    projectId: data.projectId || "",
+    title,
+    description: data.description || "Realizacja zakończona i gotowa do pokazania klientom.",
+    locationPublic: data.locationPublic || data.location || "",
+    workScope: Array.isArray(data.workScope) && data.workScope.length > 0
+      ? data.workScope.filter(Boolean).slice(0, 10)
+      : Array.isArray(data.tags) ? data.tags.filter(Boolean).slice(0, 10) : [],
+    dateStart: data.dateStart || "",
+    dateEnd: data.dateEnd || "",
+    amount: data.amount || "",
+    showAmount: Boolean(data.showAmount),
+    status: data.status === "published" ? "published" : "draft",
+    coverTone: typeof data.coverTone === "number" && Number.isFinite(data.coverTone) ? data.coverTone : index,
+    coverUrl: data.coverUrl || galleryUrls[0],
+    galleryUrls,
+    createdAt: data.createdAt || now,
+    updatedAt: data.updatedAt || data.createdAt || now,
+  };
 }
 
 function defaultPortfolioProfile(user: User): PortfolioProfile {
@@ -248,16 +309,19 @@ function dateRange(item: PortfolioRealization) {
 }
 
 function draftFromProject(project?: Project): PortfolioDraft {
+  const availableImages = projectImageUrls(project);
   return {
     projectId: project?.id || "",
     title: project?.name || "",
     description: project?.portfolio_summary || project?.description || "Krótki opis realizacji widoczny na publicznej wizytówce.",
+    locationPublic: publicLocationFromProject(project),
+    workScope: defaultWorkScopeTags.slice(0, 3),
     dateStart: project?.planned_start_date || "",
     dateEnd: project?.planned_end_date || "",
     amount: project ? projectAmount(project) : "",
     showAmount: Boolean(project?.contract_amount),
-    coverUrl: undefined,
-    galleryUrls: [],
+    coverUrl: availableImages[0],
+    galleryUrls: availableImages,
   };
 }
 
@@ -268,6 +332,8 @@ function realizationFromProject(project: Project, index: number): PortfolioReali
     projectId: project.id,
     title: project.name,
     description: project.portfolio_summary || project.description || "Realizacja zakończona i gotowa do pokazania klientom.",
+    locationPublic: publicLocationFromProject(project),
+    workScope: defaultWorkScopeTags.slice(0, 3),
     dateStart: project.planned_start_date || "",
     dateEnd: project.planned_end_date || project.updated_at?.slice(0, 10) || "",
     amount: projectAmount(project),
@@ -285,7 +351,7 @@ function loadPortfolio(user: User): PortfolioRealization[] {
     const raw = localStorage.getItem(portfolioStorageKey(user));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeRealization).filter((item): item is PortfolioRealization => Boolean(item)) : [];
   } catch {
     return [];
   }
@@ -375,6 +441,8 @@ function PortfolioModal({
     projectId: editing.projectId,
     title: editing.title,
     description: editing.description,
+    locationPublic: editing.locationPublic,
+    workScope: realizationScope(editing),
     dateStart: editing.dateStart,
     dateEnd: editing.dateEnd,
     amount: editing.amount,
@@ -382,11 +450,46 @@ function PortfolioModal({
     coverUrl: editing.coverUrl,
     galleryUrls: editing.galleryUrls || [],
   } : draftFromProject(initialProject));
+  const [scopeInput, setScopeInput] = useState("");
   const selectedProject = projects.find((project) => project.id === draft.projectId);
+  const availableImages = projectImageUrls(selectedProject);
 
   function updateProject(projectId: string) {
     const project = projects.find((item) => item.id === projectId);
     setDraft(draftFromProject(project));
+  }
+
+  function addScopeTag(tag: string) {
+    const clean = tag.trim();
+    if (!clean) return;
+    setDraft((current) => current.workScope.includes(clean) || current.workScope.length >= 10
+      ? current
+      : { ...current, workScope: [...current.workScope, clean] });
+    setScopeInput("");
+  }
+
+  function removeScopeTag(tag: string) {
+    setDraft((current) => ({ ...current, workScope: current.workScope.filter((item) => item !== tag) }));
+  }
+
+  function setCover(url: string) {
+    setDraft((current) => ({
+      ...current,
+      coverUrl: url,
+      galleryUrls: current.galleryUrls.includes(url) ? current.galleryUrls : [url, ...current.galleryUrls].slice(0, galleryLimit),
+    }));
+  }
+
+  function toggleGallery(url: string) {
+    setDraft((current) => {
+      const exists = current.galleryUrls.includes(url);
+      if (exists) {
+        const nextGallery = current.galleryUrls.filter((item) => item !== url);
+        return { ...current, galleryUrls: nextGallery, coverUrl: current.coverUrl === url ? nextGallery[0] : current.coverUrl };
+      }
+      if (current.galleryUrls.length >= galleryLimit) return current;
+      return { ...current, galleryUrls: [...current.galleryUrls, url], coverUrl: current.coverUrl || url };
+    });
   }
 
   function save(status: PortfolioStatus) {
@@ -397,6 +500,8 @@ function PortfolioModal({
       projectId: draft.projectId,
       title: draft.title.trim(),
       description: draft.description.trim(),
+      locationPublic: draft.locationPublic.trim(),
+      workScope: draft.workScope.map((tag) => tag.trim()).filter(Boolean).slice(0, 10),
       dateStart: draft.dateStart,
       dateEnd: draft.dateEnd,
       amount: draft.amount.trim(),
@@ -414,8 +519,6 @@ function PortfolioModal({
     event.preventDefault();
     save("published");
   }
-
-  const galleryCount = Math.min(6, Math.max(4, draft.galleryUrls.length || selectedProject?.entry_count || 0));
 
   if (projects.length === 0) {
     return (
@@ -451,19 +554,20 @@ function PortfolioModal({
         </header>
         <form className="ic-portfolio-form" onSubmit={submit}>
           <section>
-            <h3>1. Wybierz zakończone zlecenie</h3>
+            <h3>Źródło realizacji</h3>
             <label>
-              Zlecenie
+              Wybierz zakończone zlecenie
               <select value={draft.projectId} onChange={(event) => updateProject(event.target.value)} disabled={Boolean(editing)}>
                 {projects.map((project) => (
                   <option value={project.id} key={project.id}>{project.name} - {project.address || project.client_name || "bez adresu"}</option>
                 ))}
               </select>
             </label>
+            <p className="form-note">Dane robocze pomagają wypełnić realizację, ale publicznie pokazujemy tylko wybrane informacje.</p>
           </section>
 
           <section>
-            <h3>2. Informacje o realizacji</h3>
+            <h3>Opis publiczny</h3>
             <label>
               Tytuł realizacji
               <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required />
@@ -472,13 +576,43 @@ function PortfolioModal({
               Opis publiczny
               <textarea rows={5} value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} required />
             </label>
+            <label>
+              Lokalizacja publiczna
+              <input value={draft.locationPublic} onChange={(event) => setDraft((current) => ({ ...current, locationPublic: event.target.value }))} placeholder="np. Mokotów, Warszawa, Piaseczno" />
+            </label>
+            <p className="form-note">To opis widoczny na wizytówce. Nie musi być taki sam jak roboczy opis zlecenia.</p>
+          </section>
+
+          <section>
+            <h3>Zakres prac</h3>
+            <div className="ic-scope-editor">
+              <input value={scopeInput} onChange={(event) => setScopeInput(event.target.value)} placeholder="Dodaj zakres prac, np. Hydraulika" />
+              <button type="button" className="button button--secondary" onClick={() => addScopeTag(scopeInput)}>Dodaj</button>
+            </div>
+            <div className="ic-scope-presets" aria-label="Podpowiedzi zakresu prac">
+              {defaultWorkScopeTags.map((tag) => (
+                <button type="button" key={tag} onClick={() => addScopeTag(tag)} disabled={draft.workScope.includes(tag) || draft.workScope.length >= 10}>{tag}</button>
+              ))}
+            </div>
+            <div className="ic-profile-tags ic-realization-tags" aria-label="Zakres prac realizacji">
+              {draft.workScope.length === 0 ? <span>Dodaj tagi zakresu wykonanej pracy.</span> : draft.workScope.map((tag) => (
+                <button type="button" key={tag} onClick={() => removeScopeTag(tag)}>
+                  {tag}
+                  <Icon name="close" size={14} />
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h3>Daty i kwota</h3>
             <div className="ic-portfolio-form__row">
               <label>
-                Data od
+                Data rozpoczęcia
                 <input type="date" value={draft.dateStart} onChange={(event) => setDraft((current) => ({ ...current, dateStart: event.target.value }))} />
               </label>
               <label>
-                Data do
+                Data zakończenia
                 <input type="date" value={draft.dateEnd} onChange={(event) => setDraft((current) => ({ ...current, dateEnd: event.target.value }))} />
               </label>
               <label>
@@ -488,28 +622,56 @@ function PortfolioModal({
             </div>
             <label className="ic-portfolio-toggle">
               <input type="checkbox" checked={draft.showAmount} onChange={(event) => setDraft((current) => ({ ...current, showAmount: event.target.checked }))} />
-              Pokaż kwotę
+              Pokaż kwotę na wizytówce
             </label>
+            <p className="form-note">Kwota jest opcjonalna. Możesz ją ukryć w publicznej wizytówce.</p>
           </section>
 
           <section>
-            <h3>3. Zdjęcia realizacji</h3>
+            <h3>Zdjęcie główne</h3>
             <div className="ic-portfolio-photo-picker">
-              <div>
-                <small>Zdjęcie główne</small>
+              <div className="ic-portfolio-cover-preview">
+                <small>Aktualne zdjęcie główne</small>
                 <PortfolioImage tone={editing?.coverTone ?? 0} src={draft.coverUrl} large />
               </div>
               <div>
-                <small>Galeria zdjęć z wpisów</small>
-                <div className="ic-portfolio-gallery-picker">
-                  {Array.from({ length: galleryCount }).map((_, index) => (
-                    <PortfolioImage tone={index + 1} src={draft.galleryUrls[index]} key={index} />
-                  ))}
-                  <button type="button" disabled><Icon name="plus" /> Dodaj zdjęcia</button>
-                </div>
-                <p>Jeśli realizacja ma zapisane zdjęcia, pokażą się tutaj. Nowy upload i trwałe podpięcie galerii portfolio zostają w kolejnym kroku.</p>
+                <small>Wybierz z dostępnych zdjęć</small>
+                {availableImages.length === 0 ? (
+                  <p className="form-note">Brak zdjęć do wyboru dla tej realizacji. Zdjęcia z zakończonego zlecenia będą dostępne po podpięciu galerii do backendu.</p>
+                ) : (
+                  <div className="ic-portfolio-gallery-picker">
+                    {availableImages.map((src, index) => (
+                      <button type="button" className={draft.coverUrl === src ? "active" : ""} onClick={() => setCover(src)} key={src}>
+                        <PortfolioImage tone={index + 1} src={src} />
+                        {draft.coverUrl === src && <span>Zdjęcie główne</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+          </section>
+
+          <section>
+            <h3>Galeria zdjęć</h3>
+            {availableImages.length === 0 ? (
+              <p className="form-note">Brak zdjęć do wyboru dla tej realizacji. Placeholder będzie widoczny tylko tam, gdzie brakuje zdjęć.</p>
+            ) : (
+              <>
+                <p className="form-note">Wybrano {draft.galleryUrls.length} z {availableImages.length} zdjęć. Limit galerii: {galleryLimit} zdjęć.</p>
+                <div className="ic-portfolio-gallery-picker ic-portfolio-gallery-picker--selectable">
+                  {availableImages.map((src, index) => {
+                    const checked = draft.galleryUrls.includes(src);
+                    return (
+                      <button type="button" className={checked ? "active" : ""} onClick={() => toggleGallery(src)} key={src}>
+                        <PortfolioImage tone={index + 2} src={src} />
+                        {checked && <span><Icon name="check" size={14} /> Wybrane</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </section>
 
           <footer className="modal-actions ic-portfolio-form__actions">
@@ -772,6 +934,58 @@ function ContactModal({
   );
 }
 
+function RealizationPreviewModal({
+  item,
+  project,
+  profile,
+  onClose,
+  onContact,
+}: {
+  item: PortfolioRealization;
+  project?: Project;
+  profile: PortfolioProfile;
+  onClose: () => void;
+  onContact: () => void;
+}) {
+  const tags = realizationScope(item, profile);
+  const gallery = item.galleryUrls?.length ? item.galleryUrls : item.coverUrl ? [item.coverUrl] : [];
+  return (
+    <div className="modal-backdrop" role="presentation">
+      <div className="modal modal--wide ic-portfolio-modal ic-realization-preview-modal" role="dialog" aria-modal="true" aria-labelledby="realization-preview-title">
+        <header className="modal__header">
+          <div>
+            <h2 id="realization-preview-title">{item.title}</h2>
+            <p>{realizationLocation(item, project)} · {dateRange(item)}</p>
+          </div>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Zamknij"><Icon name="close" /></button>
+        </header>
+        <div className="ic-realization-preview">
+          <div>
+            <PortfolioImage tone={item.coverTone} src={item.coverUrl} large />
+            {gallery.length > 0 && (
+              <div className="ic-portfolio-public-thumbs">
+                {gallery.slice(0, 6).map((src, index) => <PortfolioImage tone={item.coverTone + index + 1} src={src} key={`${item.id}-preview-${index}`} />)}
+              </div>
+            )}
+          </div>
+          <section>
+            <span className={`ic-portfolio-status ic-portfolio-status--${item.status}`}>{statusLabel(item.status)}</span>
+            <h3>{item.title}</h3>
+            <p>{item.description}</p>
+            <dl>
+              <div><dt>Lokalizacja</dt><dd>{realizationLocation(item, project)}</dd></div>
+              <div><dt>Data realizacji</dt><dd>{dateRange(item)}</dd></div>
+              {item.showAmount && item.amount && <div><dt>Kwota realizacji</dt><dd>{item.amount}</dd></div>}
+            </dl>
+            <div className="ic-public-tags">{tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+            <button type="button" className="button button--primary" onClick={onContact}><Icon name="send" /> Skontaktuj się</button>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConfirmDeleteModal({
   target,
   onCancel,
@@ -907,6 +1121,7 @@ export function IndependentPortfolioPage({
   const [profileLoadedFor, setProfileLoadedFor] = useState("");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
+  const [previewRealization, setPreviewRealization] = useState<PortfolioRealization | null>(null);
   const userStorageId = storageIdentity(user);
   const completedProjects = useMemo(() => projects.filter((project) => project.status === "completed"), [projects]);
   const projectsById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
@@ -1055,13 +1270,15 @@ export function IndependentPortfolioPage({
                 </div>
                 <div>
                   <h2>{previewItem.title}</h2>
-                  <p className="ic-portfolio-location">{projectLocation(previewProject)}</p>
+                  <p className="ic-portfolio-location">{realizationLocation(previewItem, previewProject)}</p>
                   <p>{previewItem.description}</p>
+                  <div className="ic-public-tags">{realizationScope(previewItem, profile).map((tag) => <span key={tag}>{tag}</span>)}</div>
                   <dl>
                     <div><dt>Data realizacji</dt><dd>{dateRange(previewItem)}</dd></div>
                     {previewItem.showAmount && previewItem.amount && <div><dt>Kwota realizacji</dt><dd>{previewItem.amount}</dd></div>}
-                    <div><dt>Zakres prac</dt><dd>{profile.tags.slice(0, 2).join(", ") || "Usługi remontowe"}</dd></div>
+                    <div><dt>Zdjęcia</dt><dd>{previewItem.galleryUrls?.length || 0} zdjęć</dd></div>
                   </dl>
+                  <button type="button" className="button button--secondary" onClick={() => setPreviewRealization(previewItem)}>Podgląd realizacji</button>
                 </div>
               </article>
             )}
@@ -1078,8 +1295,12 @@ export function IndependentPortfolioPage({
                         <PortfolioImage tone={item.coverTone} src={item.coverUrl} />
                         <div>
                           <strong>{item.title}</strong>
-                          <small>{dateRange(item)} · {projectLocation(project)}</small>
+                          <small>{dateRange(item)} · {realizationLocation(item, project)}</small>
+                          <p>{item.description}</p>
+                          <div className="ic-public-tags">{realizationScope(item, profile).slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div>
+                          {item.showAmount && item.amount && <em>{item.amount}</em>}
                         </div>
+                        <button type="button" className="text-button" onClick={() => setPreviewRealization(item)}>Podgląd</button>
                       </article>
                     );
                   })}
@@ -1098,6 +1319,18 @@ export function IndependentPortfolioPage({
             </section>
           </section>
         </div>
+        {previewRealization && (
+          <RealizationPreviewModal
+            item={previewRealization}
+            project={projectsById.get(previewRealization.projectId)}
+            profile={profile}
+            onClose={() => setPreviewRealization(null)}
+            onContact={() => {
+              setPreviewRealization(null);
+              setContactModalOpen(true);
+            }}
+          />
+        )}
         {contactModalOpen && <ContactModal profile={profile} onClose={() => setContactModalOpen(false)} />}
       </>
     );
@@ -1142,11 +1375,14 @@ export function IndependentPortfolioPage({
                   <PortfolioImage tone={item.coverTone} src={item.coverUrl} />
                   <div>
                     <strong>{item.title}</strong>
-                    <small>{dateRange(item)} · {projectLocation(project)}</small>
+                    <small>{dateRange(item)} · {realizationLocation(item, project)}</small>
+                    <p>{item.galleryUrls?.length || 0} zdjęć</p>
+                    <div className="ic-public-tags">{realizationScope(item, profile).slice(0, 4).map((tag) => <span key={tag}>{tag}</span>)}</div>
                   </div>
                   <span className={`ic-portfolio-status ic-portfolio-status--${item.status}`}>{statusLabel(item.status)}</span>
                   <div className="ic-portfolio-actions">
                     <button type="button" onClick={() => openEdit(item)}>Edytuj</button>
+                    <button type="button" onClick={() => setPreviewRealization(item)}>Podgląd</button>
                     <button type="button" onClick={() => toggleItemStatus(item)}>{item.status === "published" ? "Przenieś do szkiców" : "Opublikuj"}</button>
                     {item.status === "published" && <button type="button" onClick={() => copyLink(item)}>Kopiuj link</button>}
                     <button type="button" className="danger" onClick={() => setDeleteTarget({ kind: "realization", id: item.id, title: item.title })}>{item.status === "published" ? "Usuń z wizytówki" : "Usuń"}</button>
@@ -1190,8 +1426,9 @@ export function IndependentPortfolioPage({
                         <PortfolioImage tone={item.coverTone} src={item.coverUrl} large />
                         <div>
                           <strong>{item.title}</strong>
-                          <span>{formatDate(item.dateEnd || item.updatedAt.slice(0, 10))} · {projectLocation(project)}</span>
-                          <small>{project?.entry_count || 0} wpisy</small>
+                          <span>{formatDate(item.dateEnd || item.updatedAt.slice(0, 10))} · {realizationLocation(item, project)}</span>
+                          <div className="ic-public-tags">{realizationScope(item, profile).slice(0, 3).map((tag) => <span key={tag}>{tag}</span>)}</div>
+                          <small>{item.status === "published" ? "Opublikowana" : "Szkic"} · {item.galleryUrls?.length || 0} zdjęć</small>
                         </div>
                       </article>
                     );
@@ -1253,6 +1490,18 @@ export function IndependentPortfolioPage({
           onSave={(nextProfile) => {
             setProfile(nextProfile);
             setProfileModalOpen(false);
+          }}
+        />
+      )}
+      {previewRealization && (
+        <RealizationPreviewModal
+          item={previewRealization}
+          project={projectsById.get(previewRealization.projectId)}
+          profile={profile}
+          onClose={() => setPreviewRealization(null)}
+          onContact={() => {
+            setPreviewRealization(null);
+            setContactModalOpen(true);
           }}
         />
       )}
