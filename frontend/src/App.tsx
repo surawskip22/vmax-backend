@@ -1081,11 +1081,13 @@ function ProjectsPage({
       const result = new Date(dateValue(left)).getTime() - new Date(dateValue(right)).getTime();
       return sortBy === "oldest" || sortBy === "start" || sortBy === "end" ? result : -result;
     });
-  if (isCompanyWorker(user)) {
+  if (isCompanyWorker(user) || isIndependentContractor(user)) {
     return (
       <CompanyWorkerProjectsPage
+        user={user}
         projects={projects}
         onProject={onProject}
+        onCreate={isIndependentContractor(user) ? onCreate : undefined}
         uiMode={uiMode}
         onUiModeChange={onUiModeChange}
         notify={notify}
@@ -1267,16 +1269,20 @@ function WorkerModeSwitch({
 }
 
 function CompanyWorkerProjectsPage({
+  user,
   projects,
   onProject,
+  onCreate,
   uiMode,
   onUiModeChange,
   notify,
   onQueue,
   onChanged,
 }: {
+  user: User;
   projects: Project[];
   onProject: (project: Project) => void;
+  onCreate?: () => void;
   uiMode: UiMode;
   onUiModeChange: (mode: UiMode) => void;
   notify: (toast: Toast) => void;
@@ -1288,6 +1294,9 @@ function CompanyWorkerProjectsPage({
   const [choiceProject, setChoiceProject] = useState<Project | null>(null);
   const [entryModal, setEntryModal] = useState<{ project: Project; entry: EntryModalState } | null>(null);
   const simpleMode = uiMode === "simple";
+  const copy = projectListCopy(user);
+  const independent = isIndependentContractor(user);
+  const roleTitle = independent ? "Samodzielny majster" : "Majster firmy";
   const statusOrder: Record<string, number> = { in_progress: 1, assigned: 2, completed: 3 };
   const visible = [...projects]
     .filter((project) => statusFilter === "all" || project.status === statusFilter)
@@ -1310,11 +1319,16 @@ function CompanyWorkerProjectsPage({
   }
 
   return (
-    <div className="page worker-home">
-      <WorkerMobileHeader />
+    <div className={`page worker-home ${independent ? "worker-home--independent" : ""}`}>
+      <WorkerMobileHeader title={roleTitle} />
       <header className="worker-page-header">
         <div className="worker-title-row">
-          <h1>Moje zlecenia</h1>
+          <div>
+            {independent && <span className="eyebrow">Typ konta: {roleTitle}</span>}
+            <h1>{copy.title}</h1>
+            {independent && <p>{copy.description}</p>}
+          </div>
+          {independent && onCreate && <Button type="button" icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
         </div>
         <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
       </header>
@@ -1336,7 +1350,11 @@ function CompanyWorkerProjectsPage({
       )}
 
       {projects.length === 0 ? (
-        <EmptyState icon="clipboard" title="Brak przypisanych zleceń" text="Gdy szef firmy przypisze Ci pracę, pojawi się tutaj." />
+        <EmptyState icon="clipboard" title={copy.emptyTitle} text={copy.emptyText}>
+          {independent && onCreate && <Button type="button" icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
+        </EmptyState>
+      ) : visible.length === 0 ? (
+        <EmptyState icon="clipboard" title="Brak wyników" text="Zmień filtr, żeby zobaczyć pasujące zlecenia." />
       ) : (
         <section className={`worker-project-list ${simpleMode ? "worker-project-list--simple" : "worker-project-list--advanced"}`}>
           {visible.map((project) => {
