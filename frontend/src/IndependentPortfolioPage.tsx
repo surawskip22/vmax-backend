@@ -3,6 +3,7 @@ import { Icon } from "./icons";
 import type { Project, User } from "./types";
 
 type PortfolioStatus = "draft" | "published";
+type ReviewSource = "manual" | "verified_client_link";
 
 type PortfolioRealization = {
   id: string;
@@ -28,8 +29,15 @@ type PortfolioReview = {
   clientName: string;
   date: string;
   rating: number;
+  text: string;
   body: string;
   published: boolean;
+  source: ReviewSource;
+  sourceLabel: string;
+  projectId?: string;
+  realizationId?: string;
+  projectTitle?: string;
+  realizationTitle?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -56,6 +64,7 @@ type ReviewDraft = {
   rating: number;
   body: string;
   published: boolean;
+  realizationId: string;
 };
 
 const portfolioAvatarOptions = [
@@ -209,6 +218,37 @@ function normalizeRealization(value: unknown, index: number): PortfolioRealizati
     coverTone: typeof data.coverTone === "number" && Number.isFinite(data.coverTone) ? data.coverTone : index,
     coverUrl: data.coverUrl || galleryUrls[0],
     galleryUrls,
+    createdAt: data.createdAt || now,
+    updatedAt: data.updatedAt || data.createdAt || now,
+  };
+}
+
+function reviewSourceLabel(source: ReviewSource) {
+  return source === "verified_client_link" ? "Zweryfikowana przez klienta" : "Dodana ręcznie";
+}
+
+function normalizeReview(value: unknown, index: number): PortfolioReview | null {
+  if (!value || typeof value !== "object") return null;
+  const data = value as Partial<PortfolioReview> & { visible?: boolean };
+  const clientName = data.clientName?.trim();
+  const body = (data.body || data.text || "").trim();
+  if (!clientName || !body) return null;
+  const now = new Date().toISOString();
+  const source: ReviewSource = data.source === "verified_client_link" ? "verified_client_link" : "manual";
+  return {
+    id: data.id || `review-${Date.now()}-${index}`,
+    clientName,
+    date: data.date || todayIso(),
+    rating: Math.max(1, Math.min(5, Number(data.rating) || 5)),
+    text: body,
+    body,
+    published: data.published ?? data.visible ?? true,
+    source,
+    sourceLabel: data.sourceLabel || reviewSourceLabel(source),
+    projectId: data.projectId,
+    realizationId: data.realizationId,
+    projectTitle: data.projectTitle,
+    realizationTitle: data.realizationTitle,
     createdAt: data.createdAt || now,
     updatedAt: data.updatedAt || data.createdAt || now,
   };
@@ -370,7 +410,7 @@ function loadReviews(user: User): PortfolioReview[] {
     const raw = localStorage.getItem(reviewsStorageKey(user));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalizeReview).filter((review): review is PortfolioReview => Boolean(review)) : [];
   } catch {
     return [];
   }
@@ -395,6 +435,7 @@ function reviewDraft(review?: PortfolioReview | null): ReviewDraft {
     rating: review?.rating || 5,
     body: review?.body || "",
     published: review?.published ?? true,
+    realizationId: review?.realizationId || "",
   };
 }
 
@@ -686,26 +727,37 @@ function PortfolioModal({
 
 function ReviewModal({
   editing,
+  realizations,
   onClose,
   onSave,
 }: {
   editing: PortfolioReview | null;
+  realizations: PortfolioRealization[];
   onClose: () => void;
   onSave: (review: PortfolioReview) => void;
 }) {
   const [draft, setDraft] = useState<ReviewDraft>(() => reviewDraft(editing));
+  const selectedRealization = realizations.find((item) => item.id === draft.realizationId);
 
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!draft.clientName.trim() || !draft.body.trim()) return;
     const now = new Date().toISOString();
+    const source: ReviewSource = editing?.source === "verified_client_link" ? "verified_client_link" : "manual";
     onSave({
       id: editing?.id || `review-${Date.now()}`,
       clientName: draft.clientName.trim(),
       date: draft.date,
       rating: Math.max(1, Math.min(5, Number(draft.rating) || 5)),
+      text: draft.body.trim(),
       body: draft.body.trim(),
       published: draft.published,
+      source,
+      sourceLabel: reviewSourceLabel(source),
+      projectId: selectedRealization?.projectId,
+      realizationId: selectedRealization?.id,
+      projectTitle: selectedRealization?.title,
+      realizationTitle: selectedRealization?.title,
       createdAt: editing?.createdAt || now,
       updatedAt: now,
     });
@@ -717,7 +769,7 @@ function ReviewModal({
         <header className="modal__header">
           <div>
             <h2 id="portfolio-review-modal-title">{editing ? "Edytuj opinię" : "Dodaj opinię klienta"}</h2>
-            <p>W przyszłości klienci będą mogli wystawiać opinie po zakończonym zleceniu. Teraz możesz dodać opinię ręcznie.</p>
+            <p>To ręczna opinia MVP. Zweryfikowane opinie od klientów będą dodane później przez link klienta.</p>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Zamknij"><Icon name="close" /></button>
         </header>
@@ -743,10 +795,20 @@ function ReviewModal({
                 Pokaż na wizytówce
               </label>
             </div>
+            {realizations.length > 0 && (
+              <label>
+                Powiąż z realizacją
+                <select value={draft.realizationId} onChange={(event) => setDraft((current) => ({ ...current, realizationId: event.target.value }))}>
+                  <option value="">Brak powiązania</option>
+                  {realizations.map((item) => <option value={item.id} key={item.id}>{item.title}</option>)}
+                </select>
+              </label>
+            )}
             <label>
               Treść opinii
               <textarea value={draft.body} onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))} placeholder="Krótka opinia klienta o realizacji..." required />
             </label>
+            <p className="form-note">Ręcznej opinii nie oznaczamy jako zweryfikowanej. Weryfikacja przez klienta pojawi się w osobnym kroku z linkiem do zakończonego zlecenia.</p>
           </section>
           <footer className="modal-actions ic-portfolio-form__actions">
             <button type="button" className="button button--secondary" onClick={onClose}>Anuluj</button>
@@ -1038,7 +1100,7 @@ function ReviewsSection({
   onDelete?: (review: PortfolioReview) => void;
 }) {
   const visibleReviews = publicOnly ? reviews.filter((review) => review.published) : reviews;
-  const recentReviews = publicOnly ? visibleReviews : visibleReviews.slice(0, 3);
+  const displayedReviews = visibleReviews;
   const rating = averageRating(reviews);
 
   return (
@@ -1053,14 +1115,25 @@ function ReviewsSection({
                 ? `Średnia ocena ${rating}/5 z ${reviews.filter((review) => review.published).length} widocznych opinii.`
                 : publicOnly
                   ? "Ten wykonawca nie ma jeszcze publicznych opinii."
-                  : "Opinie pojawią się tutaj po dodaniu."}
+                  : "Na razie opinie możesz dodać ręcznie. W przyszłości klient wystawi opinię przez link po zakończonym zleceniu."}
             </p>
           </div>
         </div>
         {!publicOnly && <button type="button" className="button button--secondary" onClick={onAdd}>Dodaj opinię</button>}
       </header>
 
-      {recentReviews.length === 0 ? (
+      {!publicOnly && (
+        <div className="ic-review-future-card">
+          <span><Icon name="link" /></span>
+          <div>
+            <strong>Zweryfikowane opinie klientów</strong>
+            <p>Później klient będzie mógł wystawić opinię tylko przez link do zakończonego zlecenia. Dzięki temu opinie będą powiązane z realną realizacją.</p>
+          </div>
+          <em>Dostępne później</em>
+        </div>
+      )}
+
+      {displayedReviews.length === 0 ? (
         <div className="ic-portfolio-empty ic-portfolio-empty--compact">
           <Icon name="report" />
           <strong>{publicOnly ? "Brak publicznych opinii" : "Brak opinii klientów"}</strong>
@@ -1073,11 +1146,16 @@ function ReviewsSection({
         </div>
       ) : (
         <div className="ic-portfolio-review-list">
-          {recentReviews.map((review) => (
+          {displayedReviews.map((review) => (
             <article key={review.id}>
               <div>
-                <strong>{review.clientName}</strong>
+                <div className="ic-review-title-row">
+                  <strong>{review.clientName}</strong>
+                  {!publicOnly && <span className="ic-review-source">{review.sourceLabel || reviewSourceLabel(review.source)}</span>}
+                  {publicOnly && review.source === "verified_client_link" && <span className="ic-review-source ic-review-source--verified">{reviewSourceLabel(review.source)}</span>}
+                </div>
                 <span>{stars(review.rating)} · {formatDate(review.date)}</span>
+                {(review.realizationTitle || review.projectTitle) && <small>Realizacja: {review.realizationTitle || review.projectTitle}</small>}
                 <p>{review.body}</p>
               </div>
               {!publicOnly && (
@@ -1479,6 +1557,7 @@ export function IndependentPortfolioPage({
       {reviewModalOpen && (
         <ReviewModal
           editing={editingReview}
+          realizations={items}
           onClose={() => { setReviewModalOpen(false); setEditingReview(null); }}
           onSave={upsertReview}
         />

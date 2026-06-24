@@ -857,7 +857,17 @@ audio { width: 100%; margin-top: 13px; }
 .ic-portfolio-review-list article { padding: 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; border: 1px solid #dce5ef; border-radius: 12px; background: #fff; }
 .ic-portfolio-review-list strong { display: block; color: var(--navy); }
 .ic-portfolio-review-list span { display: block; margin-top: 3px; color: #f59e0b; font-size: 12px; font-weight: 900; }
+.ic-portfolio-review-list small { display: block; margin-top: 5px; color: var(--muted); font-size: 12px; font-weight: 800; }
 .ic-portfolio-review-list p { margin-top: 8px; color: #42526a; }
+.ic-review-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ic-review-title-row strong { margin-right: auto; }
+.ic-review-source { min-height: 24px; padding: 5px 8px; display: inline-flex !important; align-items: center; border-radius: 999px; color: #536174 !important; background: #edf1f5; font-size: 11px !important; font-weight: 900; }
+.ic-review-source--verified { color: #167134 !important; background: #dff7e6; }
+.ic-review-future-card { margin: -2px 0 14px; padding: 14px; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 12px; align-items: center; border: 1px solid #dce5ef; border-radius: 14px; background: linear-gradient(135deg, #f8fbff, #fff); }
+.ic-review-future-card > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; color: var(--blue); background: #edf3fb; }
+.ic-review-future-card strong { color: var(--navy); }
+.ic-review-future-card p { margin: 4px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.ic-review-future-card em { padding: 7px 10px; border-radius: 999px; color: #536174; background: #edf1f5; font-size: 11px; font-style: normal; font-weight: 900; white-space: nowrap; }
 .ic-portfolio-review-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
 .text-button--danger { color: var(--red); }
 .ic-portfolio-empty--compact { min-height: 130px; padding: 18px; border: 1px dashed #cbd8e8; border-radius: 12px; background: #f8fbff; }
@@ -1428,6 +1438,8 @@ audio { width: 100%; margin-top: 13px; }
   .ic-portfolio-public-profile > .button { grid-column: 1 / -1; justify-self: start; }
   .ic-portfolio-public-realization-grid { grid-template-columns: 1fr 1fr; }
   .ic-portfolio-review-list article { grid-template-columns: 1fr; }
+  .ic-review-future-card { grid-template-columns: 42px minmax(0, 1fr); }
+  .ic-review-future-card em { grid-column: 2; justify-self: start; }
   .ic-portfolio-review-actions { justify-content: flex-start; }
   .client-summary-card { grid-template-columns: minmax(160px, 240px) 1fr; }
   .client-info-card { grid-template-columns: repeat(2, minmax(0, 1fr)); }
