@@ -922,6 +922,33 @@ audio { width: 100%; margin-top: 13px; }
 .report-sublist small { display: block; color: var(--muted); font-size: 11px; }
 .report-row-label { display: inline-flex; margin-bottom: 4px; padding: 2px 7px; border-radius: 999px; color: var(--blue); background: #edf3fb; font-size: 10px; font-weight: 900; }
 .report-sublist .button { min-height: 38px; padding: 0 14px; }
+.independent-reports-page { max-width: 1160px; }
+.report-filter-cards { margin: 0 0 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.report-filter-card { min-width: 0; min-height: 118px; padding: 18px; position: relative; display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 14px; align-items: center; border: 1px solid #d7e2ef; border-radius: 14px; background: #fff; box-shadow: 0 12px 26px rgba(18,38,69,.06); text-align: left; cursor: pointer; }
+.report-filter-card.active { border-color: #2b7fff; background: #f5f9ff; box-shadow: 0 16px 32px rgba(43,127,255,.12); }
+.report-filter-card > span { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 14px; color: var(--blue); background: #edf3fb; }
+.report-filter-card--green > span { color: var(--green); background: #e8f8ed; }
+.report-filter-card--orange > span { color: var(--orange); background: #fff0e6; }
+.report-filter-card strong { display: block; color: var(--navy); font-size: 15px; }
+.report-filter-card b { display: block; margin-top: 4px; color: var(--navy); font-size: 30px; line-height: 1; }
+.report-filter-card small { display: block; margin-top: 6px; color: var(--muted); font-weight: 700; }
+.report-filter-card em { width: 26px; height: 26px; position: absolute; top: 12px; right: 12px; display: grid; place-items: center; border-radius: 999px; color: #fff; background: var(--blue); font-style: normal; }
+.report-control-panel { margin-bottom: 18px; padding: 12px; display: grid; grid-template-columns: minmax(260px, 1fr) 170px 230px 180px 110px; gap: 10px; align-items: center; border: 1px solid #d7e2ef; border-radius: 14px; background: #fff; box-shadow: 0 10px 24px rgba(18,38,69,.05); }
+.report-control-panel input, .report-control-panel select { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid #cbd8e8; border-radius: 10px; color: var(--navy); background: #fff; font: inherit; font-weight: 800; }
+.report-control-panel input { font-weight: 600; }
+.report-control-panel input:focus, .report-control-panel select:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127,255,.12); }
+.report-filter-button { min-height: 44px; border: 1px solid #cbd8e8; border-radius: 10px; color: var(--navy); background: #fff; font: inherit; font-weight: 900; }
+.independent-report-list { gap: 18px; }
+.independent-report-card { border-radius: 14px; background: #fff; box-shadow: 0 14px 30px rgba(18,38,69,.06); }
+.independent-report-card.is-expanded { border-color: #9bbcf2; background: #f8fbff; }
+.independent-report-card > header { cursor: pointer; grid-template-columns: 50px minmax(220px, 1fr) 120px minmax(250px, .95fr) auto; }
+.independent-report-card > header:hover .report-project-card__main h2 { color: var(--blue); }
+.independent-report-card .report-materials { margin: 0 18px 18px; }
+.report-pagination-summary { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 13px; }
+.report-pagination-summary div { display: flex; align-items: center; gap: 8px; }
+.report-pagination-summary button, .report-pagination-summary b { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid #d7e2ef; border-radius: 9px; color: var(--navy); background: #fff; }
+.report-pagination-summary b { color: #fff; background: var(--navy); }
+.report-pagination-summary button:last-child svg { transform: rotate(180deg); }
 .report-preview { padding: 25px; background: #eef1f4; overflow: auto; }
 .report-paper { max-width: 700px; min-height: 700px; padding: 48px; margin: 0 auto; border-radius: 4px; background: #fff; box-shadow: 0 8px 25px rgba(18,38,69,.09); }
 .report-paper > header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 2px solid var(--navy); }

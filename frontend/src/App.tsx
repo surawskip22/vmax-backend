@@ -3129,7 +3129,8 @@ function ProjectView({
 function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project[]; onOpen: (project: Project) => void }) {
   const [tab, setTab] = useState<"all" | "open" | "history">("all");
   const [query, setQuery] = useState("");
-  const [sortBy, setSortBy] = useState<"issued" | "ended">("issued");
+  const [statusFilter, setStatusFilter] = useState<"all" | "assigned" | "in_progress" | "completed">("all");
+  const [sortBy, setSortBy] = useState<"issued" | "ended" | "name">("issued");
   const [sortDirection, setSortDirection] = useState<"newest" | "oldest">("newest");
   const [collapsedReports, setCollapsedReports] = useState<string[]>([]);
 
@@ -3174,9 +3175,197 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         .includes(queryText),
     )
     .sort((left, right) => {
+      if (sortBy === "name") {
+        const result = left.name.localeCompare(right.name, "pl", { sensitivity: "base" });
+        return sortDirection === "newest" ? result : -result;
+      }
       const result = reportSortDate(left) - reportSortDate(right);
       return sortDirection === "newest" ? -result : result;
     });
+
+  if (isIndependentContractor(user)) {
+    const reportProjects = projects.filter((project) => reportMaterialCount(project) > 0);
+    const independentOpenProjects = reportProjects.filter((project) => project.status !== "completed");
+    const independentHistoricalProjects = reportProjects.filter((project) => project.status === "completed");
+    const independentSource = tab === "all"
+      ? reportProjects
+      : tab === "open"
+        ? independentOpenProjects
+        : independentHistoricalProjects;
+    const filteredProjects = independentSource
+      .filter((project) => statusFilter === "all" || project.status === statusFilter)
+      .filter((project) =>
+        `${project.name} ${project.client_name || ""} ${project.address || ""} raport zlecenia raport`
+          .toLowerCase()
+          .includes(queryText),
+      )
+      .sort((left, right) => {
+        if (sortBy === "name") {
+          const result = left.name.localeCompare(right.name, "pl", { sensitivity: "base" });
+          return sortDirection === "newest" ? result : -result;
+        }
+        const result = reportSortDate(left) - reportSortDate(right);
+        return sortDirection === "newest" ? -result : result;
+      });
+    const allMaterial = reportProjects.reduce((sum, project) => sum + reportMaterialCount(project), 0);
+    const openMaterial = independentOpenProjects.reduce((sum, project) => sum + reportMaterialCount(project), 0);
+    const historicalMaterial = independentHistoricalProjects.reduce((sum, project) => sum + reportMaterialCount(project), 0);
+    const activeFilterCards = [
+      {
+        key: "all" as const,
+        title: "Wszystkie",
+        count: allMaterial,
+        text: "Wszystkie wpisy i raporty",
+        icon: "report" as const,
+        tone: "blue",
+      },
+      {
+        key: "open" as const,
+        title: "Otwarte",
+        count: openMaterial,
+        text: "Wymagają zakończenia",
+        icon: "sync" as const,
+        tone: "green",
+      },
+      {
+        key: "history" as const,
+        title: "Historyczne",
+        count: historicalMaterial,
+        text: "Zakończone",
+        icon: "clipboard" as const,
+        tone: "orange",
+      },
+    ];
+
+    return (
+      <div className="page reports-page independent-reports-page">
+        <header className="page-header">
+          <div>
+            <span className="eyebrow">Dokumentacja</span>
+            <h1>Raporty</h1>
+            <p>Przeglądaj projekty raportowe i otwieraj raporty tworzone w ramach zleceń.</p>
+          </div>
+        </header>
+
+        <section className="report-filter-cards" aria-label="Filtry raportów">
+          {activeFilterCards.map((card) => (
+            <button
+              key={card.key}
+              type="button"
+              className={`report-filter-card report-filter-card--${card.tone} ${tab === card.key ? "active" : ""}`}
+              onClick={() => setTab(card.key)}
+            >
+              <span><Icon name={card.icon} /></span>
+              <div>
+                <strong>{card.title}</strong>
+                <b>{card.count}</b>
+                <small>{card.text}</small>
+              </div>
+              {tab === card.key && <em><Icon name="check" size={16} /></em>}
+            </button>
+          ))}
+        </section>
+
+        <section className="report-control-panel" aria-label="Wyszukiwanie i sortowanie raportów">
+          <input
+            type="search"
+            placeholder="Szukaj po nazwie zlecenia, kliencie lub raporcie..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+            <option value="all">Status: Wszystkie</option>
+            <option value="assigned">Status: Zlecone</option>
+            <option value="in_progress">Status: W realizacji</option>
+            <option value="completed">Status: Zakończone</option>
+          </select>
+          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)}>
+            <option value="issued">Sortuj: Data wystawienia</option>
+            <option value="ended">Sortuj: Data zakończenia zlecenia</option>
+            <option value="name">Sortuj: Nazwa zlecenia</option>
+          </select>
+          <select value={sortDirection} onChange={(event) => setSortDirection(event.target.value as typeof sortDirection)}>
+            <option value="newest">Kolejność: Najnowsze</option>
+            <option value="oldest">Kolejność: Najstarsze</option>
+          </select>
+          <button type="button" className="report-filter-button">Filtry (0)</button>
+        </section>
+
+        <section className="report-project-list independent-report-list">
+          {reportProjects.length === 0 ? (
+            <EmptyState icon="report" title="Brak raportów" text="Raporty pojawią się tutaj po dodaniu postępu i wygenerowaniu raportu w zleceniu." />
+          ) : filteredProjects.length === 0 ? (
+            <EmptyState icon="report" title="Brak wyników" text="Zmień filtr lub wyszukiwaną frazę." />
+          ) : filteredProjects.map((project) => {
+            const count = reportMaterialCount(project);
+            const isExpanded = !collapsedReports.includes(project.id);
+            const issuedDate = new Intl.DateTimeFormat("pl").format(new Date(project.updated_at || project.created_at));
+            const safeStatusLabel = statusLabels[project.status] || project.status;
+            return (
+              <article className={`report-project-card independent-report-card ${isExpanded ? "is-expanded" : ""}`} key={project.id}>
+                <header onClick={() => toggleReportDetails(project.id)}>
+                  <span className="report-project-card__icon"><Icon name="report" /></span>
+                  <div className="report-project-card__main">
+                    <h2>{project.name}</h2>
+                    <p>{project.address || "Adres nieuzupełniony"}{project.client_name ? ` · Klient: ${project.client_name}` : " · Klient: Brak klienta"}</p>
+                  </div>
+                  <span className={`status status--${project.status}`}>{safeStatusLabel}</span>
+                  <dl>
+                    <div><dt>{projectPartyLabel(user)}</dt><dd>{projectPartyValue(user, project)}</dd></div>
+                    <div><dt>Planowane zakończenie</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
+                  </dl>
+                  <button
+                    type="button"
+                    className="report-count-badge"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleReportDetails(project.id);
+                    }}
+                    aria-expanded={isExpanded}
+                  >
+                    {reportBadge(project)}
+                    <Icon name="back" size={15} />
+                  </button>
+                </header>
+                {isExpanded && (
+                  <section className="report-materials">
+                    <div className="report-materials__heading">
+                      <span>Raporty do tego zlecenia</span>
+                      <small>{reportBadge(project)}</small>
+                    </div>
+                    <div className="report-sublist">
+                      <article>
+                        <span><Icon name="report" /></span>
+                        <div>
+                          <span className="report-row-label">Raport</span>
+                          <strong>Raport zlecenia</strong>
+                          <small>{`Materiał raportowy z ${count} ${count === 1 ? "wpisu" : "wpisów"}.`}</small>
+                        </div>
+                        <div><small>Data wystawienia</small><strong>{issuedDate}</strong></div>
+                        <div><small>Etap / Status</small><span className={`status status--${project.status}`}>{safeStatusLabel}</span></div>
+                        <Button type="button" variant="secondary" icon="report" onClick={() => onOpen(project)}>Otwórz raport</Button>
+                      </article>
+                    </div>
+                  </section>
+                )}
+              </article>
+            );
+          })}
+        </section>
+
+        {filteredProjects.length > 0 && (
+          <footer className="report-pagination-summary">
+            <span>1-{filteredProjects.length} z {filteredProjects.length} zleceń</span>
+            <div aria-label="Paginacja raportów">
+              <button type="button" disabled><Icon name="back" size={15} /></button>
+              <b>1</b>
+              <button type="button" disabled><Icon name="back" size={15} /></button>
+            </div>
+          </footer>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="page reports-page">
