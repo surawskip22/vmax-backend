@@ -735,10 +735,11 @@ function ContactModal({
   profile: PortfolioProfile;
   onClose: () => void;
 }) {
+  const whatsappNumber = profile.whatsapp || profile.publicPhone;
   const contacts = [
     { label: "Zadzwoń", detail: profile.publicPhone, href: phoneHref(profile.publicPhone), icon: "phone" },
     { label: "Wyślij e-mail", detail: profile.publicEmail, href: mailHref(profile.publicEmail), icon: "link" },
-    { label: "Napisz na WhatsApp", detail: profile.whatsapp, href: whatsappHref(profile.whatsapp), icon: "send" },
+    { label: "Napisz na WhatsApp", detail: whatsappNumber, href: whatsappHref(whatsappNumber), icon: "send" },
   ].filter((item) => item.href);
 
   return (
