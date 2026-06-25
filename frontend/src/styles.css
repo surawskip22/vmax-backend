@@ -1046,6 +1046,12 @@ audio { width: 100%; margin-top: 13px; }
 .worker-entry-details__comments article { padding: 10px 0; border-bottom: 1px solid #edf1f5; }
 .worker-entry-details__comments article:last-child { border-bottom: 0; }
 .worker-entry-details__comments small { display: block; color: var(--muted); font-size: 12px; }
+.worker-entry-details__comments em { display: inline-flex; width: fit-content; margin: 4px 0; padding: 4px 8px; border-radius: 999px; color: #0b5f2a; background: #e7f8ed; font-size: 11px; font-style: normal; font-weight: 900; }
+.worker-entry-details__problem-actions { background: #fffaf5 !important; border-color: #fed7aa !important; }
+.worker-problem-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.worker-problem-editor { display: grid; gap: 10px; }
+.worker-problem-editor textarea { width: 100%; min-height: 110px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 12px; color: var(--navy); font: inherit; resize: vertical; }
+.worker-problem-editor > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .worker-advanced-overview { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .worker-advanced-overview div { min-width: 0; padding: 4px 0; }
 .worker-advanced-overview small { display: block; margin-bottom: 5px; color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
@@ -1331,6 +1337,23 @@ audio { width: 100%; margin-top: 13px; }
 .client-audio-item strong { display: block; margin-bottom: 8px; color: var(--navy); font-size: 13px; }
 .client-audio-item audio { width: 100%; }
 .client-audio-item small { display: block; margin-top: 6px; color: #b91c1c; font-weight: 700; }
+.client-entry-comments { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e5edf7; display: grid; gap: 12px; }
+.client-entry-comments__list { display: grid; gap: 8px; }
+.client-entry-comment { padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc; }
+.client-entry-comment--confirm_resolved { border-color: #bbf7d0; background: #f0fdf4; }
+.client-entry-comment--still_open, .client-entry-comment--suggest_solution { border-color: #fed7aa; background: #fff7ed; }
+.client-entry-comment header { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.client-entry-comment strong { color: var(--navy); }
+.client-entry-comment em { padding: 4px 8px; border-radius: 999px; color: #0b5f2a; background: #dcfce7; font-size: 11px; font-style: normal; font-weight: 900; }
+.client-entry-comment--still_open em, .client-entry-comment--suggest_solution em { color: #9a3412; background: #ffedd5; }
+.client-entry-comment p { margin: 6px 0 0; color: #334155; line-height: 1.45; }
+.client-entry-comment-form { display: grid; gap: 9px; }
+.client-entry-comment-form textarea { width: 100%; min-height: 86px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 12px; color: var(--navy); font: inherit; resize: vertical; }
+.client-problem-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.client-problem-actions button { min-height: 42px; padding: 9px 10px; border: 1px solid #fed7aa; border-radius: 12px; color: #9a3412; background: #fff7ed; font-weight: 900; }
+.client-problem-actions button:first-child { border-color: #bbf7d0; color: #166534; background: #f0fdf4; }
+.client-entry-comment-form__footer { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.client-entry-comment-form__footer span { min-height: 18px; color: #64748b; font-size: 12px; }
 .client-report-list { display: grid; gap: 10px; }
 .client-report-link { min-width: 0; padding: 12px; display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 12px; align-items: center; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; }
 .client-report-link > svg { color: #6c32d9; }
@@ -1759,6 +1782,8 @@ audio { width: 100%; margin-top: 13px; }
   .client-section-icon { width: 54px; height: 54px; }
   .client-section-card h2 { font-size: 21px; }
   .client-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .client-problem-actions { grid-template-columns: 1fr; }
+  .client-entry-comment-form__footer { align-items: stretch; flex-direction: column; }
   .client-report-link { grid-template-columns: 32px minmax(0, 1fr); }
   .client-report-link > span { grid-column: 2; justify-self: start; }
   .client-security-footer { width: min(100% - 20px, 980px); align-items: flex-start; border-radius: 18px; }

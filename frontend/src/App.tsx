@@ -34,12 +34,13 @@ import {
   workerKindLabelForUser,
 } from "./roleLabels";
 import { visibleSectionForUser } from "./RoleAwareSidebar";
-import type { ClientLink, Entry, MediaAsset, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
+import type { ClientLink, Comment, Entry, MediaAsset, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
 import { useUiMode, type UiMode } from "./useUiMode";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
 type EntryTextTarget = "description" | "note";
 type EntryModalState = { kind: "update" | "problem"; mode: "photo" | "audio" | "text" };
+type CommentIntent = NonNullable<Comment["intent"]>;
 type SpeechRecognitionState = "idle" | "listening" | "unsupported" | "error" | "manual";
 type SpeechRecognitionInfo = {
   target: EntryTextTarget | null;
@@ -315,7 +316,21 @@ const statusLabels: Record<string, string> = {
   active: "W realizacji",
   planned: "Planowany",
 };
+const commentIntentLabels: Record<CommentIntent, string> = {
+  comment: "Komentarz",
+  confirm_resolved: "Klient potwierdził rozwiązanie",
+  still_open: "Klient zgłosił dalszy problem",
+  suggest_solution: "Sugestia klienta",
+};
 const contractTermsDisclaimer = "To informacja umowna. To nie jest faktura, platnosc ani wezwanie do zaplaty.";
+
+function commentAuthorLabel(comment: Comment): string {
+  return comment.author_label || comment.author?.name || comment.author?.email || comment.guest_label || "Komentarz";
+}
+
+function commentIntentLabel(comment: Comment): string {
+  return commentIntentLabels[comment.intent || "comment"];
+}
 
 function route(): Route {
   const matchGuest = location.pathname.match(/^\/g\/([^/]+)/);
@@ -2122,7 +2137,7 @@ function TimelineEntry({
         {item.media.filter((asset) => asset.kind === "audio").map((asset) => <audio controls src={guestToken ? `${asset.url}?guest_token=${encodeURIComponent(guestToken)}` : asset.url} key={asset.id} />)}
         {item.kind === "problem" && <button className={`problem-toggle problem-toggle--${item.problem_status}`} onClick={toggleProblem}><Icon name="check" size={16} /> {item.problem_status === "resolved" ? "Problem rozwiązany" : "Oznacz jako rozwiązany"}</button>}
         <button className="comment-toggle" onClick={() => setOpen(!open)}>{item.comments.length} komentarzy · {open ? "Ukryj" : "Otwórz"}</button>
-        {open && <div className="comments">{item.comments.map((entryComment) => <div key={entryComment.id}><strong>{entryComment.author?.name || entryComment.author?.email || entryComment.guest_label}</strong><p>{entryComment.body}</p></div>)}<form onSubmit={addComment}><input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Dodaj komentarz..." /><Button type="submit" variant="secondary">Wyślij</Button></form></div>}
+        {open && <div className="comments">{item.comments.map((entryComment) => <div key={entryComment.id}><strong>{commentAuthorLabel(entryComment)}</strong>{entryComment.intent && entryComment.intent !== "comment" && <small>{commentIntentLabel(entryComment)}</small>}<p>{entryComment.body}</p></div>)}<form onSubmit={addComment}><input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Dodaj komentarz..." /><Button type="submit" variant="secondary">Wyślij</Button></form></div>}
       </div>
     </article>
   );
@@ -2132,16 +2147,44 @@ function WorkerEntryDetailsModal({
   entry,
   onClose,
   guestToken,
+  onRefresh,
 }: {
   entry: Entry;
   onClose: () => void;
   guestToken?: string;
+  onRefresh?: () => void;
 }) {
   const images = entry.media.filter((asset) => asset.kind === "image");
   const audio = entry.media.filter((asset) => asset.kind === "audio");
   const title = entry.kind === "problem" ? "Problem" : audio.length ? "Audio" : images.length ? "Dokumentacja" : "Opis";
   const author = entry.author?.name || entry.author?.email || entry.guest_label || "Nieznany autor";
   const mediaUrl = (url: string) => guestToken ? `${url}?guest_token=${encodeURIComponent(guestToken)}` : url;
+  const canEditProblem = entry.kind === "problem" && !guestToken;
+  const [editProblem, setEditProblem] = useState(false);
+  const [problemBody, setProblemBody] = useState(entry.body);
+  const [problemBusy, setProblemBusy] = useState(false);
+  const [problemError, setProblemError] = useState("");
+
+  async function saveProblem(nextStatus?: "open" | "resolved") {
+    if (!canEditProblem) return;
+    setProblemBusy(true);
+    setProblemError("");
+    try {
+      await api(`/entries/${entry.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          body: problemBody,
+          ...(nextStatus ? { problem_status: nextStatus } : {}),
+        }),
+      });
+      onRefresh?.();
+      onClose();
+    } catch (reason) {
+      setProblemError(reason instanceof Error ? reason.message : "Nie udało się zapisać problemu");
+    } finally {
+      setProblemBusy(false);
+    }
+  }
 
   return (
     <Modal title="Szczegóły wpisu" onClose={onClose} wide>
@@ -2160,6 +2203,31 @@ function WorkerEntryDetailsModal({
             )}
           </div>
         </section>
+
+        {canEditProblem && (
+          <section className="worker-entry-details__problem-actions">
+            <h4>Obsługa problemu</h4>
+            {editProblem ? (
+              <div className="worker-problem-editor">
+                <textarea value={problemBody} onChange={(event) => setProblemBody(event.target.value)} rows={4} />
+                {problemError && <p className="form-error">{problemError}</p>}
+                <div>
+                  <Button type="button" variant="secondary" onClick={() => setEditProblem(false)}>Anuluj</Button>
+                  <Button type="button" busy={problemBusy} onClick={() => void saveProblem()}>Zapisz opis problemu</Button>
+                </div>
+              </div>
+            ) : (
+              <div className="worker-problem-actions">
+                <Button type="button" variant="secondary" onClick={() => setEditProblem(true)}>Edytuj problem</Button>
+                {entry.problem_status === "resolved" ? (
+                  <Button type="button" variant="secondary" busy={problemBusy} onClick={() => void saveProblem("open")}>Otwórz ponownie problem</Button>
+                ) : (
+                  <Button type="button" variant="success" busy={problemBusy} onClick={() => void saveProblem("resolved")}>Oznacz jako rozwiązany</Button>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         {entry.body && (
           <section>
@@ -2208,7 +2276,8 @@ function WorkerEntryDetailsModal({
             <div className="worker-entry-details__comments">
               {entry.comments.map((comment) => (
                 <article key={comment.id}>
-                  <strong>{comment.author?.name || comment.author?.email || comment.guest_label || "Komentarz"}</strong>
+                  <strong>{commentAuthorLabel(comment)}</strong>
+                  {comment.intent && comment.intent !== "comment" && <em>{commentIntentLabel(comment)}</em>}
                   <small>{new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(comment.created_at))}</small>
                   <p>{comment.body}</p>
                 </article>
@@ -3262,6 +3331,7 @@ function ProjectView({
           <WorkerEntryDetailsModal
             entry={selectedWorkerEntry}
             onClose={() => setSelectedWorkerEntry(null)}
+            onRefresh={refreshAfterProjectMutation}
           />
         )}
         {deleteEntryTarget && (
@@ -5460,6 +5530,10 @@ function PublicProject({ token }: { token: string }) {
   const [error, setError] = useState("");
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   const [audioErrors, setAudioErrors] = useState<string[]>([]);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentBusy, setCommentBusy] = useState<Record<string, boolean>>({});
+  const [commentErrors, setCommentErrors] = useState<Record<string, string>>({});
+  const [commentSuccess, setCommentSuccess] = useState<Record<string, string>>({});
 
   const load = useCallback(async (providedPin?: string) => {
     const activePin = providedPin ?? pin;
@@ -5519,6 +5593,38 @@ function PublicProject({ token }: { token: string }) {
   const formatDate = (value?: string | null) => value ? formatter.format(new Date(value)) : "Nie ustawiono";
   const markAudioError = (assetId: string) => {
     setAudioErrors((current) => current.includes(assetId) ? current : [...current, assetId]);
+  };
+  const updatePublicEntry = (updatedEntry: Entry) => {
+    setData((current: any) => current ? {
+      ...current,
+      entries: (current.entries as Entry[]).map((entry) => entry.id === updatedEntry.id ? updatedEntry : entry),
+    } : current);
+  };
+  const submitClientComment = async (entry: Entry, intent: CommentIntent = "comment") => {
+    const draft = (commentDrafts[entry.id] || "").trim();
+    if (intent === "comment" && !draft) {
+      setCommentErrors((current) => ({ ...current, [entry.id]: "Wpisz komentarz do tego wpisu." }));
+      return;
+    }
+    setCommentBusy((current) => ({ ...current, [entry.id]: true }));
+    setCommentErrors((current) => ({ ...current, [entry.id]: "" }));
+    setCommentSuccess((current) => ({ ...current, [entry.id]: "" }));
+    try {
+      const updatedEntry = await api<Entry>(
+        `/public/projects/${token}/entries/${entry.id}/comments${pin ? `?pin=${encodeURIComponent(pin)}` : ""}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ body: draft, intent }),
+        },
+      );
+      updatePublicEntry(updatedEntry);
+      setCommentDrafts((current) => ({ ...current, [entry.id]: "" }));
+      setCommentSuccess((current) => ({ ...current, [entry.id]: "Komentarz dodany." }));
+    } catch {
+      setCommentErrors((current) => ({ ...current, [entry.id]: "Nie udało się dodać komentarza. Spróbuj ponownie." }));
+    } finally {
+      setCommentBusy((current) => ({ ...current, [entry.id]: false }));
+    }
   };
 
   return (
@@ -5628,6 +5734,44 @@ function PublicProject({ token }: { token: string }) {
                           ))}
                         </div>
                       )}
+                      <div className="client-entry-comments">
+                        {entry.comments.length > 0 && (
+                          <div className="client-entry-comments__list">
+                            {entry.comments.map((comment) => (
+                              <article className={`client-entry-comment client-entry-comment--${comment.intent || "comment"}`} key={comment.id}>
+                                <header>
+                                  <strong>{commentAuthorLabel(comment)}</strong>
+                                  {comment.intent && comment.intent !== "comment" && <em>{commentIntentLabel(comment)}</em>}
+                                </header>
+                                <small>{timeFormatter.format(new Date(comment.created_at))}</small>
+                                <p>{comment.body}</p>
+                              </article>
+                            ))}
+                          </div>
+                        )}
+                        <div className="client-entry-comment-form">
+                          <textarea
+                            value={commentDrafts[entry.id] || ""}
+                            onChange={(event) => {
+                              setCommentDrafts((current) => ({ ...current, [entry.id]: event.target.value }));
+                              setCommentErrors((current) => ({ ...current, [entry.id]: "" }));
+                              setCommentSuccess((current) => ({ ...current, [entry.id]: "" }));
+                            }}
+                            placeholder={entry.kind === "problem" ? "Dodaj komentarz albo notatkę do problemu..." : "Napisz komentarz do tego wpisu..."}
+                            rows={3}
+                          />
+                          {entry.kind === "problem" && (
+                            <div className="client-problem-actions">
+                              <button type="button" disabled={commentBusy[entry.id]} onClick={() => void submitClientComment(entry, "confirm_resolved")}>Potwierdzam rozwiązanie</button>
+                              <button type="button" disabled={commentBusy[entry.id]} onClick={() => void submitClientComment(entry, "still_open")}>Problem nadal wymaga poprawki</button>
+                            </div>
+                          )}
+                          <div className="client-entry-comment-form__footer">
+                            <span>{commentErrors[entry.id] || commentSuccess[entry.id]}</span>
+                            <Button type="button" variant="secondary" busy={commentBusy[entry.id]} onClick={() => void submitClientComment(entry)}>Dodaj komentarz</Button>
+                          </div>
+                        </div>
+                      </div>
                     </article>
                   );
                 })}

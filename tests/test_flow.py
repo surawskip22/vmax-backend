@@ -1053,6 +1053,184 @@ def test_guest_public_and_foreign_user_cannot_delete_progress_entry():
         assert [item["id"] for item in entries] == [entry["id"]]
 
 
+def test_public_client_can_comment_entries_and_confirm_problem_status():
+    with TestClient(app) as owner:
+        login(owner, "client-comments-owner@example.com")
+        project = owner.post(
+            "/api/projects",
+            json={"name": "Komentarze klienta", "template": "custom"},
+        ).json()
+        update_entry = owner.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Zrobiono pierwszy etap"},
+        ).json()
+        problem_entry = owner.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "problem", "body": "Wyciek przy umywalce"},
+        ).json()
+        other_project = owner.post(
+            "/api/projects",
+            json={"name": "Inny projekt komentarzy", "template": "custom"},
+        ).json()
+        token = owner.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        other_token = owner.get(
+            f"/api/projects/{other_project['id']}/client-link"
+        ).json()["url"].rsplit("/", 1)[-1]
+
+    with TestClient(app) as public_client:
+        added = public_client.post(
+            f"/api/public/projects/{token}/entries/{update_entry['id']}/comments",
+            json={"body": "Klient widzi postep."},
+        )
+        assert added.status_code == 201
+        assert added.json()["comments"][0]["author_type"] == "client"
+        assert added.json()["comments"][0]["author_label"] == "Klient"
+        assert added.json()["comments"][0]["intent"] == "comment"
+        assert added.json()["comments"][0]["body"] == "Klient widzi postep."
+
+        assert (
+            public_client.post(
+                f"/api/public/projects/{token}/entries/{update_entry['id']}/comments",
+                json={"body": "   "},
+            ).status_code
+            == 400
+        )
+        assert (
+            public_client.post(
+                f"/api/public/projects/{token}/entries/{update_entry['id']}/comments",
+                json={"intent": "confirm_resolved"},
+            ).status_code
+            == 400
+        )
+
+        confirmed = public_client.post(
+            f"/api/public/projects/{token}/entries/{problem_entry['id']}/comments",
+            json={"intent": "confirm_resolved"},
+        )
+        assert confirmed.status_code == 201
+        assert confirmed.json()["comments"][-1]["intent"] == "confirm_resolved"
+        assert "rozwi" in confirmed.json()["comments"][-1]["body"]
+
+        still_open = public_client.post(
+            f"/api/public/projects/{token}/entries/{problem_entry['id']}/comments",
+            json={"intent": "still_open"},
+        )
+        assert still_open.status_code == 201
+        assert still_open.json()["comments"][-1]["intent"] == "still_open"
+
+        assert (
+            public_client.post(
+                f"/api/public/projects/{other_token}/entries/{update_entry['id']}/comments",
+                json={"body": "Nie ten projekt"},
+            ).status_code
+            == 404
+        )
+        assert (
+            public_client.patch(
+                f"/api/entries/{problem_entry['id']}",
+                json={"problem_status": "resolved"},
+            ).status_code
+            == 403
+        )
+        assert public_client.delete(f"/api/entries/{problem_entry['id']}").status_code == 403
+
+    with TestClient(app) as owner_check:
+        login(owner_check, "client-comments-owner@example.com")
+        entries = owner_check.get(f"/api/projects/{project['id']}/entries").json()
+        progress = next(item for item in entries if item["id"] == update_entry["id"])
+        problem = next(item for item in entries if item["id"] == problem_entry["id"])
+        assert progress["comments"][0]["author_type"] == "client"
+        assert progress["comments"][0]["body"] == "Klient widzi postep."
+        assert [item["intent"] for item in problem["comments"]] == [
+            "confirm_resolved",
+            "still_open",
+        ]
+
+
+def test_problem_status_updates_are_restricted_to_problem_entries_and_project_access():
+    with TestClient(app) as worker_seed:
+        login(worker_seed, "problem-status-worker@example.com")
+
+    with TestClient(app) as owner:
+        login(owner, "problem-status-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Problem status"},
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Problem worker",
+                "email": "problem-status-worker@example.com",
+            },
+        ).json()
+        project = owner.post(
+            "/api/projects",
+            json={
+                "name": "Problem status project",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        owner_problem = owner.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "problem", "body": "Problem wlasciciela"},
+        ).json()
+        normal_entry = owner.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Zwykly wpis"},
+        ).json()
+
+        resolved = owner.patch(
+            f"/api/entries/{owner_problem['id']}",
+            json={"problem_status": "resolved"},
+        )
+        assert resolved.status_code == 200
+        assert resolved.json()["problem_status"] == "resolved"
+        assert (
+            owner.patch(
+                f"/api/entries/{normal_entry['id']}",
+                json={"problem_status": "resolved"},
+            ).status_code
+            == 400
+        )
+
+    with TestClient(app) as worker_client:
+        login(worker_client, "problem-status-worker@example.com")
+        worker_problem = worker_client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "problem", "body": "Problem pracownika"},
+        ).json()
+        updated = worker_client.patch(
+            f"/api/entries/{worker_problem['id']}",
+            json={"problem_status": "resolved"},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["problem_status"] == "resolved"
+        assert (
+            worker_client.patch(
+                f"/api/entries/{owner_problem['id']}",
+                json={"problem_status": "open"},
+            ).status_code
+            == 403
+        )
+
+    with TestClient(app) as foreign:
+        login(foreign, "problem-status-foreign@example.com")
+        assert (
+            foreign.patch(
+                f"/api/entries/{owner_problem['id']}",
+                json={"problem_status": "open"},
+            ).status_code
+            == 403
+        )
+
+
 def test_public_client_can_download_generated_ready_pdf_report():
     with TestClient(app) as client:
         login(client, "public-ready-download-owner@example.com")

@@ -52,6 +52,9 @@ def comment(item: models.Comment):
         "id": item.id,
         "author": user(item.author),
         "guest_label": item.guest_label,
+        "author_type": item.author_type,
+        "author_label": item.author_label,
+        "intent": item.intent,
         "body": item.body,
         "created_at": iso(item.created_at),
     }

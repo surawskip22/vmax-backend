@@ -252,6 +252,12 @@ class EntryUpdate(BaseModel):
 
 class CommentCreate(BaseModel):
     body: str = Field(min_length=1, max_length=5000)
+    intent: Literal["comment", "confirm_resolved", "still_open", "suggest_solution"] = "comment"
+
+
+class PublicCommentCreate(BaseModel):
+    body: str = Field(default="", max_length=1000)
+    intent: Literal["comment", "confirm_resolved", "still_open", "suggest_solution"] = "comment"
 
 
 class ReportCreate(BaseModel):
@@ -1879,6 +1885,13 @@ def public_project_by_token(db: Session, token: str) -> models.Project:
     return project
 
 
+PUBLIC_COMMENT_DEFAULTS = {
+    "confirm_resolved": "Potwierdzam, problem został rozwiązany.",
+    "still_open": "Problem nadal wymaga poprawki.",
+    "suggest_solution": "Klient zasugerował rozwiązanie problemu.",
+}
+
+
 def public_media_payload(asset: models.MediaAsset, token: str) -> dict:
     data = serializers.media(asset)
     data["media_type"] = asset.kind
@@ -1982,6 +1995,64 @@ def public_project(
         "entries": [public_entry_payload(item, token) for item in entries],
         "reports": [public_report_payload(item, token) for item in reports],
     }
+
+
+@router.post("/public/projects/{token}/entries/{entry_id}/comments", status_code=201)
+def add_public_entry_comment(
+    token: str,
+    entry_id: str,
+    payload: PublicCommentCreate,
+    pin: str | None = None,
+    db: Session = Depends(get_db),
+):
+    project = public_project_by_token(db, token)
+    verify_project_pin(project, pin)
+    entry_item = db.scalar(
+        select(models.Entry)
+        .options(
+            selectinload(models.Entry.author),
+            selectinload(models.Entry.stage),
+            selectinload(models.Entry.media),
+            selectinload(models.Entry.comments).selectinload(models.Comment.author),
+        )
+        .where(
+            models.Entry.id == entry_id,
+            models.Entry.project_id == project.id,
+        )
+    )
+    if not entry_item:
+        raise HTTPException(404, "Nie znaleziono wpisu w tym zleceniu")
+    if payload.intent != "comment" and entry_item.kind != "problem":
+        raise HTTPException(400, "Akcje problemu są dostępne tylko dla wpisu problemowego")
+    body = payload.body.strip()
+    if not body:
+        if payload.intent == "comment":
+            raise HTTPException(400, "Komentarz nie może być pusty")
+        body = PUBLIC_COMMENT_DEFAULTS[payload.intent]
+    comment_item = models.Comment(
+        entry_id=entry_item.id,
+        author_type="client",
+        author_label="Klient",
+        guest_label="Klient",
+        intent=payload.intent,
+        body=body,
+    )
+    db.add(comment_item)
+    db.commit()
+    db.expire_all()
+    entry_item = db.scalar(
+        select(models.Entry)
+        .options(
+            selectinload(models.Entry.author),
+            selectinload(models.Entry.stage),
+            selectinload(models.Entry.media),
+            selectinload(models.Entry.comments).selectinload(models.Comment.author),
+        )
+        .where(models.Entry.id == entry_id, models.Entry.project_id == project.id)
+    )
+    if entry_item is None:
+        raise HTTPException(status_code=404, detail="Entry not found")
+    return public_entry_payload(entry_item, token)
 
 
 @router.get("/public/projects/{token}/qr")
@@ -2191,6 +2262,8 @@ def update_entry(
         stage = db.get(models.ProjectStage, payload.stage_id)
         if not stage or stage.project_id != item.project_id:
             raise HTTPException(400, "Nieprawidłowy etap")
+    if payload.problem_status is not None and item.kind != "problem":
+        raise HTTPException(400, "Status problemu można zmienić tylko dla wpisu problemowego")
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(item, key, value)
     db.commit()
@@ -2227,6 +2300,9 @@ def add_comment(
         entry_id=item.id,
         author_id=access.user.id if access.user else None,
         guest_label=access.guest.label if access.guest else None,
+        author_type="user" if access.user else "guest",
+        author_label=access.label,
+        intent=payload.intent,
         body=payload.body.strip(),
     )
     db.add(comment_item)

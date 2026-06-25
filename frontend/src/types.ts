@@ -82,6 +82,8 @@ export type Comment = {
   author?: User;
   author_label?: string;
   guest_label?: string;
+  author_type?: "client" | "guest" | "system" | "user";
+  intent?: "comment" | "confirm_resolved" | "still_open" | "suggest_solution";
   body: string;
   created_at: string;
 };

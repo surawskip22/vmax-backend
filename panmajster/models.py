@@ -279,6 +279,9 @@ class Comment(Base):
         ForeignKey("users.id", ondelete="SET NULL")
     )
     guest_label: Mapped[str | None] = mapped_column(String(160))
+    author_type: Mapped[str] = mapped_column(String(30), default="user")
+    author_label: Mapped[str | None] = mapped_column(String(160))
+    intent: Mapped[str] = mapped_column(String(40), default="comment")
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
