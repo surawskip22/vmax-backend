@@ -2120,6 +2120,22 @@ def update_entry(
     return serializers.entry(item)
 
 
+@router.delete("/entries/{entry_id}")
+def delete_entry(
+    entry_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    item, access = entry_access(request, db, entry_id)
+    if not access.user:
+        raise HTTPException(403, "Brak uprawnień do usuwania dokumentacji")
+    if item.author_id != access.user.id and not access.can_manage():
+        raise HTTPException(403, "Możesz usuwać tylko własne wpisy")
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/entries/{entry_id}/comments", status_code=201)
 def add_comment(
     entry_id: str,

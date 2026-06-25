@@ -649,6 +649,132 @@ def test_public_client_link_returns_generated_ready_pdf_report():
         assert public_report["legacy_pdf_url"] is None
 
 
+def test_owner_can_delete_progress_entry_without_deleting_project_or_reports():
+    with TestClient(app) as client:
+        login(client, "delete-entry-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={"name": "Delete entry project", "template": "custom"},
+        ).json()
+        entry = client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "Wpis do usuniecia z historii.",
+                "stage_id": project["stages"][0]["id"],
+            },
+        ).json()
+        report_before = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+        assert_pdf_response(client.get(report_before["pdf_url"]))
+
+        removed = client.delete(f"/api/entries/{entry['id']}")
+        assert removed.status_code == 200
+        assert client.get(f"/api/projects/{project['id']}").status_code == 200
+        assert client.get(f"/api/projects/{project['id']}/entries").json() == []
+        assert_pdf_response(client.get(report_before["pdf_url"]))
+
+        report_after = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+        assert report_after["id"] != report_before["id"]
+        assert_pdf_response(client.get(report_after["pdf_url"]))
+
+
+def test_company_worker_can_delete_own_entry_but_not_owner_entry():
+    with TestClient(app) as worker_seed:
+        login(worker_seed, "delete-worker@example.com")
+
+    with TestClient(app) as owner:
+        login(owner, "delete-worker-owner@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Delete Worker"},
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Delete worker",
+                "email": "delete-worker@example.com",
+            },
+        ).json()
+        project = owner.post(
+            "/api/projects",
+            json={
+                "name": "Delete worker assigned",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        owner_entry = owner.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Wpis wlasciciela"},
+        ).json()
+
+    with TestClient(app) as worker_client:
+        login(worker_client, "delete-worker@example.com")
+        own_entry = worker_client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Wpis pracownika"},
+        ).json()
+        assert worker_client.delete(f"/api/entries/{owner_entry['id']}").status_code == 403
+        assert worker_client.delete(f"/api/entries/{own_entry['id']}").status_code == 200
+        entries = worker_client.get(f"/api/projects/{project['id']}/entries").json()
+        assert [item["id"] for item in entries] == [owner_entry["id"]]
+
+
+def test_guest_public_and_foreign_user_cannot_delete_progress_entry():
+    with TestClient(app) as owner:
+        login(owner, "delete-entry-access-owner@example.com")
+        project = owner.post(
+            "/api/projects",
+            json={"name": "Delete entry access", "template": "custom"},
+        ).json()
+        entry = owner.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Wpis chroniony"},
+        ).json()
+        guest_link = owner.post(
+            f"/api/projects/{project['id']}/guest-links",
+            json={"label": "Guest no delete", "kind": "worker", "permission": "history"},
+        ).json()
+        client_token = owner.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+    with TestClient(app) as guest:
+        assert (
+            guest.delete(
+                f"/api/entries/{entry['id']}",
+                headers={"x-guest-token": guest_link["token"]},
+            ).status_code
+            == 403
+        )
+
+    with TestClient(app) as public_client:
+        assert public_client.get(f"/api/public/projects/{client_token}").status_code == 200
+        assert public_client.delete(f"/api/entries/{entry['id']}").status_code == 403
+
+    with TestClient(app) as foreign:
+        login(foreign, "delete-entry-foreign@example.com")
+        assert foreign.delete(f"/api/entries/{entry['id']}").status_code == 403
+
+    with TestClient(app) as owner_check:
+        login(owner_check, "delete-entry-access-owner@example.com")
+        entries = owner_check.get(f"/api/projects/{project['id']}/entries").json()
+        assert [item["id"] for item in entries] == [entry["id"]]
+
+
 def test_public_client_can_download_generated_ready_pdf_report():
     with TestClient(app) as client:
         login(client, "public-ready-download-owner@example.com")

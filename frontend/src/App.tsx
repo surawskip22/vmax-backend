@@ -2077,10 +2077,14 @@ function TimelineEntry({
   item,
   guestToken,
   onRefresh,
+  canDelete,
+  onDelete,
 }: {
   item: Entry;
   guestToken?: string;
   onRefresh: () => void;
+  canDelete?: boolean;
+  onDelete?: (entry: Entry) => void;
 }) {
   const [comment, setComment] = useState("");
   const [open, setOpen] = useState(false);
@@ -2106,6 +2110,11 @@ function TimelineEntry({
           <div><strong>{item.kind === "problem" ? "Zgłoszono problem" : item.media.length ? "Dodano dokumentację" : "Dodano aktualizację"}</strong><span>{new Intl.DateTimeFormat("pl", { dateStyle: "medium", timeStyle: "short" }).format(new Date(item.occurred_at))}</span></div>
           <small>{item.author?.name || item.author?.email || item.guest_label || "Gość"}</small>
         </header>
+        {canDelete && (
+          <button type="button" className="entry-delete-button" onClick={() => onDelete?.(item)}>
+            Usuń dokumentację
+          </button>
+        )}
         {item.stage && <span className="stage-label">{item.stage.title}</span>}
         {(item.body || item.transcript) && <p>{item.body || item.transcript}</p>}
         {item.transcript && item.body && <details><summary>Transkrypcja głosu</summary><p>{item.transcript}</p></details>}
@@ -2704,6 +2713,7 @@ function ProjectView({
   const [showClientLink, setShowClientLink] = useState(false);
   const [showWorkerStagePicker, setShowWorkerStagePicker] = useState(false);
   const [selectedWorkerEntry, setSelectedWorkerEntry] = useState<Entry | null>(null);
+  const [deleteEntryTarget, setDeleteEntryTarget] = useState<Entry | null>(null);
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const workerReportsRef = useRef<HTMLDivElement | null>(null);
   const fieldMode = Boolean(guestToken) || uiMode !== "advanced";
@@ -2811,6 +2821,7 @@ function ProjectView({
     setShowAddProgressChoice(false);
     setShowWorkerStagePicker(false);
     setSelectedWorkerEntry(null);
+    setDeleteEntryTarget(null);
     setLoading(true);
   }, [guestToken, projectId]);
 
@@ -2912,6 +2923,25 @@ function ProjectView({
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zmienić etapu" });
     } finally {
       setBusyStageId(undefined);
+    }
+  }
+
+  function canDeleteEntry(entry: Entry) {
+    if (!user || guestToken) return false;
+    if (["owner", "manager"].includes(project?.role || "")) return true;
+    return entry.author?.id === user.id;
+  }
+
+  async function deleteDocumentationEntry() {
+    if (!deleteEntryTarget) return;
+    try {
+      await api(`/entries/${deleteEntryTarget.id}`, { method: "DELETE" });
+      setSelectedWorkerEntry((current) => current?.id === deleteEntryTarget.id ? null : current);
+      setDeleteEntryTarget(null);
+      await refreshAfterProjectMutation();
+      notify({ kind: "success", message: "Dokumentacja usunięta" });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się usunąć dokumentacji" });
     }
   }
 
@@ -3017,74 +3047,18 @@ function ProjectView({
             )}
           </section>
 
-          <section className="worker-detail-card">
-            <div className="worker-section-heading">
-              <div>
-                <h2>{uiMode === "advanced" ? "Historia postępu" : "Ostatnie dodane"}</h2>
-                <p>{uiMode === "advanced" ? "Wpisy, problemy, zdjęcia, audio i komentarze z tej realizacji." : "Najświeższe wpisy z tej realizacji."}</p>
-              </div>
-            </div>
-            {workerHistoryEntries.length === 0 ? (
-              <div className="worker-empty-history">
-                <Icon name="camera" />
-                <strong>Tu powstanie historia pracy</strong>
-                <p>Dodaj pierwszy postęp: zdjęcia, opis, audio albo problem.</p>
-              </div>
-            ) : (
-              <div className="worker-entry-list">
-                {workerHistoryEntries.map((entry) => {
-                  const imageAssets = entry.media.filter((asset) => asset.kind === "image");
-                  const visibleImages = imageAssets.slice(0, 3);
-                  const extraImageCount = Math.max(0, imageAssets.length - visibleImages.length);
-                  const audioCount = entry.media.filter((asset) => asset.kind === "audio").length;
-                  const hasMediaChips = imageAssets.length > 0 || audioCount > 0 || entry.comments.length > 0 || entry.kind === "problem";
-                  return (
-                    <button type="button" className="worker-entry-list__item" onClick={() => setSelectedWorkerEntry(entry)} key={entry.id}>
-                      <span><Icon name={entry.kind === "problem" ? "alert" : audioCount ? "mic" : "camera"} /></span>
-                      <div>
-                        <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
-                        <small>
-                          {new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}
-                          {entry.author?.name || entry.author?.email || entry.guest_label ? ` · ${entry.author?.name || entry.author?.email || entry.guest_label}` : ""}
-                        </small>
-                        {uiMode === "advanced" && (entry.body || entry.transcript) && <p className="worker-entry-list__excerpt">{entry.body || entry.transcript}</p>}
-                        {uiMode === "advanced" && visibleImages.length > 0 && (
-                          <div className="worker-entry-media-preview" aria-label={`Zdjęcia: ${imageAssets.length}`}>
-                            {visibleImages.map((asset) => (
-                              <img src={asset.url} alt={asset.original_name || "Zdjęcie z wpisu"} loading="lazy" key={asset.id} />
-                            ))}
-                            {extraImageCount > 0 && <span>+{extraImageCount}</span>}
-                          </div>
-                        )}
-                        {uiMode === "advanced" && hasMediaChips && (
-                          <div className="worker-entry-media-chips">
-                            {imageAssets.length > 0 && <span>{imageAssets.length} zdjęć</span>}
-                            {audioCount > 0 && <span>Audio</span>}
-                            {entry.comments.length > 0 && <span>{entry.comments.length} komentarzy</span>}
-                            {entry.kind === "problem" && <span>{entry.problem_status === "resolved" ? "Problem rozwiązany" : "Problem otwarty"}</span>}
-                          </div>
-                        )}
-                      </div>
-                      <Icon name="back" className="worker-entry-list__arrow" />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
           {(canStartWorkerProject || canAddWorkerProgress || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
             <section className="worker-action-panel">
-              {canStartWorkerProject && <Button type="button" icon="plus" onClick={startProject}>Rozpocznij robotę</Button>}
-              {canAddWorkerProgress && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj postęp</Button>}
+              {canStartWorkerProject && <Button type="button" icon="plus" onClick={startProject}>Rozpocznij robot&#281;</Button>}
+              {canAddWorkerProgress && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj post&#281;p</Button>}
               {canFinishWorkerProject ? (
-                <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zakończ robotę</Button>
+                <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zako&#324;cz robot&#281;</Button>
               ) : project.status === "completed" ? (
                 <>
-                  <div className="worker-completed-note"><Icon name="check" /> Zlecenie zakończone</div>
+                  <div className="worker-completed-note"><Icon name="check" /> Zlecenie zako&#324;czone</div>
                   {canReopenWorkerProject && (
                     <Button type="button" variant="secondary" onClick={reopenProject}>
-                      Otwórz ponownie
+                      Otw&oacute;rz ponownie
                     </Button>
                   )}
                 </>
@@ -3108,6 +3082,71 @@ function ProjectView({
               )}
             </section>
           )}
+
+          <section className="worker-detail-card">
+            <div className="worker-section-heading">
+              <div>
+                <h2>{uiMode === "advanced" ? "Historia postępu" : "Ostatnie dodane"}</h2>
+                <p>{uiMode === "advanced" ? "Wpisy, problemy, zdjęcia, audio i komentarze z tej realizacji." : "Najświeższe wpisy z tej realizacji."}</p>
+              </div>
+            </div>
+            {workerHistoryEntries.length === 0 ? (
+              <div className="worker-empty-history">
+                <Icon name="camera" />
+                <strong>Tu powstanie historia pracy</strong>
+                <p>Dodaj pierwszy postęp: zdjęcia, opis, audio albo problem.</p>
+              </div>
+            ) : (
+              <div className="worker-entry-list">
+                {workerHistoryEntries.map((entry) => {
+                  const imageAssets = entry.media.filter((asset) => asset.kind === "image");
+                  const visibleImages = imageAssets.slice(0, 3);
+                  const extraImageCount = Math.max(0, imageAssets.length - visibleImages.length);
+                  const audioCount = entry.media.filter((asset) => asset.kind === "audio").length;
+                  const hasMediaChips = imageAssets.length > 0 || audioCount > 0 || entry.comments.length > 0 || entry.kind === "problem";
+                  return (
+                    <article className="worker-entry-list__item" key={entry.id}>
+                      <button type="button" className="worker-entry-list__main" onClick={() => setSelectedWorkerEntry(entry)}>
+                        <span><Icon name={entry.kind === "problem" ? "alert" : audioCount ? "mic" : "camera"} /></span>
+                        <div>
+                          <strong>{entry.kind === "problem" ? "Problem" : entry.media.length ? "Dokumentacja" : "Opis"}</strong>
+                          <small>
+                            {new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}
+                            {entry.author?.name || entry.author?.email || entry.guest_label ? ` - ${entry.author?.name || entry.author?.email || entry.guest_label}` : ""}
+                          </small>
+                          {uiMode === "advanced" && (entry.body || entry.transcript) && <p className="worker-entry-list__excerpt">{entry.body || entry.transcript}</p>}
+                          {uiMode === "advanced" && visibleImages.length > 0 && (
+                            <div className="worker-entry-media-preview" aria-label={`Zdjecia: ${imageAssets.length}`}>
+                              {visibleImages.map((asset) => (
+                                <img src={asset.url} alt={asset.original_name || "Zdjecie z wpisu"} loading="lazy" key={asset.id} />
+                              ))}
+                              {extraImageCount > 0 && <span>+{extraImageCount}</span>}
+                            </div>
+                          )}
+                          {uiMode === "advanced" && hasMediaChips && (
+                            <div className="worker-entry-media-chips">
+                              {imageAssets.length > 0 && <span>{imageAssets.length} zdj&#281;&#263;</span>}
+                              {audioCount > 0 && <span>Audio</span>}
+                              {entry.comments.length > 0 && <span>{entry.comments.length} komentarzy</span>}
+                              {entry.kind === "problem" && <span>{entry.problem_status === "resolved" ? "Problem rozwi&#261;zany" : "Problem otwarty"}</span>}
+                            </div>
+                          )}
+                        </div>
+                        <Icon name="back" className="worker-entry-list__arrow" />
+                      </button>
+                      {canDeleteEntry(entry) && (
+                        <button type="button" className="worker-entry-list__delete" onClick={() => setDeleteEntryTarget(entry)}>
+                          Usu&#324; dokumentacj&#281;
+                        </button>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+
 
           {uiMode === "advanced" && (
             <>
@@ -3164,6 +3203,17 @@ function ProjectView({
             entry={selectedWorkerEntry}
             onClose={() => setSelectedWorkerEntry(null)}
           />
+        )}
+        {deleteEntryTarget && (
+          <Modal title="Usunąć dokumentację?" onClose={() => setDeleteEntryTarget(null)}>
+            <div className="delete-entry-confirm">
+              <p>Ten wpis zostanie usuni&#281;ty z historii post&#281;pu. Projekt i wygenerowane raporty PDF pozostan&#261; bez zmian.</p>
+              <div className="modal-actions">
+                <Button type="button" variant="secondary" onClick={() => setDeleteEntryTarget(null)}>Anuluj</Button>
+                <Button type="button" variant="danger" onClick={() => void deleteDocumentationEntry()}>Usu&#324; dokumentacj&#281;</Button>
+              </div>
+            </div>
+          </Modal>
         )}
         {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
         {isIndependentFieldUser && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
@@ -3228,7 +3278,7 @@ function ProjectView({
           </section>
           <section className="field-latest">
             <div className="section-title"><h2>Postęp i historia zlecenia</h2></div>
-            {entries.length === 0 ? <EmptyState icon="camera" title="Jeszcze bez wpisów" text="Dodaj pierwszy postęp prac: zdjęcia i krótki opis." /> : entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} key={entry.id} />)}
+            {entries.length === 0 ? <EmptyState icon="camera" title="Jeszcze bez wpisów" text="Dodaj pierwszy postęp prac: zdjęcia i krótki opis." /> : entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} canDelete={canDeleteEntry(entry)} onDelete={setDeleteEntryTarget} key={entry.id} />)}
           </section>
         </main>
         {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
@@ -3271,7 +3321,7 @@ function ProjectView({
             <div><h2>Postęp i zarządzanie zleceniem</h2><p>Zdjęcia, opisy, ustalenia i problemy w jednej osi czasu.</p></div>
             {canAdd && <div className="quick-buttons"><button onClick={() => setEntryModal({ kind: "update", mode: "photo" })}><Icon name="camera" /> Dodaj postęp</button><button className="problem" onClick={() => setEntryModal({ kind: "problem", mode: "text" })}><Icon name="alert" /> Zgłoś problem</button></div>}
           </div>
-          {entries.length === 0 ? <EmptyState icon="camera" title="Tu powstanie historia pracy" text="Dodaj pierwszy postęp: zdjęcia oraz opis głosowy lub tekstowy." /> : <div className="timeline">{entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} key={entry.id} />)}</div>}
+          {entries.length === 0 ? <EmptyState icon="camera" title="Tu powstanie historia pracy" text="Dodaj pierwszy postęp: zdjęcia oraz opis głosowy lub tekstowy." /> : <div className="timeline">{entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} canDelete={canDeleteEntry(entry)} onDelete={setDeleteEntryTarget} key={entry.id} />)}</div>}
         </main>
       </div>
       {canGeneratePdfReports && (
