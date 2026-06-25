@@ -70,6 +70,8 @@ type SpeechRecognitionInstance = {
   abort?: () => void;
 };
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
+const LIVE_TRANSCRIPTION_FALLBACK_MESSAGE =
+  "Transkrypcja na żywo jest niedostępna na tym urządzeniu. Nagranie audio zostanie zapisane.";
 
 const testAccounts = [
   {
@@ -1591,6 +1593,14 @@ function NewEntryModal({
     return speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition || null;
   }
 
+  function shouldUseMobileSpeechFallback(): boolean {
+    const userAgent = navigator.userAgent || "";
+    const isAndroid = /Android/i.test(userAgent);
+    const isChrome = /Chrome|CriOS/i.test(userAgent);
+    const isMobileViewport = window.matchMedia?.("(max-width: 768px)").matches ?? false;
+    return isAndroid && isChrome && isMobileViewport;
+  }
+
   function updateTargetText(target: EntryTextTarget, value: string) {
     if (target === "description") {
       setBody(value);
@@ -1636,12 +1646,20 @@ function NewEntryModal({
 
   function startLiveTranscription(target: EntryTextTarget) {
     stopLiveTranscription({ keepMessage: false });
+    if (shouldUseMobileSpeechFallback()) {
+      setSpeechInfo({
+        target,
+        state: "unsupported",
+        message: LIVE_TRANSCRIPTION_FALLBACK_MESSAGE,
+      });
+      return;
+    }
     const Constructor = speechRecognitionConstructor();
     if (!Constructor) {
       setSpeechInfo({
         target,
         state: "unsupported",
-        message: "Transkrypcja live beta nie jest dostępna w tej przeglądarce. Nagranie audio nadal zostanie zapisane.",
+        message: LIVE_TRANSCRIPTION_FALLBACK_MESSAGE,
       });
       return;
     }
@@ -1682,8 +1700,8 @@ function NewEntryModal({
         if (speechStopping.current) return;
         setSpeechInfo({
           target,
-          state: "error",
-          message: "Transkrypcja live beta chwilowo nie działa. Nagranie audio nadal zostanie zapisane.",
+          state: "unsupported",
+          message: LIVE_TRANSCRIPTION_FALLBACK_MESSAGE,
         });
       };
       recognition.onend = () => {
@@ -1692,8 +1710,8 @@ function NewEntryModal({
         setSpeechInterim("");
         setSpeechInfo({
           target,
-          state: "error",
-          message: "Transkrypcja live beta została przerwana. Nagranie audio nadal zostanie zapisane.",
+          state: "unsupported",
+          message: LIVE_TRANSCRIPTION_FALLBACK_MESSAGE,
         });
       };
       speechRecognition.current = recognition;
@@ -1701,13 +1719,13 @@ function NewEntryModal({
       setSpeechInfo({
         target,
         state: "listening",
-        message: "Transkrypcja live beta: włączona. Słucham i zapisuję tekst...",
+        message: "Transkrypcja na żywo działa. Dyktowany tekst pojawi się w opisie.",
       });
     } catch {
       setSpeechInfo({
         target,
         state: "unsupported",
-        message: "Transkrypcja live beta nie jest dostępna w tej przeglądarce. Nagranie audio nadal zostanie zapisane.",
+        message: LIVE_TRANSCRIPTION_FALLBACK_MESSAGE,
       });
     }
   }
@@ -1971,7 +1989,7 @@ function NewEntryModal({
         </button>
         <div>
           <strong>{active ? `Nagrywanie... ${formatRecordingTime(time)}` : selectedAudioFiles.length ? `Nagranie dodane (${selectedAudioFiles.length})` : "Stuknij, aby nagrać"}</strong>
-          <span>Jeśli przeglądarka wspiera Web Speech API, tekst pojawi się w polu opisu i nadal możesz go poprawić ręcznie.</span>
+          <span>Nagranie audio zostanie zapisane. Jeśli transkrypcja na żywo będzie dostępna, tekst pojawi się w polu opisu.</span>
         </div>
       </div>
       {renderSpeechStatus(target)}
@@ -2030,7 +2048,7 @@ function NewEntryModal({
             <section className="entry-flow-section entry-flow-section--voice">
               <h3>Notatka głosowa <span>(opcjonalnie)</span></h3>
               {recorderSection("description")}
-              <p>Twoje nagranie zamienimy na transkrypcję, jeśli przeglądarka na to pozwala.</p>
+              <p>Nagranie audio zostanie zapisane. Tekst możesz dodać ręcznie, jeśli transkrypcja na żywo nie będzie dostępna.</p>
             </section>
           </>
         )}

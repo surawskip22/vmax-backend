@@ -573,7 +573,7 @@ audio { width: 100%; margin-top: 13px; }
 .live-transcription span { color: var(--muted); }
 .live-transcription--listening { border-color: #a8c7ff; background: #eef5ff; }
 .live-transcription--manual { border-color: #f5d39a; background: #fff8ea; }
-.live-transcription--unsupported, .live-transcription--error { border-color: #ead3d3; background: #fff7f7; }
+.live-transcription--unsupported, .live-transcription--error { border-color: #d8e0e9; background: #f8fafc; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 10px rgba(219,52,44,.12); } }
 .file-chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .file-chips span { display: inline-flex; gap: 7px; align-items: center; padding: 7px 10px; border-radius: 999px; color: #334155; background: #eef2f6; font-size: 11px; }
