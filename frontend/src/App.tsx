@@ -2520,6 +2520,7 @@ function ProjectView({
   onUnavailable,
   notify,
   onQueue,
+  onProjectChanged,
 }: {
   projectId: string;
   guestToken?: string;
@@ -2530,6 +2531,7 @@ function ProjectView({
   onUnavailable?: () => void;
   notify: (toast: Toast) => void;
   onQueue: () => void;
+  onProjectChanged?: () => void;
 }) {
   const [project, setProject] = useState<Project | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -2624,6 +2626,7 @@ function ProjectView({
       setClientLink(null);
       if (!guestToken && reason instanceof ApiError && [403, 404].includes(reason.status)) {
         notify({ kind: "info", message: "Nie masz dostępu do tego zlecenia w tej sesji. Wracam do listy." });
+        onProjectChanged?.();
         onUnavailable?.();
         return;
       }
@@ -2631,7 +2634,12 @@ function ProjectView({
     } finally {
       setLoading(false);
     }
-  }, [guestToken, notify, onUnavailable, projectId]);
+  }, [guestToken, notify, onProjectChanged, onUnavailable, projectId]);
+
+  const refreshAfterProjectMutation = useCallback(async () => {
+    onProjectChanged?.();
+    await load();
+  }, [load, onProjectChanged]);
 
   useEffect(() => {
     setProject(null);
@@ -2706,7 +2714,7 @@ function ProjectView({
     if (!window.confirm("Czy na pewno chcesz zamknąć zlecenie? Status zmieni się na Zakończono.")) return;
     try {
       await api(`/projects/${projectIdForStatusActions}/close`, { method: "POST", body: JSON.stringify({}) });
-      await load();
+      await refreshAfterProjectMutation();
       notify({ kind: "success", message: "Zlecenie zostało zamknięte." });
     } catch (reason) {
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zamknąć zlecenia" });
@@ -2716,7 +2724,7 @@ function ProjectView({
   async function startProject() {
     try {
       await api(`/projects/${projectIdForStatusActions}/start`, { method: "POST", body: JSON.stringify({}) });
-      await load();
+      await refreshAfterProjectMutation();
       notify({ kind: "success", message: "Zlecenie jest w realizacji." });
     } catch (reason) {
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się rozpocząć roboty" });
@@ -2727,7 +2735,7 @@ function ProjectView({
     if (!window.confirm("Czy chcesz ponownie otworzyć zlecenie? Status wróci do W realizacji.")) return;
     try {
       await api(`/projects/${projectIdForStatusActions}/reopen`, { method: "POST", body: JSON.stringify({}) });
-      await load();
+      await refreshAfterProjectMutation();
       notify({ kind: "success", message: "Zlecenie wróciło do realizacji." });
     } catch (reason) {
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się otworzyć zlecenia ponownie" });
@@ -2741,7 +2749,7 @@ function ProjectView({
         method: "POST",
         body: JSON.stringify({}),
       }, guestToken);
-      await load();
+      await refreshAfterProjectMutation();
       notify({ kind: "success", message: "Etap zlecenia zaktualizowany." });
     } catch (reason) {
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zmienić etapu" });
@@ -3000,8 +3008,8 @@ function ProjectView({
             onClose={() => setSelectedWorkerEntry(null)}
           />
         )}
-        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); load(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
-        {isIndependentFieldUser && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={load} notify={notify} />}
+        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
+        {isIndependentFieldUser && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
       </div>
     );
   }
@@ -3063,11 +3071,11 @@ function ProjectView({
           </section>
           <section className="field-latest">
             <div className="section-title"><h2>Postęp i historia zlecenia</h2></div>
-            {entries.length === 0 ? <EmptyState icon="camera" title="Jeszcze bez wpisów" text="Dodaj pierwszy postęp prac: zdjęcia i krótki opis." /> : entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={load} key={entry.id} />)}
+            {entries.length === 0 ? <EmptyState icon="camera" title="Jeszcze bez wpisów" text="Dodaj pierwszy postęp prac: zdjęcia i krótki opis." /> : entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} key={entry.id} />)}
           </section>
         </main>
-        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); load(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
-        {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={load} notify={notify} />}
+        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
+        {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
       </div>
     );
   }
@@ -3106,7 +3114,7 @@ function ProjectView({
             <div><h2>Postęp i zarządzanie zleceniem</h2><p>Zdjęcia, opisy, ustalenia i problemy w jednej osi czasu.</p></div>
             {canAdd && <div className="quick-buttons"><button onClick={() => setEntryModal({ kind: "update", mode: "photo" })}><Icon name="camera" /> Dodaj postęp</button><button className="problem" onClick={() => setEntryModal({ kind: "problem", mode: "text" })}><Icon name="alert" /> Zgłoś problem</button></div>}
           </div>
-          {entries.length === 0 ? <EmptyState icon="camera" title="Tu powstanie historia pracy" text="Dodaj pierwszy postęp: zdjęcia oraz opis głosowy lub tekstowy." /> : <div className="timeline">{entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={load} key={entry.id} />)}</div>}
+          {entries.length === 0 ? <EmptyState icon="camera" title="Tu powstanie historia pracy" text="Dodaj pierwszy postęp: zdjęcia oraz opis głosowy lub tekstowy." /> : <div className="timeline">{entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} key={entry.id} />)}</div>}
         </main>
       </div>
       {canGeneratePdfReports && (
@@ -3120,9 +3128,9 @@ function ProjectView({
           error={reportError}
         />
       )}
-      {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); load(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
-      {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={load} notify={notify} />}
-      {showManage && <ManageProjectModal project={project} user={user} onClose={() => setShowManage(false)} onRefresh={load} notify={notify} />}
+      {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
+      {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
+      {showManage && <ManageProjectModal project={project} user={user} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
     </div>
   );
 }
@@ -5357,6 +5365,7 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsDirty, setProjectsDirty] = useState(false);
   const [section, setSection] = useState("home");
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -5379,11 +5388,15 @@ export default function App() {
       try { return await api<Project>(`/projects/${project.id}`); } catch { return project; }
     }));
     setProjects(details);
+    setProjectsDirty(false);
   }, [user]);
+
+  const markProjectsDirty = useCallback(() => setProjectsDirty(true), []);
 
   const syncQueue = useCallback(async () => {
     if (!navigator.onLine) return;
     const queue = await queuedEntries();
+    let syncedAny = false;
     for (const queued of queue) {
       try {
         const entry = await api<Entry>(`/projects/${queued.projectId}/entries`, {
@@ -5405,12 +5418,14 @@ export default function App() {
           await api(`/entries/${entry.id}/media`, { method: "POST", body }, queued.guestToken);
         }
         await deleteQueuedEntry(queued.id);
+        syncedAny = true;
       } catch {
         break;
       }
     }
+    if (syncedAny) markProjectsDirty();
     await refreshQueue();
-  }, [refreshQueue]);
+  }, [markProjectsDirty, refreshQueue]);
 
   const resetSessionView = useCallback(() => {
     setSelectedProject(null);
@@ -5446,6 +5461,12 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadProjects(); }, [loadProjects]);
+
+  useEffect(() => {
+    if (!selectedProject && projectsDirty) {
+      void loadProjects();
+    }
+  }, [loadProjects, projectsDirty, selectedProject]);
 
   useEffect(() => {
     if (currentRoute.kind === "app" && !loading && !user) setAuthOpen(true);
@@ -5499,6 +5520,7 @@ export default function App() {
       onUnavailable={() => { setSelectedProject(null); setSection("projects"); }}
       notify={notify}
       onQueue={refreshQueue}
+      onProjectChanged={markProjectsDirty}
     />
   ) : visibleSection === "projects" ? (
     <ProjectsPage
@@ -5539,7 +5561,7 @@ export default function App() {
       >
         {body}
       </AppShell>
-      {createOpen && <CreateProjectModal user={user} onClose={() => setCreateOpen(false)} onCreated={(project) => { setCreateOpen(false); setProjects((current) => [project, ...current]); setSelectedProject(project); notify({ kind: "success", message: "Zlecenie utworzone" }); }} />}
+      {createOpen && <CreateProjectModal user={user} onClose={() => setCreateOpen(false)} onCreated={(project) => { setCreateOpen(false); setProjects((current) => [project, ...current]); markProjectsDirty(); setSelectedProject(project); notify({ kind: "success", message: "Zlecenie utworzone" }); }} />}
       {toast && <ToastView toast={toast} />}
     </>
   );
