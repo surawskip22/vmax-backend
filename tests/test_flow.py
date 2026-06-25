@@ -2079,6 +2079,14 @@ def test_set_current_stage_permissions_and_payload():
 
 
 def test_project_close_and_reopen_permissions():
+    def assert_final_stage_current(payload: dict) -> None:
+        stages = payload["stages"]
+        assert stages
+        assert [stage["status"] for stage in stages[:-1]] == ["completed"] * (
+            len(stages) - 1
+        )
+        assert stages[-1]["status"] == "active"
+
     with TestClient(app) as worker_client:
         login(worker_client, "close-worker@example.com")
 
@@ -2121,12 +2129,40 @@ def test_project_close_and_reopen_permissions():
 
         closed = owner.post(f"/api/projects/{project['id']}/close")
         assert closed.status_code == 200
-        assert closed.json()["status"] == "completed"
+        closed_payload = closed.json()
+        assert closed_payload["status"] == "completed"
+        assert_final_stage_current(closed_payload)
         assert owner.post(f"/api/projects/{project['id']}/close").json()["status"] == "completed"
 
         reopened = owner.post(f"/api/projects/{project['id']}/reopen")
         assert reopened.status_code == 200
-        assert reopened.json()["status"] == "in_progress"
+        reopened_payload = reopened.json()
+        assert reopened_payload["status"] == "in_progress"
+        assert [stage["status"] for stage in reopened_payload["stages"]] == [
+            stage["status"] for stage in closed_payload["stages"]
+        ]
+
+        no_stage_project = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zlecenie bez etapow do zamkniecia",
+                "workspace_id": workspace_id,
+                "template": "custom",
+            },
+        ).json()
+        with SessionLocal() as db:
+            stages = db.scalars(
+                select(models.ProjectStage).where(
+                    models.ProjectStage.project_id == no_stage_project["id"]
+                )
+            ).all()
+            for stage in stages:
+                db.delete(stage)
+            db.commit()
+        no_stage_closed = owner.post(f"/api/projects/{no_stage_project['id']}/close")
+        assert no_stage_closed.status_code == 200
+        assert no_stage_closed.json()["status"] == "completed"
+        assert no_stage_closed.json()["stages"] == []
 
         link = owner.post(
             f"/api/projects/{project['id']}/guest-links",
@@ -2141,6 +2177,7 @@ def test_project_close_and_reopen_permissions():
         worker_closed = worker_client.post(f"/api/projects/{project['id']}/close")
         assert worker_closed.status_code == 200
         assert worker_closed.json()["status"] == "completed"
+        assert_final_stage_current(worker_closed.json())
         closed_stage_statuses = [stage["status"] for stage in worker_closed.json()["stages"]]
         worker_reopened = worker_client.post(f"/api/projects/{project['id']}/reopen")
         assert worker_reopened.status_code == 200

@@ -395,6 +395,20 @@ def default_entry_stage_id(db: Session, project_id: str) -> str | None:
     )
 
 
+def set_final_project_stage_current(project: models.Project) -> None:
+    stages = sorted(project.stages or [], key=lambda stage: stage.position)
+    if not stages:
+        return
+    final_stage = stages[-1]
+    for stage in stages:
+        if stage.position < final_stage.position:
+            stage.status = "completed"
+        elif stage.id == final_stage.id:
+            stage.status = "active"
+        else:
+            stage.status = "planned"
+
+
 def worker_profile_payload(db: Session, item: models.WorkerProfile) -> dict:
     projects = db.scalars(
         select(models.Project)
@@ -1440,6 +1454,7 @@ def close_project(
     access = get_project_access(request, db, project_id, allow_guest=False)
     require_close_project_access(access)
     access.project.status = PROJECT_STATUS_COMPLETED
+    set_final_project_stage_current(access.project)
     if not access.project.finished_at:
         access.project.finished_at = now()
     db.commit()
