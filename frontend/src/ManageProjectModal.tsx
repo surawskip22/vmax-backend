@@ -353,20 +353,23 @@ export function ManageProjectModal({
             </header>
             <label>Opis zlecenia<textarea name="description" rows={4} defaultValue={project.description} /></label>
           </section>
-          <section className="job-form-section job-form-section--disabled">
+          {isIndependentContractor(user) && (
+          <section className="job-form-section job-form-section--disabled job-form-portfolio-info">
             <header className="job-form-section__header">
               <span><Icon name="image" /></span>
               <div>
-                <h3>Publiczna realizacja / portfolio</h3>
-                <p>Portfolio realizacji — dostępne w kolejnym kroku. Funkcja będzie aktywna później.</p>
+                <h3>Portfolio</h3>
+                <p>Dodaj później do Mojej wizytówki</p>
               </div>
+              <em>Dostępne po zakończeniu</em>
             </header>
-            <label className="check-label"><input type="checkbox" checked={Boolean(project.portfolio_enabled)} disabled readOnly /> Pokaż realizację w publicznym portfolio</label>
-            <div className="form-row">
-              <label>Adres portfolio<input disabled readOnly value={project.portfolio_slug || ""} placeholder="np. firma-kowalski" /></label>
-              <label>Opis realizacji<textarea disabled readOnly rows={3} value={project.portfolio_summary || ""} placeholder="Opis realizacji będzie aktywny później" /></label>
-            </div>
+            <p className="job-form-note">
+              Po zakończeniu zlecenia możesz zrobić z niego publiczną realizację:
+              wybrać zdjęcie główne, galerię i opis. To zlecenie nie zostanie
+              opublikowane automatycznie.
+            </p>
           </section>
+          )}
           {canShowDetailsLock && (
             <label className="check-label">
               <input type="checkbox" name="details_locked" defaultChecked={project.details_locked} />

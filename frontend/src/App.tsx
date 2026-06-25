@@ -970,20 +970,23 @@ function CreateProjectModal({
           </header>
           <label>Opis zlecenia<textarea name="description" rows={4} placeholder="Krótki zakres prac..." /></label>
         </section>
-        <section className="job-form-section job-form-section--disabled">
+        {isIndependentContractor(user) && (
+        <section className="job-form-section job-form-section--disabled job-form-portfolio-info">
           <header className="job-form-section__header">
             <span><Icon name="image" /></span>
             <div>
-              <h3>Publiczna realizacja / portfolio</h3>
-              <p>Portfolio realizacji — dostępne w kolejnym kroku. Funkcja będzie aktywna później.</p>
+              <h3>Portfolio</h3>
+              <p>Dodaj później do Mojej wizytówki</p>
             </div>
+            <em>Dostępne po zakończeniu</em>
           </header>
-          <label className="check-label"><input type="checkbox" disabled /> Pokaż realizację w publicznym portfolio</label>
-          <div className="form-row">
-            <label>Adres portfolio<input disabled placeholder="np. firma-kowalski" /></label>
-            <label>Opis realizacji<textarea disabled rows={3} placeholder="Opis realizacji będzie aktywny później" /></label>
-          </div>
+          <p className="job-form-note">
+            Po zakończeniu zlecenia możesz zrobić z niego publiczną realizację:
+            wybrać zdjęcie główne, galerię i opis. To zlecenie nie zostanie
+            opublikowane automatycznie.
+          </p>
         </section>
+        )}
         {error && <p className="form-error">{error}</p>}
         <div className="modal-actions job-form-actions">
           <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
