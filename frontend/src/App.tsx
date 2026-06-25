@@ -1270,15 +1270,17 @@ function AddProgressChoice({
     tone: string;
     entry: EntryModalState;
   }> = [
-    { icon: "camera", title: "Zdjęcie", subtitle: "Dodaj zdjęcia", tone: "navy", entry: { kind: "update", mode: "photo" } },
-    { icon: "mic", title: "Audio", subtitle: "Nagraj opis", tone: "navy", entry: { kind: "update", mode: "audio" } },
-    { icon: "report", title: "Opis", subtitle: "Napisz co zrobiono", tone: "navy", entry: { kind: "update", mode: "text" } },
-    { icon: "alert", title: "Problem", subtitle: "Zgłoś problem", tone: "red", entry: { kind: "problem", mode: "text" } },
+    { icon: "camera", title: "Zdjęcia postępu", subtitle: "Zdjęcia, opis i notatka głosowa", tone: "navy", entry: { kind: "update", mode: "photo" } },
+    { icon: "mic", title: "Audio", subtitle: "Nagraj ogólny opis robót", tone: "navy", entry: { kind: "update", mode: "audio" } },
+    { icon: "alert", title: "Problem", subtitle: "Zgłoś przeszkodę do rozwiązania", tone: "red", entry: { kind: "problem", mode: "text" } },
   ];
 
   return (
-    <Modal title="Co chcesz dodać?" onClose={onClose}>
-      <div className="progress-choice-grid">
+    <Modal title="Dodaj postęp" onClose={onClose}>
+      <div className="add-progress-sheet">
+        <p>Wybierz, co chcesz dodać do tego zlecenia.</p>
+      </div>
+      <div className="progress-choice-grid progress-choice-grid--three">
         {options.map((option) => (
           <button
             type="button"
@@ -1296,6 +1298,39 @@ function AddProgressChoice({
         <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
       </div>
     </Modal>
+  );
+}
+
+function formatRecordingTime(seconds: number) {
+  const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
+  const rest = Math.max(0, seconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${rest}`;
+}
+
+function SelectedImageThumb({
+  file,
+  index,
+  onRemove,
+}: {
+  file: File;
+  index: number;
+  onRemove: () => void;
+}) {
+  const [url, setUrl] = useState("");
+
+  useEffect(() => {
+    const nextUrl = URL.createObjectURL(file);
+    setUrl(nextUrl);
+    return () => URL.revokeObjectURL(nextUrl);
+  }, [file]);
+
+  return (
+    <figure className="selected-photo">
+      {url && <img src={url} alt={`Zdjęcie ${index + 1}`} />}
+      <button type="button" onClick={onRemove} aria-label={`Usuń zdjęcie ${index + 1}`}>
+        <Icon name="close" size={15} />
+      </button>
+    </figure>
   );
 }
 
@@ -1508,9 +1543,11 @@ function NewEntryModal({
   const [stageId, setStageId] = useState(defaultEntryStageId(project));
   const [files, setFiles] = useState<File[]>([]);
   const [recordingTarget, setRecordingTarget] = useState<EntryTextTarget | null>(null);
+  const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [lastRecordingSeconds, setLastRecordingSeconds] = useState(0);
   const [speechInfo, setSpeechInfo] = useState<SpeechRecognitionInfo>({ target: null, state: "idle", message: "" });
   const [speechInterim, setSpeechInterim] = useState("");
-  const [showVoiceNote, setShowVoiceNote] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const recorder = useRef<MediaRecorder | null>(null);
@@ -1522,6 +1559,14 @@ function NewEntryModal({
   const speechFinalText = useRef("");
   const speechManualEdit = useRef(false);
   const speechStopping = useRef(false);
+  const isProblemFlow = kind === "problem";
+  const isPhotoFlow = !isProblemFlow && mode === "photo";
+  const isAudioFlow = !isProblemFlow && mode === "audio";
+  const selectedImageFiles = useMemo(
+    () => files.map((file, index) => ({ file, index })).filter(({ file }) => file.type.startsWith("image/")),
+    [files],
+  );
+  const selectedAudioFiles = files.filter((file) => file.type.startsWith("audio/"));
 
   function speechRecognitionConstructor(): SpeechRecognitionConstructor | null {
     const speechWindow = window as Window & {
@@ -1664,8 +1709,18 @@ function NewEntryModal({
 
   useEffect(() => () => {
     stopLiveTranscription();
-    recorder.current?.stop();
+    if (recorder.current && recorder.current.state !== "inactive") {
+      recorder.current.stop();
+    }
   }, []);
+
+  useEffect(() => {
+    if (!recordingStartedAt) return;
+    const tick = () => setRecordingSeconds(Math.max(0, Math.floor((Date.now() - recordingStartedAt) / 1000)));
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [recordingStartedAt]);
 
   useEffect(() => {
     if (mode === "text" || kind === "problem") {
@@ -1674,21 +1729,37 @@ function NewEntryModal({
   }, [kind, mode]);
 
   async function startRecording(target: EntryTextTarget) {
+    if (recordingTarget) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("Przeglądarka nie udostępnia nagrywania audio. Opis możesz wpisać ręcznie.");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
+      const startedAt = Date.now();
       chunks.current = [];
       mediaRecorder.ondataavailable = (event) => chunks.current.push(event.data);
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks.current, { type: mediaRecorder.mimeType || "audio/webm" });
-        const prefix = target === "description" ? "opis" : "notatka";
-        const file = new File([blob], `${prefix}-${Date.now()}.webm`, { type: blob.type });
-        setFiles((current) => [...current, file]);
+        if (blob.size > 0) {
+          const prefix = target === "description" ? "opis" : "notatka";
+          const file = new File([blob], `${prefix}-${Date.now()}.webm`, { type: blob.type });
+          setFiles((current) => [...current, file]);
+        }
         stream.getTracks().forEach((track) => track.stop());
+        recorder.current = null;
+        setRecordingTarget(null);
+        setRecordingStartedAt(null);
+        setLastRecordingSeconds(Math.max(1, Math.floor((Date.now() - startedAt) / 1000)));
+        setRecordingSeconds(0);
       };
       recorder.current = mediaRecorder;
       mediaRecorder.start();
       setRecordingTarget(target);
+      setRecordingStartedAt(startedAt);
+      setRecordingSeconds(0);
+      setLastRecordingSeconds(0);
       startLiveTranscription(target);
     } catch {
       setError("Przeglądarka nie udostępniła mikrofonu. Opis możesz wpisać ręcznie.");
@@ -1696,9 +1767,26 @@ function NewEntryModal({
   }
 
   function stopRecording() {
-    recorder.current?.stop();
-    setRecordingTarget(null);
+    if (recorder.current && recorder.current.state !== "inactive") {
+      recorder.current.stop();
+    } else {
+      setRecordingTarget(null);
+      setRecordingStartedAt(null);
+      setRecordingSeconds(0);
+    }
     stopLiveTranscription({ keepMessage: false });
+  }
+
+  function appendFiles(fileList: FileList | null, input?: HTMLInputElement) {
+    const selected = Array.from(fileList || []);
+    if (selected.length > 0) {
+      setFiles((current) => [...current, ...selected]);
+    }
+    if (input) input.value = "";
+  }
+
+  function removeFile(indexToRemove: number) {
+    setFiles((current) => current.filter((_, index) => index !== indexToRemove));
   }
 
   async function upload(entryId: string, selectedFiles: File[]) {
@@ -1720,6 +1808,10 @@ function NewEntryModal({
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (recordingTarget) {
+      setError("Zatrzymaj nagrywanie przed zapisaniem wpisu.");
+      return;
+    }
     setBusy(true);
     setError("");
     const clientRef = crypto.randomUUID();
@@ -1780,81 +1872,130 @@ function NewEntryModal({
     ? {
       title: "Zgłoś problem",
       eyebrow: "Problem",
-      heading: "Opisz problem lub blokadę",
-      description: "Najpierw wpisz, co się stało. Zdjęcia i audio możesz dodać jako kontekst.",
+      heading: "Zgłoś problem do rozwiązania",
+      description: "Opisz przeszkodę, dodaj zdjęcia albo nagraj krótką notatkę. Problem zostanie zapisany w historii zlecenia.",
     }
     : mode === "photo"
       ? {
-        title: "Dodaj zdjęcia",
-        eyebrow: "Zdjęcie",
-        heading: "Dodaj zdjęcia z realizacji",
-        description: "Najpierw wybierz lub zrób zdjęcia. Opis możesz dopisać niżej.",
+        title: "Zdjęcia postępu",
+        eyebrow: "Zdjęcia etapu",
+        heading: "Dodaj zdjęcia postępu",
+        description: "Dodaj zdjęcia, wpisz opis albo nagraj krótką notatkę głosową. Transkrypcję możesz poprawić przed zapisem.",
       }
       : mode === "audio"
         ? {
-          title: "Nagraj opis",
+          title: "Audio",
           eyebrow: "Audio",
-          heading: "Nagraj krótki opis prac",
-          description: "Najpierw uruchom nagrywanie. Transkrypcja live beta uzupełni tekst, jeśli przeglądarka ją wspiera.",
+          heading: "Opis głosowy robót",
+          description: "Nagraj ogólny opis wykonanych prac. To audio nie musi być przypisane do konkretnego zdjęcia.",
         }
         : {
-          title: "Napisz co zrobiono",
+          title: "Opis",
           eyebrow: "Opis",
           heading: "Opisz wykonane prace",
-          description: "Najpierw wpisz krótką notatkę. Zdjęcia i audio możesz dodać jako załączniki.",
+          description: "Wpisz krótką notatkę. Zdjęcia i audio możesz dodać jako załączniki.",
         };
 
-  const uploadSection = (
-    <label className="upload-zone">
-      <Icon name="camera" size={34} />
-      <strong>
-        {stageId === project.stages?.[0]?.id
-          ? "Zrób zdjęcie stanu przed pracą"
-          : stageId === project.stages?.[2]?.id
-            ? "Zrób zdjęcie efektu końcowego"
-            : "Dodaj zdjęcia postępu prac"}
-      </strong>
-      <span>{files.filter((file) => file.type.startsWith("image/")).length ? `${files.filter((file) => file.type.startsWith("image/")).length} zdjęć wybranych` : "Możesz zrobić lub wybrać kilka zdjęć"}</span>
-      <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => setFiles((current) => [...current, ...Array.from(e.target.files || [])])} />
-    </label>
+  const photoActions = (
+    <div className="entry-photo-actions">
+      <label>
+        <Icon name="camera" size={24} />
+        <strong>Aparat</strong>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          onChange={(event) => appendFiles(event.currentTarget.files, event.currentTarget)}
+        />
+      </label>
+      <label>
+        <Icon name="image" size={24} />
+        <strong>Galeria</strong>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(event) => appendFiles(event.currentTarget.files, event.currentTarget)}
+        />
+      </label>
+    </div>
   );
 
-  const recorderSection = (
+  const photoPreview = selectedImageFiles.length > 0 ? (
+    <div className="selected-photo-grid">
+      {selectedImageFiles.map(({ file, index }) => (
+        <SelectedImageThumb
+          key={`${file.name}-${file.lastModified}-${index}`}
+          file={file}
+          index={index}
+          onRemove={() => removeFile(index)}
+        />
+      ))}
+    </div>
+  ) : (
+    <div className="entry-empty-media">
+      <Icon name="camera" size={28} />
+      <span>Dodane zdjęcia pojawią się tutaj.</span>
+    </div>
+  );
+
+  function recorderSection(target: EntryTextTarget, hero = false) {
+    const active = recordingTarget === target;
+    const time = active ? recordingSeconds : lastRecordingSeconds;
+    return (
     <>
-      <div className={`recorder ${recordingTarget === "description" ? "recorder--active" : ""}`}>
+      <div className={`recorder ${active ? "recorder--active" : ""} ${hero ? "recorder--hero" : ""}`}>
         <button
           type="button"
-          onClick={recordingTarget === "description" ? stopRecording : () => startRecording("description")}
-          disabled={Boolean(recordingTarget && recordingTarget !== "description")}
-          aria-label={recordingTarget === "description" ? "Zatrzymaj nagrywanie opisu" : "Rozpocznij nagrywanie opisu prac"}
+          onClick={active ? stopRecording : () => startRecording(target)}
+          disabled={Boolean(recordingTarget && !active)}
+          aria-label={active ? "Zatrzymaj nagrywanie" : "Rozpocznij nagrywanie"}
         >
           <Icon name="mic" size={30} />
         </button>
         <div>
-          <strong>{recordingTarget === "description" ? "Nagrywanie opisu..." : "Nagraj opis prac"}</strong>
-          <span>Powiedz krótko, co zostało zrobione. Transkrypcja live beta ruszy, jeśli przeglądarka ją wspiera; tekst możesz poprawić przed zapisem.</span>
+          <strong>{active ? `Nagrywanie... ${formatRecordingTime(time)}` : selectedAudioFiles.length ? `Nagranie dodane (${selectedAudioFiles.length})` : "Stuknij, aby nagrać"}</strong>
+          <span>Jeśli przeglądarka wspiera Web Speech API, tekst pojawi się w polu opisu i nadal możesz go poprawić ręcznie.</span>
         </div>
       </div>
-      {renderSpeechStatus("description")}
+      {renderSpeechStatus(target)}
     </>
-  );
+    );
+  }
+
+  const descriptionLabel = isProblemFlow ? "Opis problemu" : isAudioFlow ? "Krótki tytuł / notatka (opcjonalnie)" : "Opis etapu";
+  const descriptionPlaceholder = isProblemFlow
+    ? "Opisz problem i podaj szczegóły, które pomogą w jego rozwiązaniu..."
+    : isAudioFlow
+      ? "Np. Prace wykończeniowe w łazience"
+      : "Np. Zamontowano szafki i przygotowano ścianę pod płytki...";
 
   const descriptionSection = (
     <label>
-      {kind === "problem" ? "Opis problemu" : "Opis prac"}
+      {descriptionLabel}
       <textarea
         ref={bodyInput}
-        rows={5}
+        rows={isAudioFlow ? 4 : 5}
+        maxLength={isAudioFlow ? 140 : 500}
         value={body}
         onChange={(e) => { markManualTextEdit("description"); setBody(e.target.value); }}
-        placeholder={kind === "problem" ? "Co się wydarzyło i czego potrzeba?" : "Wpisz opis albo nagraj go przyciskiem powyżej."}
+        placeholder={descriptionPlaceholder}
       />
     </label>
   );
 
+  const submitLabel = navigator.onLine
+    ? isProblemFlow
+      ? "Dodaj problem"
+      : isAudioFlow
+        ? "Zapisz opis audio"
+        : "Zapisz postęp"
+    : "Zapisz do wysłania";
+
   return (
     <Modal title={modalCopy.title} onClose={onClose}>
-      <form className="form-stack" onSubmit={submit}>
+      <form className={`form-stack entry-progress-flow entry-progress-flow--${isProblemFlow ? "problem" : mode}`} onSubmit={submit}>
         {project.stages && project.stages.length > 0 && (
           <label>Etap<select value={stageId} onChange={(e) => setStageId(e.target.value)}><option value="">Bez etapu</option>{project.stages.map((stage) => <option value={stage.id} key={stage.id}>{stage.title}</option>)}</select></label>
         )}
@@ -1863,54 +2004,70 @@ function NewEntryModal({
           <strong>{modalCopy.heading}</strong>
           <p>{modalCopy.description}</p>
         </div>
-        {(kind === "problem" || mode === "text") && (
+        {isPhotoFlow && (
           <>
+            <section className="entry-flow-section">
+              <h3>Dodaj zdjęcia</h3>
+              {photoActions}
+              {photoPreview}
+            </section>
             {descriptionSection}
-            {uploadSection}
-            {recorderSection}
+            <section className="entry-flow-section entry-flow-section--voice">
+              <h3>Notatka głosowa <span>(opcjonalnie)</span></h3>
+              {recorderSection("description")}
+              <p>Twoje nagranie zamienimy na transkrypcję, jeśli przeglądarka na to pozwala.</p>
+            </section>
           </>
         )}
-        {kind !== "problem" && mode === "photo" && (
+        {isAudioFlow && (
           <>
-            {uploadSection}
+            <section className="entry-audio-hero">
+              {recorderSection("description", true)}
+            </section>
             {descriptionSection}
-            {recorderSection}
           </>
         )}
-        {kind !== "problem" && mode === "audio" && (
+        {isProblemFlow && (
           <>
-            {recorderSection}
-            {descriptionSection}
-            {uploadSection}
-          </>
-        )}
-        <button className="optional-voice-toggle" type="button" onClick={() => setShowVoiceNote((current) => !current)}>
-          <Icon name="mic" size={20} />
-          <span><strong>Opcjonalna dłuższa notatka głosowa</strong><small>Dodaj szczegóły, ustalenia lub obszerniejszy komentarz.</small></span>
-        </button>
-        {showVoiceNote && (
-          <>
-            <div className={`recorder ${recordingTarget === "note" ? "recorder--active" : ""}`}>
-              <button
-                type="button"
-                onClick={recordingTarget === "note" ? stopRecording : () => startRecording("note")}
-                disabled={Boolean(recordingTarget && recordingTarget !== "note")}
-                aria-label={recordingTarget === "note" ? "Zatrzymaj dłuższą notatkę" : "Rozpocznij dłuższą notatkę głosową"}
-              >
-                <Icon name="mic" size={30} />
-              </button>
-              <div>
-                <strong>{recordingTarget === "note" ? "Nagrywanie notatki..." : "Nagraj dłuższą notatkę"}</strong>
-                <span>Nagranie zostanie zapisane, a transkrypcja live beta pojawi się, jeśli przeglądarka ją wspiera.</span>
-              </div>
+            <div className="problem-flow-note">
+              <span>Do rozwiązania</span>
+              <p>Problem zapisze się jako otwarty. Dodaj tyle kontekstu, ile potrzeba do decyzji lub naprawy.</p>
             </div>
-            {renderSpeechStatus("note")}
-            <label>Tekst dłuższej notatki<textarea rows={4} value={voiceNote} onChange={(event) => { markManualTextEdit("note"); setVoiceNote(event.target.value); }} placeholder="Tutaj pojawi się transkrypcja dłuższej notatki." /></label>
+            {descriptionSection}
+            <section className="entry-flow-section">
+              <h3>Zdjęcia <span>(opcjonalnie)</span></h3>
+              {photoActions}
+              {photoPreview}
+            </section>
+            <section className="entry-flow-section entry-flow-section--voice">
+              <h3>Notatka głosowa <span>(opcjonalnie)</span></h3>
+              {recorderSection("description")}
+            </section>
           </>
         )}
-        {files.length > 0 && <div className="file-chips">{files.map((file, index) => <span key={`${file.name}-${index}`}>{file.type.startsWith("audio/") ? "Nagranie" : "Zdjęcie"} {index + 1}<button type="button" onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>×</button></span>)}</div>}
+        {!isPhotoFlow && !isAudioFlow && !isProblemFlow && (
+          <>
+            {descriptionSection}
+            <section className="entry-flow-section">
+              <h3>Zdjęcia</h3>
+              {photoActions}
+              {photoPreview}
+            </section>
+            {recorderSection("description")}
+          </>
+        )}
+        {selectedAudioFiles.length > 0 && (
+          <div className="file-chips">
+            {selectedAudioFiles.map((file, index) => (
+              <span key={`${file.name}-${index}`}>
+                Nagranie {index + 1}
+                <button type="button" onClick={() => removeFile(files.indexOf(file))}>×</button>
+              </span>
+            ))}
+          </div>
+        )}
         {error && <p className="form-error">{error}</p>}
-        <Button type="submit" busy={busy} icon={kind === "problem" ? "alert" : "check"}>{navigator.onLine ? "Zapisz wpis" : "Zapisz do wysłania"}</Button>
+        <Button type="submit" busy={busy} icon={kind === "problem" ? "alert" : "check"}>{submitLabel}</Button>
       </form>
     </Modal>
   );
