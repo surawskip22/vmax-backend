@@ -119,6 +119,7 @@ class PasswordLogin(BaseModel):
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=160)
+    public_profile_name: str | None = Field(default=None, max_length=120)
     phone: str | None = Field(default=None, max_length=40)
     locale: str | None = Field(default=None, max_length=10)
     preferred_mode: Literal["expanded", "field"] | None = None
@@ -493,6 +494,14 @@ def guest_invite_payload(
     return data
 
 
+def project_payload(
+    db: Session, item: models.Project, role: str | None = None, details: bool = False
+) -> dict:
+    data = serializers.project(item, role=role, details=details)
+    data["public_contractor_name"] = serializers.public_contractor_name(db, item)
+    return data
+
+
 def worker_profile_for_assignment(
     db: Session,
     worker_profile_id: str | None,
@@ -819,6 +828,8 @@ def update_me(
     db: Session = Depends(get_db),
 ):
     for key, value in payload.model_dump(exclude_unset=True).items():
+        if isinstance(value, str):
+            value = value.strip()
         setattr(user, key, value or "")
     db.commit()
     return user_payload(db, user)
@@ -1184,7 +1195,7 @@ def list_projects(
     user: models.User = Depends(require_user), db: Session = Depends(get_db)
 ):
     return [
-        serializers.project(project_item, role=role)
+        project_payload(db, project_item, role=role)
         for project_item, role in db.execute(user_projects_query(user.id)).all()
     ]
 
@@ -1313,7 +1324,7 @@ def create_project(
             )
     db.commit()
     db.refresh(project)
-    return serializers.project(project, role="owner", details=True)
+    return project_payload(db, project, role="owner", details=True)
 
 
 def project_detail_data(db: Session, access: ProjectAccess):
@@ -1340,7 +1351,7 @@ def project_detail_data(db: Session, access: ProjectAccess):
         else None
     )
     return {
-        **serializers.project(project, role=role, details=True),
+        **project_payload(db, project, role=role, details=True),
         "members": [
             {
                 "id": member.id,
@@ -1394,7 +1405,7 @@ def get_project(project_id: str, request: Request, db: Session = Depends(get_db)
     access = get_project_access(request, db, project_id)
     if access.guest and not access.can_view_history():
         return {
-            **serializers.project(access.project, details=True),
+            **project_payload(db, access.project, details=True),
             "guest": {
                 "label": access.guest.label,
                 "permission": access.guest.permission,
@@ -1454,7 +1465,7 @@ def update_project(
     if changes.get("status") == PROJECT_STATUS_COMPLETED and not access.project.finished_at:
         access.project.finished_at = now()
     db.commit()
-    return serializers.project(access.project, role=access.role, details=True)
+    return project_payload(db, access.project, role=access.role, details=True)
 
 
 @router.post("/projects/{project_id}/close")
@@ -1569,7 +1580,7 @@ def set_current_stage(
     if access.user:
         return project_detail_data(db, access)
     return {
-        **serializers.project(access.project, details=True),
+        **project_payload(db, access.project, details=True),
         "guest": {
             "label": access.guest.label if access.guest else "",
             "permission": access.guest.permission if access.guest else "",
@@ -1986,7 +1997,7 @@ def public_project(
         )
         .order_by(models.Report.published_at.desc(), models.Report.created_at.desc())
     ).all()
-    project_data = serializers.project(project, details=True)
+    project_data = project_payload(db, project, details=True)
     project_data.pop("client_email", None)
     return {
         "requires_pin": bool(project.client_share_pin_hash),
@@ -2829,7 +2840,7 @@ def public_report(
     return {
         "requires_pin": bool(share.pin_hash),
         "report": serializers.report(item),
-        "project": serializers.project(project, details=True),
+        "project": project_payload(db, project, details=True),
     }
 
 
@@ -2908,7 +2919,7 @@ def public_portfolio(slug: str, db: Session = Depends(get_db)):
         ).all()
         result.append(
             {
-                **serializers.project(item),
+                **project_payload(db, item),
                 "images": [
                     {
                         "id": asset.id,

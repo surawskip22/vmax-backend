@@ -44,6 +44,7 @@ class User(Base, TimestampMixin):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(160), default="")
+    public_profile_name: Mapped[str] = mapped_column(String(120), default="")
     phone: Mapped[str | None] = mapped_column(String(40))
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     locale: Mapped[str] = mapped_column(String(10), default="pl")

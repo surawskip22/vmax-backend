@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from sqlalchemy import select
+
 from . import models
 
 
@@ -14,12 +16,65 @@ def user(user: models.User | None):
         "id": user.id,
         "email": user.email,
         "name": user.name,
+        "public_profile_name": user.public_profile_name or "",
         "phone": user.phone,
         "is_admin": user.is_admin,
         "locale": user.locale,
         "profile_type": user.profile_type,
         "preferred_mode": user.preferred_mode,
     }
+
+
+def public_contractor_name(db, item: models.Project | None) -> str:
+    if not item:
+        return "Wykonawca"
+
+    def clean(value: str | None) -> str:
+        return (value or "").strip()
+
+    worker = (
+        db.get(models.WorkerProfile, item.worker_profile_id)
+        if item.worker_profile_id
+        else None
+    )
+    project_workspace = (
+        db.get(models.Workspace, item.workspace_id) if item.workspace_id else None
+    )
+    worker_workspace = (
+        db.get(models.Workspace, worker.workspace_id)
+        if worker and worker.workspace_id
+        else None
+    )
+    owner = db.get(models.User, item.created_by_id) if item.created_by_id else None
+
+    if project_workspace and project_workspace.kind == "company":
+        return clean(project_workspace.name) or "Firma wykonawcza"
+
+    if worker_workspace and worker_workspace.kind == "company":
+        return clean(worker_workspace.name) or "Firma wykonawcza"
+
+    if owner and owner.profile_type == "independent_contractor":
+        return (
+            clean(owner.public_profile_name)
+            or clean(owner.name)
+            or "Wykonawca"
+        )
+
+    if owner and owner.profile_type == "company_owner":
+        owner_company = db.scalar(
+            select(models.Workspace)
+            .where(
+                models.Workspace.owner_id == owner.id,
+                models.Workspace.kind == "company",
+            )
+            .order_by(models.Workspace.created_at.asc())
+        )
+        return clean(owner_company.name if owner_company else None) or "Firma wykonawcza"
+
+    if worker:
+        return clean(worker.label) or "Wykonawca"
+
+    return "Wykonawca"
 
 
 def stage(item: models.ProjectStage):

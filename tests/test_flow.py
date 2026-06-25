@@ -2510,6 +2510,136 @@ def test_worker_profiles_roles_and_assignment_flow():
         assert project_without_client.json()["client_email"] == ""
 
 
+def test_public_contractor_name_uses_independent_profile_name_and_fallbacks():
+    with TestClient(app) as independent:
+        user = login(independent, "public-name-independent@example.com")
+        independent.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        too_long = independent.patch(
+            "/api/me",
+            json={"public_profile_name": "x" * 121},
+        )
+        assert too_long.status_code == 422
+
+        updated = independent.patch(
+            "/api/me",
+            json={
+                "name": "Piotr Kowalski",
+                "public_profile_name": "Remonty Kowalski",
+                "phone": "+48 600 100 200",
+            },
+        )
+        assert updated.status_code == 200
+        assert updated.json()["email"] == user["email"]
+        assert updated.json()["public_profile_name"] == "Remonty Kowalski"
+
+        project = independent.post(
+            "/api/projects",
+            json={"name": "Zlecenie publiczne", "template": "custom"},
+        ).json()
+        details = independent.get(f"/api/projects/{project['id']}").json()
+        assert details["public_contractor_name"] == "Remonty Kowalski"
+        token = independent.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        public_project = independent.get(f"/api/public/projects/{token}").json()
+        assert public_project["project"]["public_contractor_name"] == "Remonty Kowalski"
+
+        with SessionLocal() as db:
+            item = db.get(models.Project, project["id"])
+            assert reporting._project_worker_label(db, item) == "Remonty Kowalski"
+
+    with TestClient(app) as other:
+        login(other, "public-name-other@example.com")
+        other.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        other.patch("/api/me", json={"public_profile_name": "Inna nazwa"})
+
+    with TestClient(app) as fallback:
+        login(fallback, "public-name-fallback@example.com")
+        fallback.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        fallback.patch("/api/me", json={"name": "Jan Bez Profilu"})
+        project = fallback.post(
+            "/api/projects",
+            json={"name": "Zlecenie fallback", "template": "custom"},
+        ).json()
+        token = fallback.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        public_project = fallback.get(f"/api/public/projects/{token}").json()
+        assert public_project["project"]["public_contractor_name"] == "Jan Bez Profilu"
+
+
+def test_public_contractor_name_uses_company_name_not_internal_worker_label():
+    with TestClient(app) as owner:
+        login(owner, "public-name-company@example.com")
+        owner_user = owner.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Firma Publiczna XYZ",
+            },
+        ).json()
+        workspace_id = owner_user["workspaces"][0]["id"]
+        worker = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Wewnętrzna Ekipa A",
+                "profile_kind": "crew",
+            },
+        ).json()
+        project = owner.post(
+            "/api/projects",
+            json={
+                "name": "Zlecenie firmowe publiczne",
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        token = owner.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        public_project = owner.get(f"/api/public/projects/{token}").json()
+        assert public_project["project"]["public_contractor_name"] == "Firma Publiczna XYZ"
+        assert public_project["project"]["public_contractor_name"] != worker["label"]
+
+        with SessionLocal() as db:
+            item = db.get(models.Project, project["id"])
+            assert reporting._project_worker_label(db, item) == "Firma Publiczna XYZ"
+
+
+def test_public_contractor_name_for_investor_assigned_contractor():
+    with TestClient(app) as investor:
+        login(investor, "public-name-investor@example.com")
+        investor.post("/api/onboarding", json={"profile_type": "investor"})
+        worker = investor.post(
+            "/api/workers",
+            json={"label": "Wykonawca Zewnętrzny"},
+        ).json()
+        project = investor.post(
+            "/api/projects",
+            json={
+                "name": "Inwestycja z publicznym wykonawcą",
+                "worker_profile_id": worker["id"],
+                "template": "custom",
+            },
+        ).json()
+        token = investor.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        public_project = investor.get(f"/api/public/projects/{token}").json()
+        assert public_project["project"]["public_contractor_name"] == "Wykonawca Zewnętrzny"
+
+
 def test_company_worker_account_sees_project_assigned_at_creation():
     with TestClient(app) as worker_client:
         login(worker_client, "pracownik-firmy@example.com")

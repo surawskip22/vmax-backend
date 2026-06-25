@@ -31,7 +31,7 @@ from reportlab.platypus import (
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from . import models
+from . import models, serializers
 from .config import get_settings
 from .storage import storage
 
@@ -339,10 +339,7 @@ def _entry_stage(item: models.Entry) -> str:
 
 
 def _project_worker_label(db: Session, project: models.Project) -> str:
-    if not project.worker_profile_id:
-        return "Nie przypisano"
-    worker = db.get(models.WorkerProfile, project.worker_profile_id)
-    return worker.label if worker else "Nie przypisano"
+    return serializers.public_contractor_name(db, project)
 
 
 def _project_report_entries(

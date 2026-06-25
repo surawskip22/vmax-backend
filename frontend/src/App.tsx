@@ -5188,15 +5188,15 @@ function SettingsPage({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
+    const payload: Record<string, FormDataEntryValue | string> = { locale: "pl" };
+    for (const key of ["name", "phone", "preferred_mode", "public_profile_name"]) {
+      const value = data.get(key);
+      if (typeof value === "string") payload[key] = value;
+    }
     try {
       const updated = await api<User>("/me", {
         method: "PATCH",
-        body: JSON.stringify({
-          name: data.get("name"),
-          phone: data.get("phone"),
-          locale: "pl",
-          preferred_mode: data.get("preferred_mode"),
-        }),
+        body: JSON.stringify(payload),
       });
       onUpdated(updated);
       notify({ kind: "success", message: "Profil zapisany" });
@@ -5337,6 +5337,7 @@ function SettingsPage({
   }
   if (isIndependentContractor(user)) {
     const displayName = user.name || user.email || "Samodzielny majster";
+    const publicProfileName = user.public_profile_name || displayName;
     const displayEmail = user.email || "Konto dostępowe bez e-maila";
     const displayPhone = user.phone || "Nie podano";
     const defaultModeLabel = uiMode === "simple" ? "Prosty" : "Rozbudowany";
@@ -5404,14 +5405,22 @@ function SettingsPage({
           </article>
           <article className="worker-settings-card">
             <h2>Profil wykonawcy</h2>
+            <form className="worker-profile-name-form" onSubmit={submit}>
+              <label>
+                Nazwa profilu
+                <input name="public_profile_name" defaultValue={user.public_profile_name || ""} placeholder="np. Remonty Kowalski" />
+              </label>
+              <p>Widoczna dla klienta w linku klienta, raportach PDF i podglądach robót.</p>
+              <Button type="submit">Zapisz</Button>
+            </form>
             <div className="worker-settings-rows">
               <div className="worker-settings-row">
                 <span><Icon name="clipboard" /></span>
                 <div>
                   <strong>Nazwa profilu</strong>
-                  <small>Profil widoczny przy zleceniach i wpisach postępu.</small>
+                  <small>Widoczna dla klienta w linku klienta, raportach PDF i podglądach robót.</small>
                 </div>
-                <b>{displayName}</b>
+                <b>{publicProfileName}</b>
               </div>
               <div className="worker-settings-row">
                 <span><Icon name="users" /></span>
@@ -5606,7 +5615,7 @@ function PublicProject({ token }: { token: string }) {
   const heroImage = clientCoverMedia || historyEntries
     .flatMap((entry) => entry.media.filter((asset) => asset.kind === "image"))
     .at(-1);
-  const contractorName = project.worker_profile?.label || "Nie podano";
+  const contractorName = project.public_contractor_name || "Wykonawca";
   const safeStatusLabel = statusLabels[project.status] || project.status;
   const formatDate = (value?: string | null) => value ? formatter.format(new Date(value)) : "Nie ustawiono";
   const markAudioError = (assetId: string) => {

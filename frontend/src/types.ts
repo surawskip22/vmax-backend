@@ -2,6 +2,7 @@ export type User = {
   id: string;
   email: string;
   name: string;
+  public_profile_name?: string;
   phone?: string;
   is_admin: boolean;
   locale: string;
@@ -123,6 +124,7 @@ export type Project = {
   workspace_id?: string;
   worker_profile_id?: string;
   worker_profile?: WorkerProfile;
+  public_contractor_name?: string;
   role?: string;
   stages?: Stage[];
   members?: Array<{ id: string; role: string; user: User }>;

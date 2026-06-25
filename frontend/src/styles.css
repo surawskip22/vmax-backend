@@ -1102,6 +1102,12 @@ audio { width: 100%; margin-top: 13px; }
 .worker-settings-edit-form label { display: grid; gap: 6px; color: var(--navy); font-size: 12px; font-weight: 900; }
 .worker-settings-edit-form input { min-height: 42px; border-color: #dce5ef; border-radius: 10px; background: #fff; }
 .worker-settings-edit-form .button { min-height: 46px; border-radius: 11px; }
+.worker-settings-form-hint { margin: -4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.worker-profile-name-form { margin: 4px 0 12px; padding: 14px; display: grid; gap: 10px; border: 1px solid #dce5ef; border-radius: 14px; background: #f8fbff; }
+.worker-profile-name-form label { display: grid; gap: 6px; color: var(--navy); font-size: 12px; font-weight: 900; }
+.worker-profile-name-form input { min-height: 42px; border-color: #dce5ef; border-radius: 10px; background: #fff; }
+.worker-profile-name-form p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.worker-profile-name-form .button { min-height: 44px; border-radius: 11px; }
 .worker-settings-email-lock { padding: 12px; border: 1px solid #dce5ef; border-radius: 12px; background: #f8fbff; color: var(--navy); }
 .worker-settings-email-lock strong { display: block; margin-bottom: 5px; }
 .worker-settings-email-lock p { margin: 0; color: #42526a; line-height: 1.45; }

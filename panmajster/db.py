@@ -67,6 +67,7 @@ def add_missing_column(connection, table_name: str, column) -> None:
 
 SAFE_COLUMN_DEFAULTS = {
     ("users", "name"): "''",
+    ("users", "public_profile_name"): "''",
     ("users", "is_admin"): "false",
     ("users", "locale"): "'pl'",
     ("users", "preferred_mode"): "'expanded'",
