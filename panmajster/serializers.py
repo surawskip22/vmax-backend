@@ -107,6 +107,7 @@ def project(item: models.Project, role: str | None = None, details: bool = False
         "portfolio_slug": item.portfolio_slug,
         "portfolio_summary": item.portfolio_summary,
         "details_locked": item.details_locked,
+        "client_cover_media_id": item.client_cover_media_id,
         "created_at": iso(item.created_at),
         "updated_at": iso(item.updated_at),
     }

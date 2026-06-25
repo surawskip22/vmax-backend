@@ -649,6 +649,284 @@ def test_public_client_link_returns_generated_ready_pdf_report():
         assert public_report["legacy_pdf_url"] is None
 
 
+def test_public_client_link_returns_grouped_chronological_entries_with_audio():
+    with TestClient(app) as client:
+        login(client, "public-history-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Public history project",
+                "client_name": "Anna Public",
+                "address": "ul. Historii 1",
+                "template": "custom",
+            },
+        ).json()
+        token = client.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+        first = client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "Pierwszy opis prac",
+                "occurred_at": "2026-06-12T14:20:00+00:00",
+            },
+        ).json()
+        first_image_id = add_media_asset(
+            project["id"],
+            first["id"],
+            key="public/history/first.jpg",
+            kind="image",
+            content_type="image/jpeg",
+            size_bytes=8,
+            content=b"img-one",
+        )
+        second = client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "",
+                "transcript": "Opis z nagrania audio",
+                "occurred_at": "2026-06-12T15:05:00+00:00",
+            },
+        ).json()
+        audio_id = add_media_asset(
+            project["id"],
+            second["id"],
+            key="public/history/audio.webm",
+            kind="audio",
+            content_type="audio/webm",
+            size_bytes=12,
+            content=b"audio-bytes",
+        )
+        problem = client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "problem",
+                "body": "Problem do omowienia",
+                "occurred_at": "2026-06-13T09:10:00+00:00",
+            },
+        ).json()
+
+        public = client.get(f"/api/public/projects/{token}").json()
+
+        assert [item["id"] for item in public["entries"]] == [
+            first["id"],
+            second["id"],
+            problem["id"],
+        ]
+        assert public["entries"][0]["body"] == "Pierwszy opis prac"
+        assert public["entries"][0]["media"][0]["id"] == first_image_id
+        assert public["entries"][0]["media"][0]["media_type"] == "image"
+        assert public["entries"][0]["media"][0]["url"].startswith(
+            f"/api/public/projects/{token}/media/"
+        )
+        assert public["entries"][1]["transcript"] == "Opis z nagrania audio"
+        assert public["entries"][1]["media"][0]["id"] == audio_id
+        assert public["entries"][1]["media"][0]["media_type"] == "audio"
+
+        audio = client.get(public["entries"][1]["media"][0]["url"])
+        assert audio.status_code == 200
+        assert audio.headers["content-type"].startswith("audio/webm")
+        assert audio.content == b"audio-bytes"
+
+
+def test_public_client_media_token_cannot_read_other_project_media():
+    with TestClient(app) as client:
+        login(client, "public-cross-media-owner@example.com")
+        first = client.post(
+            "/api/projects",
+            json={"name": "Public media token", "template": "custom"},
+        ).json()
+        second = client.post(
+            "/api/projects",
+            json={"name": "Foreign media project", "template": "custom"},
+        ).json()
+        token = client.get(f"/api/projects/{first['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        entry = client.post(
+            f"/api/projects/{second['id']}/entries",
+            json={"kind": "update", "body": "Foreign media"},
+        ).json()
+        foreign_asset_id = add_media_asset(
+            second["id"],
+            entry["id"],
+            key="public/history/foreign.jpg",
+            kind="image",
+            content_type="image/jpeg",
+            size_bytes=8,
+            content=b"foreign",
+        )
+
+        assert (
+            client.get(
+                f"/api/public/projects/{token}/media/{foreign_asset_id}"
+            ).status_code
+            == 404
+        )
+
+
+def test_public_client_link_hides_deleted_progress_entry_from_history():
+    with TestClient(app) as client:
+        login(client, "public-deleted-entry-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={"name": "Public deleted history", "template": "custom"},
+        ).json()
+        token = client.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        entry = client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Wpis do usuniecia"},
+        ).json()
+
+        assert client.delete(f"/api/entries/{entry['id']}").status_code == 200
+        assert client.get(f"/api/public/projects/{token}").json()["entries"] == []
+
+
+def test_project_client_cover_selection_and_public_fallback():
+    with TestClient(app) as client:
+        login(client, "public-cover-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={"name": "Public cover project", "template": "custom"},
+        ).json()
+        token = client.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        first_entry = client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "Starsze zdjecie",
+                "occurred_at": "2026-06-12T14:20:00+00:00",
+            },
+        ).json()
+        second_entry = client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={
+                "kind": "update",
+                "body": "Nowsze zdjecie",
+                "occurred_at": "2026-06-12T15:05:00+00:00",
+            },
+        ).json()
+        first_image_id = add_media_asset(
+            project["id"],
+            first_entry["id"],
+            key="public/cover/first.jpg",
+            kind="image",
+            content_type="image/jpeg",
+            size_bytes=8,
+            content=b"first",
+        )
+        second_image_id = add_media_asset(
+            project["id"],
+            second_entry["id"],
+            key="public/cover/second.jpg",
+            kind="image",
+            content_type="image/jpeg",
+            size_bytes=8,
+            content=b"second",
+        )
+        audio_id = add_media_asset(
+            project["id"],
+            second_entry["id"],
+            key="public/cover/audio.webm",
+            kind="audio",
+            content_type="audio/webm",
+            size_bytes=8,
+            content=b"audio",
+        )
+
+        assert (
+            client.get(f"/api/public/projects/{token}").json()["client_cover_media"][
+                "id"
+            ]
+            == second_image_id
+        )
+        selected = client.patch(
+            f"/api/projects/{project['id']}/client-cover",
+            json={"media_id": first_image_id},
+        )
+        assert selected.status_code == 200
+        assert selected.json()["client_cover_media_id"] == first_image_id
+        assert (
+            client.get(f"/api/public/projects/{token}").json()["client_cover_media"][
+                "id"
+            ]
+            == first_image_id
+        )
+        assert (
+            client.patch(
+                f"/api/projects/{project['id']}/client-cover",
+                json={"media_id": audio_id},
+            ).status_code
+            == 400
+        )
+
+        other = client.post(
+            "/api/projects",
+            json={"name": "Other cover project", "template": "custom"},
+        ).json()
+        other_entry = client.post(
+            f"/api/projects/{other['id']}/entries",
+            json={"kind": "update", "body": "Obce zdjecie"},
+        ).json()
+        other_image_id = add_media_asset(
+            other["id"],
+            other_entry["id"],
+            key="public/cover/foreign.jpg",
+            kind="image",
+            content_type="image/jpeg",
+            size_bytes=8,
+            content=b"foreign",
+        )
+        assert (
+            client.patch(
+                f"/api/projects/{project['id']}/client-cover",
+                json={"media_id": other_image_id},
+            ).status_code
+            == 404
+        )
+        assert (
+            client.patch(
+                f"/api/projects/{project['id']}/client-cover",
+                json={"media_id": None},
+            ).json()["client_cover_media_id"]
+            is None
+        )
+
+    with TestClient(app) as public_client:
+        assert (
+            public_client.patch(
+                f"/api/projects/{project['id']}/client-cover",
+                json={"media_id": second_image_id},
+            ).status_code
+            in {401, 403}
+        )
+
+
+def test_public_client_link_returns_null_cover_without_images():
+    with TestClient(app) as client:
+        login(client, "public-no-cover-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={"name": "Public no cover", "template": "custom"},
+        ).json()
+        token = client.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        client.post(
+            f"/api/projects/{project['id']}/entries",
+            json={"kind": "update", "body": "Tylko opis"},
+        )
+
+        assert client.get(f"/api/public/projects/{token}").json()["client_cover_media"] is None
+
+
 def test_owner_can_delete_progress_entry_without_deleting_project_or_reports():
     with TestClient(app) as client:
         login(client, "delete-entry-owner@example.com")
@@ -1719,8 +1997,8 @@ def test_stable_client_link_updates_and_report_can_be_deleted():
         public_after = client.get(f"/api/public/projects/{token}").json()
         assert public_after["project"]["status"] == "in_progress"
         assert [item["body"] for item in public_after["entries"]] == [
-            "Drugi dzień",
             "Pierwszy dzień",
+            "Drugi dzień",
         ]
         assert [item["id"] for item in public_after["reports"]] == [report["id"]]
         assert (

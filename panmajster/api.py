@@ -205,6 +205,10 @@ class ProjectUpdate(BaseModel):
     contract_currency: str | None = None
 
 
+class ProjectClientCoverUpdate(BaseModel):
+    media_id: str | None = None
+
+
 class StageCreate(BaseModel):
     title: str = Field(min_length=1, max_length=180)
 
@@ -1839,6 +1843,30 @@ def update_client_link(
     return client_link_payload(access.project)
 
 
+@router.patch("/projects/{project_id}/client-cover")
+def update_project_client_cover(
+    project_id: str,
+    payload: ProjectClientCoverUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    access.require_manage()
+    if payload.media_id is None:
+        access.project.client_cover_media_id = None
+        db.commit()
+        return project_detail_data(db, access)
+
+    asset = db.get(models.MediaAsset, payload.media_id)
+    if not asset or asset.project_id != project_id:
+        raise HTTPException(404, "Nie znaleziono zdjecia z tego zlecenia")
+    if asset.kind != "image":
+        raise HTTPException(400, "Zdjeciem glownym moze byc tylko obraz")
+    access.project.client_cover_media_id = asset.id
+    db.commit()
+    return project_detail_data(db, access)
+
+
 def public_project_by_token(db: Session, token: str) -> models.Project:
     project = db.scalar(
         select(models.Project).where(
@@ -1851,6 +1879,13 @@ def public_project_by_token(db: Session, token: str) -> models.Project:
     return project
 
 
+def public_media_payload(asset: models.MediaAsset, token: str) -> dict:
+    data = serializers.media(asset)
+    data["media_type"] = asset.kind
+    data["url"] = f"/api/public/projects/{token}/media/{asset.id}"
+    return data
+
+
 def verify_project_pin(project: models.Project, pin: str | None) -> None:
     if project.client_share_pin_hash and (
         not pin or not verify_secret(pin, project.client_share_pin_hash)
@@ -1860,12 +1895,53 @@ def verify_project_pin(project: models.Project, pin: str | None) -> None:
 
 def public_entry_payload(item: models.Entry, token: str) -> dict:
     data = serializers.entry(item)
-    for asset in data["media"]:
-        asset["url"] = f"/api/public/projects/{token}/media/{asset['id']}"
+    data["media"] = [public_media_payload(asset, token) for asset in item.media]
     data["author"] = (
         {"name": item.author.name or "Wykonawca"} if item.author else None
     )
+    data["author_label"] = item.author.name if item.author and item.author.name else "Wykonawca"
     return data
+
+
+def load_public_entries(db: Session, project_id: str):
+    return db.scalars(
+        select(models.Entry)
+        .options(
+            selectinload(models.Entry.author),
+            selectinload(models.Entry.stage),
+            selectinload(models.Entry.media),
+            selectinload(models.Entry.comments).selectinload(models.Comment.author),
+        )
+        .where(models.Entry.project_id == project_id)
+        .order_by(
+            models.Entry.occurred_at.asc(),
+            models.Entry.created_at.asc(),
+            models.Entry.id.asc(),
+        )
+    ).all()
+
+
+def public_client_cover_media(
+    db: Session, project: models.Project, entries: list[models.Entry], token: str
+) -> dict | None:
+    selected = (
+        db.get(models.MediaAsset, project.client_cover_media_id)
+        if project.client_cover_media_id
+        else None
+    )
+    if selected and selected.project_id == project.id and selected.kind == "image":
+        return public_media_payload(selected, token)
+
+    images = [
+        asset
+        for entry_item in entries
+        for asset in entry_item.media
+        if asset.kind == "image"
+    ]
+    if not images:
+        return None
+    fallback = max(images, key=lambda asset: (asset.created_at, asset.id))
+    return public_media_payload(fallback, token)
 
 
 PUBLIC_PROJECT_REPORT_STATUSES = ("ready", "published")
@@ -1887,7 +1963,7 @@ def public_project(
     if project.client_share_pin_hash and not pin:
         return {"requires_pin": True, "project": None}
     verify_project_pin(project, pin)
-    entries = load_entries(db, project.id)
+    entries = load_public_entries(db, project.id)
     reports = db.scalars(
         select(models.Report)
         .where(
@@ -1902,6 +1978,7 @@ def public_project(
     return {
         "requires_pin": bool(project.client_share_pin_hash),
         "project": project_data,
+        "client_cover_media": public_client_cover_media(db, project, entries, token),
         "entries": [public_entry_payload(item, token) for item in entries],
         "reports": [public_report_payload(item, token) for item in reports],
     }

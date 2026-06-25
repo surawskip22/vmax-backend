@@ -156,6 +156,9 @@ class Project(Base, TimestampMixin):
     )
     client_share_active: Mapped[bool] = mapped_column(Boolean, default=True)
     client_share_pin_hash: Mapped[str | None] = mapped_column(String(128))
+    client_cover_media_id: Mapped[str | None] = mapped_column(
+        ForeignKey("media_assets.id", ondelete="SET NULL")
+    )
 
     stages: Mapped[list[ProjectStage]] = relationship(
         cascade="all, delete-orphan", order_by="ProjectStage.position"

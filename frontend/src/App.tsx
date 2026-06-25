@@ -1,4 +1,4 @@
-import {
+﻿import {
   FormEvent,
   ReactNode,
   useCallback,
@@ -34,7 +34,7 @@ import {
   workerKindLabelForUser,
 } from "./roleLabels";
 import { visibleSectionForUser } from "./RoleAwareSidebar";
-import type { ClientLink, Entry, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
+import type { ClientLink, Entry, MediaAsset, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
 import { useUiMode, type UiMode } from "./useUiMode";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
@@ -2711,10 +2711,12 @@ function ProjectView({
   const [showReports, setShowReports] = useState(false);
   const [showManage, setShowManage] = useState(false);
   const [showClientLink, setShowClientLink] = useState(false);
+  const [showClientCoverPicker, setShowClientCoverPicker] = useState(false);
   const [showWorkerStagePicker, setShowWorkerStagePicker] = useState(false);
   const [selectedWorkerEntry, setSelectedWorkerEntry] = useState<Entry | null>(null);
   const [deleteEntryTarget, setDeleteEntryTarget] = useState<Entry | null>(null);
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
+  const [coverBusy, setCoverBusy] = useState(false);
   const workerReportsRef = useRef<HTMLDivElement | null>(null);
   const fieldMode = Boolean(guestToken) || uiMode !== "advanced";
 
@@ -2818,6 +2820,7 @@ function ProjectView({
     setShowReports(false);
     setShowManage(false);
     setShowClientLink(false);
+    setShowClientCoverPicker(false);
     setShowAddProgressChoice(false);
     setShowWorkerStagePicker(false);
     setSelectedWorkerEntry(null);
@@ -2977,6 +2980,62 @@ function ProjectView({
   const canAddWorkerProgress = canAdd && project.status === "in_progress";
   const canFinishWorkerProject = canCloseProject && project.status === "in_progress";
   const canReopenWorkerProject = project.status === "completed" && (isIndependentFieldUser ? canReopenProject : canAdd);
+  const projectImages = entries.flatMap((entry) =>
+    entry.media
+      .filter((asset) => asset.kind === "image")
+      .map((asset) => ({ asset, entry })),
+  );
+  const selectedClientCover = projectImages.find(({ asset }) => asset.id === project.client_cover_media_id)?.asset || null;
+  const fallbackClientCover = projectImages[0]?.asset || null;
+  const visibleClientCover = selectedClientCover || fallbackClientCover;
+  const canManageClientCover = Boolean(!guestToken && ["owner", "manager"].includes(project.role || ""));
+
+  async function updateClientCover(mediaId: string | null) {
+    setCoverBusy(true);
+    try {
+      const updated = await api<Project>(`/projects/${projectIdForStatusActions}/client-cover`, {
+        method: "PATCH",
+        body: JSON.stringify({ media_id: mediaId }),
+      });
+      setProject(updated);
+      await refreshAfterProjectMutation();
+      setShowClientCoverPicker(false);
+      notify({ kind: "success", message: mediaId ? "Zdjęcie główne linku klienta zapisane." : "Wybór zdjęcia głównego wyczyszczony." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zapisać zdjęcia głównego" });
+    } finally {
+      setCoverBusy(false);
+    }
+  }
+
+  const clientCoverCard = canManageClientCover ? (
+    <section className="worker-detail-card client-cover-card">
+      <div className="client-cover-card__content">
+        <div>
+          <h2>Zdjęcie główne linku klienta</h2>
+          <p>{selectedClientCover ? "Wybrane zdjęcie będzie pierwszym obrazem w publicznym podglądzie klienta." : visibleClientCover ? "Klient zobaczy najnowsze zdjęcie z historii. Możesz wybrać inne." : "Dodaj zdjęcie do historii, żeby ustawić obraz główny."}</p>
+        </div>
+        {visibleClientCover ? (
+          <button type="button" className="client-cover-preview" onClick={() => setShowClientCoverPicker(true)}>
+            <img src={visibleClientCover.url} alt={visibleClientCover.original_name || "Zdjęcie główne"} />
+            <span>{selectedClientCover ? "Wybrane" : "Fallback"}</span>
+          </button>
+        ) : (
+          <div className="client-cover-empty"><Icon name="camera" /><span>Brak zdjęć</span></div>
+        )}
+      </div>
+      <div className="client-cover-card__actions">
+        <Button type="button" variant="secondary" icon="camera" disabled={projectImages.length === 0} onClick={() => setShowClientCoverPicker(true)}>
+          Wybierz zdjęcie
+        </Button>
+        {selectedClientCover && (
+          <Button type="button" variant="secondary" disabled={coverBusy} onClick={() => void updateClientCover(null)}>
+            Wyczyść wybór
+          </Button>
+        )}
+      </div>
+    </section>
+  ) : null;
 
   if (isRoleFieldUser) {
     return (
@@ -3172,6 +3231,7 @@ function ProjectView({
                   )}
                 </section>
               )}
+              {clientCoverCard}
               {showReports && canGeneratePdfReports && (
                 <div className="worker-generated-reports" ref={workerReportsRef}>
                   <GeneratedReportsPanel
@@ -3217,6 +3277,16 @@ function ProjectView({
         )}
         {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
         {isIndependentFieldUser && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
+        {showClientCoverPicker && (
+          <ClientCoverPicker
+            images={projectImages}
+            selectedId={project.client_cover_media_id}
+            busy={coverBusy}
+            onSelect={(mediaId) => void updateClientCover(mediaId)}
+            onClear={() => void updateClientCover(null)}
+            onClose={() => setShowClientCoverPicker(false)}
+          />
+        )}
       </div>
     );
   }
@@ -3335,10 +3405,69 @@ function ProjectView({
           error={reportError}
         />
       )}
+      {clientCoverCard}
       {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
       {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
       {showManage && <ManageProjectModal project={project} user={user} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
+      {showClientCoverPicker && (
+        <ClientCoverPicker
+          images={projectImages}
+          selectedId={project.client_cover_media_id}
+          busy={coverBusy}
+          onSelect={(mediaId) => void updateClientCover(mediaId)}
+          onClear={() => void updateClientCover(null)}
+          onClose={() => setShowClientCoverPicker(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function ClientCoverPicker({
+  images,
+  selectedId,
+  busy,
+  onSelect,
+  onClear,
+  onClose,
+}: {
+  images: Array<{ asset: MediaAsset; entry: Entry }>;
+  selectedId?: string | null;
+  busy: boolean;
+  onSelect: (mediaId: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}) {
+  const formatter = new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" });
+  return (
+    <Modal title="Wybierz zdjęcie główne" onClose={onClose}>
+      <div className="client-cover-picker">
+        <p className="form-note">To zdjęcie będzie pierwszym obrazem w linku klienta. Jeśli nie wybierzesz żadnego, klient zobaczy najnowsze zdjęcie z historii.</p>
+        {images.length === 0 ? (
+          <EmptyState icon="camera" title="Brak zdjęć" text="Dodaj zdjęcie do historii postępu, żeby ustawić obraz główny linku klienta." />
+        ) : (
+          <div className="client-cover-grid">
+            {images.map(({ asset, entry }) => (
+              <button
+                type="button"
+                className={asset.id === selectedId ? "selected" : ""}
+                disabled={busy}
+                onClick={() => onSelect(asset.id)}
+                key={asset.id}
+              >
+                <img src={asset.url} alt={asset.original_name || "Zdjęcie postępu"} loading="lazy" />
+                <span>{formatter.format(new Date(entry.occurred_at))}</span>
+                {asset.id === selectedId && <strong>Wybrane</strong>}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="modal-actions">
+          <Button type="button" variant="secondary" disabled={busy || !selectedId} onClick={onClear}>Wyczyść wybór</Button>
+          <Button type="button" variant="secondary" onClick={onClose}>Zamknij</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -5330,6 +5459,7 @@ function PublicProject({ token }: { token: string }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
+  const [audioErrors, setAudioErrors] = useState<string[]>([]);
 
   const load = useCallback(async (providedPin?: string) => {
     const activePin = providedPin ?? pin;
@@ -5351,29 +5481,46 @@ function PublicProject({ token }: { token: string }) {
   }, [data?.project, load]);
 
   if (requiresPin) {
-    return <div className="public-page"><Logo /><form className="pin-card" onSubmit={(event) => { event.preventDefault(); void load(pin); }}><Icon name="clipboard" size={42} /><h1>Zlecenie chronione</h1><p>Wpisz PIN otrzymany od osoby prowadzącej zlecenie.</p><input value={pin} onChange={(event) => setPin(event.target.value)} inputMode="numeric" autoFocus /><Button type="submit">Otwórz zlecenie</Button>{error && <p className="form-error">{error}</p>}</form></div>;
+    return (
+      <div className="public-page">
+        <Logo />
+        <form className="pin-card" onSubmit={(event) => { event.preventDefault(); void load(pin); }}>
+          <Icon name="clipboard" size={42} />
+          <h1>Zlecenie chronione</h1>
+          <p>Wpisz PIN otrzymany od osoby prowadzącej zlecenie.</p>
+          <input value={pin} onChange={(event) => setPin(event.target.value)} inputMode="numeric" autoFocus />
+          <Button type="submit">Otwórz zlecenie</Button>
+          {error && <p className="form-error">{error}</p>}
+        </form>
+      </div>
+    );
   }
   if (!data?.project) return <div className="public-page"><Logo /><div className="loading-screen">{error || "Ładowanie zlecenia..."}</div></div>;
 
   const project = data.project as Project;
   const entries = data.entries as Entry[];
   const reports = data.reports as Report[];
+  const clientCoverMedia = data.client_cover_media as MediaAsset | null | undefined;
   const withPin = (url: string) => `${url}${pin ? `?pin=${encodeURIComponent(pin)}` : ""}`;
   const { completedCount, progress } = projectStageProgress(project);
   const stagesCount = project.stages?.length || 0;
   const formatter = new Intl.DateTimeFormat("pl", { day: "2-digit", month: "2-digit", year: "numeric" });
   const timeFormatter = new Intl.DateTimeFormat("pl", { dateStyle: "medium", timeStyle: "short" });
-  const latestDate = entries[0]?.occurred_at || project.updated_at || project.created_at;
-  const latestImages = entries
-    .flatMap((entry) => entry.media.filter((asset) => asset.kind === "image").map((asset) => ({ ...asset, entry })))
-    .slice(0, 6);
-  const heroImage = latestImages[0];
-  const completedItems = entries
-    .filter((entry) => entry.kind !== "problem" && (entry.body || entry.transcript))
-    .slice(0, 4);
+  const historyEntries = [...entries].sort((left, right) => {
+    const result = new Date(left.occurred_at).getTime() - new Date(right.occurred_at).getTime();
+    return result || left.id.localeCompare(right.id);
+  });
+  const latestDate = historyEntries.at(-1)?.occurred_at || project.updated_at || project.created_at;
+  const heroImage = clientCoverMedia || historyEntries
+    .flatMap((entry) => entry.media.filter((asset) => asset.kind === "image"))
+    .at(-1);
   const contractorName = project.worker_profile?.label || "Nie podano";
   const safeStatusLabel = statusLabels[project.status] || project.status;
   const formatDate = (value?: string | null) => value ? formatter.format(new Date(value)) : "Nie ustawiono";
+  const markAudioError = (assetId: string) => {
+    setAudioErrors((current) => current.includes(assetId) ? current : [...current, assetId]);
+  };
+
   return (
     <div className="client-project">
       <header className="client-hero">
@@ -5391,7 +5538,7 @@ function PublicProject({ token }: { token: string }) {
           <div className="client-summary-card__image">
             {heroImage ? (
               <button type="button" onClick={() => setLightbox({ src: withPin(heroImage.url), alt: heroImage.original_name })}>
-                <img src={withPin(heroImage.url)} alt={heroImage.original_name} loading="lazy" />
+                <img src={withPin(heroImage.url)} alt={heroImage.original_name || "Zdjęcie główne zlecenia"} loading="lazy" />
               </button>
             ) : (
               <div className="client-image-placeholder"><Icon name="clipboard" /><span>Podgląd zlecenia</span></div>
@@ -5418,36 +5565,70 @@ function PublicProject({ token }: { token: string }) {
 
         {project.contract_amount && <ContractTermsPanel project={project} />}
 
-        <section className="client-section-card client-done-card">
+        <section className="client-section-card client-history-card">
           <span className="client-section-icon client-section-icon--green"><Icon name="check" /></span>
           <div>
-            <h2>Co zostało wykonane do tej pory</h2>
-            {completedItems.length === 0 ? (
-              <p className="client-muted">Pierwsze opisy postępu pojawią się tutaj po dodaniu aktualizacji.</p>
+            <h2>Historia prac</h2>
+            {historyEntries.length === 0 ? (
+              <p className="client-muted">Pierwsze wpisy postępu pojawią się tutaj po dodaniu aktualizacji.</p>
             ) : (
-              <ul>
-                {completedItems.map((entry) => (
-                  <li key={entry.id}><Icon name="check" /><span>{entry.body || entry.transcript}</span></li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </section>
-
-        <section className="client-section-card client-photos-card">
-          <span className="client-section-icon client-section-icon--green"><Icon name="camera" /></span>
-          <div>
-            <h2>Zdjęcia z prac</h2>
-            {latestImages.length === 0 ? (
-              <p className="client-muted">Zdjęcia pojawią się tutaj po pierwszej aktualizacji z terenu.</p>
-            ) : (
-              <div className="client-photo-grid">
-                {latestImages.map((asset) => {
-                  const src = withPin(asset.url);
+              <div className="client-history-list">
+                {historyEntries.map((entry) => {
+                  const imageAssets = entry.media.filter((asset) => asset.kind === "image");
+                  const audioAssets = entry.media.filter((asset) => asset.kind === "audio");
+                  const title = entry.kind === "problem"
+                    ? "Problem"
+                    : imageAssets.length > 0
+                      ? "Zdjęcia postępu"
+                      : audioAssets.length > 0
+                        ? "Opis głosowy"
+                        : "Aktualizacja";
+                  const author = entry.author_label || entry.author?.name || entry.guest_label || "Wykonawca";
                   return (
-                    <button type="button" className="media-button" onClick={() => setLightbox({ src, alt: asset.original_name })} key={asset.id}>
-                      <img src={src} alt={asset.original_name} loading="lazy" />
-                    </button>
+                    <article className={`client-history-entry client-history-entry--${entry.kind}`} key={entry.id}>
+                      <header>
+                        <div>
+                          <span><Icon name={entry.kind === "problem" ? "alert" : imageAssets.length ? "camera" : audioAssets.length ? "mic" : "clipboard"} /></span>
+                          <div>
+                            <h3>{title}</h3>
+                            <small>{timeFormatter.format(new Date(entry.occurred_at))} · {author}</small>
+                          </div>
+                        </div>
+                        {entry.kind === "problem" && <em>{entry.problem_status === "resolved" ? "Rozwiązany" : "Do rozwiązania"}</em>}
+                      </header>
+                      {(entry.body || entry.transcript) && (
+                        <div className="client-history-entry__text">
+                          {entry.body && <p>{entry.body}</p>}
+                          {entry.transcript && entry.transcript !== entry.body && <blockquote>{entry.transcript}</blockquote>}
+                        </div>
+                      )}
+                      {imageAssets.length > 0 && (
+                        <div className="client-history-entry__media">
+                          {imageAssets.map((asset) => {
+                            const src = withPin(asset.url);
+                            return (
+                              <button type="button" className="media-button" onClick={() => setLightbox({ src, alt: asset.original_name })} key={asset.id}>
+                                <img src={src} alt={asset.original_name || "Zdjęcie postępu"} loading="lazy" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {audioAssets.length > 0 && (
+                        <div className="client-history-entry__audio">
+                          {audioAssets.map((asset) => (
+                            <div className="client-audio-item" key={asset.id}>
+                              <Icon name="mic" />
+                              <div>
+                                <strong>{asset.original_name || "Nagranie audio"}</strong>
+                                <audio controls preload="none" src={withPin(asset.url)} onError={() => markAudioError(asset.id)} />
+                                {audioErrors.includes(asset.id) && <small>Nie udało się załadować nagrania audio.</small>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
                   );
                 })}
               </div>

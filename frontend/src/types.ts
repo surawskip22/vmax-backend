@@ -66,6 +66,7 @@ export type Stage = {
 export type MediaAsset = {
   id: string;
   kind: "image" | "audio";
+  media_type?: "image" | "audio";
   purpose: "attachment" | "voice_description" | "voice_note";
   original_name: string;
   content_type: string;
@@ -79,6 +80,7 @@ export type MediaAsset = {
 export type Comment = {
   id: string;
   author?: User;
+  author_label?: string;
   guest_label?: string;
   body: string;
   created_at: string;
@@ -89,6 +91,7 @@ export type Entry = {
   project_id: string;
   stage?: Stage;
   author?: User;
+  author_label?: string;
   guest_label?: string;
   kind: "update" | "problem";
   body: string;
@@ -128,6 +131,7 @@ export type Project = {
   portfolio_slug?: string;
   portfolio_summary: string;
   details_locked: boolean;
+  client_cover_media_id?: string | null;
   can_edit_details?: boolean;
   created_at: string;
   updated_at: string;
