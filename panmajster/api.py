@@ -1868,6 +1868,17 @@ def public_entry_payload(item: models.Entry, token: str) -> dict:
     return data
 
 
+PUBLIC_PROJECT_REPORT_STATUSES = ("ready", "published")
+
+
+def public_report_payload(item: models.Report, token: str) -> dict:
+    data = serializers.report(item)
+    if item.pdf_storage_key:
+        data["pdf_url"] = f"/api/public/projects/{token}/reports/{item.id}/pdf"
+    data["legacy_pdf_url"] = None
+    return data
+
+
 @router.get("/public/projects/{token}")
 def public_project(
     token: str, pin: str | None = None, db: Session = Depends(get_db)
@@ -1881,9 +1892,10 @@ def public_project(
         select(models.Report)
         .where(
             models.Report.project_id == project.id,
-            models.Report.status == "published",
+            models.Report.status.in_(PUBLIC_PROJECT_REPORT_STATUSES),
+            models.Report.pdf_storage_key.isnot(None),
         )
-        .order_by(models.Report.published_at.desc())
+        .order_by(models.Report.published_at.desc(), models.Report.created_at.desc())
     ).all()
     project_data = serializers.project(project, details=True)
     project_data.pop("client_email", None)
@@ -1891,7 +1903,7 @@ def public_project(
         "requires_pin": bool(project.client_share_pin_hash),
         "project": project_data,
         "entries": [public_entry_payload(item, token) for item in entries],
-        "reports": [serializers.report(item) for item in reports],
+        "reports": [public_report_payload(item, token) for item in reports],
     }
 
 
@@ -1937,7 +1949,7 @@ def public_project_report_pdf(
     if (
         not report
         or report.project_id != project.id
-        or report.status != "published"
+        or report.status not in PUBLIC_PROJECT_REPORT_STATUSES
         or not report.pdf_storage_key
     ):
         raise HTTPException(404, "Nie znaleziono raportu")

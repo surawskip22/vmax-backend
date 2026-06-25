@@ -616,6 +616,156 @@ def test_generated_pdf_report_panel_flow_for_owner():
         assert [item["id"] for item in listed] == [final["id"], daily["id"]]
 
 
+def test_public_client_link_returns_generated_ready_pdf_report():
+    with TestClient(app) as client:
+        login(client, "public-ready-report-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Public ready PDF project",
+                "client_name": "Anna Public",
+                "address": "ul. Publiczna 1",
+                "template": "custom",
+            },
+        ).json()
+        token = client.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+        generated = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+
+        public_project = client.get(f"/api/public/projects/{token}").json()
+        assert [item["id"] for item in public_project["reports"]] == [generated["id"]]
+        public_report = public_project["reports"][0]
+        assert public_report["status"] == "ready"
+        assert public_report["pdf_url"].endswith(
+            f"/api/public/projects/{token}/reports/{generated['id']}/pdf"
+        )
+        assert public_report["legacy_pdf_url"] is None
+
+
+def test_public_client_can_download_generated_ready_pdf_report():
+    with TestClient(app) as client:
+        login(client, "public-ready-download-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={"name": "Public ready download", "template": "custom"},
+        ).json()
+        token = client.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        generated = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{project['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+
+        assert_pdf_response(
+            client.get(
+                f"/api/public/projects/{token}/reports/{generated['id']}/pdf"
+            )
+        )
+
+
+def test_public_client_cannot_download_report_from_other_project():
+    with TestClient(app) as client:
+        login(client, "public-cross-report-owner@example.com")
+        first = client.post(
+            "/api/projects",
+            json={"name": "Public token project", "template": "custom"},
+        ).json()
+        second = client.post(
+            "/api/projects",
+            json={"name": "Foreign PDF project", "template": "custom"},
+        ).json()
+        token = client.get(f"/api/projects/{first['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+        foreign = assert_generated_pdf_report(
+            client.post(
+                f"/api/projects/{second['id']}/reports",
+                json={"type": "final"},
+            )
+        )
+
+        assert (
+            client.get(
+                f"/api/public/projects/{token}/reports/{foreign['id']}/pdf"
+            ).status_code
+            == 404
+        )
+
+
+def test_public_client_link_returns_empty_report_list_without_reports():
+    with TestClient(app) as client:
+        login(client, "public-empty-report-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={"name": "Public empty reports", "template": "custom"},
+        ).json()
+        token = client.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+        assert client.get(f"/api/public/projects/{token}").json()["reports"] == []
+
+
+def test_public_client_link_hides_failed_generating_and_ready_without_pdf():
+    with TestClient(app) as client:
+        login(client, "public-hidden-report-owner@example.com")
+        project = client.post(
+            "/api/projects",
+            json={"name": "Public hidden reports", "template": "custom"},
+        ).json()
+        token = client.get(f"/api/projects/{project['id']}/client-link").json()[
+            "url"
+        ].rsplit("/", 1)[-1]
+
+        with SessionLocal() as db:
+            user_id = db.scalar(
+                select(models.User.id).where(
+                    models.User.email == "public-hidden-report-owner@example.com"
+                )
+            )
+            assert user_id is not None
+            db.add_all(
+                [
+                    models.Report(
+                        project_id=project["id"],
+                        created_by_id=user_id,
+                        title="Generating report",
+                        report_type="final",
+                        status="generating",
+                        pdf_storage_key="reports/generating.pdf",
+                    ),
+                    models.Report(
+                        project_id=project["id"],
+                        created_by_id=user_id,
+                        title="Failed report",
+                        report_type="final",
+                        status="failed",
+                        pdf_storage_key="reports/failed.pdf",
+                    ),
+                    models.Report(
+                        project_id=project["id"],
+                        created_by_id=user_id,
+                        title="Ready without file",
+                        report_type="final",
+                        status="ready",
+                    ),
+                ]
+            )
+            db.commit()
+
+        assert client.get(f"/api/public/projects/{token}").json()["reports"] == []
+
+
 def test_generated_pdf_reports_can_be_created_sequentially_for_same_project():
     with TestClient(app) as client:
         login(client, "generated-sequential-owner@example.com")

@@ -5414,7 +5414,7 @@ function PublicProject({ token }: { token: string }) {
             ) : (
               <div className="client-report-list">
                 {reports.map((report) => (
-                  <a className="client-report-link" href={withPin(`/api/public/projects/${token}/reports/${report.id}/pdf`)} target="_blank" rel="noreferrer" key={report.id}>
+                  <a className="client-report-link" href={withPin(report.pdf_url || `/api/public/projects/${token}/reports/${report.id}/pdf`)} target="_blank" rel="noreferrer" key={report.id}>
                     <Icon name="report" />
                     <div>
                       <strong>{report.title}</strong>
