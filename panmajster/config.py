@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     openai_report_model: str = "gpt-4.1-mini"
     enable_server_transcription: bool = False
 
+    demo_admin_enabled: bool = False
+    demo_admin_user: str = "Piotrek"
+    demo_admin_password: str = ""
+    allow_demo_reset: bool = False
+
     worker_enabled: bool = True
     worker_poll_seconds: int = 5
 

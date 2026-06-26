@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import base64
+import hmac
+import json
 import logging
+import os
 import re
+import time
 from threading import Lock
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -35,6 +40,7 @@ from .access import (
 )
 from .config import get_settings
 from .db import get_db
+from .demo_seed import DEMO_EMAILS, DEMO_PASSWORD, seed_demo_data
 from .mailer import send_email, send_otp
 from .reporting import render_pdf, render_project_report_pdf, transcribe_upload
 from .security import hash_secret, normalize_email, otp_code, random_token, verify_secret
@@ -58,6 +64,7 @@ PROJECT_CONTRACT_FIELDS = {
     "contract_amount",
     "contract_currency",
 }
+DEMO_ADMIN_TOKEN_PREFIX = "demo-admin:"
 
 _report_generation_locks: dict[str, Lock] = {}
 _report_generation_locks_guard = Lock()
@@ -115,6 +122,15 @@ class OtpVerify(BaseModel):
 class PasswordLogin(BaseModel):
     email: EmailStr
     password: str = Field(min_length=4, max_length=128)
+
+
+class DemoAdminLogin(BaseModel):
+    username: str = Field(min_length=1, max_length=160)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class DemoAdminReset(BaseModel):
+    confirmation: str = Field(max_length=40)
 
 
 class UserUpdate(BaseModel):
@@ -386,6 +402,81 @@ def create_session_response(
     return {"user": user_payload(db, user)}
 
 
+def demo_admin_password() -> str:
+    if settings.demo_admin_password:
+        return settings.demo_admin_password
+    if not settings.is_production:
+        return "Abecede123"
+    return ""
+
+
+def demo_reset_allowed() -> bool:
+    return (
+        settings.allow_demo_reset
+        or os.getenv("ALLOW_DEMO_RESET") == "1"
+        or os.getenv("PANMAJSTER_ALLOW_DEMO_RESET") == "1"
+    )
+
+
+def demo_admin_accounts_payload() -> list[dict[str, str]]:
+    labels = {
+        "szef@majster.pl": "Szef firmy",
+        "inwestor@majster.pl": "Inwestor",
+        "samodzielny@majster.pl": "Samodzielny majster",
+        "pracownik@majster.pl": "Pracownik firmy",
+        "pracownik2@majster.pl": "Pracownik firmy 2",
+    }
+    return [
+        {"email": email, "password": DEMO_PASSWORD, "label": labels.get(email, "Konto demo")}
+        for email in sorted(DEMO_EMAILS)
+    ]
+
+
+def create_demo_admin_token(username: str) -> str:
+    payload = {
+        "u": username,
+        "exp": int(time.time()) + 60 * 60,
+        "n": random_token(8),
+    }
+    raw = (
+        base64.urlsafe_b64encode(
+            json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        )
+        .decode("ascii")
+        .rstrip("=")
+    )
+    return f"{raw}.{hash_secret(DEMO_ADMIN_TOKEN_PREFIX + raw)}"
+
+
+def verify_demo_admin_token(token: str) -> dict[str, Any]:
+    try:
+        raw, signature = token.split(".", 1)
+        if not verify_secret(DEMO_ADMIN_TOKEN_PREFIX + raw, signature):
+            raise ValueError("invalid signature")
+        payload = json.loads(
+            base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)).decode("utf-8")
+        )
+    except Exception as exc:
+        raise HTTPException(401, "Nieprawidłowy token panelu demo") from exc
+    if int(payload.get("exp", 0)) < int(time.time()):
+        raise HTTPException(401, "Sesja panelu demo wygasła")
+    if payload.get("u") != settings.demo_admin_user:
+        raise HTTPException(401, "Nieprawidłowy token panelu demo")
+    return payload
+
+
+def require_demo_admin(request: Request) -> None:
+    if not settings.demo_admin_enabled:
+        raise HTTPException(403, "Panel demo jest wyłączony")
+    header = request.headers.get("authorization", "")
+    scheme, _, token = header.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        token = request.headers.get("x-demo-admin-token", "")
+    if not token:
+        raise HTTPException(401, "Brak tokenu panelu demo")
+    verify_demo_admin_token(token)
+
+
 def project_role_from_guest_permission(permission: str) -> str:
     return "viewer" if permission == "view" else "contributor"
 
@@ -654,6 +745,49 @@ def version():
             "contract_terms_5d": True,
             "progress_stage_5c": True,
         },
+    }
+
+
+@router.post("/demo-admin/login")
+def demo_admin_login(payload: DemoAdminLogin):
+    if not settings.demo_admin_enabled:
+        raise HTTPException(403, "Panel demo jest wyłączony")
+    expected_password = demo_admin_password()
+    if (
+        not expected_password
+        or payload.username != settings.demo_admin_user
+        or not hmac.compare_digest(payload.password, expected_password)
+    ):
+        raise HTTPException(403, "Nieprawidłowy login albo hasło panelu demo")
+    return {
+        "token": create_demo_admin_token(payload.username),
+        "demo_accounts": demo_admin_accounts_payload(),
+        "reset_enabled": demo_reset_allowed(),
+    }
+
+
+@router.post("/demo-admin/reset")
+def demo_admin_reset(
+    payload: DemoAdminReset,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    require_demo_admin(request)
+    if not demo_reset_allowed():
+        raise HTTPException(403, "Reset demo wymaga ALLOW_DEMO_RESET=1")
+    if payload.confirmation != "RESET DEMO":
+        raise HTTPException(400, "Wpisz dokładnie RESET DEMO")
+    result = seed_demo_data(db, reset=True, yes=True)
+    return {
+        "status": "ok",
+        "counts": result.counts,
+        "company_statuses": result.company_statuses,
+        "independent_statuses": result.independent_statuses,
+        "investor_statuses": result.investor_statuses,
+        "guest_links": result.guest_links,
+        "client_links": result.client_links,
+        "demo_accounts": demo_admin_accounts_payload(),
+        "note": "Dane demo zostały odtworzone. Raporty PDF zostają do wygenerowania ręcznie.",
     }
 
 

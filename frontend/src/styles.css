@@ -225,6 +225,13 @@ h1, h2, h3, p { margin-top: 0; }
 .test-login-panel > strong { color: var(--navy); font-size: 13px; }
 .test-login-panel button { padding: 10px 12px; display: flex; justify-content: space-between; gap: 10px; align-items: center; border: 1px solid #cfd7e2; border-radius: 9px; background: #fff; color: var(--navy); font-weight: 800; }
 .test-login-panel small { color: var(--muted); font-weight: 600; }
+.demo-admin-panel { min-width: min(440px, 86vw); }
+.demo-admin-accounts, .demo-admin-result { padding: 14px; display: grid; gap: 8px; border: 1px solid #dbe2ea; border-radius: 12px; background: #f8fafc; }
+.demo-admin-accounts > strong, .demo-admin-result > strong { color: var(--navy); font-size: 14px; }
+.demo-admin-accounts span { padding: 9px 10px; display: flex; justify-content: space-between; gap: 12px; border: 1px solid #e4ebf3; border-radius: 9px; background: #fff; }
+.demo-admin-accounts span b { color: var(--navy); }
+.demo-admin-accounts small, .demo-admin-result span { color: var(--muted); font-weight: 700; }
+.demo-admin-result { border-color: #bde8ce; background: #f0fbf5; }
 
 .onboarding { min-height: 100vh; padding: 35px 20px; display: grid; place-items: center; background: linear-gradient(145deg, #f7f9fb, #e9eef5); }
 .onboarding__card { width: min(920px, 100%); padding: 36px; border: 1px solid var(--border); border-radius: 22px; background: #fff; box-shadow: var(--shadow); }

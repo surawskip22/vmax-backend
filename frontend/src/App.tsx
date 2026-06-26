@@ -58,6 +58,22 @@ type SpeechRecognitionEventLike = {
     [index: number]: SpeechRecognitionResultLike;
   };
 };
+type DemoAdminAccount = {
+  email: string;
+  password: string;
+  label: string;
+};
+type DemoAdminResetResult = {
+  status: string;
+  counts: Record<string, number>;
+  company_statuses: Record<string, number>;
+  independent_statuses: Record<string, number>;
+  investor_statuses: Record<string, number>;
+  guest_links: number;
+  client_links: number;
+  demo_accounts: DemoAdminAccount[];
+  note?: string;
+};
 type SpeechRecognitionInstance = {
   lang: string;
   continuous: boolean;
@@ -72,6 +88,10 @@ type SpeechRecognitionInstance = {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 const LIVE_TRANSCRIPTION_FALLBACK_MESSAGE =
   "Transkrypcja na żywo jest niedostępna na tym urządzeniu. Nagranie audio zostanie zapisane.";
+const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
+const DEMO_ADMIN_ENABLED = ["1", "true", "yes"].includes(
+  String(viteEnv.VITE_DEMO_ADMIN_ENABLED || "").toLowerCase(),
+);
 
 const testAccounts = [
   {
@@ -562,11 +582,17 @@ function AuthModal({
   onSuccess: (user: User) => void;
   initialEmail?: string;
 }) {
-  const [step, setStep] = useState<"email" | "code" | "password">("email");
+  const [step, setStep] = useState<"email" | "code" | "password" | "demoAdmin">("email");
   const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [devCode, setDevCode] = useState("");
+  const [demoAdminUser, setDemoAdminUser] = useState("");
+  const [demoAdminPassword, setDemoAdminPassword] = useState("");
+  const [demoAdminToken, setDemoAdminToken] = useState("");
+  const [demoAdminAccounts, setDemoAdminAccounts] = useState<DemoAdminAccount[]>([]);
+  const [demoAdminConfirmation, setDemoAdminConfirmation] = useState("");
+  const [demoAdminResult, setDemoAdminResult] = useState<DemoAdminResetResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -626,8 +652,75 @@ function AuthModal({
     }
   }
 
+  async function loginDemoAdmin(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setDemoAdminResult(null);
+    try {
+      const result = await api<{
+        token: string;
+        demo_accounts: DemoAdminAccount[];
+        reset_enabled: boolean;
+      }>("/demo-admin/login", {
+        method: "POST",
+        body: JSON.stringify({
+          username: demoAdminUser,
+          password: demoAdminPassword,
+        }),
+      });
+      setDemoAdminToken(result.token);
+      setDemoAdminAccounts(result.demo_accounts || []);
+      setDemoAdminPassword("");
+      if (!result.reset_enabled) {
+        setError("Panel demo działa, ale reset wymaga ALLOW_DEMO_RESET=1 po stronie backendu.");
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zalogować do panelu demo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resetDemoData(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setDemoAdminResult(null);
+    try {
+      const result = await api<DemoAdminResetResult>("/demo-admin/reset", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${demoAdminToken}` },
+        body: JSON.stringify({ confirmation: demoAdminConfirmation }),
+      });
+      setDemoAdminResult(result);
+      setDemoAdminAccounts(result.demo_accounts || demoAdminAccounts);
+      setDemoAdminConfirmation("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zresetować demo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function switchStep(nextStep: "email" | "code" | "password" | "demoAdmin") {
+    setError("");
+    setStep(nextStep);
+  }
+
   return (
-    <Modal title={step === "email" ? "Wejdź do Pan Majster" : step === "password" ? "Logowanie testowe" : "Sprawdź pocztę"} onClose={onClose}>
+    <Modal
+      title={
+        step === "email"
+          ? "Wejdź do Pan Majster"
+          : step === "password"
+            ? "Logowanie testowe"
+            : step === "demoAdmin"
+              ? "Panel demo"
+              : "Sprawdź pocztę"
+      }
+      onClose={onClose}
+    >
       {step === "email" ? (
         <form className="form-stack" onSubmit={requestCode}>
           <p className="form-intro">Bez hasła. Wyślemy Ci jednorazowy kod logowania.</p>
@@ -637,7 +730,10 @@ function AuthModal({
           </label>
           {error && <p className="form-error">{error}</p>}
           <Button type="submit" busy={busy}>Wyślij kod</Button>
-          <Button type="button" variant="ghost" onClick={() => setStep("password")}>Mam hasło testowe</Button>
+          <Button type="button" variant="ghost" onClick={() => switchStep("password")}>Mam hasło testowe</Button>
+          {DEMO_ADMIN_ENABLED && (
+            <Button type="button" variant="ghost" onClick={() => switchStep("demoAdmin")}>Panel demo</Button>
+          )}
           <div className="test-login-panel">
             <strong>Konta testowe lokalnie</strong>
             {testAccounts.map((account) => (
@@ -669,8 +765,82 @@ function AuthModal({
           </label>
           {error && <p className="form-error">{error}</p>}
           <Button type="submit" busy={busy}>Zaloguj hasłem</Button>
-          <Button type="button" variant="ghost" onClick={() => setStep("email")}>Wróć do kodu e-mail</Button>
+          <Button type="button" variant="ghost" onClick={() => switchStep("email")}>Wróć do kodu e-mail</Button>
         </form>
+      ) : step === "demoAdmin" ? (
+        !demoAdminToken ? (
+          <form className="form-stack demo-admin-panel" onSubmit={loginDemoAdmin}>
+            <p className="form-intro">
+              Panel służy wyłącznie do odtworzenia danych demo na środowisku testowym.
+            </p>
+            <label>
+              Login panelu demo
+              <input value={demoAdminUser} onChange={(event) => setDemoAdminUser(event.target.value)} required autoFocus />
+            </label>
+            <label>
+              Hasło panelu demo
+              <input
+                type="password"
+                value={demoAdminPassword}
+                onChange={(event) => setDemoAdminPassword(event.target.value)}
+                required
+              />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            <Button type="submit" busy={busy}>Wejdź do panelu demo</Button>
+            <Button type="button" variant="ghost" onClick={() => switchStep("email")}>Wróć do logowania</Button>
+          </form>
+        ) : (
+          <form className="form-stack demo-admin-panel" onSubmit={resetDemoData}>
+            <p className="form-intro">
+              Reset usuwa tylko dane demo i odtwarza realistyczny zestaw startowy. Konta demo zostają aktywne.
+            </p>
+            <div className="demo-admin-accounts">
+              <strong>Konta demo po resecie</strong>
+              {(demoAdminResult?.demo_accounts || demoAdminAccounts).map((account) => (
+                <span key={account.email}>
+                  <b>{account.label}</b>
+                  <small>{account.email}</small>
+                </span>
+              ))}
+              <small>Hasło kont demo: test1234</small>
+            </div>
+            <label>
+              Potwierdzenie resetu
+              <input
+                value={demoAdminConfirmation}
+                onChange={(event) => setDemoAdminConfirmation(event.target.value)}
+                placeholder="RESET DEMO"
+                required
+              />
+            </label>
+            {demoAdminResult && (
+              <div className="demo-admin-result">
+                <strong>Dane demo odtworzone</strong>
+                <span>Projekty: {demoAdminResult.counts.projects}</span>
+                <span>Wpisy: {demoAdminResult.counts.entries}</span>
+                <span>Media: {demoAdminResult.counts.media_assets || 0}</span>
+                <span>Linki klienta: {demoAdminResult.client_links}</span>
+                <span>Linki majstra: {demoAdminResult.guest_links}</span>
+              </div>
+            )}
+            {error && <p className="form-error">{error}</p>}
+            <Button type="submit" busy={busy} disabled={demoAdminConfirmation !== "RESET DEMO"}>
+              Resetuj dane demo
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setDemoAdminToken("");
+                setDemoAdminResult(null);
+                setDemoAdminConfirmation("");
+              }}
+            >
+              Wyloguj z panelu demo
+            </Button>
+          </form>
+        )
       ) : (
         <form className="form-stack" onSubmit={verify}>
           <p className="form-intro">
@@ -693,7 +863,7 @@ function AuthModal({
           </label>
           {error && <p className="form-error">{error}</p>}
           <Button type="submit" busy={busy}>Zaloguj się</Button>
-          <Button type="button" variant="ghost" onClick={() => setStep("email")}>Zmień adres</Button>
+          <Button type="button" variant="ghost" onClick={() => switchStep("email")}>Zmień adres</Button>
         </form>
       )}
     </Modal>

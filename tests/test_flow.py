@@ -3388,17 +3388,17 @@ def test_demo_seed_reset_creates_realistic_demo_data():
         }
         assert all(user.password_hash for user in demo_users)
         assert result.company_statuses["assigned"] == 1
-        assert result.company_statuses["in_progress"] == 4
-        assert result.company_statuses["completed"] == 5
+        assert result.company_statuses["in_progress"] == 2
+        assert result.company_statuses["completed"] == 2
         assert result.independent_statuses["assigned"] == 1
-        assert result.independent_statuses["in_progress"] == 2
-        assert result.independent_statuses["completed"] == 4
+        assert result.independent_statuses["in_progress"] == 1
+        assert result.independent_statuses["completed"] == 2
         assert result.investor_statuses["assigned"] == 1
         assert result.investor_statuses["in_progress"] == 2
-        assert result.investor_statuses["completed"] == 5
+        assert result.investor_statuses["completed"] == 1
         company = db.scalar(
             select(models.Workspace).where(
-                models.Workspace.name == "Firma Remontowo-Budowlana Majster Demo"
+                models.Workspace.name == "MajsterPro Warszawa"
             )
         )
         assert company is not None
@@ -3407,11 +3407,18 @@ def test_demo_seed_reset_creates_realistic_demo_data():
                 models.WorkerProfile.workspace_id == company.id
             )
         ).all()
-        assert len(company_workers) == 8
+        assert len(company_workers) == 6
         assert any(
-            worker.label == "Staszek Malarz Nieaktywny" and not worker.active
+            worker.label == "Malarz Nieaktywny Demo" and not worker.active
             for worker in company_workers
         )
+        assert {worker.label for worker in company_workers} >= {
+            "Paweł Glazurnik",
+            "Marek Hydraulik",
+            "Ekipa Glazurnicza Link",
+            "Elektryk Link",
+            "Hydraulik Link",
+        }
         investor_space = db.scalar(
             select(models.Workspace).where(
                 models.Workspace.name == "Wykonawcy Inwestora Demo"
@@ -3421,16 +3428,95 @@ def test_demo_seed_reset_creates_realistic_demo_data():
         assert (
             db.scalar(
                 select(func.count(models.WorkerProfile.id)).where(
-                    models.WorkerProfile.workspace_id == investor_space.id
-                )
+                models.WorkerProfile.workspace_id == investor_space.id
             )
-            == 5
+        )
+            == 4
         )
         assert result.guest_links >= 3
-        assert result.client_links >= 25
+        assert result.client_links >= 13
+        assert result.counts["media_assets"] >= 20
         assert db.scalar(
             select(models.User).where(models.User.email == "old-demo-noise@example.com")
         )
+        assert db.scalar(
+            select(models.Project).where(models.Project.name == "Remont łazienki — Mokotów")
+        )
+        assert db.scalar(
+            select(models.Project).where(models.Project.name == "Awaria instalacji wodnej")
+        )
+        public_project = db.scalar(
+            select(models.Project).where(models.Project.name == "Remont mieszkania pod wynajem")
+        )
+        assert public_project and public_project.client_share_token
+        public_token = public_project.client_share_token
+
+    with TestClient(app) as client:
+        assert client.get(f"/api/public/projects/{public_token}").status_code == 200
+
+
+def test_demo_admin_reset_endpoint_is_flagged_guarded_and_idempotent(monkeypatch):
+    monkeypatch.setattr(api_module.settings, "demo_admin_enabled", False)
+    monkeypatch.setattr(api_module.settings, "demo_admin_user", "Piotrek")
+    monkeypatch.setattr(api_module.settings, "demo_admin_password", "Secret123")
+    monkeypatch.setattr(api_module.settings, "allow_demo_reset", False)
+    with TestClient(app) as client:
+        disabled = client.post(
+            "/api/demo-admin/login",
+            json={"username": "Piotrek", "password": "Secret123"},
+        )
+        assert disabled.status_code == 403
+
+        monkeypatch.setattr(api_module.settings, "demo_admin_enabled", True)
+        assert (
+            client.post(
+                "/api/demo-admin/login",
+                json={"username": "Piotrek", "password": "wrong"},
+            ).status_code
+            == 403
+        )
+
+        login_response = client.post(
+            "/api/demo-admin/login",
+            json={"username": "Piotrek", "password": "Secret123"},
+        )
+        assert login_response.status_code == 200
+        token = login_response.json()["token"]
+        assert login_response.json()["demo_accounts"]
+
+        blocked = client.post(
+            "/api/demo-admin/reset",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"confirmation": "RESET DEMO"},
+        )
+        assert blocked.status_code == 403
+
+        monkeypatch.setattr(api_module.settings, "allow_demo_reset", True)
+        typo = client.post(
+            "/api/demo-admin/reset",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"confirmation": "reset demo"},
+        )
+        assert typo.status_code == 400
+
+        first = client.post(
+            "/api/demo-admin/reset",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"confirmation": "RESET DEMO"},
+        )
+        assert first.status_code == 200
+        second = client.post(
+            "/api/demo-admin/reset",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"confirmation": "RESET DEMO"},
+        )
+        assert second.status_code == 200
+        first_json = first.json()
+        second_json = second.json()
+        assert first_json["counts"]["projects"] == second_json["counts"]["projects"]
+        assert first_json["counts"]["entries"] == second_json["counts"]["entries"]
+        assert first_json["guest_links"] >= 3
+        assert first_json["client_links"] >= 13
 
 
 def test_demo_seed_reset_requires_yes_confirmation():
