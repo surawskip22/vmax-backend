@@ -88,10 +88,6 @@ type SpeechRecognitionInstance = {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 const LIVE_TRANSCRIPTION_FALLBACK_MESSAGE =
   "Transkrypcja na żywo jest niedostępna na tym urządzeniu. Nagranie audio zostanie zapisane.";
-const viteEnv = (import.meta as unknown as { env?: Record<string, string | undefined> }).env || {};
-const DEMO_ADMIN_ENABLED = ["1", "true", "yes"].includes(
-  String(viteEnv.VITE_DEMO_ADMIN_ENABLED || "").toLowerCase(),
-);
 
 const testAccounts = [
   {
@@ -731,9 +727,7 @@ function AuthModal({
           {error && <p className="form-error">{error}</p>}
           <Button type="submit" busy={busy}>Wyślij kod</Button>
           <Button type="button" variant="ghost" onClick={() => switchStep("password")}>Mam hasło testowe</Button>
-          {DEMO_ADMIN_ENABLED && (
-            <Button type="button" variant="ghost" onClick={() => switchStep("demoAdmin")}>Panel demo</Button>
-          )}
+          <Button type="button" variant="ghost" onClick={() => switchStep("demoAdmin")}>Panel demo</Button>
           <div className="test-login-panel">
             <strong>Konta testowe lokalnie</strong>
             {testAccounts.map((account) => (
