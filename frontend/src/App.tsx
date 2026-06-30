@@ -63,6 +63,19 @@ type DemoAdminAccount = {
   password: string;
   label: string;
 };
+type DemoAdminDiagnostics = {
+  database_fingerprint: string;
+  app_env: string;
+  reset_backend_marker: string;
+  demo_users_found: number;
+  demo_users_created?: number;
+  projects_after_reset_by_owner: Record<string, number>;
+  projects_visible_by_user: Record<string, number>;
+  entries_visible_by_user: Record<string, number>;
+  workspace_count: number;
+  client_links: number;
+  guest_links: number;
+};
 type DemoAdminResetResult = {
   status: string;
   counts: Record<string, number>;
@@ -72,7 +85,15 @@ type DemoAdminResetResult = {
   guest_links: number;
   client_links: number;
   demo_accounts: DemoAdminAccount[];
+  diagnostics?: DemoAdminDiagnostics;
   note?: string;
+};
+type DemoAdminStatusResult = {
+  status: string;
+  enabled: boolean;
+  reset_enabled: boolean;
+  diagnostics: DemoAdminDiagnostics;
+  demo_accounts: DemoAdminAccount[];
 };
 type SpeechRecognitionInstance = {
   lang: string;
@@ -589,6 +610,7 @@ function AuthModal({
   const [demoAdminAccounts, setDemoAdminAccounts] = useState<DemoAdminAccount[]>([]);
   const [demoAdminConfirmation, setDemoAdminConfirmation] = useState("");
   const [demoAdminResult, setDemoAdminResult] = useState<DemoAdminResetResult | null>(null);
+  const [demoAdminStatus, setDemoAdminStatus] = useState<DemoAdminStatusResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -668,6 +690,7 @@ function AuthModal({
       setDemoAdminToken(result.token);
       setDemoAdminAccounts(result.demo_accounts || []);
       setDemoAdminPassword("");
+      await loadDemoAdminStatus(result.token);
       if (!result.reset_enabled) {
         setError("Panel demo działa, ale reset wymaga ALLOW_DEMO_RESET=1 po stronie backendu.");
       }
@@ -690,6 +713,15 @@ function AuthModal({
         body: JSON.stringify({ confirmation: demoAdminConfirmation }),
       });
       setDemoAdminResult(result);
+      if (result.diagnostics) {
+        setDemoAdminStatus({
+          status: "ok",
+          enabled: true,
+          reset_enabled: true,
+          diagnostics: result.diagnostics,
+          demo_accounts: result.demo_accounts || demoAdminAccounts,
+        });
+      }
       setDemoAdminAccounts(result.demo_accounts || demoAdminAccounts);
       setDemoAdminConfirmation("");
     } catch (reason) {
@@ -699,10 +731,33 @@ function AuthModal({
     }
   }
 
+  async function loadDemoAdminStatus(token = demoAdminToken) {
+    if (!token) return;
+    const result = await api<DemoAdminStatusResult>("/demo-admin/status", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setDemoAdminStatus(result);
+    setDemoAdminAccounts(result.demo_accounts || []);
+  }
+
+  async function refreshDemoAdminStatus() {
+    setBusy(true);
+    setError("");
+    try {
+      await loadDemoAdminStatus();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się pobrać statusu demo");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function switchStep(nextStep: "email" | "code" | "password" | "demoAdmin") {
     setError("");
     setStep(nextStep);
   }
+
+  const demoDiagnostics = demoAdminStatus?.diagnostics || demoAdminResult?.diagnostics;
 
   return (
     <Modal
@@ -799,6 +854,20 @@ function AuthModal({
               ))}
               <small>Hasło kont demo: test1234</small>
             </div>
+            {demoDiagnostics && (
+              <div className="demo-admin-result">
+                <strong>Status aktywnej bazy demo</strong>
+                <span>Baza: {demoDiagnostics.database_fingerprint}</span>
+                <span>Środowisko: {demoDiagnostics.app_env}</span>
+                <span>Samodzielny: {demoDiagnostics.projects_visible_by_user["samodzielny@majster.pl"] || 0} zlecenia</span>
+                <span>Szef firmy: {demoDiagnostics.projects_visible_by_user["szef@majster.pl"] || 0} zlecenia</span>
+                <span>Inwestor: {demoDiagnostics.projects_visible_by_user["inwestor@majster.pl"] || 0} inwestycje</span>
+                <span>Pracownik 1: {demoDiagnostics.projects_visible_by_user["pracownik@majster.pl"] || 0} zlecenia</span>
+                <span>Pracownik 2: {demoDiagnostics.projects_visible_by_user["pracownik2@majster.pl"] || 0} zlecenia</span>
+                <span>Linki klienta: {demoDiagnostics.client_links}</span>
+                <span>Linki majstra: {demoDiagnostics.guest_links}</span>
+              </div>
+            )}
             <label>
               Potwierdzenie resetu
               <input
@@ -821,6 +890,9 @@ function AuthModal({
             {error && <p className="form-error">{error}</p>}
             <Button type="submit" busy={busy} disabled={demoAdminConfirmation !== "RESET DEMO"}>
               Resetuj dane demo
+            </Button>
+            <Button type="button" variant="ghost" busy={busy} onClick={refreshDemoAdminStatus}>
+              Odśwież status demo
             </Button>
             <Button
               type="button"

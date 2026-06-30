@@ -477,6 +477,88 @@ def require_demo_admin(request: Request) -> None:
     verify_demo_admin_token(token)
 
 
+def database_fingerprint() -> str:
+    digest = hash_secret(settings.normalized_database_url)[:8]
+    return f"db_{digest}"
+
+
+def demo_user_visibility(db: Session) -> dict[str, Any]:
+    users = db.scalars(
+        select(models.User).where(models.User.email.in_(DEMO_EMAILS))
+    ).all()
+    users_by_email = {item.email: item for item in users}
+    project_counts: dict[str, int] = {}
+    entry_counts: dict[str, int] = {}
+    owner_counts: dict[str, int] = {}
+    demo_users = []
+    for email in sorted(DEMO_EMAILS):
+        user = users_by_email.get(email)
+        if not user:
+            project_counts[email] = 0
+            entry_counts[email] = 0
+            owner_counts[email] = 0
+            continue
+        visible_projects = db.execute(user_projects_query(user.id)).all()
+        project_ids = [project.id for project, _role in visible_projects]
+        project_counts[email] = len(project_ids)
+        entry_counts[email] = int(
+            db.scalar(
+                select(func.count(models.Entry.id)).where(
+                    models.Entry.project_id.in_(project_ids)
+                )
+            )
+            if project_ids
+            else 0
+        )
+        owner_counts[email] = int(
+            db.scalar(
+                select(func.count(models.Project.id)).where(
+                    models.Project.created_by_id == user.id
+                )
+            )
+            or 0
+        )
+        demo_users.append(
+            {
+                "id": user.id,
+                "email": user.email,
+                "role": user.profile_type or "",
+                "name": user.name,
+            }
+        )
+    client_links = int(
+        db.scalar(
+            select(func.count(models.Project.id)).where(
+                models.Project.client_share_active.is_(True),
+                models.Project.client_share_token.is_not(None),
+            )
+        )
+        or 0
+    )
+    guest_links = int(
+        db.scalar(
+            select(func.count(models.GuestInvite.id)).where(
+                models.GuestInvite.revoked_at.is_(None)
+            )
+        )
+        or 0
+    )
+    return {
+        "database_fingerprint": database_fingerprint(),
+        "app_env": settings.app_env,
+        "storage": storage.provider,
+        "reset_backend_marker": "pan-majster-api",
+        "demo_users_found": len(users),
+        "demo_accounts": demo_users,
+        "projects_after_reset_by_owner": owner_counts,
+        "projects_visible_by_user": project_counts,
+        "entries_visible_by_user": entry_counts,
+        "workspace_count": int(db.scalar(select(func.count(models.Workspace.id))) or 0),
+        "client_links": client_links,
+        "guest_links": guest_links,
+    }
+
+
 def project_role_from_guest_permission(permission: str) -> str:
     return "viewer" if permission == "view" else "contributor"
 
@@ -766,6 +848,18 @@ def demo_admin_login(payload: DemoAdminLogin):
     }
 
 
+@router.get("/demo-admin/status")
+def demo_admin_status(request: Request, db: Session = Depends(get_db)):
+    require_demo_admin(request)
+    return {
+        "status": "ok",
+        "enabled": settings.demo_admin_enabled,
+        "reset_enabled": demo_reset_allowed(),
+        "diagnostics": demo_user_visibility(db),
+        "demo_accounts": demo_admin_accounts_payload(),
+    }
+
+
 @router.post("/demo-admin/reset")
 def demo_admin_reset(
     payload: DemoAdminReset,
@@ -777,7 +871,17 @@ def demo_admin_reset(
         raise HTTPException(403, "Reset demo wymaga ALLOW_DEMO_RESET=1")
     if payload.confirmation != "RESET DEMO":
         raise HTTPException(400, "Wpisz dokładnie RESET DEMO")
+    demo_users_before = int(
+        db.scalar(
+            select(func.count(models.User.id)).where(models.User.email.in_(DEMO_EMAILS))
+        )
+        or 0
+    )
     result = seed_demo_data(db, reset=True, yes=True)
+    diagnostics = demo_user_visibility(db)
+    diagnostics["demo_users_created"] = max(
+        0, int(diagnostics["demo_users_found"]) - demo_users_before
+    )
     return {
         "status": "ok",
         "counts": result.counts,
@@ -787,6 +891,7 @@ def demo_admin_reset(
         "guest_links": result.guest_links,
         "client_links": result.client_links,
         "demo_accounts": demo_admin_accounts_payload(),
+        "diagnostics": diagnostics,
         "note": "Dane demo zostały odtworzone. Raporty PDF zostają do wygenerowania ręcznie.",
     }
 

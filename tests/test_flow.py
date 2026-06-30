@@ -3499,6 +3499,15 @@ def test_demo_admin_reset_endpoint_is_flagged_guarded_and_idempotent(monkeypatch
         )
         assert typo.status_code == 400
 
+        with SessionLocal() as db:
+            sentinel = models.User(
+                email="demo-admin-sentinel@example.com",
+                name="Sentinel",
+                profile_type="investor",
+            )
+            db.add(sentinel)
+            db.commit()
+
         first = client.post(
             "/api/demo-admin/reset",
             headers={"Authorization": f"Bearer {token}"},
@@ -3517,6 +3526,57 @@ def test_demo_admin_reset_endpoint_is_flagged_guarded_and_idempotent(monkeypatch
         assert first_json["counts"]["entries"] == second_json["counts"]["entries"]
         assert first_json["guest_links"] >= 3
         assert first_json["client_links"] >= 13
+        assert first_json["diagnostics"]["database_fingerprint"].startswith("db_")
+        assert "DATABASE_URL" not in first_json["diagnostics"]["database_fingerprint"]
+        assert first_json["diagnostics"]["demo_users_found"] == 5
+        assert first_json["diagnostics"]["projects_visible_by_user"]["samodzielny@majster.pl"] >= 4
+        assert first_json["diagnostics"]["projects_visible_by_user"]["szef@majster.pl"] >= 5
+        assert first_json["diagnostics"]["projects_visible_by_user"]["inwestor@majster.pl"] >= 4
+        assert first_json["diagnostics"]["projects_visible_by_user"]["pracownik@majster.pl"] >= 1
+        assert first_json["diagnostics"]["projects_visible_by_user"]["pracownik2@majster.pl"] >= 1
+
+        status = client.get(
+            "/api/demo-admin/status",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert status.status_code == 200
+        status_json = status.json()
+        assert status_json["diagnostics"]["database_fingerprint"] == first_json["diagnostics"]["database_fingerprint"]
+        assert status_json["diagnostics"]["projects_visible_by_user"] == second_json["diagnostics"]["projects_visible_by_user"]
+        assert status_json["diagnostics"]["entries_visible_by_user"] == second_json["diagnostics"]["entries_visible_by_user"]
+        assert status_json["diagnostics"]["client_links"] == second_json["diagnostics"]["client_links"]
+        assert status_json["diagnostics"]["guest_links"] == second_json["diagnostics"]["guest_links"]
+
+        expected_visible_counts = {
+            "samodzielny@majster.pl": 4,
+            "szef@majster.pl": 5,
+            "inwestor@majster.pl": 4,
+            "pracownik@majster.pl": 1,
+            "pracownik2@majster.pl": 1,
+        }
+        for email, minimum in expected_visible_counts.items():
+            password_login(client, email, "test1234")
+            projects = client.get("/api/projects")
+            assert projects.status_code == 200
+            assert len(projects.json()) >= minimum
+
+    with SessionLocal() as db:
+        for email in {
+            "szef@majster.pl",
+            "inwestor@majster.pl",
+            "samodzielny@majster.pl",
+            "pracownik@majster.pl",
+            "pracownik2@majster.pl",
+        }:
+            assert (
+                db.scalar(
+                    select(func.count(models.User.id)).where(models.User.email == email)
+                )
+                == 1
+            )
+        assert db.scalar(
+            select(models.User).where(models.User.email == "demo-admin-sentinel@example.com")
+        )
 
 
 def test_demo_seed_reset_requires_yes_confirmation():
