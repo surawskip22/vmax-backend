@@ -1133,6 +1133,8 @@ audio { width: 100%; margin-top: 13px; }
 .investor-detail-grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 16px; align-items: start; }
 .investor-detail-sidebar,
 .investor-detail-content { min-width: 0; display: grid; gap: 16px; }
+.worker-workspace--investor-advanced .investor-detail-sidebar .investor-summary-card { grid-template-columns: 1fr; overflow: hidden; }
+.worker-workspace--investor-advanced .investor-detail-sidebar .investor-summary-card__facts { display: none; }
 .investor-side-card { display: grid; gap: 13px; }
 .investor-side-card h2,
 .investor-history-card h2 { margin: 0; color: var(--navy); font-size: 18px; }
