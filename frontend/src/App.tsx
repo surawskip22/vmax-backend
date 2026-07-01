@@ -6144,9 +6144,6 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
   const [selectedTags, setSelectedTags] = useState(["remont-mieszkan", "hydraulika"]);
   const [tagToAdd, setTagToAdd] = useState("");
   const [target, setTarget] = useState<"Firma" | "Majster" | "Bez znaczenia">("Firma");
-  const [city, setCity] = useState("");
-  const [region, setRegion] = useState("");
-  const [radius, setRadius] = useState("50");
   const futureMessage = "Publikowanie zleceń będzie dostępne po wdrożeniu modułu zleceń w okolicy.";
   const availableTags = serviceTags.filter((tag) => !selectedTags.includes(tag.slug));
 
@@ -6208,18 +6205,13 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
                 </button>
               ))}
             </div>
-            <div className="post-job-grid post-job-grid--three">
-              <label>Miasto<select value={city} onChange={(event) => setCity(event.target.value)}><option value="">Wybierz miasto</option><option>Warszawa</option><option>Kraków</option><option>Wrocław</option><option>Łódź</option><option>Ełk</option></select></label>
-              <label>Województwo<select value={region} onChange={(event) => setRegion(event.target.value)}><option value="">Wybierz obszar</option><option>mazowieckie</option><option>małopolskie</option><option>dolnośląskie</option><option>łódzkie</option><option>warmińsko-mazurskie</option></select></label>
-              <label>Promień<select value={radius} onChange={(event) => setRadius(event.target.value)}><option value="10">10 km</option><option value="25">25 km</option><option value="50">50 km</option><option value="100">100 km</option></select></label>
-            </div>
           </section>
 
           <section>
             <header><span>4</span><h2>Widoczność i publikacja</h2></header>
             <div className="post-job-status">
               <p><Icon name="report" size={18} /> Status: <strong>Szkic</strong></p>
-              <p><Icon name="check" size={18} /> Po publikacji zlecenie trafi do modułu Zlecenia w okolicy dla wykonawców.</p>
+              <p><Icon name="check" size={18} /> Po publikacji zlecenie trafi do modułu Zlecenia w okolicy dla wykonawców. Wykonawcy będą mogli znaleźć je po lokalizacji, specjalizacji i własnych filtrach.</p>
             </div>
           </section>
 
@@ -6235,7 +6227,7 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
             <div className="post-preview-card">
               <span className="status status--assigned">Szkic</span>
               <h3>{title || "Remont łazienki w mieszkaniu"}</h3>
-              <p><Icon name="map-pin" size={16} /> {location || city || "Ełk, warmińsko-mazurskie"} · do {radius} km</p>
+              <p><Icon name="map-pin" size={16} /> {location || "Ełk, warmińsko-mazurskie"}</p>
               <div className="post-preview-tags">
                 <span>{budget || "10 000 - 15 000 zł"}</span>
                 <span>{term || "Czerwiec 2026"}</span>
