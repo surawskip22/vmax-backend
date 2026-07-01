@@ -1176,6 +1176,14 @@ audio { width: 100%; margin-top: 13px; }
 .investor-history-item audio { width: 100%; min-width: 0; }
 .investor-history-item__comments { justify-self: start; }
 .investor-detail-reports .project-pdf-panel { margin: 0; }
+.worker-workspace--investor-detail .timeline-entry:not(:last-child)::before,
+.worker-workspace--investor-detail .stage-item:not(:last-child)::after,
+.worker-workspace--investor-detail .investor-history-list::before,
+.worker-workspace--investor-detail .investor-history-list::after,
+.worker-workspace--investor-detail .investor-detail-grid::before,
+.worker-workspace--investor-detail .investor-detail-grid::after { display: none !important; content: none !important; }
+.worker-workspace--investor-detail .timeline-entry { grid-template-columns: minmax(0, 1fr); padding-bottom: 12px; }
+.worker-workspace--investor-detail .timeline-entry__marker { display: none; }
 .investor-stage-list { display: grid; gap: 9px; }
 .investor-stage-row { min-width: 0; padding: 10px; display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid #dfe7f1; border-radius: 12px; background: #fff; }
 .investor-stage-row__marker { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid #cbd5e1; border-radius: 50%; color: #667085; background: #f8fafc; font-size: 12px; font-weight: 900; }
