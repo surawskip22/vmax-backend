@@ -7410,7 +7410,7 @@ export default function App() {
   const [createOpen, setCreateOpen] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const [queueCount, setQueueCount] = useState(0);
-  const [uiMode, setUiMode] = useUiMode();
+  const [uiMode, setUiMode] = useUiMode(user);
   const toastTimer = useRef<number | null>(null);
 
   const notify = useCallback((next: Toast) => {
