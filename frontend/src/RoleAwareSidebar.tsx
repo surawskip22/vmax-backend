@@ -4,7 +4,7 @@ import { isCompanyWorker, isIndependentContractor, isInvestor } from "./access";
 import { peopleLabelsForUser, profileLabels } from "./roleLabels";
 import type { User } from "./types";
 
-type SectionId = "home" | "projects" | "reports" | "team" | "portfolio" | "settings";
+type SectionId = "home" | "projects" | "reports" | "team" | "portfolio" | "discover" | "postJob" | "settings";
 type NavItem = {
   id: SectionId;
   label: string;
@@ -30,6 +30,8 @@ function getNavigationForUser(user: User): NavItem[] {
     return [
       { id: "projects", label: "Inwestycje / Zlecenia", icon: "clipboard" },
       { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
+      { id: "discover", label: "Wyszukaj wykonawcę", icon: "search" },
+      { id: "postJob", label: "Ogłoś zlecenie", icon: "plus" },
       { id: "reports", label: "Raporty", icon: "report" },
       { id: "settings", label: "Ustawienia", icon: "settings" },
     ];

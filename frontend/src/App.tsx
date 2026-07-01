@@ -34,6 +34,7 @@ import {
   workerKindLabelForUser,
 } from "./roleLabels";
 import { visibleSectionForUser } from "./RoleAwareSidebar";
+import { filterServiceTags, serviceTags, tagBySlug } from "./serviceTaxonomy";
 import type { ClientLink, Comment, Entry, MediaAsset, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
 import { useUiMode, type UiMode } from "./useUiMode";
 
@@ -5907,6 +5908,358 @@ function CompanyTeamPanel({
   );
 }
 
+type InvestorDiscoveryContractor = {
+  name: string;
+  kind: "Firma" | "Majster";
+  rating: string;
+  reviews: number;
+  location: string;
+  region: string;
+  radius: string;
+  status: string;
+  tags: string[];
+  initials: string;
+  accent: string;
+  realizations: number;
+};
+
+const investorDiscoveryDemo: InvestorDiscoveryContractor[] = [
+  {
+    name: "CleanPro Remonty",
+    kind: "Firma",
+    rating: "4,9",
+    reviews: 28,
+    location: "Warszawa i okolice",
+    region: "woj. mazowieckie",
+    radius: "Działa w promieniu 40 km",
+    status: "Dostępny",
+    tags: ["remont-mieszkan", "wykonczenia-wnetrz", "malowanie"],
+    initials: "CP",
+    accent: "linear-gradient(145deg, #111827, #f59e0b)",
+    realizations: 12,
+  },
+  {
+    name: "HydroInstal",
+    kind: "Firma",
+    rating: "4,8",
+    reviews: 17,
+    location: "Kraków i okolice",
+    region: "woj. małopolskie",
+    radius: "Działa w promieniu 60 km",
+    status: "Dostępny",
+    tags: ["hydraulika", "ogrzewanie", "udraznianie"],
+    initials: "HI",
+    accent: "linear-gradient(145deg, #e0f2fe, #2563eb)",
+    realizations: 8,
+  },
+  {
+    name: "Elektrix Solutions",
+    kind: "Firma",
+    rating: "4,9",
+    reviews: 31,
+    location: "Wrocław i okolice",
+    region: "woj. dolnośląskie",
+    radius: "Działa w promieniu 50 km",
+    status: "Dostępny",
+    tags: ["elektryka", "fotowoltaika", "wentylacja"],
+    initials: "ES",
+    accent: "linear-gradient(145deg, #064e3b, #0f172a)",
+    realizations: 10,
+  },
+  {
+    name: "Jan Majster",
+    kind: "Majster",
+    rating: "4,8",
+    reviews: 24,
+    location: "Łódź i okolice",
+    region: "woj. łódzkie",
+    radius: "Działa w promieniu 35 km",
+    status: "Dostępny",
+    tags: ["wykonczenia-wnetrz", "glazura", "bialy-montaz"],
+    initials: "JM",
+    accent: "linear-gradient(145deg, #f97316, #1f2937)",
+    realizations: 6,
+  },
+];
+
+function serviceTagLabel(slug: string): string {
+  return tagBySlug(slug)?.label || slug;
+}
+
+function InvestorDiscoveryPage({ notify }: { notify: (toast: Toast) => void }) {
+  const [query, setQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState(["remont-mieszkan", "wykonczenia-wnetrz", "elektryka", "hydraulika", "malowanie"]);
+  const [tagToAdd, setTagToAdd] = useState("");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [radius, setRadius] = useState("50");
+  const [sort, setSort] = useState("Najlepiej oceniani");
+  const futureMessage = "Moduł publicznych profili wykonawców jest w przygotowaniu.";
+  const availableTags = filterServiceTags(query, selectedTags).slice(0, 12);
+
+  function addTag(slug = tagToAdd) {
+    if (!slug || selectedTags.includes(slug)) return;
+    setSelectedTags((current) => [...current, slug]);
+    setTagToAdd("");
+    setQuery("");
+  }
+
+  function clearFilters() {
+    setQuery("");
+    setSelectedTags([]);
+    setTagToAdd("");
+    setCity("");
+    setRegion("");
+    setRadius("50");
+    setSort("Najlepiej oceniani");
+  }
+
+  return (
+    <div className="page investor-discovery-page">
+      <header className="page-header investor-discovery-header">
+        <div>
+          <span className="eyebrow">Moduł przyszłościowy</span>
+          <h1>Wyszukaj wykonawcę</h1>
+          <p>Znajdź sprawdzonych wykonawców i firmy po specjalizacji oraz obszarze działania.</p>
+        </div>
+        <aside className="future-module-note">
+          <span><Icon name="report" /></span>
+          <div>
+            <strong>To moduł przyszłościowy</strong>
+            <small>Publiczne profile wykonawców będą widoczne po wdrożeniu profili i portfolio.</small>
+          </div>
+        </aside>
+      </header>
+
+      <section className="investor-discovery-filters">
+        <div className="discovery-filter-group discovery-filter-group--wide">
+          <label>Specjalizacje</label>
+          <div className="discovery-search-input">
+            <Icon name="search" size={18} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Wyszukaj specjalizację..."
+            />
+            <select value={tagToAdd} onChange={(event) => setTagToAdd(event.target.value)}>
+              <option value="">Wybierz z listy</option>
+              {availableTags.map((tag) => (
+                <option key={tag.slug} value={tag.slug}>{tag.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="service-chip-list">
+            {selectedTags.map((slug) => (
+              <button type="button" key={slug} onClick={() => setSelectedTags((current) => current.filter((item) => item !== slug))}>
+                {serviceTagLabel(slug)} <Icon name="close" size={12} />
+              </button>
+            ))}
+            <button type="button" className="service-chip-add" onClick={() => addTag(tagToAdd || availableTags[0]?.slug)}>
+              <Icon name="plus" size={14} /> Dodaj specjalizację
+            </button>
+          </div>
+        </div>
+
+        <div className="discovery-filter-group">
+          <label>Obszar działania</label>
+          <div className="discovery-location-grid">
+            <input value={city} onChange={(event) => setCity(event.target.value)} placeholder="Miasto lub miejscowość" />
+            <select value={region} onChange={(event) => setRegion(event.target.value)}>
+              <option value="">Województwo / obszar</option>
+              <option>mazowieckie</option>
+              <option>małopolskie</option>
+              <option>dolnośląskie</option>
+              <option>łódzkie</option>
+              <option>warmińsko-mazurskie</option>
+            </select>
+            <select value={radius} onChange={(event) => setRadius(event.target.value)}>
+              <option value="10">Promień działania: 10 km</option>
+              <option value="25">Promień działania: 25 km</option>
+              <option value="50">Promień działania: 50 km</option>
+              <option value="100">Promień działania: 100 km</option>
+            </select>
+          </div>
+        </div>
+
+        <footer>
+          <Button type="button" variant="secondary" onClick={clearFilters}>Wyczyść filtry</Button>
+          <Button type="button" onClick={() => notify({ kind: "info", message: futureMessage })}>Szukaj wykonawców</Button>
+        </footer>
+      </section>
+
+      <div className="discovery-results-bar">
+        <p>Znaleziono 24 wykonawców</p>
+        <label>Sortuj:
+          <select value={sort} onChange={(event) => setSort(event.target.value)}>
+            <option>Najlepiej oceniani</option>
+            <option>Najwięcej realizacji</option>
+            <option>Najbliżej</option>
+            <option>Najnowsze profile</option>
+          </select>
+        </label>
+      </div>
+
+      <section className="contractor-discovery-list" aria-label="Wyniki wyszukiwania wykonawców">
+        {investorDiscoveryDemo.map((contractor) => (
+          <article className="contractor-discovery-card" key={contractor.name}>
+            <div className="contractor-discovery-avatar" style={{ background: contractor.accent }}>{contractor.initials}</div>
+            <div className="contractor-discovery-main">
+              <h2>{contractor.name} <span title="Profil przyszłościowy"><Icon name="check" size={15} /></span></h2>
+              <p>{contractor.kind} <b><Icon name="star" size={14} /> {contractor.rating}</b> <small>({contractor.reviews} opinii)</small></p>
+              <div className="service-chip-list service-chip-list--small">
+                {contractor.tags.slice(0, 3).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)}
+              </div>
+            </div>
+            <div className="contractor-discovery-location">
+              <strong><Icon name="map-pin" size={16} /> {contractor.location}</strong>
+              <small>{contractor.region}</small>
+              <span>{contractor.status}</span>
+              <p>{contractor.radius}</p>
+            </div>
+            <div className="contractor-discovery-gallery" aria-label="Wybrane realizacje demo">
+              <strong>Wybrane realizacje</strong>
+              <div>
+                {[0, 1, 2].map((item) => <span key={item} style={{ backgroundImage: `linear-gradient(135deg, rgba(6,37,87,.18), rgba(255,90,0,.22)), linear-gradient(${120 + item * 35}deg, #dbeafe, #f8fafc)` }} />)}
+                <em>+{contractor.realizations}</em>
+              </div>
+            </div>
+            <div className="contractor-discovery-actions">
+              <Button type="button" onClick={() => notify({ kind: "info", message: "Pełna funkcja profilu pojawi się po wdrożeniu publicznych profili." })}>Zobacz profil</Button>
+              <Button type="button" variant="secondary" icon="bookmark" onClick={() => notify({ kind: "info", message: futureMessage })}>Zapisz wykonawcę</Button>
+            </div>
+          </article>
+        ))}
+      </section>
+      <p className="future-module-footer">To moduł przyszłościowy. Funkcjonalność w przygotowaniu.</p>
+    </div>
+  );
+}
+
+function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [budget, setBudget] = useState("");
+  const [term, setTerm] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedTags, setSelectedTags] = useState(["remont-mieszkan", "hydraulika"]);
+  const [tagToAdd, setTagToAdd] = useState("");
+  const [target, setTarget] = useState<"Firma" | "Majster" | "Bez znaczenia">("Firma");
+  const [city, setCity] = useState("");
+  const [region, setRegion] = useState("");
+  const [radius, setRadius] = useState("50");
+  const futureMessage = "Publikowanie zleceń będzie dostępne po wdrożeniu modułu zleceń w okolicy.";
+  const availableTags = serviceTags.filter((tag) => !selectedTags.includes(tag.slug));
+
+  function addTag() {
+    if (!tagToAdd) return;
+    setSelectedTags((current) => [...current, tagToAdd]);
+    setTagToAdd("");
+  }
+
+  function submitFutureAction(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    notify({ kind: "info", message: futureMessage });
+  }
+
+  return (
+    <div className="page investor-post-job-page">
+      <header className="page-header investor-discovery-header">
+        <div>
+          <span className="eyebrow">Moduł przyszłościowy</span>
+          <h1>Ogłoś zlecenie</h1>
+          <p>Opublikuj zlecenie, aby firmy i majstrowie mogli je znaleźć.</p>
+        </div>
+      </header>
+      <div className="post-job-layout">
+        <form className="post-job-form" onSubmit={submitFutureAction}>
+          <section>
+            <header><span>1</span><h2>Podstawowe informacje</h2></header>
+            <div className="post-job-grid">
+              <label>Nazwa zlecenia<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Np. Remont łazienki 6 m²" /></label>
+              <label>Lokalizacja<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Miasto lub dzielnica" /></label>
+              <label>Budżet<select value={budget} onChange={(event) => setBudget(event.target.value)}><option value="">Wybierz budżet</option><option>do 5 000 zł</option><option>5 000 - 10 000 zł</option><option>10 000 - 15 000 zł</option><option>15 000 - 30 000 zł</option><option>powyżej 30 000 zł</option></select></label>
+              <label>Planowany termin<input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Np. Czerwiec 2026" /></label>
+            </div>
+          </section>
+
+          <section>
+            <header><span>2</span><h2>Zakres prac</h2></header>
+            <label>Opis zlecenia<textarea rows={4} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Opisz szczegółowo, jakie prace mają zostać wykonane..." /></label>
+            <div className="service-chip-list post-job-tags">
+              {selectedTags.map((slug) => (
+                <button type="button" key={slug} onClick={() => setSelectedTags((current) => current.filter((item) => item !== slug))}>
+                  {serviceTagLabel(slug)} <Icon name="close" size={12} />
+                </button>
+              ))}
+              <select value={tagToAdd} onChange={(event) => setTagToAdd(event.target.value)}>
+                <option value="">Dodaj specjalizację</option>
+                {availableTags.map((tag) => <option key={tag.slug} value={tag.slug}>{tag.label}</option>)}
+              </select>
+              <Button type="button" variant="secondary" icon="plus" onClick={addTag} disabled={!tagToAdd}>Dodaj</Button>
+            </div>
+          </section>
+
+          <section>
+            <header><span>3</span><h2>Kogo szukasz</h2></header>
+            <div className="post-job-segments" role="group" aria-label="Kogo szukasz">
+              {(["Firma", "Majster", "Bez znaczenia"] as const).map((option) => (
+                <button type="button" className={target === option ? "active" : ""} onClick={() => setTarget(option)} key={option}>
+                  <Icon name={option === "Firma" ? "building" : option === "Majster" ? "users" : "search"} size={18} /> {option}
+                </button>
+              ))}
+            </div>
+            <div className="post-job-grid post-job-grid--three">
+              <label>Miasto<select value={city} onChange={(event) => setCity(event.target.value)}><option value="">Wybierz miasto</option><option>Warszawa</option><option>Kraków</option><option>Wrocław</option><option>Łódź</option><option>Ełk</option></select></label>
+              <label>Województwo<select value={region} onChange={(event) => setRegion(event.target.value)}><option value="">Wybierz obszar</option><option>mazowieckie</option><option>małopolskie</option><option>dolnośląskie</option><option>łódzkie</option><option>warmińsko-mazurskie</option></select></label>
+              <label>Promień<select value={radius} onChange={(event) => setRadius(event.target.value)}><option value="10">10 km</option><option value="25">25 km</option><option value="50">50 km</option><option value="100">100 km</option></select></label>
+            </div>
+          </section>
+
+          <section>
+            <header><span>4</span><h2>Widoczność i publikacja</h2></header>
+            <div className="post-job-status">
+              <p><Icon name="report" size={18} /> Status: <strong>Szkic</strong></p>
+              <p><Icon name="check" size={18} /> Po publikacji zlecenie trafi do modułu Zlecenia w okolicy dla wykonawców.</p>
+            </div>
+          </section>
+
+          <footer>
+            <Button type="button" variant="secondary" onClick={() => notify({ kind: "info", message: futureMessage })}>Zapisz szkic</Button>
+            <Button type="submit">Opublikuj zlecenie</Button>
+          </footer>
+        </form>
+
+        <aside className="post-job-preview">
+          <article>
+            <h2>Podgląd publikacji</h2>
+            <div className="post-preview-card">
+              <span className="status status--assigned">Szkic</span>
+              <h3>{title || "Remont łazienki w mieszkaniu"}</h3>
+              <p><Icon name="map-pin" size={16} /> {location || city || "Ełk, warmińsko-mazurskie"} · do {radius} km</p>
+              <div className="post-preview-tags">
+                <span>{budget || "10 000 - 15 000 zł"}</span>
+                <span>{term || "Czerwiec 2026"}</span>
+              </div>
+              <div className="service-chip-list service-chip-list--small">
+                {selectedTags.slice(0, 4).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)}
+              </div>
+              <p>Szukam: <strong>{target}</strong></p>
+              <Button type="button" onClick={() => notify({ kind: "info", message: futureMessage })}>Zobacz zlecenie</Button>
+            </div>
+          </article>
+          <article className="post-job-info">
+            <span><Icon name="report" /></span>
+            <div>
+              <h2>Dla inwestora</h2>
+              <p>Po publikacji wykonawcy znajdą to zlecenie w sekcji Zlecenia w okolicy.</p>
+            </div>
+          </article>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
 function TeamPage({
   user,
   projects,
@@ -7053,6 +7406,10 @@ export default function App() {
     <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
   ) : visibleSection === "portfolio" ? (
     <IndependentPortfolioPage user={user} projects={projects} onOpenSettings={() => setSection("settings")} />
+  ) : visibleSection === "discover" && isInvestor(user) ? (
+    <InvestorDiscoveryPage notify={notify} />
+  ) : visibleSection === "postJob" && isInvestor(user) ? (
+    <InvestorPostJobPage notify={notify} />
   ) : visibleSection === "team" ? (
     <TeamPage user={user} projects={projects} onProject={setSelectedProject} onUserUpdated={setUser} notify={notify} />
   ) : visibleSection === "settings" ? (
