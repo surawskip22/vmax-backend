@@ -360,9 +360,12 @@ h1, h2, h3, p { margin-top: 0; }
 .project-list-card--investor { border-color: #d6e3f3; }
 .project-list-card__actions { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .project-list-card__actions .button { min-height: 38px; padding: 0 13px; }
-.investor-workspace-page { max-width: 1160px; margin: 0 auto; }
+.investor-workspace-page { max-width: 1040px; margin: 0 auto; }
+.investor-projects-page { max-width: 980px; }
 .investor-workspace-page .page-header { align-items: center; }
-.investor-workspace-page .page-header h1 { font-size: 46px; }
+.investor-workspace-page .page-header h1 { font-size: 42px; }
+.investor-page-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.investor-page-actions .worker-mode-switch { min-width: 300px; }
 .investor-overview-cards { margin: 0 0 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .investor-overview-card { min-width: 0; min-height: 106px; padding: 16px; display: grid; grid-template-columns: 50px minmax(0, 1fr); gap: 13px; align-items: center; border: 1px solid #d7e2ef; border-radius: 14px; background: #fff; box-shadow: 0 12px 26px rgba(18,38,69,.055); text-align: left; cursor: pointer; }
 .investor-overview-card.active { border-color: #2b7fff; background: #f5f9ff; box-shadow: 0 16px 32px rgba(43,127,255,.12); }
@@ -375,6 +378,9 @@ h1, h2, h3, p { margin-top: 0; }
 .investor-overview-card small { display: block; margin-top: 5px; color: var(--muted); font-weight: 700; }
 .investor-list-panel { padding: 0; overflow: hidden; border-color: #d7e2ef; border-radius: 16px; box-shadow: 0 18px 36px rgba(18,38,69,.055); }
 .investor-list-panel .project-controls { padding: 16px; gap: 12px; background: #fff; }
+.project-controls--investor-simple { grid-template-columns: minmax(220px, 1fr) auto; align-items: center; }
+.project-controls--investor-simple > input { min-height: 42px; }
+.project-controls--investor-simple .project-filter-row { justify-content: flex-end; }
 .investor-list-panel .list-tabs { width: fit-content; max-width: 100%; }
 .investor-list-panel .project-filter-row { align-items: stretch; }
 .investor-list-panel .project-filter-row > select,
@@ -385,6 +391,14 @@ h1, h2, h3, p { margin-top: 0; }
 .project-list-card--investor .project-card__icon { border-radius: 14px; color: var(--blue); background: #edf3fb; }
 .project-list-card--investor .project-list-card__footer { gap: 16px; }
 .project-list-card--investor .project-list-card__actions .button { border-radius: 10px; }
+.project-list-card--investor-simple { padding: 18px 20px; }
+.project-list-card--investor-simple .project-list-card__top { grid-template-columns: 54px minmax(0, 1fr) auto; }
+.project-list-card--investor-simple .project-list-card__top h3 { font-size: 20px; }
+.investor-simple-summary { margin: 14px 0 0; padding-top: 13px; display: flex; flex-wrap: wrap; gap: 9px; border-top: 1px solid #edf1f5; }
+.investor-simple-summary span { min-width: 0; min-height: 32px; padding: 7px 10px; display: inline-flex; align-items: center; gap: 7px; border-radius: 999px; color: var(--navy); background: #f1f5fb; font-size: 12px; font-weight: 800; }
+.investor-simple-summary b { color: #5d6b7d; font-size: 11px; text-transform: uppercase; }
+.project-list-card--investor-simple .project-list-card__footer { grid-template-columns: 1fr auto; }
+.project-list-card--investor-simple .project-list-card__actions .button { min-width: 150px; }
 .workspace-grid { padding: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
 .workspace-grid button { padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: #fff; text-align: left; }
 .workspace-grid button:hover { border-color: var(--orange); box-shadow: var(--shadow); }
@@ -437,6 +451,8 @@ h1, h2, h3, p { margin-top: 0; }
 .team-worker-card__assignments span { color: var(--muted); font-size: 11px; }
 .team-worker-card__actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .team-worker-card__actions .button { min-height: 35px; padding: 0 12px; }
+.investor-contractors-page { max-width: 1040px; }
+.investor-contractors-page .page-header h1 { font-size: 42px; }
 .investor-contractors-panel .company-team-meta { min-width: 180px; }
 .investor-contractors-panel { border-color: #d7e2ef; border-radius: 16px; box-shadow: 0 16px 34px rgba(18,38,69,.055); }
 .investor-contractor-summary { margin-top: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
@@ -449,7 +465,7 @@ h1, h2, h3, p { margin-top: 0; }
 .investor-contractors-list .panel__header { padding: 18px 18px 0; }
 .investor-contractors-list .contractor-table-head { display: none; }
 .investor-contractors-list .contractor-list { padding-top: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
-.investor-contractors-list .contractor-card { min-width: 0; padding: 16px; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: start; border-radius: 16px; box-shadow: 0 12px 26px rgba(18,38,69,.045); }
+.investor-contractors-list .contractor-card { min-width: 0; padding: 16px; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; align-items: start; border-color: #dbe6f2; border-radius: 16px; box-shadow: 0 12px 26px rgba(18,38,69,.045); }
 .investor-contractors-list .contractor-card__avatar { width: 52px; height: 52px; border-radius: 16px; }
 .investor-contractors-list .contractor-card__main,
 .investor-contractors-list .contractor-card__status,
@@ -458,7 +474,7 @@ h1, h2, h3, p { margin-top: 0; }
 .investor-contractors-list .contractor-card__assignments,
 .investor-contractors-list .contractor-card__actions { grid-column: 2; }
 .investor-contractors-list .contractor-card__assignments strong { font-size: 20px; }
-.investor-contractors-list .contractor-card__actions { justify-content: flex-start; }
+.investor-contractors-list .contractor-card__actions { width: 100%; justify-content: flex-start; }
 .investor-contractors-list .contractor-card__actions .button { border-radius: 10px; }
 .contractor-table-head { padding: 0 18px 10px; display: grid; grid-template-columns: minmax(260px, 1fr) 170px 150px auto; gap: 14px; color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
 .contractor-list { padding: 18px; padding-top: 0; display: flex; flex-direction: column; gap: 12px; }
@@ -519,7 +535,7 @@ h1, h2, h3, p { margin-top: 0; }
 .workspace-editor h3, .workspace-editor h4 { color: var(--navy); }
 .workspace-members { padding: 24px; }
 .settings-panel { max-width: 650px; }
-.investor-settings-page { max-width: 1120px; margin: 0 auto; }
+.investor-settings-page { max-width: 920px; margin: 0 auto; }
 .investor-settings-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); gap: 18px; align-items: start; }
 .investor-settings-card { padding: 18px; }
 .investor-settings-card--profile { grid-row: span 2; }
@@ -531,6 +547,11 @@ h1, h2, h3, p { margin-top: 0; }
 .investor-settings-row > span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; color: var(--blue); background: #edf4ff; }
 .investor-settings-row strong { display: block; color: var(--navy); }
 .investor-settings-row small { display: block; margin-top: 4px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
+.investor-settings-stack { max-width: none; }
+.investor-settings-page .worker-settings-card { border-color: #d7e2ef; box-shadow: 0 12px 28px rgba(18,38,69,.045); }
+.investor-settings-copy { margin: -4px 0 0; color: var(--muted); line-height: 1.45; }
+.investor-profile-form { margin: 14px 0 0; }
+.investor-settings-logout { width: 100%; margin-top: 14px; justify-content: flex-start; }
 .admin-panel { max-width: 900px; margin-top: 20px; }
 .admin-stats { padding: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .admin-stats span { padding: 16px; display: flex; flex-direction: column; gap: 5px; color: var(--muted); border-radius: 10px; background: #f5f7f9; font-size: 12px; }
@@ -1306,7 +1327,7 @@ audio { width: 100%; margin-top: 13px; }
 .reports-page--investor .page-header { align-items: center; }
 .reports-page--investor .page-header h1 { font-size: 46px; }
 .investor-report-filter-cards { margin-bottom: 18px; }
-.investor-report-toolbar { padding: 12px; border: 1px solid #d7e2ef; border-radius: 14px; background: #fff; box-shadow: 0 10px 24px rgba(18,38,69,.05); }
+.investor-report-toolbar { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
 .investor-report-toolbar input { min-height: 44px; padding: 0 14px; border: 1px solid #cbd8e8; border-radius: 10px; background: #fff; font: inherit; }
 .investor-report-list { gap: 18px; }
 .investor-report-card { border-radius: 16px; background: #fff; box-shadow: 0 16px 34px rgba(18,38,69,.055); }
@@ -1559,9 +1580,20 @@ audio { width: 100%; margin-top: 13px; }
   .reports-page--investor { width: 100%; max-width: 100%; }
   .investor-workspace-page .page-header,
   .reports-page--investor .page-header { align-items: stretch; }
+  .investor-page-actions { width: 100%; justify-content: stretch; }
+  .investor-page-actions .worker-mode-switch,
+  .investor-page-actions .button { flex: 1 1 100%; min-width: 0; }
   .investor-overview-cards,
   .investor-contractor-summary,
   .report-filter-cards.investor-report-filter-cards { grid-template-columns: 1fr; }
+  .project-controls--investor-simple { grid-template-columns: 1fr; }
+  .project-list-card--investor-simple .project-list-card__top { grid-template-columns: 48px minmax(0, 1fr); }
+  .project-list-card--investor-simple .project-list-card__status { grid-column: 1 / -1; justify-items: start; }
+  .investor-simple-summary { flex-direction: column; }
+  .investor-simple-summary span { width: 100%; }
+  .project-list-card--investor-simple .project-list-card__footer { grid-template-columns: 1fr; }
+  .project-list-card--investor-simple .project-list-card__actions,
+  .project-list-card--investor-simple .project-list-card__actions .button { width: 100%; min-width: 0; justify-content: center; }
   .investor-list-panel .project-filter-row,
   .investor-report-toolbar { grid-template-columns: 1fr; }
   .investor-list-panel .project-filter-row > select,
@@ -1740,6 +1772,11 @@ audio { width: 100%; margin-top: 13px; }
   .project-list-card__actions .button { width: 100%; justify-content: center; }
   .report-row-actions { width: 100%; display: grid; grid-template-columns: 1fr; justify-content: stretch; }
   .report-row-actions .button { width: 100%; justify-content: center; }
+  .investor-contractors-list .contractor-list { padding: 12px; grid-template-columns: 1fr; }
+  .investor-contractors-list .contractor-card { grid-template-columns: 44px minmax(0, 1fr); }
+  .investor-contractors-list .contractor-card__avatar { width: 44px; height: 44px; }
+  .investor-contractors-list .contractor-card__actions { display: grid; grid-template-columns: 1fr; }
+  .investor-contractors-list .contractor-card__actions .button { width: 100%; justify-content: center; }
   .investor-settings-card { padding: 16px; }
   .investor-settings-row { grid-template-columns: 40px minmax(0, 1fr); }
   .investor-settings-row > span { width: 40px; height: 40px; }

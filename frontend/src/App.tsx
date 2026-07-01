@@ -1393,10 +1393,15 @@ function ProjectsPage({
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "start" | "end" | "status">("newest");
   const simpleMode = uiMode === "simple";
   const investorMode = isInvestor(user);
+  const investorSimpleMode = investorMode && simpleMode;
+  const investorAdvancedMode = investorMode && !simpleMode;
   const canFilterWorkers = !simpleMode && canManagePeople(user);
   useEffect(() => {
     if (simpleMode && !["newest", "oldest"].includes(sortBy)) setSortBy("newest");
   }, [simpleMode, sortBy]);
+  useEffect(() => {
+    if (investorSimpleMode && viewFilter !== "all") setViewFilter("all");
+  }, [investorSimpleMode, viewFilter]);
   useEffect(() => {
     if (!canFilterWorkers && workerFilter !== "all") setWorkerFilter("all");
   }, [canFilterWorkers, workerFilter]);
@@ -1492,9 +1497,16 @@ function ProjectsPage({
     <div className={`page ${investorMode ? "investor-workspace-page investor-projects-page" : ""}`}>
       <header className="page-header">
         <div><span className="eyebrow">{copy.eyebrow}</span><h1>{copy.title}</h1><p>{copy.description}</p></div>
-        {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
+        {investorMode ? (
+          <div className="investor-page-actions">
+            <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
+            {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
+          </div>
+        ) : (
+          canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>
+        )}
       </header>
-      {investorMode && (
+      {investorAdvancedMode && (
         <section className="investor-overview-cards" aria-label="Podsumowanie inwestycji">
           {investorStats.map((card) => (
             <button
@@ -1514,13 +1526,15 @@ function ProjectsPage({
         </section>
       )}
       <section className={`panel ${investorMode ? "investor-list-panel" : ""}`}>
-        <div className="project-controls">
-          <div className="list-tabs" role="tablist" aria-label="Widok zleceń">
-            <button type="button" className={viewFilter === "all" ? "active" : ""} onClick={() => setViewFilter("all")}>Wszystkie</button>
-            <button type="button" className={viewFilter === "open" ? "active" : ""} onClick={() => setViewFilter("open")}>{investorMode ? "W realizacji" : "Otwarte"}</button>
-            {investorMode && <button type="button" className={viewFilter === "problems" ? "active" : ""} onClick={() => setViewFilter("problems")}>Problemy</button>}
-            <button type="button" className={viewFilter === "history" ? "active" : ""} onClick={() => setViewFilter("history")}>{investorMode ? "Zakończone" : "Historyczne"}</button>
-          </div>
+        <div className={`project-controls ${investorMode ? `project-controls--investor project-controls--investor-${simpleMode ? "simple" : "advanced"}` : ""}`}>
+          {!investorSimpleMode && (
+            <div className="list-tabs" role="tablist" aria-label="Widok zleceń">
+              <button type="button" className={viewFilter === "all" ? "active" : ""} onClick={() => setViewFilter("all")}>Wszystkie</button>
+              <button type="button" className={viewFilter === "open" ? "active" : ""} onClick={() => setViewFilter("open")}>{investorMode ? "W realizacji" : "Otwarte"}</button>
+              {investorMode && <button type="button" className={viewFilter === "problems" ? "active" : ""} onClick={() => setViewFilter("problems")}>Problemy</button>}
+              <button type="button" className={viewFilter === "history" ? "active" : ""} onClick={() => setViewFilter("history")}>{investorMode ? "Zakończone" : "Historyczne"}</button>
+            </div>
+          )}
           <input type="search" placeholder={copy.searchPlaceholder} value={filter} onChange={(e) => setFilter(e.target.value)} />
           <div className="project-filter-row">
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtr statusu">
@@ -1555,7 +1569,7 @@ function ProjectsPage({
         ) : (
           <div className="project-list-cards">
             {visible.map((project) => (
-              <article className={`project-list-card ${investorMode ? "project-list-card--investor" : ""}`} key={project.id}>
+              <article className={`project-list-card ${investorMode ? `project-list-card--investor ${investorSimpleMode ? "project-list-card--investor-simple" : "project-list-card--investor-advanced"}` : ""}`} key={project.id}>
                 <div className="project-list-card__top">
                   <span className="project-card__icon"><Icon name="clipboard" /></span>
                   <div className="project-list-card__identity">
@@ -1567,32 +1581,41 @@ function ProjectsPage({
                     <small>{projectActivityLabel(project)}</small>
                   </div>
                 </div>
-                <dl className={`project-meta-grid project-meta-grid--overview ${simpleMode ? "project-meta-grid--simple" : ""}`}>
-                  <div><dt>{projectPartyLabel(user)}</dt><dd>{projectPartyValue(user, project)}</dd></div>
-                  <div><dt>Start</dt><dd>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</dd></div>
-                  <div><dt>Koniec</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
-                  {!simpleMode && <div><dt>Ostatnia aktywność</dt><dd>{formatProjectActivityDate(project.updated_at || project.created_at) || "Nie ustawiono"}</dd></div>}
-                  {!simpleMode && <div><dt>Kwota umowna</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>}
-                </dl>
+                {investorSimpleMode ? (
+                  <div className="investor-simple-summary">
+                    <span><Icon name="users" size={17} /><b>Wykonawca</b>{projectPartyValue(user, project)}</span>
+                    <span><Icon name="sync" size={17} /><b>Aktywność</b>{projectActivityLabel(project)}</span>
+                  </div>
+                ) : (
+                  <dl className={`project-meta-grid project-meta-grid--overview ${simpleMode ? "project-meta-grid--simple" : ""}`}>
+                    <div><dt>{projectPartyLabel(user)}</dt><dd>{projectPartyValue(user, project)}</dd></div>
+                    <div><dt>Start</dt><dd>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</dd></div>
+                    <div><dt>Koniec</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
+                    <div><dt>Ostatnia aktywność</dt><dd>{formatProjectActivityDate(project.updated_at || project.created_at) || "Nie ustawiono"}</dd></div>
+                    <div><dt>Kwota umowna</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>
+                  </dl>
+                )}
                 <div className="project-list-card__footer">
                   <div className="project-list-card__signals">
                     <span>{projectLastProgressLabel(project)}</span>
-                    <span>{project.open_problem_count || 0} problemów</span>
-                    {investorMode && projectHasLinkOnlyWorker(project) && <span>link-only</span>}
+                    {!investorSimpleMode && <span>{project.open_problem_count || 0} problemów</span>}
+                    {!investorSimpleMode && investorMode && projectHasLinkOnlyWorker(project) && <span>link-only</span>}
                   </div>
                   {investorMode ? (
                     <div className="project-list-card__actions">
-                      <Button type="button" onClick={() => onProject(project)} variant="secondary">Podgląd</Button>
-                      <Button type="button" onClick={() => onProject(project)} variant="secondary" icon="report">Raporty</Button>
-                      <Button
-                        type="button"
-                        onClick={() => notify({ kind: "info", message: "Link wykonawcy utworzysz lub skopiujesz w edycji inwestycji." })}
-                        variant="secondary"
-                        icon="link"
-                      >
-                        Link wykonawcy
-                      </Button>
-                      <Button type="button" onClick={() => onProject(project)} variant="secondary">Edytuj</Button>
+                      <Button type="button" onClick={() => onProject(project)} variant="secondary">{investorSimpleMode ? "Szczegóły" : "Podgląd"}</Button>
+                      {!investorSimpleMode && <Button type="button" onClick={() => onProject(project)} variant="secondary" icon="report">Raporty</Button>}
+                      {!investorSimpleMode && (
+                        <Button
+                          type="button"
+                          onClick={() => notify({ kind: "info", message: "Link wykonawcy utworzysz lub skopiujesz w edycji inwestycji." })}
+                          variant="secondary"
+                          icon="link"
+                        >
+                          Link wykonawcy
+                        </Button>
+                      )}
+                      {!investorSimpleMode && <Button type="button" onClick={() => onProject(project)} variant="secondary">Edytuj</Button>}
                     </div>
                   ) : (
                     <Button type="button" onClick={() => onProject(project)} variant="secondary">Otwórz</Button>
@@ -4375,7 +4398,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         </>
       )}
 
-      <section className={`report-toolbar ${investorReports ? "investor-report-toolbar" : ""}`}>
+      <section className={`report-toolbar ${investorReports ? "investor-report-toolbar independent-report-toolbar" : ""}`}>
         <input
           type="search"
           placeholder={investorReports ? "Szukaj po nazwie inwestycji, wykonawcy lub adresie..." : "Szukaj po nazwie zlecenia, kliencie lub wykonawcy..."}
@@ -5614,7 +5637,7 @@ function TeamPage({
   }
   if (user.profile_type === "investor" && user.workspaces.length > 0) {
     return (
-      <div className="page">
+      <div className="page investor-workspace-page investor-contractors-page">
         <header className="page-header">
           <div>
             <span className="eyebrow">Współpraca</span>
@@ -5681,6 +5704,7 @@ function SettingsPage({
     const displayName = user.name || user.email || "Inwestor";
     const displayEmail = user.email || "Konto bez e-maila";
     const displayPhone = user.phone || "Nie podano";
+    const defaultModeLabel = uiMode === "simple" ? "Prosty" : "Rozbudowany";
     return (
       <div className="page investor-settings-page">
         <header className="page-header">
@@ -5690,66 +5714,102 @@ function SettingsPage({
             <p>Prosty profil inwestora używany w inwestycjach i kontaktach z wykonawcami.</p>
           </div>
         </header>
-        <section className="investor-settings-grid">
-          <article className="panel investor-settings-card investor-settings-card--profile">
-            <div className="panel__header">
-              <div>
-                <h2>Profil inwestora</h2>
-                <p>Imię, e-mail i telefon widoczne w Twoim prywatnym panelu.</p>
+        <section className="worker-settings-stack investor-settings-stack">
+          <article className="worker-settings-card investor-settings-card">
+            <h2>Moje konto</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="users" /></span>
+                <div><strong>Imię / nazwa</strong><small>{displayName}</small></div>
+                <b>{displayName}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="send" /></span>
+                <div><strong>E-mail / login</strong><small>{displayEmail}</small></div>
+                <b>{displayEmail}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="phone" /></span>
+                <div><strong>Telefon</strong><small>{displayPhone}</small></div>
+                <b>{displayPhone}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="home" /></span>
+                <div><strong>Typ konta</strong><small>Prywatny panel inwestora</small></div>
+                <b>Inwestor</b>
               </div>
             </div>
-            <form className="form-stack" onSubmit={submit}>
-              <label>Imię / nazwa inwestora<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
-              <label>E-mail<input value={displayEmail} readOnly disabled /></label>
-              <label>Telefon<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
-              <p className="form-note">E-mail jest obecnym loginem. Zmiana loginu będzie osobnym krokiem auth, nie częścią tego panelu.</p>
+          </article>
+
+          <article className="worker-settings-card investor-settings-card">
+            <h2>Profil inwestora</h2>
+            <p className="investor-settings-copy">Te dane są używane w Twoich inwestycjach i kontaktach z wykonawcami.</p>
+            <form className="worker-settings-edit-form investor-profile-form" onSubmit={submit}>
+              <label>Nazwa wyświetlana<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
+              <label>Telefon kontaktowy<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
+              <div className="worker-settings-email-lock">
+                <strong>E-mail / login</strong>
+                <p>Obecnie e-mail jest loginem do konta. Login pozostaje bez zmian: <u>{displayEmail}</u>.</p>
+                <small>Zmiana e-maila lub loginu będzie osobnym krokiem auth/model.</small>
+              </div>
+              <input type="hidden" name="preferred_mode" value={uiMode === "simple" ? "field" : "expanded"} />
               <Button type="submit">Zapisz profil</Button>
             </form>
           </article>
-          <article className="panel investor-settings-card">
-            <div className="panel__header">
-              <div>
-                <h2>Widoczność danych</h2>
-                <p>Te dane są używane w Twoich inwestycjach i kontaktach z wykonawcami.</p>
+
+          <article className="worker-settings-card investor-settings-card">
+            <h2>Zakres panelu</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="clipboard" /></span>
+                <div><strong>Inwestycje i zlecenia</strong><small>Lista prac zleconych wykonawcom.</small></div>
+                <b>Aktywne</b>
               </div>
-            </div>
-            <div className="investor-settings-list">
-              <div className="investor-settings-row">
+              <div className="worker-settings-row">
                 <span><Icon name="users" /></span>
-                <div><strong>Nazwa w panelu</strong><small>{displayName}</small></div>
+                <div><strong>Wykonawcy</strong><small>Prywatna lista wykonawców i dostępów link-only.</small></div>
+                <b>Prywatne</b>
               </div>
-              <div className="investor-settings-row">
-                <span><Icon name="send" /></span>
-                <div><strong>E-mail kontaktowy</strong><small>{displayEmail}</small></div>
+              <div className="worker-settings-row">
+                <span><Icon name="report" /></span>
+                <div><strong>Raporty</strong><small>Raporty i wpisy z Twoich inwestycji.</small></div>
+                <b>Dostępne</b>
               </div>
-              <div className="investor-settings-row">
-                <span><Icon name="settings" /></span>
-                <div><strong>Telefon</strong><small>{displayPhone}</small></div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="link" /></span>
+                <div><strong>Marketplace</strong><small>Panel inwestora służy do prywatnego zarządzania zlecanymi pracami. Nie jest publiczną bazą firm ani marketplace.</small></div>
+                <b>Nieaktywne</b>
               </div>
             </div>
           </article>
-          <article className="panel investor-settings-card">
-            <div className="panel__header">
-              <div>
-                <h2>Konto</h2>
-                <p>Podstawowe informacje o prywatnym panelu inwestora.</p>
+
+          <article className="worker-settings-card investor-settings-card">
+            <h2>Konto</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row worker-settings-row--mode">
+                <span><Icon name="settings" /></span>
+                <div>
+                  <strong>Tryb widoku</strong>
+                  <small>Ten sam przełącznik Prosty / Rozbudowany co w inwestycjach.</small>
+                  <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
+                </div>
+                <b>{defaultModeLabel}</b>
               </div>
-            </div>
-            <div className="investor-settings-list">
-              <div className="investor-settings-row">
-                <span><Icon name="home" /></span>
-                <div><strong>Typ konta</strong><small>Inwestor</small></div>
-              </div>
-              <div className="investor-settings-row">
-                <span><Icon name="clipboard" /></span>
-                <div><strong>Zakres panelu</strong><small>Inwestycje, wykonawcy i raporty prywatne. Bez publicznej bazy firm.</small></div>
-              </div>
-              <div className="investor-settings-row">
+              <div className="worker-settings-row">
                 <span><Icon name="check" /></span>
-                <div><strong>Dane testowe</strong><small>Demo i reset demo są zarządzane osobno.</small></div>
+                <div><strong>Status konta</strong><small>Konto inwestora jest aktywne.</small></div>
+                <b>Aktywne</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="home" /></span>
+                <div><strong>Typ konta</strong><small>Panel do zarządzania inwestycjami, wykonawcami i raportami.</small></div>
+                <b>Inwestor</b>
               </div>
             </div>
-            <Button type="button" variant="danger" onClick={onLogout}>Wyloguj się</Button>
+            <button className="worker-settings-danger-row investor-settings-logout" type="button" onClick={onLogout}>
+              <span><Icon name="back" /></span>
+              <strong>Wyloguj się</strong>
+            </button>
           </article>
         </section>
       </div>
