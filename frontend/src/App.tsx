@@ -2948,6 +2948,7 @@ function GeneratedReportsPanel({
   onRefresh,
   notify,
   generatedReportLimit,
+  copy,
   loading = false,
   error = "",
 }: {
@@ -2957,6 +2958,11 @@ function GeneratedReportsPanel({
   onRefresh: () => Promise<void> | void;
   notify: (toast: Toast) => void;
   generatedReportLimit?: number;
+  copy?: {
+    title?: string;
+    description?: string;
+    finalDescription?: string;
+  };
   loading?: boolean;
   error?: string;
 }) {
@@ -3041,8 +3047,8 @@ function GeneratedReportsPanel({
     <section className="project-pdf-panel panel">
       <div className="panel__header">
         <div>
-          <h2>Raporty PDF</h2>
-          <p>Generuj raporty bez automatycznego otwierania PDF-a. Gotowe pliki znajdziesz na liście poniżej.</p>
+          <h2>{copy?.title || "Raporty PDF"}</h2>
+          <p>{copy?.description || "Generuj raporty bez automatycznego otwierania PDF-a. Gotowe pliki znajdziesz na liście poniżej."}</p>
         </div>
       </div>
       <div className="project-pdf-panel__body">
@@ -3074,7 +3080,7 @@ function GeneratedReportsPanel({
           <article>
             <div>
               <h3>Raport końcowy</h3>
-              <p>Pełne podsumowanie zlecenia i historii prac.</p>
+              <p>{copy?.finalDescription || "Pełne podsumowanie zlecenia i historii prac."}</p>
             </div>
             <Button
               icon="report"
@@ -3553,6 +3559,257 @@ function ProjectView({
       </div>
     </section>
   ) : null;
+
+  if (isInvestorPanelUser) {
+    const mode = uiMode || "simple";
+    const advancedMode = mode === "advanced";
+    const contractorName = projectPartyValue(user!, project);
+    const openProblems = entries.filter((entry) => entry.kind === "problem" && entry.problem_status !== "resolved").length;
+    const activityDate = formatProjectActivityDate(project.updated_at || project.created_at) || "Brak daty";
+    const historyEntries = advancedMode ? entries.slice(0, 10) : entries.slice(0, 4);
+    const completedOrReopenAction = project.status === "completed" && canReopenProject;
+
+    const investorActions = (
+      <section className="investor-detail-actions" aria-label="Akcje inwestycji">
+        {canAdd && <Button type="button" variant="secondary" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj wpis</Button>}
+        {canGeneratePdfReports && <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>Raport PDF</Button>}
+        <Button
+          type="button"
+          variant="secondary"
+          icon="link"
+          onClick={() => {
+            if (project.can_edit_details) {
+              setShowManage(true);
+              notify({ kind: "info", message: "Link wykonawcy znajdziesz w sekcji wykonawcy edycji inwestycji." });
+            } else {
+              notify({ kind: "info", message: "Link wykonawcy jest dostępny tylko dla osoby zarządzającej inwestycją." });
+            }
+          }}
+        >
+          Link wykonawcy
+        </Button>
+        {project.can_edit_details && <Button type="button" variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj inwestycję</Button>}
+        {completedOrReopenAction && <Button type="button" variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
+      </section>
+    );
+
+    const summaryCard = (
+      <section className="worker-detail-card investor-summary-card">
+        <div className="investor-summary-card__progress">
+          <small>Postęp całkowity</small>
+          <strong>{progress}%</strong>
+          <span>{completedCount} z {project.stages?.length || 0} etapów ukończonych</span>
+          <div className="progress"><i style={{ width: `${progress}%` }} /></div>
+        </div>
+        <div className="investor-summary-card__facts">
+          <div><span><Icon name="users" /></span><small>Wykonawca</small><strong>{contractorName}</strong></div>
+          <div><span><Icon name="clock" /></span><small>Ostatnia aktywność</small><strong>{activityDate}</strong></div>
+          <div><span><Icon name="check" /></span><small>Otwarte problemy</small><strong>{openProblems} {openProblems === 1 ? "problem" : "problemów"}</strong></div>
+        </div>
+      </section>
+    );
+
+    const investorHistory = (
+      <section className="worker-detail-card investor-history-card">
+        <div className="worker-section-heading investor-history-card__heading">
+          <div>
+            <h2>Historia postępu inwestycji</h2>
+            <p>Wpisy, zdjęcia, audio i komentarze z realizacji.</p>
+          </div>
+          {canAdd && (
+            <div className="investor-history-card__actions">
+              <Button type="button" variant="secondary" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj wpis</Button>
+              <Button type="button" variant="secondary" className="problem" icon="alert" onClick={() => setEntryModal({ kind: "problem", mode: "text" })}>Zgłoś problem</Button>
+            </div>
+          )}
+        </div>
+        {historyEntries.length === 0 ? (
+          <div className="worker-empty-history">
+            <Icon name="camera" />
+            <strong>Tu powstanie historia inwestycji</strong>
+            <p>Dodaj pierwszy wpis: zdjęcia, opis, audio albo problem.</p>
+          </div>
+        ) : (
+          <div className={`investor-history-list ${advancedMode ? "investor-history-list--timeline" : ""}`}>
+            {historyEntries.map((entry) => {
+              const images = entry.media.filter((asset) => asset.kind === "image");
+              const audio = entry.media.filter((asset) => asset.kind === "audio");
+              const visibleImages = images.slice(0, advancedMode ? 4 : 3);
+              const extraImages = Math.max(0, images.length - visibleImages.length);
+              const title = entry.kind === "problem"
+                ? "Zgłoszono problem"
+                : audio.length
+                  ? "Dodano dokumentację"
+                  : images.length
+                    ? "Dodano aktualizację"
+                    : entry.stage?.status === "completed"
+                      ? "Etap zakończony"
+                      : "Dodano aktualizację";
+              return (
+                <article className={`investor-history-item investor-history-item--${entry.kind}`} key={entry.id}>
+                  <span className="investor-history-item__icon"><Icon name={entry.kind === "problem" ? "alert" : audio.length ? "mic" : images.length ? "camera" : "report"} /></span>
+                  <button type="button" className="investor-history-item__body" onClick={() => setSelectedWorkerEntry(entry)}>
+                    <header>
+                      <div>
+                        <strong>{title}</strong>
+                        <small>
+                          {new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}
+                          {entry.author?.name || entry.author?.email || entry.guest_label ? ` · ${entry.author?.name || entry.author?.email || entry.guest_label}` : ""}
+                        </small>
+                      </div>
+                      {entry.kind === "problem" && <em>{entry.problem_status === "resolved" ? "Rozwiązany" : "Otwarty"}</em>}
+                    </header>
+                    {(entry.body || entry.transcript) && <p>{entry.body || entry.transcript}</p>}
+                    {visibleImages.length > 0 && (
+                      <div className="investor-history-item__media">
+                        {visibleImages.map((asset) => (
+                          <img src={asset.url} alt={asset.original_name || "Zdjęcie z inwestycji"} loading="lazy" key={asset.id} />
+                        ))}
+                        {extraImages > 0 && <span>+{extraImages}</span>}
+                      </div>
+                    )}
+                    {audio.map((asset) => <audio controls src={asset.url} key={asset.id} />)}
+                    <small className="investor-history-item__comments">{entry.comments.length} komentarzy</small>
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </section>
+    );
+
+    const contractorCard = (
+      <section className="worker-detail-card investor-side-card">
+        <h2>Wykonawca</h2>
+        <div className="investor-contractor-card">
+          <span>{contractorName.slice(0, 2).toUpperCase()}</span>
+          <div>
+            <strong>{contractorName}</strong>
+            <small>{project.worker_profile ? investorContractorTypeLabel(project.worker_profile) : "Wykonawca inwestycji"}</small>
+            {project.worker_profile?.email && <small>{project.worker_profile.email}</small>}
+            {project.worker_profile?.phone && <small>{project.worker_profile.phone}</small>}
+          </div>
+        </div>
+        <Button type="button" variant="secondary" icon="link" onClick={() => setShowManage(true)}>Link wykonawcy</Button>
+      </section>
+    );
+
+    const stagesCard = (
+      <section className="worker-detail-card investor-side-card">
+        <h2>Etapy inwestycji</h2>
+        {stages}
+      </section>
+    );
+
+    const problemsCard = (
+      <section className="worker-detail-card investor-side-card">
+        <h2>Problemy</h2>
+        {openProblems === 0 ? (
+          <div className="investor-problem-ok"><Icon name="check" /><strong>Brak otwartych problemów</strong><span>Wszystko przebiega zgodnie z planem.</span></div>
+        ) : (
+          <div className="investor-problem-warning"><Icon name="alert" /><strong>{openProblems} {openProblems === 1 ? "otwarty problem" : "otwarte problemy"}</strong><span>Sprawdź wpisy oznaczone jako problemowe.</span></div>
+        )}
+      </section>
+    );
+
+    const detailsCard = (
+      <section className="worker-detail-card investor-side-card investor-terms-summary">
+        <h2>Terminy i kwota</h2>
+        <dl>
+          <div><dt>Start</dt><dd>{formatContractDate(project.planned_start_date) || "Nie ustawiono"}</dd></div>
+          <div><dt>Planowane zakończenie</dt><dd>{formatContractDate(project.planned_end_date) || "Nie ustawiono"}</dd></div>
+          <div><dt>Zakończono</dt><dd>{project.status === "completed" ? formatProjectActivityDate(project.updated_at) : "Nie zakończono"}</dd></div>
+          <div><dt>Kwota</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>
+        </dl>
+      </section>
+    );
+
+    return (
+      <div className={`worker-workspace worker-workspace--investor-detail ${advancedMode ? "worker-workspace--investor-advanced" : "worker-workspace--investor-simple"}`}>
+        <header className="worker-detail-hero investor-detail-hero">
+          <div className="worker-detail-topbar">
+            <button type="button" className="worker-back-button" onClick={onBack}><Icon name="back" /> Wróć do inwestycji</button>
+            <span><Icon name="clipboard" size={17} /> Inwestor</span>
+          </div>
+          <div className="worker-detail-hero__main investor-detail-hero__main">
+            <span className="worker-detail-hero__icon"><Icon name="clipboard" /></span>
+            <div>
+              <h1>{project.name}</h1>
+              <p>{project.address || "Lokalizacja nieuzupełniona"}</p>
+              <p>Wykonawca: {contractorName}</p>
+            </div>
+            <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+          </div>
+          <div className="worker-detail-mode investor-detail-mode">
+            <WorkerModeSwitch uiMode={mode} onUiModeChange={(next) => onUiModeChange?.(next)} />
+          </div>
+        </header>
+
+        <main className="worker-detail-main investor-detail-main">
+          {investorActions}
+
+          {advancedMode ? (
+            <div className="investor-detail-grid">
+              <aside className="investor-detail-sidebar">
+                {summaryCard}
+                {detailsCard}
+                {contractorCard}
+                {stagesCard}
+                {problemsCard}
+              </aside>
+              <div className="investor-detail-content">
+                {investorHistory}
+              </div>
+            </div>
+          ) : (
+            <>
+              {summaryCard}
+              {investorHistory}
+            </>
+          )}
+
+          {canGeneratePdfReports && (
+            <div className="worker-generated-reports investor-detail-reports" ref={workerReportsRef}>
+              <GeneratedReportsPanel
+                projectId={projectIdForStatusActions}
+                reports={reports}
+                onRefresh={() => loadReports(project)}
+                notify={notify}
+                generatedReportLimit={3}
+                loading={reportsLoading}
+                error={reportError}
+                copy={{
+                  title: "Raporty inwestycji",
+                  description: "Wszystkie raporty i podsumowania w jednym miejscu.",
+                  finalDescription: "Pełne podsumowanie inwestycji.",
+                }}
+              />
+            </div>
+          )}
+        </main>
+
+        {showAddProgressChoice && (
+          <AddProgressChoice
+            onClose={() => setShowAddProgressChoice(false)}
+            onPick={(entry) => {
+              setShowAddProgressChoice(false);
+              setEntryModal(entry);
+            }}
+          />
+        )}
+        {selectedWorkerEntry && (
+          <WorkerEntryDetailsModal
+            entry={selectedWorkerEntry}
+            onClose={() => setSelectedWorkerEntry(null)}
+            onRefresh={refreshAfterProjectMutation}
+          />
+        )}
+        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
+        {showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
+      </div>
+    );
+  }
 
   if (isRoleFieldUser) {
     return (
