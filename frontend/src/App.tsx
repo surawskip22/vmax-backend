@@ -3630,7 +3630,7 @@ function ProjectView({
             <p>Dodaj pierwszy wpis: zdjęcia, opis, audio albo problem.</p>
           </div>
         ) : (
-          <div className={`investor-history-list ${advancedMode ? "investor-history-list--timeline" : ""}`}>
+          <div className="investor-history-list">
             {historyEntries.map((entry) => {
               const images = entry.media.filter((asset) => asset.kind === "image");
               const audio = entry.media.filter((asset) => asset.kind === "audio");
@@ -3647,15 +3647,17 @@ function ProjectView({
                       : "Dodano aktualizację";
               return (
                 <article className={`investor-history-item investor-history-item--${entry.kind}`} key={entry.id}>
-                  <span className="investor-history-item__icon"><Icon name={entry.kind === "problem" ? "alert" : audio.length ? "mic" : images.length ? "camera" : "report"} /></span>
                   <button type="button" className="investor-history-item__body" onClick={() => setSelectedWorkerEntry(entry)}>
                     <header>
-                      <div>
-                        <strong>{title}</strong>
-                        <small>
-                          {new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}
-                          {entry.author?.name || entry.author?.email || entry.guest_label ? ` · ${entry.author?.name || entry.author?.email || entry.guest_label}` : ""}
-                        </small>
+                      <div className="investor-history-item__title">
+                        <span className="investor-history-item__icon"><Icon name={entry.kind === "problem" ? "alert" : audio.length ? "mic" : images.length ? "camera" : "report"} /></span>
+                        <div>
+                          <strong>{title}</strong>
+                          <small>
+                            {new Intl.DateTimeFormat("pl", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.occurred_at))}
+                            {entry.author?.name || entry.author?.email || entry.guest_label ? ` · ${entry.author?.name || entry.author?.email || entry.guest_label}` : ""}
+                          </small>
+                        </div>
                       </div>
                       {entry.kind === "problem" && <em>{entry.problem_status === "resolved" ? "Rozwiązany" : "Otwarty"}</em>}
                     </header>
@@ -3698,7 +3700,36 @@ function ProjectView({
     const stagesCard = (
       <section className="worker-detail-card investor-side-card">
         <h2>Etapy inwestycji</h2>
-        {stages}
+        {project.stages?.length ? (
+          <div className="investor-stage-list">
+            {project.stages.map((stage, index) => {
+              const canSetCurrent = canChangeStage && stage.status !== "active";
+              return (
+                <article className={`investor-stage-row investor-stage-row--${stage.status}`} key={stage.id}>
+                  <span className="investor-stage-row__marker">
+                    {stage.status === "completed" ? <Icon name="check" /> : index + 1}
+                  </span>
+                  <div>
+                    <strong>{stage.title}</strong>
+                    <small>{stageStatusText(stage)}</small>
+                  </div>
+                  {canSetCurrent && (
+                    <button
+                      type="button"
+                      className="investor-stage-row__action"
+                      disabled={busyStageId === stage.id}
+                      onClick={() => void setCurrentStage(stage.id)}
+                    >
+                      {busyStageId === stage.id ? "Ustawiam..." : "Ustaw jako aktualny"}
+                    </button>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="form-note">Etapy nie są jeszcze skonfigurowane.</p>
+        )}
       </section>
     );
 
