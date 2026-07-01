@@ -1403,6 +1403,11 @@ function ProjectsPage({
     if (investorSimpleMode && viewFilter !== "all") setViewFilter("all");
   }, [investorSimpleMode, viewFilter]);
   useEffect(() => {
+    if (!investorSimpleMode) return;
+    if (statusFilter !== "all") setStatusFilter("all");
+    if (!["newest", "oldest"].includes(sortBy)) setSortBy("newest");
+  }, [investorSimpleMode, statusFilter, sortBy]);
+  useEffect(() => {
     if (!canFilterWorkers && workerFilter !== "all") setWorkerFilter("all");
   }, [canFilterWorkers, workerFilter]);
   const copy = projectListCopy(user);
@@ -1444,40 +1449,6 @@ function ProjectsPage({
       const result = new Date(dateValue(left)).getTime() - new Date(dateValue(right)).getTime();
       return sortBy === "oldest" || sortBy === "start" || sortBy === "end" ? result : -result;
     });
-  const investorStats = [
-    {
-      key: "all",
-      title: "Wszystkie",
-      count: projects.length,
-      text: "Prywatne inwestycje",
-      icon: "clipboard" as const,
-      tone: "blue",
-    },
-    {
-      key: "open",
-      title: "W realizacji",
-      count: projects.filter((project) => project.status !== "completed").length,
-      text: "Aktywne prace",
-      icon: "sync" as const,
-      tone: "green",
-    },
-    {
-      key: "problems",
-      title: "Problemy",
-      count: projects.reduce((sum, project) => sum + (project.open_problem_count || 0), 0),
-      text: "Otwarte sprawy",
-      icon: "alert" as const,
-      tone: "orange",
-    },
-    {
-      key: "history",
-      title: "Zakończone",
-      count: projects.filter((project) => project.status === "completed").length,
-      text: "Historia inwestycji",
-      icon: "check" as const,
-      tone: "gray",
-    },
-  ];
   if (isCompanyWorker(user) || isIndependentContractor(user)) {
     return (
       <CompanyWorkerProjectsPage
@@ -1493,6 +1464,104 @@ function ProjectsPage({
       />
     );
   }
+  if (investorMode) {
+    return (
+      <div className="page worker-home worker-home--investor">
+        <WorkerMobileHeader title="Inwestor" />
+        <header className="worker-page-header">
+          <div className="worker-title-row">
+            <div>
+              <span className="eyebrow">Moje inwestycje</span>
+              <h1>{copy.title}</h1>
+              <p>{copy.description}</p>
+            </div>
+            {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
+          </div>
+          <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
+        </header>
+
+        {investorAdvancedMode && (
+          <section className="worker-filter-strip worker-filter-strip--investor" aria-label="Filtry inwestycji">
+            <input type="search" placeholder={copy.searchPlaceholder} value={filter} onChange={(e) => setFilter(e.target.value)} />
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtr statusu">
+              <option value="all">Wszystkie statusy</option>
+              <option value="assigned">Zlecone</option>
+              <option value="in_progress">W realizacji</option>
+              <option value="completed">Zakończone</option>
+            </select>
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} aria-label="Sortowanie">
+              <option value="newest">Najnowsze</option>
+              <option value="oldest">Najstarsze</option>
+              <option value="start">Data rozpoczęcia</option>
+              <option value="end">Data zakończenia</option>
+              <option value="status">Status</option>
+            </select>
+          </section>
+        )}
+
+        {projects.length === 0 ? (
+          <EmptyState icon="clipboard" title={copy.emptyTitle} text={copy.emptyText}>
+            {canCreateProject(user) && <Button onClick={onCreate} icon="plus">{copy.createLabel}</Button>}
+          </EmptyState>
+        ) : visible.length === 0 ? (
+          <EmptyState icon="clipboard" title="Brak wyników" text="Zmień filtr lub wyszukiwaną frazę, żeby zobaczyć pasujące inwestycje." />
+        ) : (
+          <section className={`worker-project-list ${simpleMode ? "worker-project-list--simple" : "worker-project-list--advanced"}`}>
+            {visible.map((project) => {
+              const due = formatContractDate(project.planned_end_date || project.planned_start_date) || "Termin nieustawiony";
+              const startDate = formatContractDate(project.planned_start_date) || "Nie ustawiono";
+              const endDate = formatContractDate(project.planned_end_date) || "Nie ustawiono";
+              const activityDate = formatProjectActivityDate(project.updated_at || project.created_at) || "Brak daty";
+              return (
+                <article className={`worker-job-card worker-job-card--${project.status} investor-job-card`} key={project.id}>
+                  <button type="button" className="worker-job-card__main" onClick={() => onProject(project)}>
+                    <span className="worker-job-card__icon"><Icon name="clipboard" /></span>
+                    <div className="worker-job-card__copy">
+                      <div className="worker-job-card__title">
+                        <h2>{project.name}</h2>
+                        <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                      </div>
+                      <p>{project.address || "Lokalizacja nieuzupełniona"}</p>
+                    </div>
+                    <Icon name="back" className="worker-job-card__chevron" />
+                  </button>
+                  <div className="worker-job-card__meta">
+                    <span className="worker-job-card__stage"><Icon name="users" size={16} /> {projectPartyValue(user, project)}</span>
+                    <span><Icon name="sync" size={16} /> {projectActivityLabel(project)}</span>
+                    <span>{project.entry_count || 0} wpisów</span>
+                    <span>{project.open_problem_count || 0} problemów</span>
+                  </div>
+                  {!simpleMode && (
+                    <dl className="worker-job-card__details worker-job-card__details--investor">
+                      <div><dt>Start</dt><dd>{startDate}</dd></div>
+                      <div><dt>Koniec</dt><dd>{endDate}</dd></div>
+                      <div><dt>Ost. aktywność</dt><dd>{activityDate}</dd></div>
+                      <div><dt>Kwota</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>
+                    </dl>
+                  )}
+                  <div className="worker-job-card__actions investor-job-card__actions">
+                    <Button type="button" variant="secondary" onClick={() => onProject(project)}>{simpleMode ? "Szczegóły" : "Podgląd"}</Button>
+                    {!simpleMode && <Button type="button" variant="secondary" icon="report" onClick={() => onProject(project)}>Raporty</Button>}
+                    {!simpleMode && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        icon="link"
+                        onClick={() => notify({ kind: "info", message: "Link wykonawcy utworzysz lub skopiujesz w edycji inwestycji." })}
+                      >
+                        Link wykonawcy
+                      </Button>
+                    )}
+                    {!simpleMode && <Button type="button" variant="secondary" onClick={() => onProject(project)}>Edytuj</Button>}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
+      </div>
+    );
+  }
   return (
     <div className={`page ${investorMode ? "investor-workspace-page investor-projects-page" : ""}`}>
       <header className="page-header">
@@ -1506,25 +1575,6 @@ function ProjectsPage({
           canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>
         )}
       </header>
-      {investorAdvancedMode && (
-        <section className="investor-overview-cards" aria-label="Podsumowanie inwestycji">
-          {investorStats.map((card) => (
-            <button
-              key={card.key}
-              type="button"
-              className={`investor-overview-card investor-overview-card--${card.tone} ${viewFilter === card.key ? "active" : ""}`}
-              onClick={() => setViewFilter(card.key as typeof viewFilter)}
-            >
-              <span><Icon name={card.icon} /></span>
-              <div>
-                <strong>{card.title}</strong>
-                <b>{card.count}</b>
-                <small>{card.text}</small>
-              </div>
-            </button>
-          ))}
-        </section>
-      )}
       <section className={`panel ${investorMode ? "investor-list-panel" : ""}`}>
         <div className={`project-controls ${investorMode ? `project-controls--investor project-controls--investor-${simpleMode ? "simple" : "advanced"}` : ""}`}>
           {!investorSimpleMode && (
@@ -4101,8 +4151,8 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
       return sortDirection === "newest" ? -result : result;
     });
 
-  if (isIndependentContractor(user)) {
-    const reportProjects = projects.filter((project) => reportMaterialCount(project) > 0);
+  if (isIndependentContractor(user) || investorReports) {
+    const reportProjects = investorReports ? projects : projects.filter((project) => reportMaterialCount(project) > 0);
     const independentOpenProjects = reportProjects.filter((project) => project.status !== "completed");
     const independentHistoricalProjects = reportProjects.filter((project) => project.status === "completed");
     const independentSource = tab === "all"
@@ -4133,7 +4183,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         key: "all" as const,
         title: "Wszystkie",
         count: allMaterial,
-        text: "Wszystkie wpisy i raporty",
+        text: investorReports ? "Wpisy i raporty z inwestycji" : "Wszystkie wpisy i raporty",
         icon: "report" as const,
         tone: "blue",
       },
@@ -4141,7 +4191,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         key: "open" as const,
         title: "Otwarte",
         count: openMaterial,
-        text: "Wymagają zakończenia",
+        text: investorReports ? `${independentOpenProjects.length} inwestycji w toku` : "Wymagają zakończenia",
         icon: "sync" as const,
         tone: "green",
       },
@@ -4149,19 +4199,19 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         key: "history" as const,
         title: "Historyczne",
         count: historicalMaterial,
-        text: "Zakończone",
+        text: investorReports ? `${independentHistoricalProjects.length} zakończonych` : "Zakończone",
         icon: "clipboard" as const,
         tone: "orange",
       },
     ];
 
     return (
-      <div className="page reports-page independent-reports-page">
+      <div className={`page reports-page independent-reports-page ${investorReports ? "independent-reports-page--investor" : ""}`}>
         <header className="page-header">
           <div>
-            <span className="eyebrow">Dokumentacja</span>
+            <span className="eyebrow">{investorReports ? "Moje raporty" : "Dokumentacja"}</span>
             <h1>Raporty</h1>
-            <p>Przeglądaj projekty raportowe i otwieraj raporty tworzone w ramach zleceń.</p>
+            <p>{investorReports ? "Przeglądaj raporty i wpisy z Twoich inwestycji." : "Przeglądaj projekty raportowe i otwieraj raporty tworzone w ramach zleceń."}</p>
           </div>
         </header>
 
@@ -4187,7 +4237,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         <section className="report-toolbar independent-report-toolbar" aria-label="Wyszukiwanie i sortowanie raportów">
           <input
             type="search"
-            placeholder="Szukaj po nazwie zlecenia, kliencie lub wykonawcy..."
+            placeholder={investorReports ? "Szukaj po nazwie inwestycji, wykonawcy lub adresie..." : "Szukaj po nazwie zlecenia, kliencie lub wykonawcy..."}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -4201,7 +4251,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
 
         <section className="report-project-list independent-report-list">
           {reportProjects.length === 0 ? (
-            <EmptyState icon="report" title="Brak raportów" text="Raporty pojawią się tutaj po dodaniu postępu i wygenerowaniu raportu w zleceniu." />
+            <EmptyState icon="report" title="Brak raportów" text={investorReports ? "Raporty pojawią się tutaj po wpisach wykonawców w Twoich inwestycjach." : "Raporty pojawią się tutaj po dodaniu postępu i wygenerowaniu raportu w zleceniu."} />
           ) : filteredProjects.length === 0 ? (
             <EmptyState icon="report" title="Brak wyników" text="Zmień filtr lub wyszukiwaną frazę." />
           ) : filteredProjects.map((project) => {
@@ -4215,7 +4265,10 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
                   <span className="report-project-card__icon"><Icon name="report" /></span>
                   <div className="report-project-card__main">
                     <h2>{project.name}</h2>
-                    <p>{project.address || "Adres nieuzupełniony"}{project.client_name ? ` · Klient: ${project.client_name}` : " · Klient: Brak klienta"}</p>
+                    <p>
+                      {project.address || "Adres nieuzupełniony"}
+                      {!investorReports && (project.client_name ? ` · Klient: ${project.client_name}` : " · Klient: Brak klienta")}
+                    </p>
                   </div>
                   <span className={`status status--${project.status}`}>{safeStatusLabel}</span>
                   <dl>
@@ -4235,8 +4288,8 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
                     <Icon name="back" size={15} />
                   </button>
                   <div className="independent-report-card__actions">
-                    <Button type="button" variant="secondary" onClick={() => onOpen(project)}>Otwórz zlecenie</Button>
-                    <Button type="button" variant="secondary" icon="report" onClick={() => openReportModal(project)}>Otwórz raporty PDF</Button>
+                    <Button type="button" variant="secondary" onClick={() => onOpen(project)}>{investorReports ? "Otwórz" : "Otwórz zlecenie"}</Button>
+                    <Button type="button" variant="secondary" icon="report" onClick={() => openReportModal(project)}>{investorReports ? "Raport PDF" : "Otwórz raporty PDF"}</Button>
                   </div>
                 </header>
                 {isExpanded && (
@@ -4250,12 +4303,12 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
                         <span><Icon name="report" /></span>
                         <div>
                           <span className="report-row-label">Raport</span>
-                          <strong>Raport zlecenia</strong>
+                          <strong>{investorReports ? "Raport inwestycji" : "Raport zlecenia"}</strong>
                           <small>{`Materiał raportowy z ${count} ${count === 1 ? "wpisu" : "wpisów"}.`}</small>
                         </div>
                         <div><small>Data wystawienia</small><strong>{issuedDate}</strong></div>
                         <div><small>Etap / Status</small><span className={`status status--${project.status}`}>{safeStatusLabel}</span></div>
-                        <Button type="button" variant="secondary" icon="report" onClick={() => openReportModal(project)}>Otwórz raporty PDF</Button>
+                        <Button type="button" variant="secondary" icon="report" onClick={() => openReportModal(project)}>{investorReports ? "Otwórz raport" : "Otwórz raporty PDF"}</Button>
                       </article>
                     </div>
                   </section>
@@ -4267,7 +4320,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
 
         {filteredProjects.length > 0 && (
           <footer className="report-pagination-summary">
-            <span>1-{filteredProjects.length} z {filteredProjects.length} zleceń</span>
+            <span>1-{filteredProjects.length} z {filteredProjects.length} {investorReports ? "inwestycji" : "zleceń"}</span>
             <div aria-label="Paginacja raportów">
               <button type="button" disabled><Icon name="back" size={15} /></button>
               <b>1</b>
@@ -5637,12 +5690,15 @@ function TeamPage({
   }
   if (user.profile_type === "investor" && user.workspaces.length > 0) {
     return (
-      <div className="page investor-workspace-page investor-contractors-page">
-        <header className="page-header">
-          <div>
-            <span className="eyebrow">Współpraca</span>
-            <h1>Wykonawcy</h1>
-            <p>Zarządzaj wykonawcami przypisanymi do Twoich inwestycji.</p>
+      <div className="page worker-home worker-home--investor investor-contractors-page">
+        <WorkerMobileHeader title="Inwestor" />
+        <header className="worker-page-header">
+          <div className="worker-title-row">
+            <div>
+              <span className="eyebrow">Współpraca</span>
+              <h1>Wykonawcy</h1>
+              <p>Zarządzaj wykonawcami przypisanymi do Twoich inwestycji.</p>
+            </div>
           </div>
         </header>
         <InvestorContractorsPanel workspaceId={user.workspaces[0].id} projects={projects} onOpenProject={onProject} onChanged={refreshUser} notify={notify} />
@@ -5706,8 +5762,9 @@ function SettingsPage({
     const displayPhone = user.phone || "Nie podano";
     const defaultModeLabel = uiMode === "simple" ? "Prosty" : "Rozbudowany";
     return (
-      <div className="page investor-settings-page">
-        <header className="page-header">
+      <div className="page worker-settings-page investor-settings-page">
+        <WorkerMobileHeader title="Inwestor" />
+        <header className="worker-page-header">
           <div>
             <span className="eyebrow">Konto inwestora</span>
             <h1>Ustawienia</h1>
