@@ -151,6 +151,36 @@ function workerAccountLabel(worker: WorkerProfile): string {
   return "link-only";
 }
 
+function investorContractorTypeLabel(worker: WorkerProfile): string {
+  return worker.account_type === "account" ? "Konto Pan Majster" : "Przez link";
+}
+
+function investorContractorActivityLabel(worker: WorkerProfile): string {
+  const value = worker.updated_at || worker.created_at;
+  if (!value) return "Brak aktywności";
+  return new Intl.DateTimeFormat("pl").format(new Date(value));
+}
+
+function investorContractorCount(user: User, projects: Project[]): number {
+  const ids = new Set<string>();
+  user.workspaces.forEach((workspace) => {
+    workspace.worker_profiles?.forEach((worker) => ids.add(`profile:${worker.id}`));
+    workspace.worker_links?.forEach((link) => ids.add(`link:${link.id}`));
+  });
+  projects.forEach((project) => {
+    if (project.worker_profile?.id) ids.add(`profile:${project.worker_profile.id}`);
+    project.worker_links?.forEach((link) => ids.add(`link:${link.id}`));
+  });
+  return ids.size;
+}
+
+function projectHasLinkOnlyWorker(project: Project): boolean {
+  return Boolean(
+    project.worker_profile?.account_type === "link_only" ||
+    project.worker_links?.some((link) => !link.revoked_at),
+  );
+}
+
 function defaultEntryStageId(project: Project): string {
   return (
     project.stages?.find((stage) => stage.title === "W trakcie realizacji")?.id ||
@@ -245,9 +275,9 @@ function contractTermRows(project: Project): Array<{ label: string; value: strin
 function projectListCopy(user: User) {
   if (user.profile_type === "investor") {
     return {
-      eyebrow: "Twoje inwestycje",
+      eyebrow: "Moje inwestycje",
       title: "Inwestycje / Zlecenia",
-      description: "Kontroluj inwestycje, wykonawców i najważniejsze terminy.",
+      description: "Zarządzaj inwestycjami i pracami, które zlecasz wykonawcom.",
       createLabel: "Dodaj inwestycję",
       searchPlaceholder: "Szukaj inwestycji, wykonawcy lub adresu...",
       emptyTitle: "Dodaj pierwszą inwestycję",
@@ -1247,41 +1277,50 @@ function Dashboard({
   uiMode: UiMode;
 }) {
   const simpleMode = uiMode === "simple";
+  const investorMode = isInvestor(user);
   const active = projects.filter((project) => ["assigned", "in_progress"].includes(project.status));
   const problems = projects.reduce((sum, item) => sum + (item.open_problem_count || 0), 0);
   const canCreate = canCreateProject(user);
   const intro =
-    isInvestor(user)
-      ? "Tu widzisz postęp inwestycji, raporty i sprawy wymagające decyzji."
+    investorMode
+      ? "Tu widzisz postęp swoich inwestycji, otwarte sprawy i ostatnie raporty."
       : isCompanyOwner(user)
         ? "Tu kontrolujesz zlecenia firmy, majstrów i zgłoszone problemy."
         : "Tu masz szybki podgląd swoich zleceń i raportów.";
   const createLabel = user.profile_type === "investor" ? "Dodaj inwestycję" : "Dodaj zlecenie";
+  const dashboardTitle = investorMode ? "Dzień dobry, Inwestorze!" : `Dzień dobry${user.name ? `, ${user.name.split(" ")[0]}` : ""}!`;
+  const recentTitle = investorMode ? "Ostatnie inwestycje / zlecenia" : "Ostatnie zlecenia";
+  const recentText = investorMode
+    ? "Prywatny podgląd inwestycji, wykonawców i ostatniej aktywności."
+    : "Wybierz projekt, aby dodać zdjęcia lub raport.";
+  const recentCreateLabel = investorMode ? "+ Dodaj inwestycję" : "+ Nowe zlecenie";
+  const reportCount = projects.reduce((sum, project) => sum + (project.entry_count || 0), 0);
+  const contractorCount = investorMode ? investorContractorCount(user, projects) : projects.length;
   return (
-    <div className="page dashboard">
+    <div className={`page dashboard ${investorMode ? "dashboard--investor" : ""}`}>
       <header className="page-header">
         <div>
           <span className="eyebrow">Środa, {new Intl.DateTimeFormat("pl", { day: "numeric", month: "long" }).format(new Date())}</span>
           <div className="role-inline">Typ konta: <strong>{user.profile_type ? profileLabels[user.profile_type] : "Nie wybrano"}</strong></div>
-          <h1>Dzień dobry{user.name ? `, ${user.name.split(" ")[0]}` : ""}!</h1>
+          <h1>{dashboardTitle}</h1>
           <p>{intro}</p>
         </div>
         {canCreate && <Button icon="plus" onClick={onCreate}>{createLabel}</Button>}
       </header>
       <div className={`stat-grid ${simpleMode ? "stat-grid--simple" : ""}`}>
-        <article><span className="stat-icon stat-icon--blue"><Icon name="clipboard" /></span><div><small>Aktywne zlecenia</small><strong>{active.length}</strong></div></article>
+        <article><span className="stat-icon stat-icon--blue"><Icon name="clipboard" /></span><div><small>{investorMode ? "Aktywne inwestycje" : "Aktywne zlecenia"}</small><strong>{active.length}</strong></div></article>
         <article><span className="stat-icon stat-icon--red"><Icon name="alert" /></span><div><small>Otwarte problemy</small><strong>{problems}</strong></div></article>
-        {!simpleMode && <article><span className="stat-icon stat-icon--green"><Icon name="check" /></span><div><small>Zakończone</small><strong>{projects.filter((p) => p.status === "completed").length}</strong></div></article>}
-        {!simpleMode && <article><span className="stat-icon stat-icon--orange"><Icon name="users" /></span><div><small>Wszystkie projekty</small><strong>{projects.length}</strong></div></article>}
+        {!simpleMode && <article><span className="stat-icon stat-icon--green"><Icon name="check" /></span><div><small>{investorMode ? "Ostatnie raporty" : "Zakończone"}</small><strong>{investorMode ? reportCount : projects.filter((p) => p.status === "completed").length}</strong></div></article>}
+        {!simpleMode && <article><span className="stat-icon stat-icon--orange"><Icon name="users" /></span><div><small>{investorMode ? "Wykonawcy" : "Wszystkie projekty"}</small><strong>{contractorCount}</strong></div></article>}
       </div>
       <section className="panel">
         <div className="panel__header">
-          <div><h2>Ostatnie zlecenia</h2><p>Wybierz projekt, aby dodać zdjęcia lub raport.</p></div>
-          {canCreate && <button className="text-button" onClick={onCreate}>+ Nowe zlecenie</button>}
+          <div><h2>{recentTitle}</h2><p>{recentText}</p></div>
+          {canCreate && <button className="text-button" onClick={onCreate}>{recentCreateLabel}</button>}
         </div>
         {projects.length === 0 ? (
-          <EmptyState icon="clipboard" title="Dodaj pierwsze zlecenie" text="Projekt połączy zdjęcia, opisy, problemy i raporty w jedną historię.">
-            {canCreate && <Button onClick={onCreate} icon="plus">Utwórz zlecenie</Button>}
+          <EmptyState icon="clipboard" title={investorMode ? "Dodaj pierwszą inwestycję" : "Dodaj pierwsze zlecenie"} text={investorMode ? "Inwestycja połączy wykonawcę, terminy, wpisy i raporty w jednym prywatnym panelu." : "Projekt połączy zdjęcia, opisy, problemy i raporty w jedną historię."}>
+            {canCreate && <Button onClick={onCreate} icon="plus">{investorMode ? "Dodaj inwestycję" : "Utwórz zlecenie"}</Button>}
           </EmptyState>
         ) : (
           <div className="project-list">
@@ -1290,7 +1329,7 @@ function Dashboard({
                 <span className="project-row__icon"><Icon name="clipboard" /></span>
                 <div className="project-row__main">
                   <strong>{project.name}</strong>
-                  <span>{project.client_name || "Bez klienta"} · {project.address || "Bez adresu"}</span>
+                  <span>{investorMode ? (project.address || "Lokalizacja nieuzupełniona") : `${project.client_name || "Bez klienta"} · ${project.address || "Bez adresu"}`}</span>
                   {!simpleMode && <small>{projectPartyLabel(user)}: {projectPartyValue(user, project)} · {projectActivityLabel(project)}</small>}
                 </div>
                 <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
@@ -1348,11 +1387,12 @@ function ProjectsPage({
   onChanged: () => void;
 }) {
   const [filter, setFilter] = useState("");
-  const [viewFilter, setViewFilter] = useState<"all" | "open" | "history">("all");
+  const [viewFilter, setViewFilter] = useState<"all" | "open" | "problems" | "history">("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [workerFilter, setWorkerFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "start" | "end" | "status">("newest");
   const simpleMode = uiMode === "simple";
+  const investorMode = isInvestor(user);
   const canFilterWorkers = !simpleMode && canManagePeople(user);
   useEffect(() => {
     if (simpleMode && !["newest", "oldest"].includes(sortBy)) setSortBy("newest");
@@ -1378,7 +1418,13 @@ function ProjectsPage({
   const visible = [...projects]
     .filter((item) => {
       const matchesQuery = `${item.name} ${item.client_name} ${item.address} ${item.worker_profile?.label || ""}`.toLowerCase().includes(query);
-      const matchesView = viewFilter === "all" || (viewFilter === "open" ? item.status !== "completed" : item.status === "completed");
+      const matchesView =
+        viewFilter === "all" ||
+        (viewFilter === "open"
+          ? item.status !== "completed"
+          : viewFilter === "problems"
+            ? (item.open_problem_count || 0) > 0
+            : item.status === "completed");
       const matchesStatus = statusFilter === "all" || item.status === statusFilter;
       const matchesWorker = !canFilterWorkers || workerFilter === "all" || item.worker_profile?.id === workerFilter;
       return matchesQuery && matchesView && matchesStatus && matchesWorker;
@@ -1418,8 +1464,9 @@ function ProjectsPage({
         <div className="project-controls">
           <div className="list-tabs" role="tablist" aria-label="Widok zleceń">
             <button type="button" className={viewFilter === "all" ? "active" : ""} onClick={() => setViewFilter("all")}>Wszystkie</button>
-            <button type="button" className={viewFilter === "open" ? "active" : ""} onClick={() => setViewFilter("open")}>Otwarte</button>
-            <button type="button" className={viewFilter === "history" ? "active" : ""} onClick={() => setViewFilter("history")}>Historyczne</button>
+            <button type="button" className={viewFilter === "open" ? "active" : ""} onClick={() => setViewFilter("open")}>{investorMode ? "W realizacji" : "Otwarte"}</button>
+            {investorMode && <button type="button" className={viewFilter === "problems" ? "active" : ""} onClick={() => setViewFilter("problems")}>Problemy</button>}
+            <button type="button" className={viewFilter === "history" ? "active" : ""} onClick={() => setViewFilter("history")}>{investorMode ? "Zakończone" : "Historyczne"}</button>
           </div>
           <input type="search" placeholder={copy.searchPlaceholder} value={filter} onChange={(e) => setFilter(e.target.value)} />
           <div className="project-filter-row">
@@ -1455,12 +1502,12 @@ function ProjectsPage({
         ) : (
           <div className="project-list-cards">
             {visible.map((project) => (
-              <article className="project-list-card" key={project.id}>
+              <article className={`project-list-card ${investorMode ? "project-list-card--investor" : ""}`} key={project.id}>
                 <div className="project-list-card__top">
                   <span className="project-card__icon"><Icon name="clipboard" /></span>
                   <div className="project-list-card__identity">
                     <h3>{project.name}</h3>
-                    <span>{project.client_name || "Bez klienta"} · {project.address || "Adres nieuzupełniony"}</span>
+                    <span>{investorMode ? (project.address || "Lokalizacja nieuzupełniona") : `${project.client_name || "Bez klienta"} · ${project.address || "Adres nieuzupełniony"}`}</span>
                   </div>
                   <div className="project-list-card__status">
                     <span className={`status project-status-badge status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
@@ -1478,8 +1525,25 @@ function ProjectsPage({
                   <div className="project-list-card__signals">
                     <span>{projectLastProgressLabel(project)}</span>
                     <span>{project.open_problem_count || 0} problemów</span>
+                    {investorMode && projectHasLinkOnlyWorker(project) && <span>link-only</span>}
                   </div>
-                  <Button type="button" onClick={() => onProject(project)} variant="secondary">{isInvestor(user) ? "Edytuj" : "Otwórz"}</Button>
+                  {investorMode ? (
+                    <div className="project-list-card__actions">
+                      <Button type="button" onClick={() => onProject(project)} variant="secondary">Podgląd</Button>
+                      <Button type="button" onClick={() => onProject(project)} variant="secondary" icon="report">Raporty</Button>
+                      <Button
+                        type="button"
+                        onClick={() => notify({ kind: "info", message: "Link wykonawcy utworzysz lub skopiujesz w edycji inwestycji." })}
+                        variant="secondary"
+                        icon="link"
+                      >
+                        Link wykonawcy
+                      </Button>
+                      <Button type="button" onClick={() => onProject(project)} variant="secondary">Edytuj</Button>
+                    </div>
+                  ) : (
+                    <Button type="button" onClick={() => onProject(project)} variant="secondary">Otwórz</Button>
+                  )}
                 </div>
               </article>
             ))}
@@ -3044,7 +3108,8 @@ function ProjectView({
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const [coverBusy, setCoverBusy] = useState(false);
   const workerReportsRef = useRef<HTMLDivElement | null>(null);
-  const fieldMode = Boolean(guestToken) || uiMode !== "advanced";
+  const isInvestorPanelUser = Boolean(user && isInvestor(user) && !guestToken);
+  const fieldMode = Boolean(guestToken) || (uiMode !== "advanced" && !isInvestorPanelUser);
 
   const loadReports = useCallback(async (targetProject: Project | null = project) => {
     if (!targetProject) {
@@ -3685,19 +3750,37 @@ function ProjectView({
   }
 
   return (
-    <div className="page project-page">
+    <div className={`page project-page ${isInvestorPanelUser ? "project-page--investor" : ""}`}>
       <header className="project-header">
-        <button className="back-button" onClick={onBack}><Icon name="back" /> Wróć do zleceń</button>
+        <button className="back-button" onClick={onBack}><Icon name="back" /> {isInvestorPanelUser ? "Wróć do inwestycji" : "Wróć do zleceń"}</button>
         <div className="project-header__main">
           <div><span className={`status status--${project.status}`}>{statusLabels[project.status]}</span><h1>{project.name}</h1><p>{project.client_name} · {project.address}</p></div>
           <div className="project-header__actions">
+            {isInvestorPanelUser && canAdd && <Button variant="secondary" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj wpis</Button>}
+            {isInvestorPanelUser && canGeneratePdfReports && <Button variant="secondary" icon="report" onClick={() => setShowReports(true)}>Raport PDF</Button>}
             {!guestToken && user?.profile_type !== "investor" && !isCompanyWorker(user) && clientLink && <Button variant="secondary" icon="link" onClick={copyClientLink}>Link klienta</Button>}
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
-            {!guestToken && project.can_edit_details && <Button variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>}
+            {isInvestorPanelUser && (
+              <Button
+                variant="secondary"
+                icon="link"
+                onClick={() => {
+                  if (project.can_edit_details) {
+                    setShowManage(true);
+                    notify({ kind: "info", message: "Link wykonawcy znajdziesz w sekcji wykonawcy edycji inwestycji." });
+                  } else {
+                    notify({ kind: "info", message: "Link wykonawcy jest dostępny tylko dla osoby zarządzającej inwestycją." });
+                  }
+                }}
+              >
+                Link wykonawcy
+              </Button>
+            )}
+            {!guestToken && project.can_edit_details && <Button variant="secondary" icon="settings" onClick={() => setShowManage(true)}>{isInvestorPanelUser ? "Edytuj inwestycję" : "Edytuj zlecenie"}</Button>}
           </div>
         </div>
-        {showClientLink && clientLink?.url && (
+        {!isInvestorPanelUser && showClientLink && clientLink?.url && (
           <div className="share-result client-link-result">
             <input value={clientLink.url} readOnly />
             <Button variant="secondary" onClick={() => void copyToClipboard(clientLink.url)}>Kopiuj link</Button>
@@ -3706,17 +3789,17 @@ function ProjectView({
       </header>
       <div className="project-layout">
         <aside className="project-summary panel">
-          <h3>Podsumowanie zlecenia</h3>
+          <h3>{isInvestorPanelUser ? "Podsumowanie inwestycji" : "Podsumowanie zlecenia"}</h3>
           <div className="progress-value"><strong>{progress}%</strong><span>{completedCount} z {project.stages?.length || 0} etapów ukończonych</span></div>
           <div className="progress"><i style={{ width: `${progress}%` }} /></div>
           <ContractTermsPanel project={project} />
           {stages}
-          {!guestToken && <div className="summary-meta"><div><small>Klient</small><strong>{project.client_name || "—"}</strong></div><div><small>Adres</small><strong>{project.address || "—"}</strong></div><div><small>Rola</small><strong>{project.role || "gość"}</strong></div></div>}
+          {!guestToken && <div className="summary-meta"><div><small>{isInvestorPanelUser ? "Wykonawca" : "Klient"}</small><strong>{isInvestorPanelUser ? projectPartyValue(user!, project) : project.client_name || "—"}</strong></div><div><small>Adres</small><strong>{project.address || "—"}</strong></div><div><small>Rola</small><strong>{project.role || "gość"}</strong></div></div>}
         </aside>
         <main className="project-timeline panel">
           <div className="panel__header">
-            <div><h2>Postęp i zarządzanie zleceniem</h2><p>Zdjęcia, opisy, ustalenia i problemy w jednej osi czasu.</p></div>
-            {canAdd && <div className="quick-buttons"><button onClick={() => setEntryModal({ kind: "update", mode: "photo" })}><Icon name="camera" /> Dodaj postęp</button><button className="problem" onClick={() => setEntryModal({ kind: "problem", mode: "text" })}><Icon name="alert" /> Zgłoś problem</button></div>}
+            <div><h2>{isInvestorPanelUser ? "Historia postępu inwestycji" : "Postęp i zarządzanie zleceniem"}</h2><p>Zdjęcia, opisy, ustalenia i problemy w jednej osi czasu.</p></div>
+            {canAdd && <div className="quick-buttons"><button onClick={() => isInvestorPanelUser ? setShowAddProgressChoice(true) : setEntryModal({ kind: "update", mode: "photo" })}><Icon name="camera" /> {isInvestorPanelUser ? "Dodaj wpis" : "Dodaj postęp"}</button><button className="problem" onClick={() => setEntryModal({ kind: "problem", mode: "text" })}><Icon name="alert" /> Zgłoś problem</button></div>}
           </div>
           {entries.length === 0 ? <EmptyState icon="camera" title="Tu powstanie historia pracy" text="Dodaj pierwszy postęp: zdjęcia oraz opis głosowy lub tekstowy." /> : <div className="timeline">{entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} canDelete={canDeleteEntry(entry)} onDelete={setDeleteEntryTarget} key={entry.id} />)}</div>}
         </main>
@@ -3733,6 +3816,15 @@ function ProjectView({
         />
       )}
       {clientCoverCard}
+      {isInvestorPanelUser && showAddProgressChoice && (
+        <AddProgressChoice
+          onClose={() => setShowAddProgressChoice(false)}
+          onPick={(entry) => {
+            setShowAddProgressChoice(false);
+            setEntryModal(entry);
+          }}
+        />
+      )}
       {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
       {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
       {showManage && <ManageProjectModal project={project} user={user} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
@@ -3810,6 +3902,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
   const [reportModalLoading, setReportModalLoading] = useState(false);
   const [reportModalError, setReportModalError] = useState("");
   const [busyReportAction, setBusyReportAction] = useState<string | null>(null);
+  const investorReports = isInvestor(user);
 
   useEffect(() => {
     if (!reportModalProject) return;
@@ -4149,12 +4242,12 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
   }
 
   return (
-    <div className="page reports-page">
+    <div className={`page reports-page ${investorReports ? "reports-page--investor" : ""}`}>
       <header className="page-header">
         <div>
-          <span className="eyebrow">Dokumentacja</span>
+          <span className="eyebrow">{investorReports ? "Moje raporty" : "Dokumentacja"}</span>
           <h1>Raporty</h1>
-          <p>Przeglądaj projekty raportowe i otwieraj raporty tworzone w ramach zleceń.</p>
+          <p>{investorReports ? "Przeglądaj raporty i wpisy z Twoich inwestycji." : "Przeglądaj projekty raportowe i otwieraj raporty tworzone w ramach zleceń."}</p>
         </div>
       </header>
 
@@ -4167,22 +4260,22 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
       <section className="panel report-metrics">
         <article>
           <span><Icon name="report" /></span>
-          <div><small>Otwarte raporty / wpisy</small><strong>{openReportMaterial}</strong><p>{openProjects.length} zleceń otwartych</p></div>
+          <div><small>{investorReports ? "Otwarte" : "Otwarte raporty / wpisy"}</small><strong>{openReportMaterial}</strong><p>{openProjects.length} {investorReports ? "inwestycji w toku" : "zleceń otwartych"}</p></div>
         </article>
         <article>
           <span className="metric-green"><Icon name="sync" /></span>
-          <div><small>Historyczne raporty / wpisy</small><strong>{historicalReportMaterial}</strong><p>{historicalProjects.length} zleceń zakończonych</p></div>
+          <div><small>{investorReports ? "Historyczne" : "Historyczne raporty / wpisy"}</small><strong>{historicalReportMaterial}</strong><p>{historicalProjects.length} {investorReports ? "zakończonych inwestycji" : "zleceń zakończonych"}</p></div>
         </article>
         <article>
           <span className="metric-orange"><Icon name="clipboard" /></span>
-          <div><small>Zlecenia z wieloma wpisami</small><strong>{multiReportProjects}</strong><p>na podstawie wpisów postępu</p></div>
+          <div><small>{investorReports ? "Wszystkie" : "Zlecenia z wieloma wpisami"}</small><strong>{investorReports ? projects.length : multiReportProjects}</strong><p>{investorReports ? "prywatne inwestycje" : "na podstawie wpisów postępu"}</p></div>
         </article>
       </section>
 
       <section className="report-toolbar">
         <input
           type="search"
-          placeholder="Szukaj po nazwie zlecenia, kliencie lub wykonawcy..."
+          placeholder={investorReports ? "Szukaj po nazwie inwestycji, wykonawcy lub adresie..." : "Szukaj po nazwie zlecenia, kliencie lub wykonawcy..."}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -4206,7 +4299,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
                 <span className="report-project-card__icon"><Icon name="report" /></span>
                 <div className="report-project-card__main">
                   <h2>{project.name}</h2>
-                  <p>{project.address || "Adres nieuzupełniony"}{project.client_name ? ` · Klient: ${project.client_name}` : ""}</p>
+                  <p>{project.address || "Adres nieuzupełniony"}{project.client_name && !investorReports ? ` · Klient: ${project.client_name}` : ""}</p>
                 </div>
                 <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
                 <dl>
@@ -4234,12 +4327,15 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
                       <span><Icon name="report" /></span>
                       <div>
                         <span className="report-row-label">Raport</span>
-                        <strong>Raport zlecenia</strong>
+                        <strong>{investorReports ? "Raport inwestycji" : "Raport zlecenia"}</strong>
                         <small>{count > 0 ? `Materiał raportowy z ${count} ${count === 1 ? "wpisu" : "wpisów"}.` : "Brak wpisów postępu do raportu."}</small>
                       </div>
                       <div><small>Data wystawienia</small><strong>{new Intl.DateTimeFormat("pl").format(new Date(project.updated_at || project.created_at))}</strong></div>
                       <div><small>Etap / Status</small><span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span></div>
-                      <Button type="button" variant="secondary" icon="report" onClick={() => onOpen(project)}>Otwórz raport</Button>
+                      <div className="report-row-actions">
+                        <Button type="button" variant="secondary" onClick={() => onOpen(project)}>{investorReports ? "Otwórz" : "Otwórz raport"}</Button>
+                        {investorReports && <Button type="button" variant="secondary" icon="report" onClick={() => onOpen(project)}>Raport PDF</Button>}
+                      </div>
                     </article>
                   </div>
                 ) : (
@@ -4536,6 +4632,7 @@ function InvestorContractorsPanel({
   const [editingWorker, setEditingWorker] = useState<WorkerProfile | null>(null);
   const [previewWorker, setPreviewWorker] = useState<WorkerProfile | null>(null);
   const [showAddContractor, setShowAddContractor] = useState(false);
+  const [contractorPath, setContractorPath] = useState<"account" | "link">("account");
   const [contractorSearch, setContractorSearch] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -4676,7 +4773,7 @@ function InvestorContractorsPanel({
           <div>
             <span className="eyebrow">Typ konta: Inwestor</span>
             <h2>Wykonawcy</h2>
-            <p>Zarządzaj wykonawcami, których przypisujesz do inwestycji.</p>
+            <p>Zarządzaj wykonawcami przypisanymi do Twoich inwestycji.</p>
           </div>
           <div className="company-team-meta">
             <span>{activeWorkers.length} aktywnych</span>
@@ -4704,7 +4801,7 @@ function InvestorContractorsPanel({
         </div>
         <div className="contractor-table-head" aria-hidden="true">
           <span>Wykonawca</span>
-          <span>Status</span>
+          <span>Typ / status</span>
           <span>Inwestycje</span>
           <span>Akcje</span>
         </div>
@@ -4728,8 +4825,9 @@ function InvestorContractorsPanel({
                   {worker.note && <small>{worker.note}</small>}
                 </div>
                 <div className="contractor-card__status">
+                  <strong>{investorContractorTypeLabel(worker)}</strong>
                   <span className={`status ${worker.active ? "status--active" : "status--archived"}`}>{worker.active ? "Aktywny" : "Nieaktywny"}</span>
-                  <small>{worker.account_type === "account" ? "konto po potwierdzeniu e-mail" : "link-only"}</small>
+                  <small>{worker.account_type === "account" ? "konto Pan Majster" : "link-only"} · ostatnio {investorContractorActivityLabel(worker)}</small>
                 </div>
                 <div className="contractor-card__assignments">
                   <strong>{assignedCount}</strong>
@@ -4742,6 +4840,8 @@ function InvestorContractorsPanel({
                 </div>
                 <div className="contractor-card__actions">
                   <Button type="button" variant="secondary" onClick={() => setPreviewWorker(worker)}>Podgląd zleceń</Button>
+                  <Button type="button" variant="secondary" onClick={() => notify({ kind: "info", message: "Przypisanie wykonawcy zrobisz w edycji konkretnej inwestycji." })}>Przypisz do inwestycji</Button>
+                  <Button type="button" variant="secondary" icon="link" onClick={() => notify({ kind: "info", message: "Link wykonawcy jest generowany dla konkretnej inwestycji w jej edycji." })}>Link wykonawcy</Button>
                   <Button type="button" variant="secondary" onClick={() => setEditingWorker(worker)}>Edytuj</Button>
                   {worker.active ? (
                     <Button type="button" variant="danger" disabled={busy} onClick={() => deactivateWorker(worker)}>Dezaktywuj</Button>
@@ -4757,14 +4857,14 @@ function InvestorContractorsPanel({
 
       {workerLinks.length > 0 && (
         <details className="panel temporary-links-panel">
-          <summary>Wykonawcy przypisani linkiem <span>{workerLinks.length}</span></summary>
+          <summary>Wykonawcy przez link <span>{workerLinks.length}</span></summary>
           <div className="member-list worker-link-list worker-link-list--compact">
             {workerLinks.map((link) => (
               <article key={link.id}>
                 <span>{link.label.slice(0, 2).toUpperCase()}</span>
                 <div>
                   <strong>{link.label}</strong>
-                  <small>{link.email || "Bez e-maila"} · {link.project_name || "Inwestycja"} · link-only</small>
+                  <small>{link.email || "Bez e-maila"} · {link.project_name || "Inwestycja"} · Link wykonawcy · link-only</small>
                 </div>
                 <b>{link.revoked_at ? "Odwołany" : "Aktywny"}</b>
               </article>
@@ -4777,16 +4877,28 @@ function InvestorContractorsPanel({
         <Modal title="Dodaj wykonawcę" onClose={() => setShowAddContractor(false)}>
           <form className="form-stack" onSubmit={createWorker}>
             <p className="form-intro">
-              E-mail jest opcjonalny. Jeśli go podasz, utworzymy zaproszenie do stałego konta wykonawcy.
+              Dodajesz prywatnego wykonawcę do swoich inwestycji. To nie jest wyszukiwarka ani publiczna baza firm.
             </p>
+            <div className="contractor-path-choice" role="group" aria-label="Sposób dodania wykonawcy">
+              <button type="button" className={contractorPath === "account" ? "active" : ""} onClick={() => setContractorPath("account")}>
+                <Icon name="users" />
+                <strong>Wykonawca z kontem Pan Majster</strong>
+                <small>Zaprosisz wykonawcę, który ma lub utworzy konto i będzie mógł pracować w aplikacji.</small>
+              </button>
+              <button type="button" className={contractorPath === "link" ? "active" : ""} onClick={() => setContractorPath("link")}>
+                <Icon name="link" />
+                <strong>Wykonawca przez link</strong>
+                <small>Dla wykonawcy bez konta. Link będzie przypisany do konkretnej inwestycji.</small>
+              </button>
+            </div>
             <label>Typ<select name="profile_kind" defaultValue="craftsman"><option value="craftsman">Wykonawca</option><option value="crew">Firma / ekipa zewnętrzna</option></select></label>
             <label>Nazwa wykonawcy<input name="label" required placeholder="np. Firma remontowa albo hydraulik" autoFocus /></label>
             <div className="form-row">
-              <label>E-mail opcjonalnie<input type="email" name="email" placeholder="Możesz zostawić puste" /></label>
+              <label>{contractorPath === "account" ? "E-mail do zaproszenia" : "E-mail opcjonalnie"}<input type="email" name="email" placeholder={contractorPath === "account" ? "np. wykonawca@example.com" : "Możesz zostawić puste"} /></label>
               <label>Telefon opcjonalnie<input name="phone" /></label>
             </div>
             <label>Profesja / specjalizacja wykonawcy<textarea name="note" rows={2} placeholder="np. hydraulik, ogrodnik, glazurnik" /></label>
-            <Button type="submit" busy={busy} icon="plus">Dodaj wykonawcę</Button>
+            <Button type="submit" busy={busy} icon="plus">{contractorPath === "account" ? "Dodaj wykonawcę" : "Dodaj wykonawcę przez link"}</Button>
           </form>
         </Modal>
       )}
@@ -4813,7 +4925,8 @@ function InvestorContractorsPanel({
               <div><dt>Profesja / specjalizacja</dt><dd>{previewWorker.note || (previewWorker.profile_kind === "crew" ? "Firma / ekipa zewnętrzna" : "Wykonawca")}</dd></div>
               <div><dt>E-mail</dt><dd>{previewWorker.email || "Nie podano"}</dd></div>
               <div><dt>Telefon</dt><dd>{previewWorker.phone || "Nie podano"}</dd></div>
-              <div><dt>Konto</dt><dd>{previewWorker.account_type === "account" ? "konto po potwierdzeniu e-mail" : "link-only"}</dd></div>
+              <div><dt>Typ</dt><dd>{investorContractorTypeLabel(previewWorker)}{previewWorker.account_type === "link_only" ? " · link-only" : ""}</dd></div>
+              <div><dt>Ostatnia aktywność</dt><dd>{investorContractorActivityLabel(previewWorker)}</dd></div>
             </dl>
             <div className="worker-preview__projects">
               <WorkerProjectSection title="Aktywne zlecenia" emptyText="Brak aktywnych zleceń" projects={[...previewActiveProjects, ...previewOtherProjects]} onOpen={openPreviewProject} />
@@ -5385,7 +5498,7 @@ function TeamPage({
           <div>
             <span className="eyebrow">Współpraca</span>
             <h1>Wykonawcy</h1>
-            <p>Dodawaj wykonawców, wyszukuj ich po nazwie i przypisuj do inwestycji.</p>
+            <p>Zarządzaj wykonawcami przypisanymi do Twoich inwestycji.</p>
           </div>
         </header>
         <InvestorContractorsPanel workspaceId={user.workspaces[0].id} projects={projects} onOpenProject={onProject} onChanged={refreshUser} notify={notify} />
@@ -5442,6 +5555,84 @@ function SettingsPage({
     } catch (reason) {
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zapisać profilu" });
     }
+  }
+  if (isInvestor(user)) {
+    const displayName = user.name || user.email || "Inwestor";
+    const displayEmail = user.email || "Konto bez e-maila";
+    const displayPhone = user.phone || "Nie podano";
+    return (
+      <div className="page investor-settings-page">
+        <header className="page-header">
+          <div>
+            <span className="eyebrow">Konto inwestora</span>
+            <h1>Ustawienia</h1>
+            <p>Prosty profil inwestora używany w inwestycjach i kontaktach z wykonawcami.</p>
+          </div>
+        </header>
+        <section className="investor-settings-grid">
+          <article className="panel investor-settings-card investor-settings-card--profile">
+            <div className="panel__header">
+              <div>
+                <h2>Profil inwestora</h2>
+                <p>Imię, e-mail i telefon widoczne w Twoim prywatnym panelu.</p>
+              </div>
+            </div>
+            <form className="form-stack" onSubmit={submit}>
+              <label>Imię / nazwa inwestora<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
+              <label>E-mail<input value={displayEmail} readOnly disabled /></label>
+              <label>Telefon<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
+              <p className="form-note">E-mail jest obecnym loginem. Zmiana loginu będzie osobnym krokiem auth, nie częścią tego panelu.</p>
+              <Button type="submit">Zapisz profil</Button>
+            </form>
+          </article>
+          <article className="panel investor-settings-card">
+            <div className="panel__header">
+              <div>
+                <h2>Widoczność danych</h2>
+                <p>Te dane są używane w Twoich inwestycjach i kontaktach z wykonawcami.</p>
+              </div>
+            </div>
+            <div className="investor-settings-list">
+              <div className="investor-settings-row">
+                <span><Icon name="users" /></span>
+                <div><strong>Nazwa w panelu</strong><small>{displayName}</small></div>
+              </div>
+              <div className="investor-settings-row">
+                <span><Icon name="send" /></span>
+                <div><strong>E-mail kontaktowy</strong><small>{displayEmail}</small></div>
+              </div>
+              <div className="investor-settings-row">
+                <span><Icon name="settings" /></span>
+                <div><strong>Telefon</strong><small>{displayPhone}</small></div>
+              </div>
+            </div>
+          </article>
+          <article className="panel investor-settings-card">
+            <div className="panel__header">
+              <div>
+                <h2>Konto</h2>
+                <p>Podstawowe informacje o prywatnym panelu inwestora.</p>
+              </div>
+            </div>
+            <div className="investor-settings-list">
+              <div className="investor-settings-row">
+                <span><Icon name="home" /></span>
+                <div><strong>Typ konta</strong><small>Inwestor</small></div>
+              </div>
+              <div className="investor-settings-row">
+                <span><Icon name="clipboard" /></span>
+                <div><strong>Zakres panelu</strong><small>Inwestycje, wykonawcy i raporty prywatne. Bez publicznej bazy firm.</small></div>
+              </div>
+              <div className="investor-settings-row">
+                <span><Icon name="check" /></span>
+                <div><strong>Dane testowe</strong><small>Demo i reset demo są zarządzane osobno.</small></div>
+              </div>
+            </div>
+            <Button type="button" variant="danger" onClick={onLogout}>Wyloguj się</Button>
+          </article>
+        </section>
+      </div>
+    );
   }
   if (isCompanyWorker(user)) {
     const assignedWorkspace = user.workspaces[0];

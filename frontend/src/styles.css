@@ -357,6 +357,9 @@ h1, h2, h3, p { margin-top: 0; }
 .project-list-card__signals { display: flex; flex-wrap: wrap; gap: 8px; }
 .project-list-card__signals span { padding: 6px 9px; border-radius: 999px; background: #f4f7fb; color: #526071; font-weight: 800; }
 .project-list-card__footer .button { min-height: 38px; padding: 0 18px; }
+.project-list-card--investor { border-color: #d6e3f3; }
+.project-list-card__actions { min-width: 0; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.project-list-card__actions .button { min-height: 38px; padding: 0 13px; }
 .workspace-grid { padding: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
 .workspace-grid button { padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: #fff; text-align: left; }
 .workspace-grid button:hover { border-color: var(--orange); box-shadow: var(--shadow); }
@@ -426,6 +429,12 @@ h1, h2, h3, p { margin-top: 0; }
 .contractor-card__assignments span { color: var(--muted); font-size: 11px; line-height: 1.35; }
 .contractor-card__actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .contractor-card__actions .button { min-height: 35px; padding: 0 12px; }
+.contractor-path-choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.contractor-path-choice button { min-width: 0; min-height: 128px; padding: 16px; display: grid; gap: 8px; align-content: start; border: 1px solid #d7e2ef; border-radius: 13px; color: var(--navy); background: #fff; text-align: left; cursor: pointer; }
+.contractor-path-choice button.active { border-color: var(--blue); background: #f2f7ff; box-shadow: 0 0 0 3px rgba(29, 111, 237, .1); }
+.contractor-path-choice button svg { color: var(--blue); }
+.contractor-path-choice strong { color: var(--navy); }
+.contractor-path-choice small { color: var(--muted); line-height: 1.45; }
 .assigned-projects { display: flex; flex-wrap: wrap; gap: 5px; color: var(--muted); font-size: 11px; }
 .assigned-projects b { color: var(--navy); }
 .assigned-projects span { padding: 3px 7px; border-radius: 999px; background: #f1f4f7; }
@@ -464,6 +473,18 @@ h1, h2, h3, p { margin-top: 0; }
 .workspace-editor h3, .workspace-editor h4 { color: var(--navy); }
 .workspace-members { padding: 24px; }
 .settings-panel { max-width: 650px; }
+.investor-settings-page { max-width: 1120px; margin: 0 auto; }
+.investor-settings-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(280px, .9fr); gap: 18px; align-items: start; }
+.investor-settings-card { padding: 18px; }
+.investor-settings-card--profile { grid-row: span 2; }
+.investor-settings-card .form-stack { padding: 0; }
+.investor-settings-card > .button { width: 100%; margin-top: 16px; justify-content: center; }
+.investor-settings-list { display: grid; gap: 0; }
+.investor-settings-row { min-height: 62px; padding: 12px 0; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: center; border-bottom: 1px solid #edf1f5; }
+.investor-settings-row:last-child { border-bottom: 0; }
+.investor-settings-row > span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; color: var(--blue); background: #edf4ff; }
+.investor-settings-row strong { display: block; color: var(--navy); }
+.investor-settings-row small { display: block; margin-top: 4px; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
 .admin-panel { max-width: 900px; margin-top: 20px; }
 .admin-stats { padding: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .admin-stats span { padding: 16px; display: flex; flex-direction: column; gap: 5px; color: var(--muted); border-radius: 10px; background: #f5f7f9; font-size: 12px; }
@@ -1205,6 +1226,8 @@ audio { width: 100%; margin-top: 13px; }
 .report-sublist small { display: block; color: var(--muted); font-size: 11px; }
 .report-row-label { display: inline-flex; margin-bottom: 4px; padding: 2px 7px; border-radius: 999px; color: var(--blue); background: #edf3fb; font-size: 10px; font-weight: 900; }
 .report-sublist .button { min-height: 38px; padding: 0 14px; }
+.report-row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.report-row-actions .button { min-height: 38px; padding: 0 13px; }
 .independent-reports-page { max-width: 1160px; }
 .report-filter-cards { margin: 0 0 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .report-filter-card { min-width: 0; min-height: 118px; padding: 18px; position: relative; display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 14px; align-items: center; border: 1px solid #d7e2ef; border-radius: 14px; background: #fff; box-shadow: 0 12px 26px rgba(18,38,69,.06); text-align: left; cursor: pointer; }
@@ -1449,7 +1472,8 @@ audio { width: 100%; margin-top: 13px; }
   .report-materials { margin: 0 12px 14px; padding: 12px 12px 12px 16px; }
   .report-materials__heading { align-items: flex-start; flex-direction: column; }
   .report-sublist article { grid-template-columns: 42px 1fr; }
-  .report-sublist article > div, .report-sublist article .button { grid-column: 2; justify-self: start; }
+  .report-sublist article > div, .report-sublist article .button, .report-sublist article .report-row-actions { grid-column: 2; justify-self: start; }
+  .report-row-actions { justify-content: flex-start; }
   .generated-report-list article { grid-template-columns: 42px minmax(180px, 1fr) minmax(140px, 0.8fr); }
   .report-status, .generated-report-actions { grid-column: 2 / -1; justify-self: start; }
   .simple-stage { align-items: flex-start; flex-wrap: wrap; }
@@ -1461,6 +1485,8 @@ audio { width: 100%; margin-top: 13px; }
   .contractor-card { grid-template-columns: 46px 1fr; }
   .contractor-card__status, .contractor-card__assignments, .contractor-card__actions { grid-column: 2; }
   .contractor-card__actions { justify-content: flex-start; }
+  .investor-settings-grid { grid-template-columns: 1fr; }
+  .investor-settings-card--profile { grid-row: auto; }
   .project-layout { grid-template-columns: 270px 1fr; }
   .media-grid { grid-template-columns: repeat(3, 1fr); }
 }
@@ -1485,6 +1511,7 @@ audio { width: 100%; margin-top: 13px; }
   .worker-project-card { grid-template-columns: 1fr; }
   .worker-project-card dl { grid-template-columns: 1fr; }
   .contractor-tab { padding: 18px; }
+  .contractor-path-choice { grid-template-columns: 1fr; }
   .contractor-grid, .contractor-grid--assign { grid-template-columns: 1fr; }
   .worker-assign-form .button, .temporary-worker-form .button { width: 100%; }
   .assigned-worker-card article, .project-owner-list article, .temporary-link-list article { grid-template-columns: 42px 1fr; }
@@ -1634,6 +1661,13 @@ audio { width: 100%; margin-top: 13px; }
   .project-meta-grid div:last-child { border-bottom: 0; }
   .project-list-card__footer { grid-template-columns: 1fr; }
   .project-list-card__footer .button { width: 100%; }
+  .project-list-card__actions { width: 100%; display: grid; grid-template-columns: 1fr; justify-content: stretch; }
+  .project-list-card__actions .button { width: 100%; justify-content: center; }
+  .report-row-actions { width: 100%; display: grid; grid-template-columns: 1fr; justify-content: stretch; }
+  .report-row-actions .button { width: 100%; justify-content: center; }
+  .investor-settings-card { padding: 16px; }
+  .investor-settings-row { grid-template-columns: 40px minmax(0, 1fr); }
+  .investor-settings-row > span { width: 40px; height: 40px; }
   .ic-portfolio-preview-bar { padding: 12px 16px; align-items: stretch; flex-direction: column; }
   .ic-portfolio-preview-bar .button { width: 100%; justify-content: center; }
   .ic-portfolio-public { width: calc(100% - 24px); margin: 12px auto 24px; border-radius: 14px; }
