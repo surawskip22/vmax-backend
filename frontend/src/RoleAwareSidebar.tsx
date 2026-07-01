@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "./icons";
-import { isCompanyWorker, isIndependentContractor, isInvestor } from "./access";
+import { isCompanyOwner, isCompanyWorker, isIndependentContractor, isInvestor } from "./access";
 import { peopleLabelsForUser, profileLabels } from "./roleLabels";
 import type { User } from "./types";
 
@@ -32,6 +32,14 @@ function getNavigationForUser(user: User): NavItem[] {
       { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
       { id: "discover", label: "Wyszukaj wykonawcę", icon: "search" },
       { id: "postJob", label: "Ogłoś zlecenie", icon: "plus" },
+      { id: "reports", label: "Raporty", icon: "report" },
+      { id: "settings", label: "Ustawienia", icon: "settings" },
+    ];
+  }
+  if (isCompanyOwner(user)) {
+    return [
+      { id: "projects", label: "Zlecenia", icon: "clipboard" },
+      { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
       { id: "reports", label: "Raporty", icon: "report" },
       { id: "settings", label: "Ustawienia", icon: "settings" },
     ];

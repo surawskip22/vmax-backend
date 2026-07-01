@@ -307,6 +307,17 @@ function projectListCopy(user: User) {
       emptyText: "Zlecenie połączy terminy, kwotę i historię postępu.",
     };
   }
+  if (user.profile_type === "company_owner") {
+    return {
+      eyebrow: "Firma",
+      title: "Zlecenia",
+      description: "Zarządzaj zleceniami firmy, ekipami i postępem prac.",
+      createLabel: "Dodaj zlecenie",
+      searchPlaceholder: "Szukaj zlecenia, klienta, majstra, ekipy lub adresu...",
+      emptyTitle: "Dodaj pierwsze zlecenie",
+      emptyText: "Zlecenie połączy klienta, ekipę, terminy, kwotę i historię postępu.",
+    };
+  }
   return {
     eyebrow: "Wszystkie realizacje",
     title: "Zlecenia",
@@ -1394,8 +1405,10 @@ function ProjectsPage({
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "start" | "end" | "status">("newest");
   const simpleMode = uiMode === "simple";
   const investorMode = isInvestor(user);
+  const companyOwnerMode = isCompanyOwner(user);
   const investorSimpleMode = investorMode && simpleMode;
   const investorAdvancedMode = investorMode && !simpleMode;
+  const ownerSimpleMode = companyOwnerMode && simpleMode;
   const canFilterWorkers = !simpleMode && canManagePeople(user);
   useEffect(() => {
     if (simpleMode && !["newest", "oldest"].includes(sortBy)) setSortBy("newest");
@@ -1564,11 +1577,11 @@ function ProjectsPage({
     );
   }
   return (
-    <div className={`page ${investorMode ? "investor-workspace-page investor-projects-page" : ""}`}>
+    <div className={`page ${investorMode ? "investor-workspace-page investor-projects-page" : ""} ${companyOwnerMode ? "company-owner-projects-page" : ""}`}>
       <header className="page-header">
         <div><span className="eyebrow">{copy.eyebrow}</span><h1>{copy.title}</h1><p>{copy.description}</p></div>
-        {investorMode ? (
-          <div className="investor-page-actions">
+        {investorMode || companyOwnerMode ? (
+          <div className={investorMode ? "investor-page-actions" : "company-owner-page-actions"}>
             <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
             {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
           </div>
@@ -1576,9 +1589,9 @@ function ProjectsPage({
           canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>
         )}
       </header>
-      <section className={`panel ${investorMode ? "investor-list-panel" : ""}`}>
-        <div className={`project-controls ${investorMode ? `project-controls--investor project-controls--investor-${simpleMode ? "simple" : "advanced"}` : ""}`}>
-          {!investorSimpleMode && (
+      <section className={`panel ${investorMode ? "investor-list-panel" : ""} ${companyOwnerMode ? "company-owner-list-panel" : ""}`}>
+        <div className={`project-controls ${investorMode ? `project-controls--investor project-controls--investor-${simpleMode ? "simple" : "advanced"}` : ""} ${companyOwnerMode ? `project-controls--owner project-controls--owner-${simpleMode ? "simple" : "advanced"}` : ""}`}>
+          {!(investorSimpleMode || ownerSimpleMode) && (
             <div className="list-tabs" role="tablist" aria-label="Widok zleceń">
               <button type="button" className={viewFilter === "all" ? "active" : ""} onClick={() => setViewFilter("all")}>Wszystkie</button>
               <button type="button" className={viewFilter === "open" ? "active" : ""} onClick={() => setViewFilter("open")}>{investorMode ? "W realizacji" : "Otwarte"}</button>
@@ -1620,7 +1633,7 @@ function ProjectsPage({
         ) : (
           <div className="project-list-cards">
             {visible.map((project) => (
-              <article className={`project-list-card ${investorMode ? `project-list-card--investor ${investorSimpleMode ? "project-list-card--investor-simple" : "project-list-card--investor-advanced"}` : ""}`} key={project.id}>
+              <article className={`project-list-card ${investorMode ? `project-list-card--investor ${investorSimpleMode ? "project-list-card--investor-simple" : "project-list-card--investor-advanced"}` : ""} ${companyOwnerMode ? `project-list-card--owner ${ownerSimpleMode ? "project-list-card--owner-simple" : "project-list-card--owner-advanced"}` : ""}`} key={project.id}>
                 <div className="project-list-card__top">
                   <span className="project-card__icon"><Icon name="clipboard" /></span>
                   <div className="project-list-card__identity">
@@ -1650,23 +1663,44 @@ function ProjectsPage({
                   <div className="project-list-card__signals">
                     <span>{projectLastProgressLabel(project)}</span>
                     {!investorSimpleMode && <span>{project.open_problem_count || 0} problemów</span>}
-                    {!investorSimpleMode && investorMode && projectHasLinkOnlyWorker(project) && <span>link-only</span>}
+                    {!investorSimpleMode && (investorMode || companyOwnerMode) && projectHasLinkOnlyWorker(project) && <span>link-only</span>}
                   </div>
-                  {investorMode ? (
+                  {investorMode || companyOwnerMode ? (
                     <div className="project-list-card__actions">
-                      <Button type="button" onClick={() => onProject(project)} variant="secondary">{investorSimpleMode ? "Szczegóły" : "Podgląd"}</Button>
-                      {!investorSimpleMode && <Button type="button" onClick={() => onProject(project)} variant="secondary" icon="report">Raporty</Button>}
-                      {!investorSimpleMode && (
+                      <Button type="button" onClick={() => onProject(project)} variant="secondary">{simpleMode ? "Szczegóły" : "Podgląd"}</Button>
+                      {!simpleMode && <Button type="button" onClick={() => onProject(project)} variant="secondary" icon="report">Raporty</Button>}
+                      {!simpleMode && (
+                        investorMode ? (
+                          <Button
+                            type="button"
+                            onClick={() => notify({ kind: "info", message: "Link wykonawcy utworzysz lub skopiujesz w edycji inwestycji." })}
+                            variant="secondary"
+                            icon="link"
+                          >
+                            Link wykonawcy
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() => notify({ kind: "info", message: "Link klienta (/c) skopiujesz w szczegółach zlecenia." })}
+                            variant="secondary"
+                            icon="link"
+                          >
+                            Link klienta
+                          </Button>
+                        )
+                      )}
+                      {!simpleMode && companyOwnerMode && projectHasLinkOnlyWorker(project) && (
                         <Button
                           type="button"
-                          onClick={() => notify({ kind: "info", message: "Link wykonawcy utworzysz lub skopiujesz w edycji inwestycji." })}
+                          onClick={() => notify({ kind: "info", message: "Link majstra / ekipy (/g) znajdziesz w edycji wykonawcy zlecenia." })}
                           variant="secondary"
                           icon="link"
                         >
-                          Link wykonawcy
+                          Link majstra / ekipy
                         </Button>
                       )}
-                      {!investorSimpleMode && <Button type="button" onClick={() => onProject(project)} variant="secondary">Edytuj</Button>}
+                      {!simpleMode && <Button type="button" onClick={() => onProject(project)} variant="secondary">Edytuj</Button>}
                     </div>
                   ) : (
                     <Button type="button" onClick={() => onProject(project)} variant="secondary">Otwórz</Button>
@@ -4318,6 +4352,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
   const [reportModalError, setReportModalError] = useState("");
   const [busyReportAction, setBusyReportAction] = useState<string | null>(null);
   const investorReports = isInvestor(user);
+  const companyOwnerReports = isCompanyOwner(user);
 
   useEffect(() => {
     if (!reportModalProject) return;
@@ -4440,8 +4475,8 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
       return sortDirection === "newest" ? -result : result;
     });
 
-  if (isIndependentContractor(user) || investorReports) {
-    const reportProjects = investorReports ? projects : projects.filter((project) => reportMaterialCount(project) > 0);
+  if (isIndependentContractor(user) || investorReports || companyOwnerReports) {
+    const reportProjects = investorReports || companyOwnerReports ? projects : projects.filter((project) => reportMaterialCount(project) > 0);
     const independentOpenProjects = reportProjects.filter((project) => project.status !== "completed");
     const independentHistoricalProjects = reportProjects.filter((project) => project.status === "completed");
     const independentSource = tab === "all"
@@ -4472,7 +4507,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         key: "all" as const,
         title: "Wszystkie",
         count: allMaterial,
-        text: investorReports ? "Wpisy i raporty z inwestycji" : "Wszystkie wpisy i raporty",
+        text: investorReports ? "Wpisy i raporty z inwestycji" : companyOwnerReports ? "Wpisy i raporty zleceń firmy" : "Wszystkie wpisy i raporty",
         icon: "report" as const,
         tone: "blue",
       },
@@ -4480,7 +4515,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         key: "open" as const,
         title: "Otwarte",
         count: openMaterial,
-        text: investorReports ? `${independentOpenProjects.length} inwestycji w toku` : "Wymagają zakończenia",
+        text: investorReports ? `${independentOpenProjects.length} inwestycji w toku` : companyOwnerReports ? `${independentOpenProjects.length} zleceń otwartych` : "Wymagają zakończenia",
         icon: "sync" as const,
         tone: "green",
       },
@@ -4488,19 +4523,19 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         key: "history" as const,
         title: "Historyczne",
         count: historicalMaterial,
-        text: investorReports ? `${independentHistoricalProjects.length} zakończonych` : "Zakończone",
+        text: investorReports ? `${independentHistoricalProjects.length} zakończonych` : companyOwnerReports ? `${independentHistoricalProjects.length} zleceń zakończonych` : "Zakończone",
         icon: "clipboard" as const,
         tone: "orange",
       },
     ];
 
     return (
-      <div className={`page reports-page independent-reports-page ${investorReports ? "independent-reports-page--investor" : ""}`}>
+      <div className={`page reports-page independent-reports-page ${investorReports ? "independent-reports-page--investor" : ""} ${companyOwnerReports ? "independent-reports-page--company-owner" : ""}`}>
         <header className="page-header">
           <div>
             <span className="eyebrow">{investorReports ? "Moje raporty" : "Dokumentacja"}</span>
             <h1>Raporty</h1>
-            <p>{investorReports ? "Przeglądaj raporty i wpisy z Twoich inwestycji." : "Przeglądaj projekty raportowe i otwieraj raporty tworzone w ramach zleceń."}</p>
+            <p>{investorReports ? "Przeglądaj raporty i wpisy z Twoich inwestycji." : companyOwnerReports ? "Przeglądaj raporty, wpisy i materiały ze zleceń firmy." : "Przeglądaj projekty raportowe i otwieraj raporty tworzone w ramach zleceń."}</p>
           </div>
         </header>
 
@@ -4540,7 +4575,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
 
         <section className="report-project-list independent-report-list">
           {reportProjects.length === 0 ? (
-            <EmptyState icon="report" title="Brak raportów" text={investorReports ? "Raporty pojawią się tutaj po wpisach wykonawców w Twoich inwestycjach." : "Raporty pojawią się tutaj po dodaniu postępu i wygenerowaniu raportu w zleceniu."} />
+            <EmptyState icon="report" title="Brak raportów" text={investorReports ? "Raporty pojawią się tutaj po wpisach wykonawców w Twoich inwestycjach." : companyOwnerReports ? "Raporty pojawią się tutaj po postępach ekip i wygenerowaniu PDF w zleceniu." : "Raporty pojawią się tutaj po dodaniu postępu i wygenerowaniu raportu w zleceniu."} />
           ) : filteredProjects.length === 0 ? (
             <EmptyState icon="report" title="Brak wyników" text="Zmień filtr lub wyszukiwaną frazę." />
           ) : filteredProjects.map((project) => {
@@ -4609,7 +4644,7 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
 
         {filteredProjects.length > 0 && (
           <footer className="report-pagination-summary">
-            <span>1-{filteredProjects.length} z {filteredProjects.length} {investorReports ? "inwestycji" : "zleceń"}</span>
+              <span>1-{filteredProjects.length} z {filteredProjects.length} {investorReports ? "inwestycji" : "zleceń"}</span>
             <div aria-label="Paginacja raportów">
               <button type="button" disabled><Icon name="back" size={15} /></button>
               <b>1</b>
@@ -5829,8 +5864,8 @@ function CompanyTeamPanel({
         <Modal title="Dodaj majstra / ekipę" onClose={() => setShowAddWorker(false)}>
           <form className="form-stack" onSubmit={createWorker}>
             <p className="form-intro">
-              Podanie e-maila oznacza zaproszenie do stałego konta po potwierdzeniu kodem.
-              Bez e-maila dodasz wykonawcę do listy, a link tymczasowy wyślesz z poziomu zlecenia.
+              Pracownik z kontem dostaje zaproszenie przez e-mail po potwierdzeniu kodem.
+              Majster / ekipa przez link może zostać dodany bez e-maila, a dostęp do konkretnego zlecenia wyślesz z poziomu zlecenia.
             </p>
             <label>Typ<select name="profile_kind" defaultValue="craftsman"><option value="craftsman">Majster</option><option value="crew">Ekipa</option></select></label>
             <label>Nazwa<input name="label" required placeholder="np. Mieciu hydraulik albo Ekipa Kowalskiego" autoFocus /></label>
@@ -6309,12 +6344,12 @@ function TeamPage({
   }
   if (user.profile_type === "company_owner" && user.workspaces.length > 0) {
     return (
-      <div className="page">
+      <div className="page company-owner-team-page">
         <header className="page-header">
           <div>
             <span className="eyebrow">Zespół firmy</span>
             <h1>{peopleLabels.section}</h1>
-            <p>Zarządzaj ekipami i pojedynczymi majstrami bez wybierania wielu firm.</p>
+            <p>Zarządzaj majstrami, ekipami, dostępami i przypisanymi zleceniami.</p>
           </div>
         </header>
         <CompanyTeamPanel workspaceId={user.workspaces[0].id} projects={projects} onOpenProject={onProject} onChanged={refreshUser} notify={notify} />
@@ -6388,6 +6423,150 @@ function SettingsPage({
     } catch (reason) {
       notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zapisać profilu" });
     }
+  }
+  if (isCompanyOwner(user)) {
+    const primaryWorkspace = user.workspaces[0];
+    const displayName = user.name || user.email || "Szef firmy";
+    const displayEmail = user.email || "Konto bez e-maila";
+    const displayPhone = user.phone || "Nie podano";
+    const defaultModeLabel = uiMode === "simple" ? "Prosty" : "Rozbudowany";
+    return (
+      <div className="page worker-settings-page company-owner-settings-page">
+        <WorkerMobileHeader title="Szef firmy" />
+        <header className="worker-page-header">
+          <div>
+            <span className="eyebrow">Konto firmy</span>
+            <h1>Ustawienia</h1>
+            <p>Dane szefa firmy, podstawowe informacje o firmie i szybkie odnośniki do zespołu.</p>
+          </div>
+        </header>
+        <section className="worker-settings-stack company-owner-settings-stack">
+          <article className="worker-settings-card company-owner-settings-card">
+            <h2>Moje konto</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="users" /></span>
+                <div><strong>Imię i nazwisko</strong><small>{displayName}</small></div>
+                <b>{displayName}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="send" /></span>
+                <div><strong>E-mail / login</strong><small>{displayEmail}</small></div>
+                <b>{displayEmail}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="phone" /></span>
+                <div><strong>Telefon</strong><small>{displayPhone}</small></div>
+                <b>{displayPhone}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="home" /></span>
+                <div><strong>Typ konta</strong><small>Właściciel firmy</small></div>
+                <b>Szef firmy</b>
+              </div>
+            </div>
+            <form className="worker-settings-edit-form company-owner-profile-form" onSubmit={submit}>
+              <label>Imię i nazwisko<input name="name" defaultValue={user.name} placeholder="Jan Kowalski" /></label>
+              <label>Telefon<input name="phone" defaultValue={user.phone} placeholder="+48 600 000 000" /></label>
+              <div className="worker-settings-email-lock">
+                <strong>E-mail / login</strong>
+                <p>Obecnie e-mail jest loginem do konta. Login pozostaje bez zmian: <u>{displayEmail}</u>.</p>
+                <small>Zmiana e-maila lub loginu zostaje osobnym krokiem auth/model.</small>
+              </div>
+              <input type="hidden" name="preferred_mode" value={uiMode === "simple" ? "field" : "expanded"} />
+              <Button type="submit">Zapisz profil</Button>
+            </form>
+          </article>
+
+          <article className="worker-settings-card company-owner-settings-card">
+            <h2>Dane firmy</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="home" /></span>
+                <div><strong>Firma</strong><small>{primaryWorkspace?.name || "Brak przypisanej firmy"}</small></div>
+                <b>{primaryWorkspace?.name || "Brak"}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="settings" /></span>
+                <div><strong>Rola w workspace</strong><small>{primaryWorkspace?.role || "owner"}</small></div>
+                <b>Owner</b>
+              </div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="clipboard" /></span>
+                <div><strong>Edycja danych firmy</strong><small>Pełne dane firmy edytujesz w sekcji Majstrowie i ekipy.</small></div>
+                <b>Panel zespołu</b>
+              </div>
+            </div>
+          </article>
+
+          <article className="worker-settings-card company-owner-settings-card">
+            <h2>Zespół i dostępy</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="users" /></span>
+                <div><strong>Majstrowie i ekipy</strong><small>Zarządzanie pracownikami, ekipami i wykonawcami link-only.</small></div>
+                <b>Aktywne</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="link" /></span>
+                <div><strong>Link dla majstra / ekipy</strong><small>Dostęp do konkretnego zlecenia przez link /g.</small></div>
+                <b>Per zlecenie</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="clipboard" /></span>
+                <div><strong>Przypisane zlecenia</strong><small>Widoczne przy podglądzie majstra lub ekipy.</small></div>
+                <b>W panelu ludzi</b>
+              </div>
+            </div>
+          </article>
+
+          <article className="worker-settings-card company-owner-settings-card">
+            <h2>Linki i widoczność</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row">
+                <span><Icon name="link" /></span>
+                <div><strong>Link klienta</strong><small>Publiczny podgląd /c dla klienta zlecenia.</small></div>
+                <b>W zleceniu</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="report" /></span>
+                <div><strong>Raporty PDF</strong><small>Raporty dostępne z poziomu zlecenia i sekcji Raporty.</small></div>
+                <b>Dostępne</b>
+              </div>
+              <div className="worker-settings-row worker-settings-row--disabled">
+                <span><Icon name="image" /></span>
+                <div><strong>Portfolio firmy</strong><small>Publiczne portfolio firmy nie jest częścią tego kroku.</small></div>
+                <b>Future-only</b>
+              </div>
+            </div>
+          </article>
+
+          <article className="worker-settings-card company-owner-settings-card">
+            <h2>Konto</h2>
+            <div className="worker-settings-rows">
+              <div className="worker-settings-row worker-settings-row--mode">
+                <span><Icon name="settings" /></span>
+                <div>
+                  <strong>Tryb widoku</strong>
+                  <small>Przełącznik Prosty / Rozbudowany w widokach zleceń firmy.</small>
+                  <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
+                </div>
+                <b>{defaultModeLabel}</b>
+              </div>
+              <div className="worker-settings-row">
+                <span><Icon name="check" /></span>
+                <div><strong>Status konta</strong><small>Konto właściciela firmy jest aktywne.</small></div>
+                <b>Aktywne</b>
+              </div>
+            </div>
+            <button className="worker-settings-danger-row" type="button" onClick={onLogout}>
+              <span><Icon name="back" /></span>
+              <strong>Wyloguj się</strong>
+            </button>
+          </article>
+        </section>
+      </div>
+    );
   }
   if (isInvestor(user)) {
     const displayName = user.name || user.email || "Inwestor";

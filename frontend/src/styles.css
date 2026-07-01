@@ -399,6 +399,28 @@ h1, h2, h3, p { margin-top: 0; }
 .investor-simple-summary b { color: #5d6b7d; font-size: 11px; text-transform: uppercase; }
 .project-list-card--investor-simple .project-list-card__footer { grid-template-columns: 1fr auto; }
 .project-list-card--investor-simple .project-list-card__actions .button { min-width: 150px; }
+.company-owner-projects-page,
+.company-owner-team-page,
+.independent-reports-page--company-owner { max-width: 1060px; margin: 0 auto; }
+.company-owner-projects-page .page-header,
+.company-owner-team-page .page-header { align-items: center; }
+.company-owner-projects-page .page-header h1,
+.company-owner-team-page .page-header h1 { font-size: 42px; }
+.company-owner-page-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.company-owner-page-actions .worker-mode-switch { min-width: 300px; }
+.company-owner-list-panel { padding: 0; overflow: hidden; border-color: #d7e2ef; border-radius: 16px; box-shadow: 0 18px 36px rgba(18,38,69,.055); }
+.company-owner-list-panel .project-controls { padding: 16px; gap: 12px; background: #fff; }
+.project-controls--owner-simple { grid-template-columns: minmax(240px, 1fr) auto; align-items: center; }
+.project-controls--owner-simple > input { min-height: 42px; }
+.project-controls--owner-simple .project-filter-row { justify-content: flex-end; }
+.project-controls--owner .project-filter-row { align-items: stretch; }
+.project-controls--owner .project-sort-controls button,
+.project-controls--owner .project-filter-row > select { min-height: 42px; border-radius: 10px; }
+.project-list-card--owner { border-color: #d6e3f3; border-radius: 16px; box-shadow: 0 16px 32px rgba(18,38,69,.055); }
+.project-list-card--owner:hover { border-color: #a8bfdd; box-shadow: 0 18px 38px rgba(18,38,69,.08); transform: translateY(-1px); }
+.project-list-card--owner .project-card__icon { border-radius: 14px; color: var(--blue); background: #edf3fb; }
+.project-list-card--owner .project-list-card__actions .button { border-radius: 10px; }
+.project-list-card--owner-simple .project-list-card__top { grid-template-columns: 54px minmax(0, 1fr) auto; }
 .workspace-grid { padding: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
 .workspace-grid button { padding: 24px; border: 1px solid var(--border); border-radius: 12px; background: #fff; text-align: left; }
 .workspace-grid button:hover { border-color: var(--orange); box-shadow: var(--shadow); }
@@ -451,6 +473,35 @@ h1, h2, h3, p { margin-top: 0; }
 .team-worker-card__assignments span { color: var(--muted); font-size: 11px; }
 .team-worker-card__actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .team-worker-card__actions .button { min-height: 35px; padding: 0 12px; }
+.company-owner-team-page .company-team-panel,
+.company-owner-team-page .directory-panel,
+.company-owner-team-page .temporary-links-panel { border-color: #d7e2ef; border-radius: 16px; box-shadow: 0 16px 32px rgba(18,38,69,.055); }
+.company-owner-team-page .team-worker-table-head { display: none; }
+.company-owner-team-page .team-worker-list--table {
+  padding-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 14px;
+}
+.company-owner-team-page .team-worker-card {
+  min-width: 0;
+  padding: 18px;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(18,38,69,.045);
+}
+.company-owner-team-page .team-worker-card__avatar { width: 52px; height: 52px; border-radius: 15px; }
+.company-owner-team-page .team-worker-card__status,
+.company-owner-team-page .team-worker-card__assignments,
+.company-owner-team-page .team-worker-card__actions {
+  grid-column: 2;
+}
+.company-owner-team-page .team-worker-card__actions { justify-content: flex-start; }
+.company-owner-settings-page { max-width: 920px; margin: 0 auto; }
+.company-owner-settings-card .worker-settings-edit-form { margin-top: 16px; }
+.company-owner-settings-card .worker-settings-row--disabled b { color: #5f6f82; }
 .investor-contractors-page { max-width: 1040px; }
 .investor-contractors-page .page-header h1 { font-size: 42px; }
 .investor-contractors-panel .company-team-meta { min-width: 180px; }
@@ -1753,6 +1804,14 @@ audio { width: 100%; margin-top: 13px; }
   .report-sublist article { grid-template-columns: 42px 1fr; }
   .report-sublist article > div, .report-sublist article .button, .report-sublist article .report-row-actions { grid-column: 2; justify-self: start; }
   .report-row-actions { justify-content: flex-start; }
+  .company-owner-projects-page .page-header,
+  .company-owner-team-page .page-header { align-items: flex-start; }
+  .company-owner-page-actions { width: 100%; justify-content: flex-start; }
+  .company-owner-page-actions .worker-mode-switch { min-width: 260px; }
+  .project-controls--owner-simple { grid-template-columns: 1fr; }
+  .project-controls--owner-simple .project-filter-row { justify-content: flex-start; }
+  .project-list-card--owner-simple .project-list-card__top { grid-template-columns: 48px minmax(0, 1fr); }
+  .project-list-card--owner-simple .project-list-card__status { grid-column: 1 / -1; justify-items: start; }
   .generated-report-list article { grid-template-columns: 42px minmax(180px, 1fr) minmax(140px, 0.8fr); }
   .report-status, .generated-report-actions { grid-column: 2 / -1; justify-self: start; }
   .worker-workspace--investor-detail .worker-detail-topbar,
@@ -1972,6 +2031,7 @@ audio { width: 100%; margin-top: 13px; }
   .worker-advanced-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .worker-job-card__details--investor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investor-job-card__actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .company-owner-team-page .team-worker-list--table { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
