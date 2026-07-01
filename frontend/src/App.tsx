@@ -1439,6 +1439,40 @@ function ProjectsPage({
       const result = new Date(dateValue(left)).getTime() - new Date(dateValue(right)).getTime();
       return sortBy === "oldest" || sortBy === "start" || sortBy === "end" ? result : -result;
     });
+  const investorStats = [
+    {
+      key: "all",
+      title: "Wszystkie",
+      count: projects.length,
+      text: "Prywatne inwestycje",
+      icon: "clipboard" as const,
+      tone: "blue",
+    },
+    {
+      key: "open",
+      title: "W realizacji",
+      count: projects.filter((project) => project.status !== "completed").length,
+      text: "Aktywne prace",
+      icon: "sync" as const,
+      tone: "green",
+    },
+    {
+      key: "problems",
+      title: "Problemy",
+      count: projects.reduce((sum, project) => sum + (project.open_problem_count || 0), 0),
+      text: "Otwarte sprawy",
+      icon: "alert" as const,
+      tone: "orange",
+    },
+    {
+      key: "history",
+      title: "Zakończone",
+      count: projects.filter((project) => project.status === "completed").length,
+      text: "Historia inwestycji",
+      icon: "check" as const,
+      tone: "gray",
+    },
+  ];
   if (isCompanyWorker(user) || isIndependentContractor(user)) {
     return (
       <CompanyWorkerProjectsPage
@@ -1455,12 +1489,31 @@ function ProjectsPage({
     );
   }
   return (
-    <div className="page">
+    <div className={`page ${investorMode ? "investor-workspace-page investor-projects-page" : ""}`}>
       <header className="page-header">
         <div><span className="eyebrow">{copy.eyebrow}</span><h1>{copy.title}</h1><p>{copy.description}</p></div>
         {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
       </header>
-      <section className="panel">
+      {investorMode && (
+        <section className="investor-overview-cards" aria-label="Podsumowanie inwestycji">
+          {investorStats.map((card) => (
+            <button
+              key={card.key}
+              type="button"
+              className={`investor-overview-card investor-overview-card--${card.tone} ${viewFilter === card.key ? "active" : ""}`}
+              onClick={() => setViewFilter(card.key as typeof viewFilter)}
+            >
+              <span><Icon name={card.icon} /></span>
+              <div>
+                <strong>{card.title}</strong>
+                <b>{card.count}</b>
+                <small>{card.text}</small>
+              </div>
+            </button>
+          ))}
+        </section>
+      )}
+      <section className={`panel ${investorMode ? "investor-list-panel" : ""}`}>
         <div className="project-controls">
           <div className="list-tabs" role="tablist" aria-label="Widok zleceń">
             <button type="button" className={viewFilter === "all" ? "active" : ""} onClick={() => setViewFilter("all")}>Wszystkie</button>
@@ -3978,9 +4031,36 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
 
   const openProjects = projects.filter((project) => project.status !== "completed");
   const historicalProjects = projects.filter((project) => project.status === "completed");
+  const allReportMaterial = projects.reduce((sum, project) => sum + reportMaterialCount(project), 0);
   const openReportMaterial = openProjects.reduce((sum, project) => sum + reportMaterialCount(project), 0);
   const historicalReportMaterial = historicalProjects.reduce((sum, project) => sum + reportMaterialCount(project), 0);
   const multiReportProjects = projects.filter((project) => reportMaterialCount(project) > 1).length;
+  const investorFilterCards = [
+    {
+      key: "all" as const,
+      title: "Wszystkie",
+      count: allReportMaterial,
+      text: "Wpisy i raporty z inwestycji",
+      icon: "report" as const,
+      tone: "blue",
+    },
+    {
+      key: "open" as const,
+      title: "Otwarte",
+      count: openReportMaterial,
+      text: `${openProjects.length} inwestycji w toku`,
+      icon: "sync" as const,
+      tone: "green",
+    },
+    {
+      key: "history" as const,
+      title: "Historyczne",
+      count: historicalReportMaterial,
+      text: `${historicalProjects.length} zakończonych`,
+      icon: "clipboard" as const,
+      tone: "orange",
+    },
+  ];
   const queryText = query.trim().toLowerCase();
   const source = tab === "all" ? projects : tab === "open" ? openProjects : historicalProjects;
   const visibleProjects = [...source]
@@ -4251,28 +4331,51 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         </div>
       </header>
 
-      <div className="report-tabs" role="tablist" aria-label="Widok raportów">
-        <button type="button" className={tab === "all" ? "active" : ""} onClick={() => setTab("all")}>Wszystkie</button>
-        <button type="button" className={tab === "open" ? "active" : ""} onClick={() => setTab("open")}>Otwarte</button>
-        <button type="button" className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>Historyczne</button>
-      </div>
+      {investorReports ? (
+        <section className="report-filter-cards investor-report-filter-cards" aria-label="Filtry raportów inwestora">
+          {investorFilterCards.map((card) => (
+            <button
+              key={card.key}
+              type="button"
+              className={`report-filter-card report-filter-card--${card.tone} ${tab === card.key ? "active" : ""}`}
+              onClick={() => setTab(card.key)}
+            >
+              <span><Icon name={card.icon} /></span>
+              <div>
+                <strong>{card.title}</strong>
+                <b>{card.count}</b>
+                <small>{card.text}</small>
+              </div>
+              {tab === card.key && <em><Icon name="check" size={16} /></em>}
+            </button>
+          ))}
+        </section>
+      ) : (
+        <>
+          <div className="report-tabs" role="tablist" aria-label="Widok raportów">
+            <button type="button" className={tab === "all" ? "active" : ""} onClick={() => setTab("all")}>Wszystkie</button>
+            <button type="button" className={tab === "open" ? "active" : ""} onClick={() => setTab("open")}>Otwarte</button>
+            <button type="button" className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>Historyczne</button>
+          </div>
 
-      <section className="panel report-metrics">
-        <article>
-          <span><Icon name="report" /></span>
-          <div><small>{investorReports ? "Otwarte" : "Otwarte raporty / wpisy"}</small><strong>{openReportMaterial}</strong><p>{openProjects.length} {investorReports ? "inwestycji w toku" : "zleceń otwartych"}</p></div>
-        </article>
-        <article>
-          <span className="metric-green"><Icon name="sync" /></span>
-          <div><small>{investorReports ? "Historyczne" : "Historyczne raporty / wpisy"}</small><strong>{historicalReportMaterial}</strong><p>{historicalProjects.length} {investorReports ? "zakończonych inwestycji" : "zleceń zakończonych"}</p></div>
-        </article>
-        <article>
-          <span className="metric-orange"><Icon name="clipboard" /></span>
-          <div><small>{investorReports ? "Wszystkie" : "Zlecenia z wieloma wpisami"}</small><strong>{investorReports ? projects.length : multiReportProjects}</strong><p>{investorReports ? "prywatne inwestycje" : "na podstawie wpisów postępu"}</p></div>
-        </article>
-      </section>
+          <section className="panel report-metrics">
+            <article>
+              <span><Icon name="report" /></span>
+              <div><small>Otwarte raporty / wpisy</small><strong>{openReportMaterial}</strong><p>{openProjects.length} zleceń otwartych</p></div>
+            </article>
+            <article>
+              <span className="metric-green"><Icon name="sync" /></span>
+              <div><small>Historyczne raporty / wpisy</small><strong>{historicalReportMaterial}</strong><p>{historicalProjects.length} zleceń zakończonych</p></div>
+            </article>
+            <article>
+              <span className="metric-orange"><Icon name="clipboard" /></span>
+              <div><small>Zlecenia z wieloma wpisami</small><strong>{multiReportProjects}</strong><p>na podstawie wpisów postępu</p></div>
+            </article>
+          </section>
+        </>
+      )}
 
-      <section className="report-toolbar">
+      <section className={`report-toolbar ${investorReports ? "investor-report-toolbar" : ""}`}>
         <input
           type="search"
           placeholder={investorReports ? "Szukaj po nazwie inwestycji, wykonawcy lub adresie..." : "Szukaj po nazwie zlecenia, kliencie lub wykonawcy..."}
@@ -4287,14 +4390,14 @@ function ReportsPage({ user, projects, onOpen }: { user: User; projects: Project
         </div>
       </section>
 
-      <section className="report-project-list">
+      <section className={`report-project-list ${investorReports ? "investor-report-list" : ""}`}>
         {visibleProjects.length === 0 ? (
           <EmptyState icon="report" title="Brak raportów w tym widoku" text="Zmień zakładkę albo frazę wyszukiwania." />
         ) : visibleProjects.map((project) => {
           const count = reportMaterialCount(project);
           const isExpanded = count > 0 && !collapsedReports.includes(project.id);
           return (
-            <article className="report-project-card panel" key={project.id}>
+            <article className={`report-project-card panel ${investorReports ? "investor-report-card" : ""}`} key={project.id}>
               <header>
                 <span className="report-project-card__icon"><Icon name="report" /></span>
                 <div className="report-project-card__main">
@@ -4743,6 +4846,8 @@ function InvestorContractorsPanel({
 
   const workers = workspace.worker_profiles || [];
   const workerLinks = workspace.worker_links || [];
+  const accountWorkers = workers.filter((worker) => worker.account_type === "account").length;
+  const linkOnlyWorkers = workers.filter((worker) => worker.account_type === "link_only").length + workerLinks.filter((link) => !link.revoked_at).length;
   const query = contractorSearch.trim().toLowerCase();
   const filteredWorkers = workers.filter((worker) =>
     `${worker.label} ${worker.email || ""} ${worker.phone || ""} ${worker.note || ""} ${worker.assigned_projects.map((project) => project.name).join(" ")}`
@@ -4780,6 +4885,22 @@ function InvestorContractorsPanel({
             <span>{inactiveWorkers.length} nieaktywnych</span>
             <Button type="button" icon="plus" onClick={() => setShowAddContractor(true)}>Dodaj wykonawcę</Button>
           </div>
+        </div>
+        <div className="investor-contractor-summary" aria-label="Typy dostępu wykonawców">
+          <article>
+            <span><Icon name="users" /></span>
+            <div>
+              <strong>Konto Pan Majster</strong>
+              <small>{accountWorkers} {accountWorkers === 1 ? "wykonawca z kontem" : "wykonawców z kontem"}</small>
+            </div>
+          </article>
+          <article>
+            <span><Icon name="link" /></span>
+            <div>
+              <strong>Przez link</strong>
+              <small>{linkOnlyWorkers} {linkOnlyWorkers === 1 ? "dostęp link-only" : "dostępów link-only"}</small>
+            </div>
+          </article>
         </div>
         {invitationUrl && <div className="share-result share-result--compact"><input value={invitationUrl} readOnly /><Button variant="secondary" onClick={() => void copyToClipboard(invitationUrl)}>Kopiuj link</Button></div>}
       </section>

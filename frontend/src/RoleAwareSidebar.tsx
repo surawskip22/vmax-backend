@@ -28,7 +28,6 @@ function getNavigationForUser(user: User): NavItem[] {
   }
   if (isInvestor(user)) {
     return [
-      { id: "home", label: "Pulpit", icon: "home" },
       { id: "projects", label: "Inwestycje / Zlecenia", icon: "clipboard" },
       { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
       { id: "reports", label: "Raporty", icon: "report" },
