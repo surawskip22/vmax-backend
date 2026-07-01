@@ -23,8 +23,10 @@ import { Icon } from "./icons";
 import { IndependentPortfolioPage } from "./IndependentPortfolioPage";
 import {
   deleteQueuedEntry,
+  queuedEntryCount,
   queueEntry,
   queuedEntries,
+  type OfflineScopeKey,
   type QueuedEntry,
 } from "./offline";
 import {
@@ -110,6 +112,59 @@ type SpeechRecognitionInstance = {
 type SpeechRecognitionConstructor = new () => SpeechRecognitionInstance;
 const LIVE_TRANSCRIPTION_FALLBACK_MESSAGE =
   "Transkrypcja na żywo jest niedostępna na tym urządzeniu. Nagranie audio zostanie zapisane.";
+
+function hashOfflineToken(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function userOfflineScope(user: User | null | undefined): OfflineScopeKey | null {
+  if (!user) return null;
+  if (user.id) return `user:${user.id}`;
+  const email = user.email?.trim().toLowerCase();
+  return email ? `user:${user.profile_type || "user"}:${email}` : null;
+}
+
+function guestOfflineScope(token: string | null | undefined): OfflineScopeKey | null {
+  const cleanToken = token?.trim();
+  return cleanToken ? `guest:${hashOfflineToken(cleanToken)}` : null;
+}
+
+async function syncQueuedEntriesForScope(scopeKey: OfflineScopeKey): Promise<boolean> {
+  const queue = await queuedEntries(scopeKey);
+  let syncedAny = false;
+  for (const queued of queue) {
+    try {
+      const entry = await api<Entry>(`/projects/${queued.projectId}/entries`, {
+        method: "POST",
+        body: JSON.stringify(queued.payload),
+      }, queued.guestToken);
+      for (const file of queued.files) {
+        const body = new FormData();
+        body.append("file", new File([file.blob], file.name, { type: file.type }));
+        body.append("client_ref", file.clientRef);
+        body.append(
+          "purpose",
+          file.name.startsWith("opis-")
+            ? "voice_description"
+            : file.name.startsWith("notatka-")
+              ? "voice_note"
+              : "attachment",
+        );
+        await api(`/entries/${entry.id}/media`, { method: "POST", body }, queued.guestToken);
+      }
+      await deleteQueuedEntry(queued.id);
+      syncedAny = true;
+    } catch {
+      break;
+    }
+  }
+  return syncedAny;
+}
 
 const testAccounts = [
   {
@@ -1387,6 +1442,7 @@ function ProjectsPage({
   notify,
   onQueue,
   onChanged,
+  offlineScopeKey,
 }: {
   user: User;
   projects: Project[];
@@ -1397,6 +1453,7 @@ function ProjectsPage({
   notify: (toast: Toast) => void;
   onQueue: () => void;
   onChanged: () => void;
+  offlineScopeKey?: OfflineScopeKey | null;
 }) {
   const [filter, setFilter] = useState("");
   const [viewFilter, setViewFilter] = useState<"all" | "open" | "problems" | "history">("all");
@@ -1475,6 +1532,7 @@ function ProjectsPage({
         notify={notify}
         onQueue={onQueue}
         onChanged={onChanged}
+        offlineScopeKey={offlineScopeKey}
       />
     );
   }
@@ -1850,6 +1908,7 @@ function CompanyWorkerProjectsPage({
   notify,
   onQueue,
   onChanged,
+  offlineScopeKey,
 }: {
   user: User;
   projects: Project[];
@@ -1860,6 +1919,7 @@ function CompanyWorkerProjectsPage({
   notify: (toast: Toast) => void;
   onQueue: () => void;
   onChanged: () => void;
+  offlineScopeKey?: OfflineScopeKey | null;
 }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "end">("newest");
@@ -1996,6 +2056,7 @@ function CompanyWorkerProjectsPage({
             onQueue();
             notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" });
           }}
+          offlineScopeKey={offlineScopeKey}
         />
       )}
     </div>
@@ -2007,6 +2068,7 @@ function NewEntryModal({
   kind,
   mode,
   guestToken,
+  offlineScopeKey,
   onClose,
   onSaved,
   onQueued,
@@ -2015,6 +2077,7 @@ function NewEntryModal({
   kind: "update" | "problem";
   mode: "photo" | "audio" | "text";
   guestToken?: string;
+  offlineScopeKey?: OfflineScopeKey | null;
   onClose: () => void;
   onSaved: () => void;
   onQueued: () => void;
@@ -2328,9 +2391,10 @@ function NewEntryModal({
       await upload(entry.id, files);
       onSaved();
     } catch (reason) {
-      if (!navigator.onLine || reason instanceof TypeError) {
+      if ((!navigator.onLine || reason instanceof TypeError) && offlineScopeKey) {
         const queued: QueuedEntry = {
           id: clientRef,
+          scopeKey: offlineScopeKey,
           projectId: project.id,
           guestToken,
           payload: { ...payload, stage_id: stageId || undefined },
@@ -2344,6 +2408,10 @@ function NewEntryModal({
         };
         await queueEntry(queued);
         onQueued();
+        return;
+      }
+      if (!navigator.onLine || reason instanceof TypeError) {
+        setError("Nie udało się zapisać offline w tej sesji. Odśwież widok i spróbuj ponownie.");
         return;
       }
       setError(reason instanceof Error ? reason.message : "Nie udało się zapisać wpisu");
@@ -3244,6 +3312,7 @@ function ProjectView({
   notify,
   onQueue,
   onProjectChanged,
+  offlineScopeKey,
 }: {
   projectId: string;
   guestToken?: string;
@@ -3255,6 +3324,7 @@ function ProjectView({
   notify: (toast: Toast) => void;
   onQueue: () => void;
   onProjectChanged?: () => void;
+  offlineScopeKey?: OfflineScopeKey | null;
 }) {
   const [project, setProject] = useState<Project | null>(null);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -3871,7 +3941,7 @@ function ProjectView({
             onRefresh={refreshAfterProjectMutation}
           />
         )}
-        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
+        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} offlineScopeKey={offlineScopeKey} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
         {showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
       </div>
     );
@@ -4116,7 +4186,7 @@ function ProjectView({
             </div>
           </Modal>
         )}
-        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
+        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} offlineScopeKey={offlineScopeKey} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
         {isIndependentFieldUser && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
         {showClientCoverPicker && (
           <ClientCoverPicker
@@ -4192,7 +4262,7 @@ function ProjectView({
             {entries.length === 0 ? <EmptyState icon="camera" title="Jeszcze bez wpisów" text="Dodaj pierwszy postęp prac: zdjęcia i krótki opis." /> : entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} canDelete={canDeleteEntry(entry)} onDelete={setDeleteEntryTarget} key={entry.id} />)}
           </section>
         </main>
-        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
+        {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} offlineScopeKey={offlineScopeKey} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
         {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
       </div>
     );
@@ -4274,7 +4344,7 @@ function ProjectView({
           }}
         />
       )}
-      {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
+      {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} offlineScopeKey={offlineScopeKey} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline" }); }} />}
       {showReports && <ReportModal project={project} reports={reports} onClose={() => setShowReports(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
       {showManage && <ManageProjectModal project={project} user={user} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
       {showClientCoverPicker && (
@@ -7412,6 +7482,7 @@ export default function App() {
   const [queueCount, setQueueCount] = useState(0);
   const [uiMode, setUiMode] = useUiMode(user);
   const toastTimer = useRef<number | null>(null);
+  const offlineScopeKey = useMemo(() => userOfflineScope(user), [user]);
 
   const notify = useCallback((next: Toast) => {
     setToast(next);
@@ -7419,7 +7490,13 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setToast(null), 4000);
   }, []);
 
-  const refreshQueue = useCallback(async () => setQueueCount((await queuedEntries()).length), []);
+  const refreshQueue = useCallback(async () => {
+    if (!offlineScopeKey) {
+      setQueueCount(0);
+      return;
+    }
+    setQueueCount(await queuedEntryCount(offlineScopeKey));
+  }, [offlineScopeKey]);
   const loadProjects = useCallback(async () => {
     if (!user) return;
     const result = await api<Project[]>("/projects");
@@ -7433,38 +7510,11 @@ export default function App() {
   const markProjectsDirty = useCallback(() => setProjectsDirty(true), []);
 
   const syncQueue = useCallback(async () => {
-    if (!navigator.onLine) return;
-    const queue = await queuedEntries();
-    let syncedAny = false;
-    for (const queued of queue) {
-      try {
-        const entry = await api<Entry>(`/projects/${queued.projectId}/entries`, {
-          method: "POST",
-          body: JSON.stringify(queued.payload),
-        }, queued.guestToken);
-        for (const file of queued.files) {
-          const body = new FormData();
-          body.append("file", new File([file.blob], file.name, { type: file.type }));
-          body.append("client_ref", file.clientRef);
-          body.append(
-            "purpose",
-            file.name.startsWith("opis-")
-              ? "voice_description"
-              : file.name.startsWith("notatka-")
-                ? "voice_note"
-                : "attachment",
-          );
-          await api(`/entries/${entry.id}/media`, { method: "POST", body }, queued.guestToken);
-        }
-        await deleteQueuedEntry(queued.id);
-        syncedAny = true;
-      } catch {
-        break;
-      }
-    }
+    if (!navigator.onLine || !offlineScopeKey) return;
+    const syncedAny = await syncQueuedEntriesForScope(offlineScopeKey);
     if (syncedAny) markProjectsDirty();
     await refreshQueue();
-  }, [markProjectsDirty, refreshQueue]);
+  }, [markProjectsDirty, offlineScopeKey, refreshQueue]);
 
   const resetSessionView = useCallback(() => {
     setSelectedProject(null);
@@ -7560,6 +7610,7 @@ export default function App() {
       notify={notify}
       onQueue={refreshQueue}
       onProjectChanged={markProjectsDirty}
+      offlineScopeKey={offlineScopeKey}
     />
   ) : visibleSection === "projects" ? (
     <ProjectsPage
@@ -7572,6 +7623,7 @@ export default function App() {
       notify={notify}
       onQueue={refreshQueue}
       onChanged={loadProjects}
+      offlineScopeKey={offlineScopeKey}
     />
   ) : visibleSection === "reports" ? (
     <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
@@ -7614,11 +7666,21 @@ function GuestEntry({ token, notify, onQueue }: { token: string; notify: (toast:
   const [details, setDetails] = useState<{ project_id: string; project_name: string; label: string; kind: string; account_type: string; permission: string } | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
+  const offlineScopeKey = useMemo(() => guestOfflineScope(token), [token]);
+  const syncGuestQueue = useCallback(async () => {
+    if (!navigator.onLine || !offlineScopeKey) return;
+    const syncedAny = await syncQueuedEntriesForScope(offlineScopeKey);
+    if (syncedAny) onQueue();
+  }, [offlineScopeKey, onQueue]);
   useEffect(() => {
     api<{ project_id: string; project_name: string; label: string; kind: string; account_type: string; permission: string }>(`/guest/${token}`)
       .then(setDetails)
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Link jest nieaktywny"));
   }, [token]);
+  useEffect(() => {
+    addEventListener("online", syncGuestQueue);
+    return () => removeEventListener("online", syncGuestQueue);
+  }, [syncGuestQueue]);
   if (error) return <div className="public-page"><Logo /><EmptyState icon="alert" title="Link jest nieaktywny" text={error} /></div>;
   if (!details) return <div className="splash"><img src="/brand/app-icon.png" alt="Pan Majster" /><span className="spinner" /></div>;
   if (!accepted) {
@@ -7638,7 +7700,7 @@ function GuestEntry({ token, notify, onQueue }: { token: string; notify: (toast:
       </div>
     );
   }
-  return <><ProjectView projectId={details.project_id} guestToken={token} onBack={() => setAccepted(false)} notify={notify} onQueue={onQueue} /></>;
+  return <><ProjectView projectId={details.project_id} guestToken={token} offlineScopeKey={offlineScopeKey} onBack={() => setAccepted(false)} notify={notify} onQueue={onQueue} /></>;
 }
 
 function ToastView({ toast }: { toast: Toast }) {

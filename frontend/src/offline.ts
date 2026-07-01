@@ -5,8 +5,11 @@ type QueuedFile = {
   clientRef: string;
 };
 
+export type OfflineScopeKey = string;
+
 export type QueuedEntry = {
   id: string;
+  scopeKey: OfflineScopeKey;
   projectId: string;
   guestToken?: string;
   payload: {
@@ -46,15 +49,21 @@ export async function queueEntry(entry: QueuedEntry): Promise<void> {
   db.close();
 }
 
-export async function queuedEntries(): Promise<QueuedEntry[]> {
+export async function queuedEntries(scopeKey: OfflineScopeKey): Promise<QueuedEntry[]> {
   const db = await openDb();
-  const result = await new Promise<QueuedEntry[]>((resolve, reject) => {
+  const result = await new Promise<Array<QueuedEntry | (Partial<QueuedEntry> & { id: string })>>((resolve, reject) => {
     const request = db.transaction(STORE).objectStore(STORE).getAll();
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
   db.close();
-  return result.sort((a, b) => a.createdAt - b.createdAt);
+  return result
+    .filter((entry): entry is QueuedEntry => entry.scopeKey === scopeKey)
+    .sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export async function queuedEntryCount(scopeKey: OfflineScopeKey): Promise<number> {
+  return (await queuedEntries(scopeKey)).length;
 }
 
 export async function deleteQueuedEntry(id: string): Promise<void> {
