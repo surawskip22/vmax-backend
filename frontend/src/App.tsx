@@ -7538,8 +7538,16 @@ export default function App() {
 
   useEffect(() => {
     refreshQueue();
+    if (navigator.onLine) void syncQueue();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void syncQueue();
+    };
     addEventListener("online", syncQueue);
-    return () => removeEventListener("online", syncQueue);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      removeEventListener("online", syncQueue);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [refreshQueue, syncQueue]);
 
   useEffect(() => {
@@ -7678,8 +7686,16 @@ function GuestEntry({ token, notify, onQueue }: { token: string; notify: (toast:
       .catch((reason) => setError(reason instanceof Error ? reason.message : "Link jest nieaktywny"));
   }, [token]);
   useEffect(() => {
+    if (navigator.onLine) void syncGuestQueue();
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void syncGuestQueue();
+    };
     addEventListener("online", syncGuestQueue);
-    return () => removeEventListener("online", syncGuestQueue);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      removeEventListener("online", syncGuestQueue);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [syncGuestQueue]);
   if (error) return <div className="public-page"><Logo /><EmptyState icon="alert" title="Link jest nieaktywny" text={error} /></div>;
   if (!details) return <div className="splash"><img src="/brand/app-icon.png" alt="Pan Majster" /><span className="spinner" /></div>;
