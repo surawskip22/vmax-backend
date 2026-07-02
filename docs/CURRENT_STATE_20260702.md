@@ -119,6 +119,19 @@ Use this before larger changes, Render smoke, or external testing.
 - PDF generation previously hit Render memory limits. Keep generation guarded and avoid auto-opening heavy PDF responses.
 - Service worker cache can still make deploy/smoke confusing if stale assets are served.
 - Do not treat future UI scaffolds as working backend modules.
+- Local root-level `pytest` collection currently sees old `tmp_pytest_*` directories with `PermissionError`; use `pytest tests` for the app test suite unless those temp folders are cleaned deliberately.
+
+## Latest automated sanity run
+
+Run after the roadmap checkpoint on HEAD `d027b94 docs: refresh current state checkpoint`.
+
+- `node frontend/scripts/source-regression.mjs`: OK with bundled Node runtime.
+- `tsc -b`: OK.
+- `vite build`: OK; keeps the known large chunk warning around the main JS bundle.
+- `pytest` from repo root: blocked during collection by old inaccessible `tmp_pytest_*` directories.
+- `pytest tests`: OK, `59 passed`; SQLAlchemy still emits known sorted-table cycle warnings in test setup.
+
+No application code changed during this sanity run.
 
 ## Recommended next sequence
 
