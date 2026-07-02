@@ -7511,9 +7511,12 @@ export default function App() {
 
   const syncQueue = useCallback(async () => {
     if (!navigator.onLine || !offlineScopeKey) return;
-    const syncedAny = await syncQueuedEntriesForScope(offlineScopeKey);
-    if (syncedAny) markProjectsDirty();
-    await refreshQueue();
+    try {
+      const syncedAny = await syncQueuedEntriesForScope(offlineScopeKey);
+      if (syncedAny) markProjectsDirty();
+    } finally {
+      await refreshQueue();
+    }
   }, [markProjectsDirty, offlineScopeKey, refreshQueue]);
 
   const resetSessionView = useCallback(() => {
@@ -7677,8 +7680,11 @@ function GuestEntry({ token, notify, onQueue }: { token: string; notify: (toast:
   const offlineScopeKey = useMemo(() => guestOfflineScope(token), [token]);
   const syncGuestQueue = useCallback(async () => {
     if (!navigator.onLine || !offlineScopeKey) return;
-    const syncedAny = await syncQueuedEntriesForScope(offlineScopeKey);
-    if (syncedAny) onQueue();
+    try {
+      await syncQueuedEntriesForScope(offlineScopeKey);
+    } finally {
+      onQueue();
+    }
   }, [offlineScopeKey, onQueue]);
   useEffect(() => {
     api<{ project_id: string; project_name: string; label: string; kind: string; account_type: string; permission: string }>(`/guest/${token}`)
