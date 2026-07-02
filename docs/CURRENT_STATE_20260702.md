@@ -6,6 +6,8 @@ This checkpoint supersedes the older June 17 planning package as the active proj
 
 - branch: `pan-majster`
 - HEAD at checkpoint start: `2bdd6cf fix: retry offline queue sync on app resume`
+- latest repo HEAD after roadmap documentation: `14366b9 docs: add current roadmap checkpoint`
+- latest application-code baseline in this checkpoint remains `2bdd6cf`
 - expected dirty state: `?? docs/MVP_AUDIT_20260618.md`
 - `docs/MVP_AUDIT_20260618.md` remains untracked unless explicitly accepted later
 - GPT/ChatGPT roadmap notes are useful for product direction, but repo HEAD and current docs are the source of truth
@@ -37,6 +39,16 @@ This checkpoint supersedes the older June 17 planning package as the active proj
   - discovery/job-posting scaffold marked as future UI
 - `company_owner` has received the new workspace-style pass, but still needs targeted visual QA.
 - Demo admin/reset exists and is intended only for demo/staging data.
+
+### Latest lightweight role checks
+
+- `company_owner` navigation remains company-oriented: jobs, internal people/teams, reports, settings.
+- `investor` navigation remains investor-oriented: investments/jobs, contractors, discovery scaffold, job-post scaffold, reports, settings.
+- `company_worker` navigation remains restricted to `Moje zlecenia` and `Ustawienia`.
+- `independent_contractor` keeps own jobs, reports, public business-card/portfolio MVP, and settings.
+- `/g/...` remains route/token based and project scoped, without full app shell navigation.
+- `/c/...` remains a public client surface, without panel actions.
+- Investor discovery and job posting are still future/scaffold UI, not backend marketplace functionality.
 
 ### Future/scaffold surfaces
 
@@ -96,7 +108,8 @@ Use this before larger changes, Render smoke, or external testing.
 
 - Must remain a limited link-only flow.
 - Must not receive the full app shell or persistent role panel by accident.
-- Needs a focused UI audit before being treated as visually finished.
+- Access behavior has been checked as project scoped and route/token based.
+- Still needs a separate visual/product audit before being treated as visually finished.
 
 ## Technical risks to keep visible
 
@@ -111,7 +124,7 @@ Use this before larger changes, Render smoke, or external testing.
 
 1. Run current-state smoke against the active HEAD.
 2. Fix only blockers found by smoke.
-3. Do a targeted `company_owner` UI QA pass or `/g/...` link-only audit, one at a time.
+3. Decide whether to do a short external tester pass now or a narrow `/g/...` visual/product pass first.
 4. After core roles are stable, choose one larger direction:
    - backend portfolio/public business card,
    - backend transcription,
