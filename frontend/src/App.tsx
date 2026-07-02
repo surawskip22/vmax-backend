@@ -1640,8 +1640,9 @@ function ProjectsPage({
         <div><span className="eyebrow">{copy.eyebrow}</span><h1>{copy.title}</h1><p>{copy.description}</p></div>
         {investorMode || companyOwnerMode ? (
           <div className={investorMode ? "investor-page-actions" : "company-owner-page-actions"}>
+            {companyOwnerMode && canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
             <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
-            {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
+            {investorMode && canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
           </div>
         ) : (
           canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>
@@ -1703,7 +1704,13 @@ function ProjectsPage({
                     <small>{projectActivityLabel(project)}</small>
                   </div>
                 </div>
-                {investorSimpleMode ? (
+                {ownerSimpleMode ? (
+                  <div className="company-owner-quick-facts">
+                    <span><b>{projectPartyLabel(user)}</b>{projectPartyValue(user, project)}</span>
+                    <span><b>Termin</b>{formatContractDate(project.planned_end_date || project.planned_start_date) || "Nie ustawiono"}</span>
+                    <span><b>Kwota</b>{contractAmountLabel(project) || "Nie podano"}</span>
+                  </div>
+                ) : investorSimpleMode ? (
                   <div className="investor-simple-summary">
                     <span><Icon name="users" size={17} /><b>Wykonawca</b>{projectPartyValue(user, project)}</span>
                     <span><Icon name="sync" size={17} /><b>Aktywność</b>{projectActivityLabel(project)}</span>
