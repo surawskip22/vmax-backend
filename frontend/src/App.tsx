@@ -1474,6 +1474,9 @@ function ProjectsPage({
     if (investorSimpleMode && viewFilter !== "all") setViewFilter("all");
   }, [investorSimpleMode, viewFilter]);
   useEffect(() => {
+    if (ownerSimpleMode && viewFilter !== "all") setViewFilter("all");
+  }, [ownerSimpleMode, viewFilter]);
+  useEffect(() => {
     if (!investorSimpleMode) return;
     if (statusFilter !== "all") setStatusFilter("all");
     if (!["newest", "oldest"].includes(sortBy)) setSortBy("newest");
@@ -1650,7 +1653,7 @@ function ProjectsPage({
       </header>
       <section className={`panel ${investorMode ? "investor-list-panel" : ""} ${companyOwnerMode ? "company-owner-list-panel" : ""}`}>
         <div className={`project-controls ${investorMode ? `project-controls--investor project-controls--investor-${simpleMode ? "simple" : "advanced"}` : ""} ${companyOwnerMode ? `project-controls--owner project-controls--owner-${simpleMode ? "simple" : "advanced"}` : ""}`}>
-          {!(investorSimpleMode || ownerSimpleMode) && (
+          {!companyOwnerMode && !(investorSimpleMode || ownerSimpleMode) && (
             <div className="list-tabs" role="tablist" aria-label="Widok zleceń">
               <button type="button" className={viewFilter === "all" ? "active" : ""} onClick={() => setViewFilter("all")}>Wszystkie</button>
               <button type="button" className={viewFilter === "open" ? "active" : ""} onClick={() => setViewFilter("open")}>{investorMode ? "W realizacji" : "Otwarte"}</button>
@@ -1705,10 +1708,10 @@ function ProjectsPage({
                   </div>
                 </div>
                 {ownerSimpleMode ? (
-                  <div className="company-owner-quick-facts">
-                    <span><b>{projectPartyLabel(user)}</b>{projectPartyValue(user, project)}</span>
-                    <span><b>Termin</b>{formatContractDate(project.planned_end_date || project.planned_start_date) || "Nie ustawiono"}</span>
-                    <span><b>Kwota</b>{contractAmountLabel(project) || "Nie podano"}</span>
+                  <div className="company-owner-simple-chips">
+                    <span>{projectStageLabel(project)}</span>
+                    <span><Icon name="calendar" size={15} /> {formatContractDate(project.planned_end_date || project.planned_start_date) || "Termin nieustawiony"}</span>
+                    <span><Icon name="users" size={15} /> {projectPartyValue(user, project)}</span>
                   </div>
                 ) : investorSimpleMode ? (
                   <div className="investor-simple-summary">
@@ -1755,7 +1758,7 @@ function ProjectsPage({
                           </Button>
                         )
                       )}
-                      {!simpleMode && companyOwnerMode && projectHasLinkOnlyWorker(project) && (
+                      {!simpleMode && companyOwnerMode && (
                         <Button
                           type="button"
                           onClick={() => notify({ kind: "info", message: "Link majstra / ekipy (/g) znajdziesz w edycji wykonawcy zlecenia." })}
