@@ -44,6 +44,7 @@ from .demo_seed import DEMO_EMAILS, DEMO_PASSWORD, seed_demo_data
 from .mailer import send_email, send_otp
 from .reporting import render_pdf, render_project_report_pdf, transcribe_upload
 from .security import hash_secret, normalize_email, otp_code, random_token, verify_secret
+from .service_taxonomy import SERVICE_TAG_SLUGS
 from .storage import storage
 from .templates import STAGE_TEMPLATES
 
@@ -110,6 +111,143 @@ def report_pdf_generation_error(exc: Exception) -> HTTPException:
     return HTTPException(503, "Nie udało się wygenerować raportu PDF")
 
 
+def normalize_public_profile_slug(value: str) -> str:
+    slug = SLUG_RE.sub("-", value.strip().lower()).strip("-")[:140].strip("-")
+    if not slug:
+        raise HTTPException(422, "Podaj poprawny adres wizytówki")
+    return slug
+
+
+def unique_public_profile_slug(
+    db: Session, base_slug: str, ignore_profile_id: str | None = None
+) -> str:
+    base = normalize_public_profile_slug(base_slug)
+    candidate = base
+    suffix = 2
+    while True:
+        query = select(models.PublicProfile).where(models.PublicProfile.slug == candidate)
+        if ignore_profile_id:
+            query = query.where(models.PublicProfile.id != ignore_profile_id)
+        if not db.scalar(query):
+            return candidate
+        suffix_text = f"-{suffix}"
+        candidate = normalize_public_profile_slug(
+            f"{base[: 140 - len(suffix_text)].strip('-')}{suffix_text}"
+        )
+        suffix += 1
+
+
+def validate_public_profile_specializations(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+    cleaned: list[str] = []
+    for value in values:
+        slug = value.strip().lower()
+        if slug not in SERVICE_TAG_SLUGS:
+            raise HTTPException(422, f"Nieznana specjalizacja: {value}")
+        if slug not in cleaned:
+            cleaned.append(slug)
+    return cleaned[:12]
+
+
+def validate_contact_email(value: str) -> str:
+    email = value.strip()
+    if not email:
+        return ""
+    try:
+        return validate_email(email, check_deliverability=False).normalized
+    except EmailNotValidError as exc:
+        raise HTTPException(422, "Podaj poprawny e-mail kontaktowy") from exc
+
+
+def public_profile_payload(profile: models.PublicProfile) -> dict:
+    return {
+        "id": profile.id,
+        "owner_type": profile.owner_type,
+        "owner_id": profile.owner_id,
+        "display_name": profile.display_name,
+        "public_description": profile.public_description,
+        "contact_phone": profile.contact_phone,
+        "contact_email": profile.contact_email,
+        "specializations": profile.specializations or [],
+        "service_area": profile.service_area,
+        "is_public": profile.is_public,
+        "slug": profile.slug,
+        "created_at": profile.created_at.isoformat(),
+        "updated_at": profile.updated_at.isoformat(),
+    }
+
+
+def public_profile_owner_defaults(
+    db: Session, user: models.User, owner_type: str
+) -> tuple[str, str, str, str]:
+    if owner_type == "independent_contractor":
+        if user.profile_type != "independent_contractor":
+            raise HTTPException(403, "Ten typ konta nie ma wizytówki wykonawcy")
+        display_name = (
+            user.public_profile_name
+            or user.name
+            or user.email.split("@", maxsplit=1)[0]
+            or "Samodzielny majster"
+        )
+        return user.id, display_name, user.phone or "", ""
+
+    if owner_type == "company":
+        if user.profile_type != "company_owner":
+            raise HTTPException(403, "Ten typ konta nie ma wizytówki firmy")
+        workspace = db.scalar(
+            select(models.Workspace)
+            .where(
+                models.Workspace.owner_id == user.id,
+                models.Workspace.kind == "company",
+            )
+            .order_by(models.Workspace.created_at)
+        )
+        if not workspace:
+            raise HTTPException(404, "Nie znaleziono firmy dla tego konta")
+        return (
+            workspace.id,
+            workspace.name or "Firma wykonawcza",
+            workspace.phone or "",
+            workspace.address or "",
+        )
+
+    raise HTTPException(422, "Nieobsługiwany typ właściciela profilu")
+
+
+def get_or_create_public_profile(
+    db: Session, user: models.User, owner_type: str
+) -> models.PublicProfile:
+    owner_id, display_name, contact_phone, service_area = public_profile_owner_defaults(
+        db, user, owner_type
+    )
+    profile = db.scalar(
+        select(models.PublicProfile).where(
+            models.PublicProfile.owner_type == owner_type,
+            models.PublicProfile.owner_id == owner_id,
+        )
+    )
+    if profile:
+        return profile
+
+    profile = models.PublicProfile(
+        owner_type=owner_type,
+        owner_id=owner_id,
+        display_name=display_name,
+        public_description="",
+        contact_phone=contact_phone,
+        contact_email="",
+        specializations=[],
+        service_area=service_area,
+        is_public=False,
+        slug=unique_public_profile_slug(db, display_name),
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(profile)
+    return profile
+
+
 class OtpRequest(BaseModel):
     email: EmailStr
 
@@ -139,6 +277,17 @@ class UserUpdate(BaseModel):
     phone: str | None = Field(default=None, max_length=40)
     locale: str | None = Field(default=None, max_length=10)
     preferred_mode: Literal["expanded", "field"] | None = None
+
+
+class PublicProfileUpdate(BaseModel):
+    display_name: str | None = Field(default=None, max_length=180)
+    public_description: str | None = Field(default=None, max_length=3000)
+    contact_phone: str | None = Field(default=None, max_length=40)
+    contact_email: str | None = Field(default=None, max_length=320)
+    specializations: list[str] | None = None
+    service_area: str | None = Field(default=None, max_length=220)
+    is_public: bool | None = None
+    slug: str | None = Field(default=None, max_length=140)
 
 
 class OnboardingCreate(BaseModel):
@@ -1072,6 +1221,63 @@ def update_me(
         setattr(user, key, value or "")
     db.commit()
     return user_payload(db, user)
+
+
+@router.get("/public-profile/me")
+def get_my_public_profile(
+    owner_type: Literal["independent_contractor", "company"] = Query(...),
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    profile = get_or_create_public_profile(db, user, owner_type)
+    return public_profile_payload(profile)
+
+
+@router.patch("/public-profile/me")
+def update_my_public_profile(
+    payload: PublicProfileUpdate,
+    owner_type: Literal["independent_contractor", "company"] = Query(...),
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    profile = get_or_create_public_profile(db, user, owner_type)
+    changes = payload.model_dump(exclude_unset=True)
+    for key, value in changes.items():
+        if key == "specializations":
+            profile.specializations = validate_public_profile_specializations(value)
+        elif key == "contact_email":
+            profile.contact_email = validate_contact_email(value or "")
+        elif key == "slug":
+            profile.slug = unique_public_profile_slug(
+                db, value or profile.display_name, ignore_profile_id=profile.id
+            )
+        elif isinstance(value, str):
+            setattr(profile, key, value.strip())
+        else:
+            setattr(profile, key, value)
+
+    if not profile.slug:
+        profile.slug = unique_public_profile_slug(
+            db, profile.display_name, ignore_profile_id=profile.id
+        )
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Adres wizytówki jest już zajęty") from exc
+    db.refresh(profile)
+    return public_profile_payload(profile)
+
+
+@router.get("/public-profiles/{slug}")
+def get_public_profile(slug: str, db: Session = Depends(get_db)):
+    normalized_slug = normalize_public_profile_slug(slug)
+    profile = db.scalar(
+        select(models.PublicProfile).where(models.PublicProfile.slug == normalized_slug)
+    )
+    if not profile or not profile.is_public:
+        raise HTTPException(404, "Wizytówka nie jest dostępna publicznie")
+    return public_profile_payload(profile)
 
 
 @router.post("/onboarding")

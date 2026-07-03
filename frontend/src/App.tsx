@@ -7771,7 +7771,12 @@ export default function App() {
   ) : visibleSection === "reports" ? (
     <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
   ) : visibleSection === "portfolio" ? (
-    <IndependentPortfolioPage user={user} projects={projects} onOpenSettings={() => setSection("settings")} />
+    <IndependentPortfolioPage
+      user={user}
+      projects={projects}
+      ownerType={isCompanyOwner(user) ? "company" : "independent_contractor"}
+      onOpenSettings={() => setSection("settings")}
+    />
   ) : visibleSection === "discover" && isInvestor(user) ? (
     <InvestorDiscoveryPage notify={notify} />
   ) : visibleSection === "postJob" && isInvestor(user) ? (

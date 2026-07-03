@@ -41,6 +41,7 @@ function getNavigationForUser(user: User): NavItem[] {
       { id: "projects", label: "Zlecenia", icon: "clipboard" },
       { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
       { id: "reports", label: "Raporty", icon: "report" },
+      { id: "portfolio", label: "Wizytówka firmy", icon: "image" },
       { id: "settings", label: "Ustawienia", icon: "settings" },
     ];
   }

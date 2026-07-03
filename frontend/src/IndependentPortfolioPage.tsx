@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { api, jsonBody } from "./api";
 import { Icon } from "./icons";
-import type { Project, User } from "./types";
+import { filterServiceTags, serviceTags, tagBySlug } from "./serviceTaxonomy";
+import type { Project, PublicProfile, PublicProfileOwnerType, User } from "./types";
 
 type PortfolioStatus = "draft" | "published";
 type ReviewSource = "manual" | "verified_client_link";
@@ -96,6 +98,8 @@ type PortfolioProfile = {
   whatsapp: string;
   tags: string[];
   avatarIcon: PortfolioAvatarIcon;
+  isPublic: boolean;
+  slug: string;
   updatedAt: string;
 };
 
@@ -108,6 +112,8 @@ type PortfolioProfileDraft = {
   whatsapp: string;
   tags: string[];
   avatarIcon: PortfolioAvatarIcon;
+  isPublic: boolean;
+  slug: string;
 };
 
 type DeleteTarget =
@@ -117,7 +123,7 @@ type DeleteTarget =
 const portfolioStoragePrefix = "panmajster_independent_portfolio_";
 const reviewStoragePrefix = "panmajster_independent_portfolio_reviews_";
 const profileStoragePrefix = "panmajster_independent_portfolio_profile_";
-const defaultPortfolioTags = ["Remonty łazienek", "Wykończenia wnętrz", "Biały montaż", "Glazura i terakota", "Kuchnie na wymiar"];
+const defaultPortfolioTags = ["remont-lazienki", "wykonczenia-wnetrz", "bialy-montaz", "glazura", "montaz-kuchni"];
 const defaultWorkScopeTags = ["Demontaż", "Hydraulika", "Glazura", "Biały montaż", "Malowanie", "Zabudowa GK"];
 const galleryLimit = 10;
 
@@ -125,16 +131,24 @@ function storageIdentity(user: User) {
   return user.id || user.email || "anonymous";
 }
 
-function portfolioStorageKey(user: User) {
-  return `${portfolioStoragePrefix}${storageIdentity(user)}`;
+function profileOwnerIdentity(user: User, ownerType: PublicProfileOwnerType) {
+  if (ownerType === "company") {
+    const workspace = user.workspaces.find((item) => item.kind === "company" && item.role === "owner") || user.workspaces.find((item) => item.kind === "company");
+    return `${ownerType}_${workspace?.id || storageIdentity(user)}`;
+  }
+  return storageIdentity(user);
 }
 
-function reviewsStorageKey(user: User) {
-  return `${reviewStoragePrefix}${storageIdentity(user)}`;
+function portfolioStorageKey(user: User, ownerType: PublicProfileOwnerType = "independent_contractor") {
+  return `${portfolioStoragePrefix}${profileOwnerIdentity(user, ownerType)}`;
 }
 
-function profileStorageKey(user: User) {
-  return `${profileStoragePrefix}${storageIdentity(user)}`;
+function reviewsStorageKey(user: User, ownerType: PublicProfileOwnerType = "independent_contractor") {
+  return `${reviewStoragePrefix}${profileOwnerIdentity(user, ownerType)}`;
+}
+
+function profileStorageKey(user: User, ownerType: PublicProfileOwnerType = "independent_contractor") {
+  return `${profileStoragePrefix}${profileOwnerIdentity(user, ownerType)}`;
 }
 
 function safeSlug(value: string) {
@@ -145,6 +159,42 @@ function safeSlug(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 42) || "samodzielnymajster";
+}
+
+function profileCompanyWorkspace(user: User) {
+  return user.workspaces.find((item) => item.kind === "company" && item.role === "owner")
+    || user.workspaces.find((item) => item.kind === "company");
+}
+
+function defaultProfileDisplayName(user: User, ownerType: PublicProfileOwnerType) {
+  if (ownerType === "company") {
+    return profileCompanyWorkspace(user)?.name || user.name || "Firma";
+  }
+  return user.name || "Samodzielny Majster";
+}
+
+function portfolioTagLabel(slug: string) {
+  return tagBySlug(slug)?.label || slug;
+}
+
+function normalizeProfileTag(value: string) {
+  const needle = value.trim().toLowerCase();
+  if (!needle) return "";
+  if (tagBySlug(needle)) return needle;
+  const found = serviceTags.find((tag) => {
+    return tag.label.toLowerCase() === needle
+      || (tag.aliases || []).some((alias) => alias.toLowerCase() === needle);
+  });
+  return found?.slug || "";
+}
+
+function uniqueProfileTags(values: string[]) {
+  const cleaned: string[] = [];
+  values.forEach((value) => {
+    const slug = normalizeProfileTag(value);
+    if (slug && !cleaned.includes(slug)) cleaned.push(slug);
+  });
+  return cleaned.slice(0, 12);
 }
 
 function todayIso() {
@@ -182,7 +232,7 @@ function realizationLocation(item: PortfolioRealization, project?: Project) {
 function realizationScope(item: PortfolioRealization, profile?: PortfolioProfile) {
   const tags = Array.isArray(item.workScope) ? item.workScope.filter(Boolean) : [];
   if (tags.length > 0) return tags;
-  return profile?.tags?.slice(0, 3) || defaultWorkScopeTags.slice(0, 3);
+  return profile?.tags?.slice(0, 3).map(portfolioTagLabel) || defaultWorkScopeTags.slice(0, 3);
 }
 
 function projectImageUrls(project?: Project) {
@@ -254,51 +304,57 @@ function normalizeReview(value: unknown, index: number): PortfolioReview | null 
   };
 }
 
-function defaultPortfolioProfile(user: User): PortfolioProfile {
+function defaultPortfolioProfile(user: User, ownerType: PublicProfileOwnerType = "independent_contractor"): PortfolioProfile {
+  const displayName = defaultProfileDisplayName(user, ownerType);
   return {
-    displayName: user.name || "Samodzielny Majster",
+    displayName,
     publicDescription: "Specjalizuję się w remontach, wykończeniach wnętrz i pracach wykończeniowych na wysokim poziomie.",
     serviceArea: "Warszawa i okolice",
-    publicPhone: user.phone || "+48 123 456 789",
-    publicEmail: user.email || "",
+    publicPhone: user.phone || "",
+    publicEmail: "",
     whatsapp: user.phone || "",
     tags: defaultPortfolioTags,
-    avatarIcon: "home",
+    avatarIcon: ownerType === "company" ? "tools" : "home",
+    isPublic: false,
+    slug: safeSlug(displayName),
     updatedAt: new Date().toISOString(),
   };
 }
 
-function normalizeProfile(value: unknown, user: User): PortfolioProfile {
-  const defaults = defaultPortfolioProfile(user);
+function normalizeProfile(value: unknown, user: User, ownerType: PublicProfileOwnerType = "independent_contractor"): PortfolioProfile {
+  const defaults = defaultPortfolioProfile(user, ownerType);
   if (!value || typeof value !== "object") return defaults;
   const data = value as Partial<PortfolioProfile>;
   const iconExists = portfolioAvatarOptions.some((option) => option.icon === data.avatarIcon);
+  const displayName = data.displayName || defaults.displayName;
   return {
     ...defaults,
     ...data,
-    displayName: data.displayName || defaults.displayName,
+    displayName,
     publicDescription: data.publicDescription || defaults.publicDescription,
     publicPhone: data.publicPhone ?? defaults.publicPhone,
     publicEmail: data.publicEmail ?? defaults.publicEmail,
     whatsapp: data.whatsapp ?? defaults.whatsapp,
-    tags: Array.isArray(data.tags) && data.tags.length > 0 ? data.tags.filter(Boolean).slice(0, 12) : defaults.tags,
+    tags: uniqueProfileTags(Array.isArray(data.tags) && data.tags.length > 0 ? data.tags : defaults.tags),
     avatarIcon: iconExists ? data.avatarIcon as PortfolioAvatarIcon : defaults.avatarIcon,
+    isPublic: Boolean(data.isPublic),
+    slug: safeSlug(data.slug || displayName || defaults.slug),
     updatedAt: data.updatedAt || defaults.updatedAt,
   };
 }
 
-function loadProfile(user: User): PortfolioProfile {
+function loadProfile(user: User, ownerType: PublicProfileOwnerType = "independent_contractor"): PortfolioProfile {
   try {
-    const raw = localStorage.getItem(profileStorageKey(user));
-    return raw ? normalizeProfile(JSON.parse(raw), user) : defaultPortfolioProfile(user);
+    const raw = localStorage.getItem(profileStorageKey(user, ownerType));
+    return raw ? normalizeProfile(JSON.parse(raw), user, ownerType) : defaultPortfolioProfile(user, ownerType);
   } catch {
-    return defaultPortfolioProfile(user);
+    return defaultPortfolioProfile(user, ownerType);
   }
 }
 
-function saveProfile(user: User, profile: PortfolioProfile) {
+function saveProfile(user: User, ownerType: PublicProfileOwnerType, profile: PortfolioProfile) {
   try {
-    localStorage.setItem(profileStorageKey(user), JSON.stringify(profile));
+    localStorage.setItem(profileStorageKey(user, ownerType), JSON.stringify(profile));
   } catch {
     // Public profile persistence is best-effort local MVP storage.
   }
@@ -314,6 +370,38 @@ function profileDraft(profile: PortfolioProfile): PortfolioProfileDraft {
     whatsapp: profile.whatsapp,
     tags: profile.tags,
     avatarIcon: profile.avatarIcon,
+    isPublic: profile.isPublic,
+    slug: profile.slug,
+  };
+}
+
+function publicProfileToPortfolioProfile(profile: PublicProfile, user: User, ownerType: PublicProfileOwnerType): PortfolioProfile {
+  const defaults = defaultPortfolioProfile(user, ownerType);
+  return {
+    ...defaults,
+    displayName: profile.display_name || defaults.displayName,
+    publicDescription: profile.public_description || defaults.publicDescription,
+    serviceArea: profile.service_area || defaults.serviceArea,
+    publicPhone: profile.contact_phone || defaults.publicPhone,
+    publicEmail: profile.contact_email || "",
+    whatsapp: profile.contact_phone || defaults.whatsapp,
+    tags: uniqueProfileTags(profile.specializations?.length ? profile.specializations : defaults.tags),
+    isPublic: Boolean(profile.is_public),
+    slug: safeSlug(profile.slug || defaults.slug),
+    updatedAt: profile.updated_at || defaults.updatedAt,
+  };
+}
+
+function portfolioProfilePayload(profile: PortfolioProfile) {
+  return {
+    display_name: profile.displayName,
+    public_description: profile.publicDescription,
+    contact_phone: profile.publicPhone,
+    contact_email: profile.publicEmail,
+    specializations: uniqueProfileTags(profile.tags),
+    service_area: profile.serviceArea,
+    is_public: profile.isPublic,
+    slug: safeSlug(profile.slug || profile.displayName),
   };
 }
 
@@ -386,9 +474,9 @@ function realizationFromProject(project: Project, index: number): PortfolioReali
   };
 }
 
-function loadPortfolio(user: User): PortfolioRealization[] {
+function loadPortfolio(user: User, ownerType: PublicProfileOwnerType = "independent_contractor"): PortfolioRealization[] {
   try {
-    const raw = localStorage.getItem(portfolioStorageKey(user));
+    const raw = localStorage.getItem(portfolioStorageKey(user, ownerType));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.map(normalizeRealization).filter((item): item is PortfolioRealization => Boolean(item)) : [];
@@ -397,17 +485,17 @@ function loadPortfolio(user: User): PortfolioRealization[] {
   }
 }
 
-function savePortfolio(user: User, items: PortfolioRealization[]) {
+function savePortfolio(user: User, ownerType: PublicProfileOwnerType, items: PortfolioRealization[]) {
   try {
-    localStorage.setItem(portfolioStorageKey(user), JSON.stringify(items));
+    localStorage.setItem(portfolioStorageKey(user, ownerType), JSON.stringify(items));
   } catch {
     // Local persistence is best-effort; saving the project itself is not affected.
   }
 }
 
-function loadReviews(user: User): PortfolioReview[] {
+function loadReviews(user: User, ownerType: PublicProfileOwnerType = "independent_contractor"): PortfolioReview[] {
   try {
-    const raw = localStorage.getItem(reviewsStorageKey(user));
+    const raw = localStorage.getItem(reviewsStorageKey(user, ownerType));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed.map(normalizeReview).filter((review): review is PortfolioReview => Boolean(review)) : [];
@@ -416,9 +504,9 @@ function loadReviews(user: User): PortfolioReview[] {
   }
 }
 
-function saveReviews(user: User, reviews: PortfolioReview[]) {
+function saveReviews(user: User, ownerType: PublicProfileOwnerType, reviews: PortfolioReview[]) {
   try {
-    localStorage.setItem(reviewsStorageKey(user), JSON.stringify(reviews));
+    localStorage.setItem(reviewsStorageKey(user, ownerType), JSON.stringify(reviews));
   } catch {
     // Reviews are local MVP data; failing to persist does not affect the app.
   }
@@ -827,17 +915,18 @@ function ProfileModal({
 }: {
   profile: PortfolioProfile;
   onClose: () => void;
-  onSave: (profile: PortfolioProfile) => void;
+  onSave: (profile: PortfolioProfile) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState<PortfolioProfileDraft>(() => profileDraft(profile));
   const [tagInput, setTagInput] = useState("");
+  const tagSuggestions = filterServiceTags(tagInput, draft.tags).slice(0, 8);
 
-  function addTag() {
-    const value = tagInput.trim();
-    if (!value) return;
+  function addTag(value = tagInput) {
+    const slug = normalizeProfileTag(value);
+    if (!slug) return;
     setDraft((current) => {
-      if (current.tags.some((tag) => tag.toLowerCase() === value.toLowerCase())) return current;
-      return { ...current, tags: [...current.tags, value].slice(0, 12) };
+      if (current.tags.includes(slug)) return current;
+      return { ...current, tags: [...current.tags, slug].slice(0, 12) };
     });
     setTagInput("");
   }
@@ -856,8 +945,10 @@ function ProfileModal({
       publicPhone: draft.publicPhone.trim(),
       publicEmail: draft.publicEmail.trim(),
       whatsapp: draft.whatsapp.trim(),
-      tags: draft.tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 12),
+      tags: uniqueProfileTags(draft.tags),
       avatarIcon: draft.avatarIcon,
+      isPublic: draft.isPublic,
+      slug: safeSlug(draft.slug || displayName),
       updatedAt: new Date().toISOString(),
     });
   }
@@ -913,16 +1004,38 @@ function ProfileModal({
             <h3>Tagi / usługi</h3>
             <div className="ic-profile-tag-editor">
               <input value={tagInput} onChange={(event) => setTagInput(event.target.value)} placeholder="np. Hydraulika" />
-              <button type="button" className="button button--secondary" onClick={addTag}>Dodaj</button>
+              <button type="button" className="button button--secondary" onClick={() => addTag()}>Dodaj</button>
             </div>
+            {tagSuggestions.length > 0 && (
+              <div className="ic-profile-tag-suggestions" aria-label="Sugestie uslug">
+                {tagSuggestions.map((tag) => (
+                  <button type="button" key={tag.slug} onClick={() => addTag(tag.slug)}>
+                    {tag.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="ic-profile-tags" aria-label="Wybrane tagi profilu">
               {draft.tags.length === 0 ? <span>Brak tagów. Dodaj usługi, które chcesz pokazać klientom.</span> : draft.tags.map((tag) => (
                 <button type="button" key={tag} onClick={() => removeTag(tag)}>
-                  {tag}
+                  {portfolioTagLabel(tag)}
                   <Icon name="close" size={14} />
                 </button>
               ))}
             </div>
+          </section>
+
+          <section>
+            <h3>Widocznosc publiczna</h3>
+            <label>
+              Publiczny adres profilu
+              <input value={draft.slug} onChange={(event) => setDraft((current) => ({ ...current, slug: event.target.value }))} placeholder="np. moja-firma" />
+            </label>
+            <label className="ic-portfolio-toggle">
+              <input type="checkbox" checked={draft.isPublic} onChange={(event) => setDraft((current) => ({ ...current, isPublic: event.target.checked }))} />
+              Pokaz profil publicznie
+            </label>
+            <p className="form-note">E-mail publiczny jest osobnym kontaktem profilu. Nie zmienia loginu konta.</p>
           </section>
 
           <section>
@@ -1177,10 +1290,12 @@ function ReviewsSection({
 export function IndependentPortfolioPage({
   user,
   projects,
+  ownerType,
   onOpenSettings,
 }: {
   user: User;
   projects: Project[];
+  ownerType: PublicProfileOwnerType;
   onOpenSettings: () => void;
 }) {
   const [view, setView] = useState<PortfolioView>("dashboard");
@@ -1195,27 +1310,43 @@ export function IndependentPortfolioPage({
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [manageTab, setManageTab] = useState<"all" | PortfolioStatus>("all");
   const [copied, setCopied] = useState(false);
-  const [profile, setProfile] = useState<PortfolioProfile>(() => defaultPortfolioProfile(user));
+  const [profile, setProfile] = useState<PortfolioProfile>(() => defaultPortfolioProfile(user, ownerType));
   const [profileLoadedFor, setProfileLoadedFor] = useState("");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [previewRealization, setPreviewRealization] = useState<PortfolioRealization | null>(null);
-  const userStorageId = storageIdentity(user);
+  const userStorageId = profileOwnerIdentity(user, ownerType);
   const completedProjects = useMemo(() => projects.filter((project) => project.status === "completed"), [projects]);
   const projectsById = useMemo(() => new Map(projects.map((project) => [project.id, project])), [projects]);
-  const profileSlug = safeSlug(profile.displayName || user.name || user.email || "samodzielnymajster");
+  const pageLabel = ownerType === "company" ? "Wizytówka firmy" : "Moja wizytówka";
+  const ownerLabel = ownerType === "company" ? "Profil firmy" : "Profil wykonawcy";
+  const profileSlug = safeSlug(profile.slug || profile.displayName || user.name || user.email || "samodzielnymajster");
   const profileUrl = `panmajster.pl/wizytowka/${profileSlug}`;
   void onOpenSettings;
 
   useEffect(() => {
-    const identity = storageIdentity(user);
-    setItems(loadPortfolio(user));
-    setReviews(loadReviews(user));
-    setProfile(loadProfile(user));
+    let cancelled = false;
+    const identity = profileOwnerIdentity(user, ownerType);
+    setItems(loadPortfolio(user, ownerType));
+    setReviews(loadReviews(user, ownerType));
+    setProfile(loadProfile(user, ownerType));
     setPortfolioLoadedFor(identity);
     setReviewsLoadedFor(identity);
     setProfileLoadedFor(identity);
-  }, [user.id, user.email]);
+    api<PublicProfile>(`/public-profile/me?owner_type=${ownerType}`)
+      .then((remoteProfile) => {
+        if (cancelled) return;
+        const mappedProfile = publicProfileToPortfolioProfile(remoteProfile, user, ownerType);
+        setProfile(mappedProfile);
+        saveProfile(user, ownerType, mappedProfile);
+      })
+      .catch(() => {
+        // Local profile remains available when the backend foundation is not reachable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, user.email, ownerType]);
 
   useEffect(() => {
     if (portfolioLoadedFor !== userStorageId || items.length > 0 || completedProjects.length === 0) return;
@@ -1224,18 +1355,18 @@ export function IndependentPortfolioPage({
 
   useEffect(() => {
     if (portfolioLoadedFor !== userStorageId) return;
-    savePortfolio(user, items);
-  }, [items, portfolioLoadedFor, user, userStorageId]);
+    savePortfolio(user, ownerType, items);
+  }, [items, ownerType, portfolioLoadedFor, user, userStorageId]);
 
   useEffect(() => {
     if (reviewsLoadedFor !== userStorageId) return;
-    saveReviews(user, reviews);
-  }, [reviews, reviewsLoadedFor, user, userStorageId]);
+    saveReviews(user, ownerType, reviews);
+  }, [ownerType, reviews, reviewsLoadedFor, user, userStorageId]);
 
   useEffect(() => {
     if (profileLoadedFor !== userStorageId) return;
-    saveProfile(user, profile);
-  }, [profile, profileLoadedFor, user, userStorageId]);
+    saveProfile(user, ownerType, profile);
+  }, [ownerType, profile, profileLoadedFor, user, userStorageId]);
 
   const publishedItems = items.filter((item) => item.status === "published");
   const visibleItems = manageTab === "all" ? items : items.filter((item) => item.status === manageTab);
@@ -1327,10 +1458,10 @@ export function IndependentPortfolioPage({
             <section className="ic-portfolio-public-profile" id="portfolio-about">
               <span className="ic-portfolio-profile__avatar"><Icon name={profile.avatarIcon} size={54} /></span>
               <div>
-                <small>Profil wykonawcy</small>
+                <small>{ownerLabel}</small>
                 <h1>{profile.displayName}</h1>
                 <p>{profile.publicDescription}</p>
-                <div>{profile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+                <div>{profile.tags.map((tag) => <span key={tag}>{portfolioTagLabel(tag)}</span>)}</div>
               </div>
               <button type="button" className="button button--primary" onClick={() => setContactModalOpen(true)}><Icon name="send" /> Skontaktuj się</button>
             </section>
@@ -1418,8 +1549,8 @@ export function IndependentPortfolioPage({
     <div className="page ic-portfolio-page">
       <header className="ic-portfolio-header">
         <div>
-          <span className="eyebrow">Moja wizytówka</span>
-          <h1>{view === "manage" ? "Realizacje na mojej wizytówce" : "Moja wizytówka"}</h1>
+          <span className="eyebrow">{pageLabel}</span>
+          <h1>{view === "manage" ? "Realizacje na mojej wizytówce" : pageLabel}</h1>
           <p>{view === "manage" ? "Zarządzaj swoimi realizacjami widocznymi publicznie." : "Pokaż swoje najlepsze realizacje i zyskaj zaufanie klientów."}</p>
         </div>
         <div className="ic-portfolio-header__actions">
@@ -1520,7 +1651,7 @@ export function IndependentPortfolioPage({
               <span className="ic-portfolio-profile__avatar"><Icon name={profile.avatarIcon} size={54} /></span>
               <h2>{profile.displayName}</h2>
               <p>{profile.publicDescription}</p>
-              <div>{profile.tags.map((tag) => <span key={tag}>{tag}</span>)}</div>
+              <div>{profile.tags.map((tag) => <span key={tag}>{portfolioTagLabel(tag)}</span>)}</div>
               <footer>
                 <p><Icon name="phone" /> {profile.publicPhone || "Telefon nieudostępniony"}</p>
                 <p><Icon name="link" /> {profile.publicEmail || "E-mail nieudostępniony"}</p>
@@ -1566,8 +1697,21 @@ export function IndependentPortfolioPage({
         <ProfileModal
           profile={profile}
           onClose={() => setProfileModalOpen(false)}
-          onSave={(nextProfile) => {
-            setProfile(nextProfile);
+          onSave={async (nextProfile) => {
+            const normalizedProfile = normalizeProfile(nextProfile, user, ownerType);
+            setProfile(normalizedProfile);
+            saveProfile(user, ownerType, normalizedProfile);
+            try {
+              const remoteProfile = await api<PublicProfile>(
+                `/public-profile/me?owner_type=${ownerType}`,
+                { method: "PATCH", ...jsonBody(portfolioProfilePayload(normalizedProfile)) },
+              );
+              const mappedProfile = publicProfileToPortfolioProfile(remoteProfile, user, ownerType);
+              setProfile(mappedProfile);
+              saveProfile(user, ownerType, mappedProfile);
+            } catch {
+              // Local state is already saved; the user can continue if the API is temporarily unavailable.
+            }
             setProfileModalOpen(false);
           }}
         />

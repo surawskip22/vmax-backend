@@ -12,6 +12,24 @@ export type User = {
   workspaces: Workspace[];
 };
 
+export type PublicProfileOwnerType = "independent_contractor" | "company";
+
+export type PublicProfile = {
+  id: string;
+  owner_type: PublicProfileOwnerType;
+  owner_id: string;
+  display_name: string;
+  public_description: string;
+  contact_phone: string;
+  contact_email: string;
+  specializations: string[];
+  service_area: string;
+  is_public: boolean;
+  slug: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Workspace = {
   id: string;
   name: string;

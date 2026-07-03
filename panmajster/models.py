@@ -91,6 +91,26 @@ class Workspace(Base, TimestampMixin):
     address: Mapped[str] = mapped_column(String(300), default="")
 
 
+class PublicProfile(Base, TimestampMixin):
+    __tablename__ = "public_profiles"
+    __table_args__ = (
+        UniqueConstraint("owner_type", "owner_id", name="uq_public_profiles_owner"),
+        UniqueConstraint("slug", name="uq_public_profiles_slug"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    owner_type: Mapped[str] = mapped_column(String(40), index=True)
+    owner_id: Mapped[str] = mapped_column(String(36), index=True)
+    display_name: Mapped[str] = mapped_column(String(180), default="")
+    public_description: Mapped[str] = mapped_column(Text, default="")
+    contact_phone: Mapped[str] = mapped_column(String(40), default="")
+    contact_email: Mapped[str] = mapped_column(String(320), default="")
+    specializations: Mapped[list[str]] = mapped_column(JSON, default=list)
+    service_area: Mapped[str] = mapped_column(String(220), default="")
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+    slug: Mapped[str] = mapped_column(String(140), unique=True, index=True)
+
+
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
     __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)
