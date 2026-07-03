@@ -1477,6 +1477,9 @@ function ProjectsPage({
     if (ownerSimpleMode && viewFilter !== "all") setViewFilter("all");
   }, [ownerSimpleMode, viewFilter]);
   useEffect(() => {
+    if (companyOwnerMode && sortBy === "status") setSortBy("newest");
+  }, [companyOwnerMode, sortBy]);
+  useEffect(() => {
     if (!investorSimpleMode) return;
     if (statusFilter !== "all") setStatusFilter("all");
     if (!["newest", "oldest"].includes(sortBy)) setSortBy("newest");
@@ -1629,6 +1632,125 @@ function ProjectsPage({
                     )}
                     {!simpleMode && <Button type="button" variant="secondary" onClick={() => onProject(project)}>Edytuj</Button>}
                   </div>
+                </article>
+              );
+            })}
+          </section>
+        )}
+      </div>
+    );
+  }
+  if (companyOwnerMode) {
+    return (
+      <div className="page worker-home company-owner-projects-page company-owner-projects-page--aligned">
+        <header className="worker-page-header company-owner-projects-header">
+          <div className="worker-title-row company-owner-title-row">
+            <div>
+              <span className="eyebrow">Firma</span>
+              <h1>{copy.title}</h1>
+              <p>{copy.description}</p>
+            </div>
+            <div className="company-owner-title-actions">
+              {canCreateProject(user) && <Button icon="plus" onClick={onCreate}>{copy.createLabel}</Button>}
+              <WorkerModeSwitch uiMode={uiMode} onUiModeChange={onUiModeChange} />
+            </div>
+          </div>
+        </header>
+
+        <section className={`company-owner-filter-strip ${simpleMode ? "company-owner-filter-strip--simple" : "company-owner-filter-strip--advanced"}`} aria-label="Filtry zleceń firmy">
+          <input type="search" placeholder={copy.searchPlaceholder} value={filter} onChange={(e) => setFilter(e.target.value)} />
+          <div className="company-owner-filter-row">
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtr statusu">
+              <option value="all">Wszystkie statusy</option>
+              <option value="assigned">Zlecone</option>
+              <option value="in_progress">W realizacji</option>
+              <option value="completed">Zakończono</option>
+            </select>
+            {!simpleMode && workerOptions.length > 0 && (
+              <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)} aria-label="Filtr majstra lub ekipy">
+                <option value="all">Wszyscy majstrowie / ekipy</option>
+                {workerOptions.map((worker) => (
+                  <option key={worker.id} value={worker.id}>{worker.label}</option>
+                ))}
+              </select>
+            )}
+            <div className="company-owner-sort-controls" aria-label="Sortowanie zleceń">
+              <button type="button" className={sortBy === "newest" ? "active" : ""} onClick={() => setSortBy("newest")}>Najnowsze</button>
+              <button type="button" className={sortBy === "oldest" ? "active" : ""} onClick={() => setSortBy("oldest")}>Najstarsze</button>
+              {!simpleMode && <button type="button" className={sortBy === "start" ? "active" : ""} onClick={() => setSortBy("start")}>Data rozpoczęcia</button>}
+              {!simpleMode && <button type="button" className={sortBy === "end" ? "active" : ""} onClick={() => setSortBy("end")}>Data zakończenia</button>}
+            </div>
+          </div>
+        </section>
+
+        {projects.length === 0 ? (
+          <EmptyState icon="clipboard" title={copy.emptyTitle} text={copy.emptyText}>
+            {canCreateProject(user) && <Button onClick={onCreate} icon="plus">{copy.createLabel}</Button>}
+          </EmptyState>
+        ) : visible.length === 0 ? (
+          <EmptyState icon="clipboard" title="Brak wyników" text="Zmień filtr lub wyszukiwaną frazę, żeby zobaczyć pasujące zlecenia firmy." />
+        ) : (
+          <section className={`worker-project-list company-owner-job-list ${simpleMode ? "worker-project-list--simple company-owner-job-list--simple" : "worker-project-list--advanced company-owner-job-list--advanced"}`}>
+            {visible.map((project) => {
+              const due = formatContractDate(project.planned_end_date || project.planned_start_date) || "Termin nieustawiony";
+              const startDate = formatContractDate(project.planned_start_date) || "Nie ustawiono";
+              const endDate = formatContractDate(project.planned_end_date) || "Nie ustawiono";
+              const activityDate = formatProjectActivityDate(project.updated_at || project.created_at) || "Nie ustawiono";
+              const workerValue = projectPartyValue(user, project);
+              return (
+                <article className={`worker-job-card worker-job-card--${project.status} company-owner-job-card`} key={project.id}>
+                  <button type="button" className="worker-job-card__main company-owner-job-card__main" onClick={() => onProject(project)}>
+                    <span className="worker-job-card__icon"><Icon name="clipboard" /></span>
+                    <div className="worker-job-card__copy">
+                      <div className="worker-job-card__title">
+                        <h2>{project.name}</h2>
+                        <span className={`status status--${project.status}`}>{statusLabels[project.status] || project.status}</span>
+                      </div>
+                      <p>{`${project.client_name || "Bez klienta"} · ${project.address || "Adres nieuzupełniony"}`}</p>
+                    </div>
+                    <Icon name="back" className="worker-job-card__chevron" />
+                  </button>
+
+                  <div className="worker-job-card__meta company-owner-job-card__meta">
+                    <span className="worker-job-card__stage">{projectStageLabel(project)}</span>
+                    <span><Icon name="calendar" size={16} /> {due}</span>
+                    <span><Icon name="users" size={16} /> {workerValue}</span>
+                    {!simpleMode && <span>{project.entry_count || 0} wpisów</span>}
+                    {!simpleMode && <span>{project.open_problem_count || 0} problemów</span>}
+                    {!simpleMode && projectHasLinkOnlyWorker(project) && <span>link-only</span>}
+                  </div>
+
+                  {!simpleMode && (
+                    <>
+                      <dl className="worker-job-card__details company-owner-job-card__details">
+                        <div><dt>Start</dt><dd>{startDate}</dd></div>
+                        <div><dt>Koniec</dt><dd>{endDate}</dd></div>
+                        <div><dt>Ost. aktywność</dt><dd>{activityDate}</dd></div>
+                        <div><dt>Kwota</dt><dd>{contractAmountLabel(project) || "Nie podano"}</dd></div>
+                      </dl>
+                      <div className="company-owner-job-card__actions">
+                        <Button type="button" variant="secondary" onClick={() => onProject(project)}>Podgląd</Button>
+                        <Button type="button" variant="secondary" icon="report" onClick={() => onProject(project)}>Raporty</Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          icon="link"
+                          onClick={() => notify({ kind: "info", message: "Link klienta (/c) skopiujesz w szczegółach zlecenia." })}
+                        >
+                          Link klienta
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          icon="link"
+                          onClick={() => notify({ kind: "info", message: "Link majstra / ekipy (/g) znajdziesz w edycji wykonawcy zlecenia." })}
+                        >
+                          Link majstra / ekipy
+                        </Button>
+                        <Button type="button" variant="secondary" onClick={() => onProject(project)}>Edytuj</Button>
+                      </div>
+                    </>
+                  )}
                 </article>
               );
             })}

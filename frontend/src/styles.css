@@ -1172,6 +1172,73 @@ audio { width: 100%; margin-top: 13px; }
 .worker-job-card__actions .button:only-child { grid-column: 1 / -1; }
 .worker-project-list--simple .worker-job-card__actions:empty { display: none; }
 .worker-project-list--simple .worker-job-card { cursor: pointer; }
+.company-owner-projects-page--aligned { width: min(980px, 100%); }
+.company-owner-projects-header { margin-bottom: 18px; }
+.company-owner-title-row { width: 100%; align-items: flex-start; }
+.company-owner-title-row h1 { font-size: 42px; }
+.company-owner-title-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: 0 0 auto; flex-wrap: wrap; }
+.company-owner-title-actions .button { min-width: 180px; }
+.company-owner-title-actions .worker-mode-switch { min-width: 300px; }
+.company-owner-filter-strip { margin-bottom: 16px; display: grid; gap: 10px; }
+.company-owner-filter-strip input,
+.company-owner-filter-strip select {
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid #cfd9e6;
+  border-radius: 10px;
+  color: var(--navy);
+  background: #fff;
+  font: inherit;
+  font-weight: 750;
+}
+.company-owner-filter-strip input { font-weight: 600; box-shadow: 0 10px 24px rgba(18,38,69,.035); }
+.company-owner-filter-strip input:focus,
+.company-owner-filter-strip select:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127,255,.12); }
+.company-owner-filter-row { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; }
+.company-owner-filter-row > select { flex: 0 1 210px; }
+.company-owner-sort-controls { display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; }
+.company-owner-sort-controls button {
+  min-height: 44px;
+  padding: 0 15px;
+  border: 1px solid #cfd9e6;
+  border-radius: 10px;
+  color: var(--navy);
+  background: #fff;
+  font: inherit;
+  font-weight: 850;
+  cursor: pointer;
+}
+.company-owner-sort-controls button.active {
+  color: var(--blue);
+  border-color: var(--blue);
+  background: #f5f9ff;
+  box-shadow: 0 0 0 3px rgba(43,127,255,.08);
+}
+.company-owner-job-list { gap: 14px; }
+.company-owner-job-card { border-color: #d5e1ef; box-shadow: 0 12px 30px rgba(14,33,63,.06); }
+.company-owner-job-card__main { min-height: 84px; }
+.company-owner-job-card .worker-job-card__title h2 { max-width: 100%; }
+.company-owner-job-card__meta { padding-top: 2px; }
+.company-owner-job-card__details {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-bottom: 12px;
+}
+.company-owner-job-card__actions {
+  margin: 0 18px 18px 22px;
+  padding-top: 13px;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  border-top: 1px solid #e8eef5;
+}
+.company-owner-job-card__actions .button {
+  min-height: 38px;
+  padding-inline: 12px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.company-owner-job-list--simple .company-owner-job-card__meta span:nth-child(n+4) { display: none; }
 .add-progress-sheet { padding: 18px 22px 0; color: var(--muted); text-align: center; }
 .add-progress-sheet p { margin: 0; line-height: 1.45; }
 .progress-choice-grid { padding: 22px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
