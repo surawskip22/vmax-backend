@@ -61,7 +61,7 @@ function contractTermRows(project: Project): Array<{ label: string; value: strin
   if (start) rows.push({ label: "Planowany start", value: start });
   if (end) rows.push({ label: "Planowany koniec", value: end });
   if (project.schedule_uncertainty_days !== null && project.schedule_uncertainty_days !== undefined) {
-    rows.push({ label: "Niepewnosc terminu", value: `+/- ${project.schedule_uncertainty_days} dni` });
+    rows.push({ label: "Niepewność terminu", value: `+/- ${project.schedule_uncertainty_days} dni` });
   }
   if (amount) rows.push({ label: "Kwota umowna", value: amount });
   return rows;
@@ -96,8 +96,8 @@ async function copyToClipboard(value: string): Promise<boolean> {
   }
 }
 
-const contractTermsDisclaimer = "To informacja umowna. To nie jest faktura, platnosc ani wezwanie do zaplaty.";
-const contractTermsReadonlyMessage = "Dane do podgladu - zmienia je szef firmy.";
+const contractTermsDisclaimer = "To informacja umowna. To nie jest faktura, płatność ani wezwanie do zapłaty.";
+const contractTermsReadonlyMessage = "Dane do podglądu - zmienia je szef firmy.";
 
 function Button({
   children,
@@ -330,7 +330,7 @@ export function ManageProjectModal({
                 <label>Planowany koniec<input type="date" name="planned_end_date" defaultValue={project.planned_end_date || ""} /></label>
               </div>
               <div className="form-row">
-                <label>Niepewnosc terminu (+/- dni)<input type="number" name="schedule_uncertainty_days" min="0" step="1" placeholder="np. 3" defaultValue={project.schedule_uncertainty_days ?? ""} /></label>
+                <label>Niepewność terminu (+/- dni)<input type="number" name="schedule_uncertainty_days" min="0" step="1" placeholder="np. 3" defaultValue={project.schedule_uncertainty_days ?? ""} /></label>
                 <label>Kwota umowna (PLN)<input type="text" name="contract_amount" inputMode="decimal" placeholder="np. 12000" defaultValue={project.contract_amount || ""} /></label>
               </div>
               <p className="job-form-note">{contractTermsDisclaimer}</p>
@@ -338,7 +338,7 @@ export function ManageProjectModal({
           ) : (
             <div className="contract-fields contract-fields--readonly">
               <ContractTermsPanel project={project} />
-              {contractTermRows(project).length === 0 && <p className="form-note">Terminy i kwota nie sa jeszcze podane.</p>}
+              {contractTermRows(project).length === 0 && <p className="form-note">Terminy i kwota nie są jeszcze podane.</p>}
               <p className="form-note">{contractTermsReadonlyMessage}</p>
             </div>
           )}
