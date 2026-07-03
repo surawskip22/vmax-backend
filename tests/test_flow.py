@@ -3597,3 +3597,147 @@ def test_demo_seed_reset_requires_yes_confirmation():
                 models.User.email == "demo-reset-sentinel@example.com"
             )
         )
+
+
+def test_public_profile_realizations_are_backend_backed_and_public_visibility():
+    with TestClient(app) as client:
+        login(client, "portfolio-independent@example.com")
+        client.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Portfolio bathroom",
+                "client_name": "Anna",
+                "address": "Warszawa",
+                "template": "remont",
+            },
+        ).json()
+        client.post(f"/api/projects/{project['id']}/close")
+
+        profile_response = client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": True,
+                "slug": "portfolio-test-profile",
+                "display_name": "Portfolio Test",
+                "contact_email": "kontakt@example.com",
+                "specializations": ["remont-lazienki"],
+            },
+        )
+        assert profile_response.status_code == 200
+        assert profile_response.json()["contact_email"] == "kontakt@example.com"
+        assert client.get("/api/me").json()["email"] == "portfolio-independent@example.com"
+
+        created = client.post(
+            "/api/public-profile/me/realizations?owner_type=independent_contractor",
+            json={
+                "project_id": project["id"],
+                "title": "Lazienka pokazowa",
+                "public_description": "Opis publiczny",
+                "location_public": "Warszawa",
+                "work_scope": ["Remont lazienki"],
+                "completion_date": "2026-07-03",
+                "amount": "1200.00",
+                "show_amount": False,
+                "status": "draft",
+                "cover_image_url": "https://example.test/cover.jpg",
+                "gallery_image_urls": ["https://example.test/one.jpg"],
+            },
+        )
+        assert created.status_code == 201
+        assert created.json()["status"] == "draft"
+
+        public_profile = client.get("/api/public-profiles/portfolio-test-profile")
+        assert public_profile.status_code == 200
+        assert public_profile.json()["realizations"] == []
+
+        item_id = created.json()["id"]
+        published = client.patch(
+            f"/api/public-profile/me/realizations/{item_id}?owner_type=independent_contractor",
+            json={"status": "published"},
+        )
+        assert published.status_code == 200
+        assert published.json()["published_at"]
+
+        public_profile = client.get("/api/public-profiles/portfolio-test-profile")
+        assert public_profile.status_code == 200
+        realizations = public_profile.json()["realizations"]
+        assert len(realizations) == 1
+        assert realizations[0]["title"] == "Lazienka pokazowa"
+        assert realizations[0]["amount"] is None
+
+
+def test_company_owner_can_manage_company_public_profile_realizations():
+    with TestClient(app) as client:
+        user = login(client, "company-profile-owner@example.com")
+        onboarded = client.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Firma Profil",
+            },
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        assert user["email"] == "company-profile-owner@example.com"
+
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Firmowa realizacja",
+                "client_name": "Klient",
+                "address": "Krakow",
+                "template": "remont",
+                "workspace_id": workspace_id,
+            },
+        ).json()
+        client.post(f"/api/projects/{project['id']}/close")
+
+        profile_response = client.patch(
+            "/api/public-profile/me?owner_type=company",
+            json={
+                "is_public": True,
+                "slug": "firma-profile-test",
+                "display_name": "Firma Profil",
+            },
+        )
+        assert profile_response.status_code == 200
+
+        created = client.post(
+            "/api/public-profile/me/realizations?owner_type=company",
+            json={
+                "project_id": project["id"],
+                "title": "Firmowa realizacja",
+                "public_description": "Opis",
+                "location_public": "Krakow",
+                "work_scope": ["Remont mieszkan"],
+                "completion_date": "2026-07-03",
+                "amount": "5000.00",
+                "show_amount": True,
+                "status": "published",
+            },
+        )
+        assert created.status_code == 201
+
+        public_profile = client.get("/api/public-profiles/firma-profile-test")
+        assert public_profile.status_code == 200
+        body = public_profile.json()
+        assert body["owner_type"] == "company"
+        assert len(body["realizations"]) == 1
+        assert body["realizations"][0]["amount"] == "5000.00"
+
+
+def test_investor_cannot_manage_public_profile_realizations():
+    with TestClient(app) as client:
+        login(client, "portfolio-investor@example.com")
+        client.post("/api/onboarding", json={"profile_type": "investor"})
+
+        independent = client.get(
+            "/api/public-profile/me/realizations?owner_type=independent_contractor"
+        )
+        company = client.get("/api/public-profile/me/realizations?owner_type=company")
+
+        assert independent.status_code == 403
+        assert company.status_code == 403

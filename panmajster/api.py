@@ -160,7 +160,85 @@ def validate_contact_email(value: str) -> str:
         raise HTTPException(422, "Podaj poprawny e-mail kontaktowy") from exc
 
 
-def public_profile_payload(profile: models.PublicProfile) -> dict:
+def clean_realization_work_scope(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+    cleaned: list[str] = []
+    for value in values:
+        item = value.strip()
+        if item and item not in cleaned:
+            cleaned.append(item[:80])
+    return cleaned[:10]
+
+
+def clean_realization_urls(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+    cleaned: list[str] = []
+    for value in values:
+        item = value.strip()
+        if item and item not in cleaned:
+            cleaned.append(item[:2000])
+    return cleaned[:10]
+
+
+def clean_realization_currency(value: str | None) -> str:
+    currency = (value or "PLN").strip().upper()
+    return currency[:3] or "PLN"
+
+
+def public_profile_realization_payload(
+    item: models.PublicProfileRealization, *, public: bool = False
+) -> dict:
+    visible_amount = item.amount is not None and (not public or item.show_amount)
+    return {
+        "id": item.id,
+        "owner_type": item.owner_type,
+        "owner_id": item.owner_id,
+        "project_id": item.project_id,
+        "title": item.title,
+        "public_description": item.public_description,
+        "location_public": item.location_public,
+        "work_scope": item.work_scope or [],
+        "completion_date": item.completion_date.isoformat() if item.completion_date else None,
+        "amount": str(item.amount) if visible_amount else None,
+        "currency": item.currency,
+        "show_amount": item.show_amount,
+        "status": item.status,
+        "cover_image_url": item.cover_image_url,
+        "gallery_image_urls": item.gallery_image_urls or [],
+        "sort_order": item.sort_order,
+        "published_at": item.published_at.isoformat() if item.published_at else None,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }
+
+
+def public_profile_realizations_for(
+    db: Session, owner_type: str, owner_id: str, *, public_only: bool = False
+) -> list[models.PublicProfileRealization]:
+    query = (
+        select(models.PublicProfileRealization)
+        .where(
+            models.PublicProfileRealization.owner_type == owner_type,
+            models.PublicProfileRealization.owner_id == owner_id,
+        )
+        .order_by(
+            models.PublicProfileRealization.sort_order.asc(),
+            models.PublicProfileRealization.created_at.desc(),
+        )
+    )
+    if public_only:
+        query = query.where(models.PublicProfileRealization.status == "published")
+    return list(db.scalars(query).all())
+
+
+def public_profile_payload(
+    profile: models.PublicProfile,
+    realizations: list[models.PublicProfileRealization] | None = None,
+    *,
+    public: bool = False,
+) -> dict:
     return {
         "id": profile.id,
         "owner_type": profile.owner_type,
@@ -175,6 +253,10 @@ def public_profile_payload(profile: models.PublicProfile) -> dict:
         "slug": profile.slug,
         "created_at": profile.created_at.isoformat(),
         "updated_at": profile.updated_at.isoformat(),
+        "realizations": [
+            public_profile_realization_payload(item, public=public)
+            for item in (realizations or [])
+        ],
     }
 
 
@@ -248,6 +330,74 @@ def get_or_create_public_profile(
     return profile
 
 
+def validate_realization_project(
+    db: Session,
+    user: models.User,
+    profile: models.PublicProfile,
+    project_id: str,
+) -> models.Project:
+    project = db.get(models.Project, project_id)
+    if not project:
+        raise HTTPException(404, "Zlecenie nie istnieje")
+    if project.status != PROJECT_STATUS_COMPLETED:
+        raise HTTPException(422, "Realizacja musi bazowaÄ‡ na zakoÅ„czonym zleceniu")
+    if profile.owner_type == "independent_contractor":
+        if project.created_by_id != user.id:
+            raise HTTPException(403, "Nie masz dostÄ™pu do tego zlecenia")
+    elif profile.owner_type == "company":
+        if project.workspace_id != profile.owner_id:
+            raise HTTPException(403, "To zlecenie nie naleÅ¼y do tej firmy")
+    else:
+        raise HTTPException(403, "Ten profil nie moÅ¼e mieÄ‡ realizacji")
+    return project
+
+
+def apply_public_profile_realization_changes(
+    item: models.PublicProfileRealization,
+    payload: PublicProfileRealizationCreate | PublicProfileRealizationUpdate,
+    *,
+    db: Session,
+    user: models.User,
+    profile: models.PublicProfile,
+    require_project: bool = False,
+) -> None:
+    changes = payload.model_dump(exclude_unset=True)
+    project_id = changes.pop("project_id", None)
+    if require_project and not project_id:
+        raise HTTPException(422, "Wybierz zakoÅ„czone zlecenie")
+    if project_id:
+        item.project_id = validate_realization_project(db, user, profile, project_id).id
+
+    if "title" in changes:
+        item.title = (changes["title"] or "").strip()
+    if "public_description" in changes:
+        item.public_description = (changes["public_description"] or "").strip()
+    if "location_public" in changes:
+        item.location_public = (changes["location_public"] or "").strip()
+    if "work_scope" in changes:
+        item.work_scope = clean_realization_work_scope(changes["work_scope"])
+    if "completion_date" in changes:
+        item.completion_date = changes["completion_date"]
+    if "amount" in changes:
+        item.amount = changes["amount"]
+    if "currency" in changes:
+        item.currency = clean_realization_currency(changes["currency"])
+    if "show_amount" in changes:
+        item.show_amount = bool(changes["show_amount"])
+    if "cover_image_url" in changes:
+        item.cover_image_url = (changes["cover_image_url"] or "").strip()
+    if "gallery_image_urls" in changes:
+        item.gallery_image_urls = clean_realization_urls(changes["gallery_image_urls"])
+    if "sort_order" in changes:
+        item.sort_order = int(changes["sort_order"] or 0)
+    if "status" in changes:
+        item.status = changes["status"] or "draft"
+        if item.status == "published":
+            item.published_at = item.published_at or datetime.now(timezone.utc)
+        else:
+            item.published_at = None
+
+
 class OtpRequest(BaseModel):
     email: EmailStr
 
@@ -288,6 +438,38 @@ class PublicProfileUpdate(BaseModel):
     service_area: str | None = Field(default=None, max_length=220)
     is_public: bool | None = None
     slug: str | None = Field(default=None, max_length=140)
+
+
+class PublicProfileRealizationCreate(BaseModel):
+    project_id: str = Field(min_length=1, max_length=36)
+    title: str = Field(min_length=1, max_length=220)
+    public_description: str | None = Field(default="", max_length=4000)
+    location_public: str | None = Field(default="", max_length=220)
+    work_scope: list[str] | None = None
+    completion_date: date | None = None
+    amount: Decimal | None = Field(default=None, ge=0)
+    currency: str | None = Field(default="PLN", max_length=3)
+    show_amount: bool = False
+    status: Literal["draft", "published"] = "draft"
+    cover_image_url: str | None = Field(default="", max_length=2000)
+    gallery_image_urls: list[str] | None = None
+    sort_order: int | None = 0
+
+
+class PublicProfileRealizationUpdate(BaseModel):
+    project_id: str | None = Field(default=None, min_length=1, max_length=36)
+    title: str | None = Field(default=None, min_length=1, max_length=220)
+    public_description: str | None = Field(default=None, max_length=4000)
+    location_public: str | None = Field(default=None, max_length=220)
+    work_scope: list[str] | None = None
+    completion_date: date | None = None
+    amount: Decimal | None = Field(default=None, ge=0)
+    currency: str | None = Field(default=None, max_length=3)
+    show_amount: bool | None = None
+    status: Literal["draft", "published"] | None = None
+    cover_image_url: str | None = Field(default=None, max_length=2000)
+    gallery_image_urls: list[str] | None = None
+    sort_order: int | None = None
 
 
 class OnboardingCreate(BaseModel):
@@ -1230,7 +1412,10 @@ def get_my_public_profile(
     db: Session = Depends(get_db),
 ):
     profile = get_or_create_public_profile(db, user, owner_type)
-    return public_profile_payload(profile)
+    realizations = public_profile_realizations_for(
+        db, profile.owner_type, profile.owner_id
+    )
+    return public_profile_payload(profile, realizations=realizations)
 
 
 @router.patch("/public-profile/me")
@@ -1269,6 +1454,77 @@ def update_my_public_profile(
     return public_profile_payload(profile)
 
 
+@router.get("/public-profile/me/realizations")
+def list_my_public_profile_realizations(
+    owner_type: Literal["independent_contractor", "company"] = Query(...),
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    profile = get_or_create_public_profile(db, user, owner_type)
+    items = public_profile_realizations_for(db, profile.owner_type, profile.owner_id)
+    return [public_profile_realization_payload(item) for item in items]
+
+
+@router.post("/public-profile/me/realizations", status_code=201)
+def create_my_public_profile_realization(
+    payload: PublicProfileRealizationCreate,
+    owner_type: Literal["independent_contractor", "company"] = Query(...),
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    profile = get_or_create_public_profile(db, user, owner_type)
+    item = models.PublicProfileRealization(
+        owner_type=profile.owner_type,
+        owner_id=profile.owner_id,
+    )
+    apply_public_profile_realization_changes(
+        item,
+        payload,
+        db=db,
+        user=user,
+        profile=profile,
+        require_project=True,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return public_profile_realization_payload(item)
+
+
+@router.patch("/public-profile/me/realizations/{realization_id}")
+def update_my_public_profile_realization(
+    realization_id: str,
+    payload: PublicProfileRealizationUpdate,
+    owner_type: Literal["independent_contractor", "company"] = Query(...),
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    profile = get_or_create_public_profile(db, user, owner_type)
+    item = db.get(models.PublicProfileRealization, realization_id)
+    if not item or item.owner_type != profile.owner_type or item.owner_id != profile.owner_id:
+        raise HTTPException(404, "Realizacja nie istnieje")
+    apply_public_profile_realization_changes(item, payload, db=db, user=user, profile=profile)
+    db.commit()
+    db.refresh(item)
+    return public_profile_realization_payload(item)
+
+
+@router.delete("/public-profile/me/realizations/{realization_id}")
+def delete_my_public_profile_realization(
+    realization_id: str,
+    owner_type: Literal["independent_contractor", "company"] = Query(...),
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    profile = get_or_create_public_profile(db, user, owner_type)
+    item = db.get(models.PublicProfileRealization, realization_id)
+    if not item or item.owner_type != profile.owner_type or item.owner_id != profile.owner_id:
+        raise HTTPException(404, "Realizacja nie istnieje")
+    db.delete(item)
+    db.commit()
+    return {"ok": True}
+
+
 @router.get("/public-profiles/{slug}")
 def get_public_profile(slug: str, db: Session = Depends(get_db)):
     normalized_slug = normalize_public_profile_slug(slug)
@@ -1277,7 +1533,10 @@ def get_public_profile(slug: str, db: Session = Depends(get_db)):
     )
     if not profile or not profile.is_public:
         raise HTTPException(404, "Wizytówka nie jest dostępna publicznie")
-    return public_profile_payload(profile)
+    realizations = public_profile_realizations_for(
+        db, profile.owner_type, profile.owner_id, public_only=True
+    )
+    return public_profile_payload(profile, realizations=realizations, public=True)
 
 
 @router.post("/onboarding")

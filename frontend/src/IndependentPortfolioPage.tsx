@@ -2,7 +2,13 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, jsonBody } from "./api";
 import { Icon } from "./icons";
 import { filterServiceTags, serviceTags, tagBySlug } from "./serviceTaxonomy";
-import type { Project, PublicProfile, PublicProfileOwnerType, User } from "./types";
+import type {
+  Project,
+  PublicProfile,
+  PublicProfileOwnerType,
+  PublicProfileRealization as ApiPublicProfileRealization,
+  User,
+} from "./types";
 
 type PortfolioStatus = "draft" | "published";
 type ReviewSource = "manual" | "verified_client_link";
@@ -120,7 +126,6 @@ type DeleteTarget =
   | { kind: "realization"; id: string; title: string }
   | { kind: "review"; id: string; title: string };
 
-const portfolioStoragePrefix = "panmajster_independent_portfolio_";
 const reviewStoragePrefix = "panmajster_independent_portfolio_reviews_";
 const profileStoragePrefix = "panmajster_independent_portfolio_profile_";
 const defaultPortfolioTags = ["remont-lazienki", "wykonczenia-wnetrz", "bialy-montaz", "glazura", "montaz-kuchni"];
@@ -140,7 +145,7 @@ function profileOwnerIdentity(user: User, ownerType: PublicProfileOwnerType) {
 }
 
 function portfolioStorageKey(user: User, ownerType: PublicProfileOwnerType = "independent_contractor") {
-  return `${portfolioStoragePrefix}${profileOwnerIdentity(user, ownerType)}`;
+  return `panmajster_independent_portfolio_${profileOwnerIdentity(user, ownerType)}`;
 }
 
 function reviewsStorageKey(user: User, ownerType: PublicProfileOwnerType = "independent_contractor") {
@@ -233,15 +238,6 @@ function realizationScope(item: PortfolioRealization, profile?: PortfolioProfile
   const tags = Array.isArray(item.workScope) ? item.workScope.filter(Boolean) : [];
   if (tags.length > 0) return tags;
   return profile?.tags?.slice(0, 3).map(portfolioTagLabel) || defaultWorkScopeTags.slice(0, 3);
-}
-
-function projectImageUrls(project?: Project) {
-  const entries = (project as Project & { entries?: Array<{ media?: Array<{ kind?: string; url?: string }> }> } | undefined)?.entries || [];
-  return entries
-    .flatMap((entry) => entry.media || [])
-    .filter((media) => media.kind === "image" && media.url)
-    .map((media) => media.url as string)
-    .slice(0, galleryLimit);
 }
 
 function normalizeRealization(value: unknown, index: number): PortfolioRealization | null {
@@ -405,6 +401,51 @@ function portfolioProfilePayload(profile: PortfolioProfile) {
   };
 }
 
+function apiRealizationToPortfolioRealization(item: ApiPublicProfileRealization, index = 0): PortfolioRealization {
+  return {
+    id: item.id,
+    projectId: item.project_id || "",
+    title: item.title,
+    description: item.public_description || "",
+    locationPublic: item.location_public || "",
+    workScope: Array.isArray(item.work_scope) ? item.work_scope : [],
+    dateStart: "",
+    dateEnd: item.completion_date || "",
+    amount: item.amount ? `${item.amount} ${item.currency || "PLN"}` : "",
+    showAmount: Boolean(item.show_amount),
+    status: item.status === "published" ? "published" : "draft",
+    coverTone: typeof item.sort_order === "number" ? item.sort_order : index,
+    coverUrl: item.cover_image_url || undefined,
+    galleryUrls: Array.isArray(item.gallery_image_urls) ? item.gallery_image_urls : [],
+    createdAt: item.created_at,
+    updatedAt: item.updated_at,
+  };
+}
+
+function parsePortfolioAmount(value: string) {
+  const normalized = value.replace(/\s/g, "").replace(",", ".");
+  const match = normalized.match(/\d+(?:\.\d{1,2})?/);
+  return match ? match[0] : null;
+}
+
+function portfolioRealizationPayload(item: PortfolioRealization) {
+  return {
+    project_id: item.projectId,
+    title: item.title,
+    public_description: item.description,
+    location_public: item.locationPublic,
+    work_scope: item.workScope.slice(0, 10),
+    completion_date: item.dateEnd || null,
+    amount: parsePortfolioAmount(item.amount),
+    currency: "PLN",
+    show_amount: item.showAmount,
+    status: item.status,
+    cover_image_url: item.coverUrl || "",
+    gallery_image_urls: item.galleryUrls || [],
+    sort_order: item.coverTone || 0,
+  };
+}
+
 function cleanPhone(value: string) {
   return value.trim().replace(/[^\d+]/g, "");
 }
@@ -437,7 +478,6 @@ function dateRange(item: PortfolioRealization) {
 }
 
 function draftFromProject(project?: Project): PortfolioDraft {
-  const availableImages = projectImageUrls(project);
   return {
     projectId: project?.id || "",
     title: project?.name || "",
@@ -448,8 +488,8 @@ function draftFromProject(project?: Project): PortfolioDraft {
     dateEnd: project?.planned_end_date || "",
     amount: project ? projectAmount(project) : "",
     showAmount: Boolean(project?.contract_amount),
-    coverUrl: availableImages[0],
-    galleryUrls: availableImages,
+    coverUrl: undefined,
+    galleryUrls: [],
   };
 }
 
@@ -563,7 +603,7 @@ function PortfolioModal({
   projects: Project[];
   editing: PortfolioRealization | null;
   onClose: () => void;
-  onSave: (item: PortfolioRealization) => void;
+  onSave: (item: PortfolioRealization) => void | Promise<void>;
 }) {
   const initialProject = projects.find((project) => project.id === editing?.projectId) || projects[0];
   const [draft, setDraft] = useState<PortfolioDraft>(() => editing ? {
@@ -580,8 +620,7 @@ function PortfolioModal({
     galleryUrls: editing.galleryUrls || [],
   } : draftFromProject(initialProject));
   const [scopeInput, setScopeInput] = useState("");
-  const selectedProject = projects.find((project) => project.id === draft.projectId);
-  const availableImages = projectImageUrls(selectedProject);
+  const availableImages: string[] = [];
 
   function updateProject(projectId: string) {
     const project = projects.find((item) => item.id === projectId);
@@ -621,10 +660,10 @@ function PortfolioModal({
     });
   }
 
-  function save(status: PortfolioStatus) {
+  async function save(status: PortfolioStatus) {
     if (!draft.title.trim()) return;
     const now = new Date().toISOString();
-    onSave({
+    await onSave({
       id: editing?.id || `realization-${Date.now()}`,
       projectId: draft.projectId,
       title: draft.title.trim(),
@@ -646,7 +685,7 @@ function PortfolioModal({
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    save("published");
+    void save("published");
   }
 
   if (projects.length === 0) {
@@ -804,7 +843,7 @@ function PortfolioModal({
           </section>
 
           <footer className="modal-actions ic-portfolio-form__actions">
-            <button type="button" className="button button--secondary" onClick={() => save("draft")}>Zapisz szkic</button>
+            <button type="button" className="button button--secondary" onClick={() => { void save("draft"); }}>Zapisz szkic</button>
             <button type="submit" className="button button--primary"><Icon name="send" /> Opublikuj realizację</button>
           </footer>
         </form>
@@ -1313,7 +1352,6 @@ export function IndependentPortfolioPage({
   const [view, setView] = useState<PortfolioView>("dashboard");
   const [items, setItems] = useState<PortfolioRealization[]>([]);
   const [reviews, setReviews] = useState<PortfolioReview[]>([]);
-  const [portfolioLoadedFor, setPortfolioLoadedFor] = useState("");
   const [reviewsLoadedFor, setReviewsLoadedFor] = useState("");
   const [editing, setEditing] = useState<PortfolioRealization | null>(null);
   const [editingReview, setEditingReview] = useState<PortfolioReview | null>(null);
@@ -1339,10 +1377,9 @@ export function IndependentPortfolioPage({
   useEffect(() => {
     let cancelled = false;
     const identity = profileOwnerIdentity(user, ownerType);
-    setItems(loadPortfolio(user, ownerType));
+    setItems([]);
     setReviews(loadReviews(user, ownerType));
     setProfile(loadProfile(user, ownerType));
-    setPortfolioLoadedFor(identity);
     setReviewsLoadedFor(identity);
     setProfileLoadedFor(identity);
     api<PublicProfile>(`/public-profile/me?owner_type=${ownerType}`)
@@ -1350,6 +1387,7 @@ export function IndependentPortfolioPage({
         if (cancelled) return;
         const mappedProfile = publicProfileToPortfolioProfile(remoteProfile, user, ownerType);
         setProfile(mappedProfile);
+        setItems((remoteProfile.realizations || []).map(apiRealizationToPortfolioRealization));
         saveProfile(user, ownerType, mappedProfile);
       })
       .catch(() => {
@@ -1359,16 +1397,6 @@ export function IndependentPortfolioPage({
       cancelled = true;
     };
   }, [user.id, user.email, ownerType]);
-
-  useEffect(() => {
-    if (portfolioLoadedFor !== userStorageId || items.length > 0 || completedProjects.length === 0) return;
-    setItems(completedProjects.slice(0, 3).map(realizationFromProject));
-  }, [completedProjects, items.length, portfolioLoadedFor, userStorageId]);
-
-  useEffect(() => {
-    if (portfolioLoadedFor !== userStorageId) return;
-    savePortfolio(user, ownerType, items);
-  }, [items, ownerType, portfolioLoadedFor, user, userStorageId]);
 
   useEffect(() => {
     if (reviewsLoadedFor !== userStorageId) return;
@@ -1385,12 +1413,23 @@ export function IndependentPortfolioPage({
   const previewItem = publishedItems[0] || items[0] || null;
   const previewProject = previewItem ? projectsById.get(previewItem.projectId) : undefined;
 
-  function upsertItem(item: PortfolioRealization) {
+  async function upsertItem(item: PortfolioRealization) {
+    const existing = items.some((candidate) => candidate.id === item.id);
+    const remoteItem = await api<ApiPublicProfileRealization>(
+      existing
+        ? `/public-profile/me/realizations/${item.id}?owner_type=${ownerType}`
+        : `/public-profile/me/realizations?owner_type=${ownerType}`,
+      {
+        method: existing ? "PATCH" : "POST",
+        ...jsonBody(portfolioRealizationPayload(item)),
+      },
+    );
+    const mappedItem = apiRealizationToPortfolioRealization(remoteItem);
     setItems((current) => {
-      const exists = current.some((candidate) => candidate.id === item.id);
+      const exists = current.some((candidate) => candidate.id === mappedItem.id);
       return exists
-        ? current.map((candidate) => candidate.id === item.id ? item : candidate)
-        : [item, ...current];
+        ? current.map((candidate) => candidate.id === mappedItem.id ? mappedItem : candidate)
+        : [mappedItem, ...current];
     });
     setModalOpen(false);
     setEditing(null);
@@ -1423,16 +1462,17 @@ export function IndependentPortfolioPage({
   }
 
   function toggleItemStatus(item: PortfolioRealization) {
-    upsertItem({ ...item, status: item.status === "published" ? "draft" : "published", updatedAt: new Date().toISOString() });
+    void upsertItem({ ...item, status: item.status === "published" ? "draft" : "published", updatedAt: new Date().toISOString() });
   }
 
   function toggleReviewStatus(review: PortfolioReview) {
     upsertReview({ ...review, published: !review.published, updatedAt: new Date().toISOString() });
   }
 
-  function deleteSelectedTarget() {
+  async function deleteSelectedTarget() {
     if (!deleteTarget) return;
     if (deleteTarget.kind === "realization") {
+      await api<void>(`/public-profile/me/realizations/${deleteTarget.id}?owner_type=${ownerType}`, { method: "DELETE" });
       setItems((current) => current.filter((item) => item.id !== deleteTarget.id));
     } else {
       setReviews((current) => current.filter((review) => review.id !== deleteTarget.id));
@@ -1745,7 +1785,7 @@ export function IndependentPortfolioPage({
         <ConfirmDeleteModal
           target={deleteTarget}
           onCancel={() => setDeleteTarget(null)}
-          onConfirm={deleteSelectedTarget}
+          onConfirm={() => { void deleteSelectedTarget(); }}
         />
       )}
     </div>

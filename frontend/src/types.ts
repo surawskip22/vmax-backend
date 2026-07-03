@@ -14,6 +14,30 @@ export type User = {
 
 export type PublicProfileOwnerType = "independent_contractor" | "company";
 
+export type PublicProfileRealizationStatus = "draft" | "published";
+
+export type PublicProfileRealization = {
+  id: string;
+  owner_type: PublicProfileOwnerType;
+  owner_id: string;
+  project_id?: string | null;
+  title: string;
+  public_description: string;
+  location_public: string;
+  work_scope: string[];
+  completion_date?: string | null;
+  amount?: string | null;
+  currency?: string | null;
+  show_amount: boolean;
+  status: PublicProfileRealizationStatus;
+  cover_image_url: string;
+  gallery_image_urls: string[];
+  sort_order: number;
+  published_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type PublicProfile = {
   id: string;
   owner_type: PublicProfileOwnerType;
@@ -28,6 +52,7 @@ export type PublicProfile = {
   slug: string;
   created_at: string;
   updated_at: string;
+  realizations?: PublicProfileRealization[];
 };
 
 export type Workspace = {

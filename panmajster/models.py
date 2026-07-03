@@ -111,6 +111,34 @@ class PublicProfile(Base, TimestampMixin):
     slug: Mapped[str] = mapped_column(String(140), unique=True, index=True)
 
 
+class PublicProfileRealization(Base, TimestampMixin):
+    __tablename__ = "public_profile_realizations"
+    __table_args__ = (
+        Index("ix_public_profile_realizations_owner", "owner_type", "owner_id"),
+        Index("ix_public_profile_realizations_public", "owner_type", "owner_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    owner_type: Mapped[str] = mapped_column(String(40), index=True)
+    owner_id: Mapped[str] = mapped_column(String(36), index=True)
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(220), default="")
+    public_description: Mapped[str] = mapped_column(Text, default="")
+    location_public: Mapped[str] = mapped_column(String(220), default="")
+    work_scope: Mapped[list[str]] = mapped_column(JSON, default=list)
+    completion_date: Mapped[date | None] = mapped_column(Date)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    currency: Mapped[str] = mapped_column(String(3), default="PLN")
+    show_amount: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(30), default="draft", index=True)
+    cover_image_url: Mapped[str] = mapped_column(Text, default="")
+    gallery_image_urls: Mapped[list[str]] = mapped_column(JSON, default=list)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
     __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)
