@@ -1475,7 +1475,8 @@ function ProjectsPage({
   }, [investorSimpleMode, viewFilter]);
   useEffect(() => {
     if (ownerSimpleMode && viewFilter !== "all") setViewFilter("all");
-  }, [ownerSimpleMode, viewFilter]);
+    if (ownerSimpleMode && statusFilter !== "all") setStatusFilter("all");
+  }, [ownerSimpleMode, viewFilter, statusFilter]);
   useEffect(() => {
     if (companyOwnerMode && sortBy === "status") setSortBy("newest");
   }, [companyOwnerMode, sortBy]);
@@ -1490,6 +1491,8 @@ function ProjectsPage({
   const copy = projectListCopy(user);
   const query = filter.trim().toLowerCase();
   const statusOrder: Record<string, number> = { assigned: 1, in_progress: 2, completed: 3 };
+  const effectiveStatusFilter = ownerSimpleMode ? "all" : statusFilter;
+  const effectiveWorkerFilter = ownerSimpleMode ? "all" : workerFilter;
   const workerOptions = useMemo(() => {
     const seen = new Set<string>();
     return projects
@@ -1512,8 +1515,8 @@ function ProjectsPage({
           : viewFilter === "problems"
             ? (item.open_problem_count || 0) > 0
             : item.status === "completed");
-      const matchesStatus = statusFilter === "all" || item.status === statusFilter;
-      const matchesWorker = !canFilterWorkers || workerFilter === "all" || item.worker_profile?.id === workerFilter;
+      const matchesStatus = effectiveStatusFilter === "all" || item.status === effectiveStatusFilter;
+      const matchesWorker = !canFilterWorkers || effectiveWorkerFilter === "all" || item.worker_profile?.id === effectiveWorkerFilter;
       return matchesQuery && matchesView && matchesStatus && matchesWorker;
     })
     .sort((left, right) => {
@@ -1659,28 +1662,30 @@ function ProjectsPage({
 
         <section className={`company-owner-filter-strip ${simpleMode ? "company-owner-filter-strip--simple" : "company-owner-filter-strip--advanced"}`} aria-label="Filtry zleceń firmy">
           <input type="search" placeholder={copy.searchPlaceholder} value={filter} onChange={(e) => setFilter(e.target.value)} />
-          <div className="company-owner-filter-row">
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtr statusu">
-              <option value="all">Wszystkie statusy</option>
-              <option value="assigned">Zlecone</option>
-              <option value="in_progress">W realizacji</option>
-              <option value="completed">Zakończono</option>
-            </select>
-            {!simpleMode && workerOptions.length > 0 && (
-              <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)} aria-label="Filtr majstra lub ekipy">
-                <option value="all">Wszyscy majstrowie / ekipy</option>
-                {workerOptions.map((worker) => (
-                  <option key={worker.id} value={worker.id}>{worker.label}</option>
-                ))}
+          {!simpleMode && (
+            <div className="company-owner-filter-row">
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtr statusu">
+                <option value="all">Wszystkie statusy</option>
+                <option value="assigned">Zlecone</option>
+                <option value="in_progress">W realizacji</option>
+                <option value="completed">Zakończono</option>
               </select>
-            )}
-            <div className="company-owner-sort-controls" aria-label="Sortowanie zleceń">
-              <button type="button" className={sortBy === "newest" ? "active" : ""} onClick={() => setSortBy("newest")}>Najnowsze</button>
-              <button type="button" className={sortBy === "oldest" ? "active" : ""} onClick={() => setSortBy("oldest")}>Najstarsze</button>
-              {!simpleMode && <button type="button" className={sortBy === "start" ? "active" : ""} onClick={() => setSortBy("start")}>Data rozpoczęcia</button>}
-              {!simpleMode && <button type="button" className={sortBy === "end" ? "active" : ""} onClick={() => setSortBy("end")}>Data zakończenia</button>}
+              {workerOptions.length > 0 && (
+                <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)} aria-label="Filtr majstra lub ekipy">
+                  <option value="all">Wszyscy majstrowie / ekipy</option>
+                  {workerOptions.map((worker) => (
+                    <option key={worker.id} value={worker.id}>{worker.label}</option>
+                  ))}
+                </select>
+              )}
+              <div className="company-owner-sort-controls" aria-label="Sortowanie zleceń">
+                <button type="button" className={sortBy === "newest" ? "active" : ""} onClick={() => setSortBy("newest")}>Najnowsze</button>
+                <button type="button" className={sortBy === "oldest" ? "active" : ""} onClick={() => setSortBy("oldest")}>Najstarsze</button>
+                <button type="button" className={sortBy === "start" ? "active" : ""} onClick={() => setSortBy("start")}>Data rozpoczęcia</button>
+                <button type="button" className={sortBy === "end" ? "active" : ""} onClick={() => setSortBy("end")}>Data zakończenia</button>
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         {projects.length === 0 ? (
