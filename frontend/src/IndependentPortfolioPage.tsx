@@ -919,11 +919,11 @@ function ProfileModal({
 }) {
   const [draft, setDraft] = useState<PortfolioProfileDraft>(() => profileDraft(profile));
   const [tagInput, setTagInput] = useState("");
-  const tagSuggestions = filterServiceTags(tagInput, draft.tags).slice(0, 8);
+  const selectedTags = draft.tags.map((slug) => tagBySlug(slug)).filter(Boolean) as typeof serviceTags;
+  const availableTags = filterServiceTags(tagInput, draft.tags).slice(0, 12);
 
-  function addTag(value = tagInput) {
-    const slug = normalizeProfileTag(value);
-    if (!slug) return;
+  function addTag(slug: string) {
+    if (!tagBySlug(slug)) return;
     setDraft((current) => {
       if (current.tags.includes(slug)) return current;
       return { ...current, tags: [...current.tags, slug].slice(0, 12) };
@@ -1002,26 +1002,38 @@ function ProfileModal({
 
           <section>
             <h3>Tagi / usługi</h3>
-            <div className="ic-profile-tag-editor">
-              <input value={tagInput} onChange={(event) => setTagInput(event.target.value)} placeholder="np. Hydraulika" />
-              <button type="button" className="button button--secondary" onClick={() => addTag()}>Dodaj</button>
-            </div>
-            {tagSuggestions.length > 0 && (
-              <div className="ic-profile-tag-suggestions" aria-label="Sugestie uslug">
-                {tagSuggestions.map((tag) => (
+            <div className="ic-profile-service-selector">
+              <div className="ic-profile-service-selector__header">
+                <div>
+                  <strong>Wybrane usługi</strong>
+                  <p>Wybierz specjalizacje z kontrolowanej listy. Nie dodajemy wolnych hashtagów.</p>
+                </div>
+                <span>{draft.tags.length}/12</span>
+              </div>
+              <div className="ic-profile-service-selected" aria-label="Wybrane usługi profilu">
+                {selectedTags.length === 0 ? (
+                  <span>Nie wybrano jeszcze usług do pokazania klientom.</span>
+                ) : selectedTags.map((tag) => (
+                  <button type="button" key={tag.slug} onClick={() => removeTag(tag.slug)} aria-label={`Usuń usługę ${tag.label}`}>
+                    {tag.label}
+                    <Icon name="close" size={14} />
+                  </button>
+                ))}
+              </div>
+              <label className="ic-profile-service-search">
+                Szukaj w katalogu usług
+                <input value={tagInput} onChange={(event) => setTagInput(event.target.value)} placeholder="np. hydraulika, łazienka, sprzątanie" />
+              </label>
+              <div className="ic-profile-service-options" aria-label="Dostępne usługi z katalogu">
+                {availableTags.length === 0 ? (
+                  <span>Brak pasujących usług w katalogu.</span>
+                ) : availableTags.map((tag) => (
                   <button type="button" key={tag.slug} onClick={() => addTag(tag.slug)}>
+                    <Icon name="plus" size={14} />
                     {tag.label}
                   </button>
                 ))}
               </div>
-            )}
-            <div className="ic-profile-tags" aria-label="Wybrane tagi profilu">
-              {draft.tags.length === 0 ? <span>Brak tagów. Dodaj usługi, które chcesz pokazać klientom.</span> : draft.tags.map((tag) => (
-                <button type="button" key={tag} onClick={() => removeTag(tag)}>
-                  {portfolioTagLabel(tag)}
-                  <Icon name="close" size={14} />
-                </button>
-              ))}
             </div>
           </section>
 
