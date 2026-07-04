@@ -3736,8 +3736,9 @@ function ProjectView({
   const currentStageIndex = currentStage && project.stages ? project.stages.findIndex((stage) => stage.id === currentStage.id) + 1 : 0;
   const isCompanyWorkerFieldUser = Boolean(user && isCompanyWorker(user) && !guestToken);
   const isIndependentFieldUser = Boolean(user && isIndependentContractor(user) && !guestToken);
-  const isRoleFieldUser = isCompanyWorkerFieldUser || isIndependentFieldUser;
-  const fieldRoleTitle = isIndependentFieldUser ? "Samodzielny majster" : "Majster firmy";
+  const isCompanyOwnerDetailUser = Boolean(user && isCompanyOwner(user) && !guestToken);
+  const isRoleDetailUser = isCompanyWorkerFieldUser || isIndependentFieldUser || isCompanyOwnerDetailUser;
+  const fieldRoleTitle = isCompanyOwnerDetailUser ? "Szef firmy" : isIndependentFieldUser ? "Samodzielny majster" : "Majster firmy";
   const recentEntries = entries.slice(0, 3);
   const workerHistoryEntries = uiMode === "advanced" ? entries.slice(0, 8) : recentEntries;
   const workerProblemCount = entries.filter((entry) => entry.kind === "problem").length;
@@ -3746,7 +3747,7 @@ function ProjectView({
   const canStartWorkerProject = canAdd && project.status === "assigned";
   const canAddWorkerProgress = canAdd && project.status === "in_progress";
   const canFinishWorkerProject = canCloseProject && project.status === "in_progress";
-  const canReopenWorkerProject = project.status === "completed" && (isIndependentFieldUser ? canReopenProject : canAdd);
+  const canReopenWorkerProject = project.status === "completed" && ((isIndependentFieldUser || isCompanyOwnerDetailUser) ? canReopenProject : canAdd);
   const projectImages = entries.flatMap((entry) =>
     entry.media
       .filter((asset) => asset.kind === "image")
@@ -4086,9 +4087,9 @@ function ProjectView({
     );
   }
 
-  if (isRoleFieldUser) {
+  if (isRoleDetailUser) {
     return (
-      <div className="worker-workspace">
+      <div className={`worker-workspace ${isCompanyOwnerDetailUser ? "worker-workspace--company-owner-detail" : ""}`}>
         <header className="worker-detail-hero">
           <div className="worker-detail-topbar">
             <button type="button" className="worker-back-button" onClick={onBack}><Icon name="back" /> Wróć do zleceń</button>
@@ -4113,7 +4114,7 @@ function ProjectView({
             <div>
               <small>Aktualny etap</small>
               <h2>{currentStage?.title || "Etap nieustawiony"}</h2>
-              <p>{currentStage ? stageStatusText(currentStage) : isIndependentFieldUser ? "Ustaw aktualny etap swojej pracy." : "Szef firmy nie ustawił jeszcze etapu."}</p>
+              <p>{currentStage ? stageStatusText(currentStage) : isCompanyOwnerDetailUser ? "Ustaw aktualny etap zlecenia." : isIndependentFieldUser ? "Ustaw aktualny etap swojej pracy." : "Szef firmy nie ustawił jeszcze etapu."}</p>
             </div>
             <button
               type="button"
@@ -4157,10 +4158,15 @@ function ProjectView({
 
           {(canStartWorkerProject || canAddWorkerProgress || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
             <section className="worker-action-panel">
-              {canStartWorkerProject && <Button type="button" icon="plus" onClick={startProject}>Rozpocznij robot&#281;</Button>}
+              {canStartWorkerProject && <Button type="button" icon="plus" onClick={startProject}>{isCompanyOwnerDetailUser ? "Rozpocznij zlecenie" : "Rozpocznij robot&#281;"}</Button>}
               {canAddWorkerProgress && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj post&#281;p</Button>}
+              {isCompanyOwnerDetailUser && canAddWorkerProgress && (
+                <Button type="button" variant="secondary" className="problem" icon="alert" onClick={() => setEntryModal({ kind: "problem", mode: "text" })}>
+                  Zgłoś problem
+                </Button>
+              )}
               {canFinishWorkerProject ? (
-                <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>Zako&#324;cz robot&#281;</Button>
+                <Button type="button" variant="secondary" className="worker-finish-button" onClick={closeProject}>{isCompanyOwnerDetailUser ? "Zamknij zlecenie" : "Zako&#324;cz robot&#281;"}</Button>
               ) : project.status === "completed" ? (
                 <>
                   <div className="worker-completed-note"><Icon name="check" /> Zlecenie zako&#324;czone</div>
@@ -4172,10 +4178,23 @@ function ProjectView({
                 </>
               ) : null}
               {uiMode === "advanced" && canGeneratePdfReports && (
-                <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>Raport PDF</Button>
+                <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>{isCompanyOwnerDetailUser ? "Raporty" : "Raport PDF"}</Button>
               )}
-              {uiMode === "advanced" && isIndependentFieldUser && project.can_edit_details && (
+              {uiMode === "advanced" && (isIndependentFieldUser || isCompanyOwnerDetailUser) && project.can_edit_details && (
                 <Button type="button" variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>
+              )}
+              {uiMode === "advanced" && isCompanyOwnerDetailUser && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon="link"
+                  onClick={() => {
+                    setShowManage(true);
+                    notify({ kind: "info", message: "Link majstra / ekipy (/g) znajdziesz w sekcji wykonawcy zlecenia." });
+                  }}
+                >
+                  Link majstra / ekipy
+                </Button>
               )}
               {uiMode === "advanced" && (
                 <Button
@@ -4185,7 +4204,7 @@ function ProjectView({
                   disabled={!clientLink?.url}
                   onClick={() => void copyClientLink()}
                 >
-                  Link dla klienta
+                  {isCompanyOwnerDetailUser ? "Link klienta" : "Link dla klienta"}
                 </Button>
               )}
             </section>
@@ -4267,7 +4286,7 @@ function ProjectView({
               {showClientLink && (
                 <section className="worker-detail-card worker-client-link-card">
                   <div className="worker-section-heading">
-                    <div><h2>Link dla klienta</h2><p>{clientLink?.url ? "Gotowy podgląd publiczny zlecenia." : isIndependentFieldUser ? "Brak aktywnego linku klienta dla tego zlecenia." : "Brak linku klienta — poproś szefa o wygenerowanie linku."}</p></div>
+                    <div><h2>{isCompanyOwnerDetailUser ? "Link klienta" : "Link dla klienta"}</h2><p>{clientLink?.url ? "Gotowy podgląd publiczny zlecenia." : isIndependentFieldUser ? "Brak aktywnego linku klienta dla tego zlecenia." : isCompanyOwnerDetailUser ? "Brak aktywnego linku klienta dla tego zlecenia." : "Brak linku klienta — poproś szefa o wygenerowanie linku."}</p></div>
                   </div>
                   {clientLink?.url ? (
                     <div className="share-result client-link-result">
@@ -4276,7 +4295,7 @@ function ProjectView({
                       <a className="button button--secondary" href={clientLink.url} target="_blank" rel="noreferrer">Otwórz podgląd</a>
                     </div>
                   ) : (
-                    <p className="form-note">{isIndependentFieldUser ? "Link klienta utworzysz w edycji zlecenia, jeśli jest potrzebny." : "Link klienta tworzy i udostępnia szef firmy."}</p>
+                    <p className="form-note">{isIndependentFieldUser || isCompanyOwnerDetailUser ? "Link klienta utworzysz w edycji zlecenia, jeśli jest potrzebny." : "Link klienta tworzy i udostępnia szef firmy."}</p>
                   )}
                 </section>
               )}
@@ -4326,7 +4345,7 @@ function ProjectView({
           </Modal>
         )}
         {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} offlineScopeKey={offlineScopeKey} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
-        {isIndependentFieldUser && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
+        {(isIndependentFieldUser || isCompanyOwnerDetailUser) && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
         {showClientCoverPicker && (
           <ClientCoverPicker
             images={projectImages}
