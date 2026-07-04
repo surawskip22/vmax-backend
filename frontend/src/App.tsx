@@ -18,7 +18,7 @@ import {
 } from "./access";
 import { AppShell } from "./AppShell";
 import { ManageProjectModal } from "./ManageProjectModal";
-import { ApiError, api } from "./api";
+import { ApiError, api, jsonBody } from "./api";
 import { Icon } from "./icons";
 import { IndependentPortfolioPage } from "./IndependentPortfolioPage";
 import {
@@ -37,7 +37,20 @@ import {
 } from "./roleLabels";
 import { visibleSectionForUser } from "./RoleAwareSidebar";
 import { filterServiceTags, serviceTags, tagBySlug } from "./serviceTaxonomy";
-import type { ClientLink, Comment, Entry, MediaAsset, Project, Report, Stage, User, WorkerProfile, Workspace } from "./types";
+import type {
+  ClientLink,
+  Comment,
+  Entry,
+  MediaAsset,
+  Project,
+  PublicProfileOwnerType,
+  PublicProfileRealization,
+  Report,
+  Stage,
+  User,
+  WorkerProfile,
+  Workspace,
+} from "./types";
 import { useUiMode, type UiMode } from "./useUiMode";
 
 type Toast = { kind: "success" | "error" | "info"; message: string };
@@ -312,6 +325,26 @@ function formatProjectActivityDate(value?: string | null): string {
 function contractAmountLabel(project: Project): string {
   if (!project.contract_amount) return "";
   return `${project.contract_amount} ${project.contract_currency || "PLN"}`;
+}
+
+function publicLocationFromProject(project: Project): string {
+  const parts = (project.address || "").split(",").map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1) return parts[parts.length - 1];
+  return "";
+}
+
+function projectPortfolioCompletionDate(project: Project): string {
+  return project.planned_end_date || project.updated_at?.slice(0, 10) || "";
+}
+
+function projectPortfolioDescription(project: Project): string {
+  return project.portfolio_summary?.trim() || "Krótki publiczny opis zakończonej realizacji. Uzupełnij efekt prac bez danych prywatnych klienta.";
+}
+
+function parsePortfolioAmount(value: string): string | null {
+  const normalized = value.replace(/\s/g, "").replace(",", ".");
+  const match = normalized.match(/\d+(?:\.\d{1,2})?/);
+  return match ? match[0] : null;
 }
 
 function contractTermRows(project: Project): Array<{ label: string; value: string }> {
@@ -3440,6 +3473,143 @@ function ProjectStageControls({
   );
 }
 
+type ProjectPortfolioDraft = {
+  title: string;
+  publicDescription: string;
+  locationPublic: string;
+  completionDate: string;
+  amount: string;
+  showAmount: boolean;
+};
+
+function realizationStatusText(realization: PublicProfileRealization): string {
+  return realization.status === "published" ? "opublikowane" : "szkic";
+}
+
+function ProjectPortfolioModal({
+  project,
+  ownerType,
+  realization,
+  onClose,
+  onSaved,
+}: {
+  project: Project;
+  ownerType: PublicProfileOwnerType;
+  realization: PublicProfileRealization | null;
+  onClose: () => void;
+  onSaved: (item: PublicProfileRealization) => void;
+}) {
+  const [draft, setDraft] = useState<ProjectPortfolioDraft>(() => ({
+    title: realization?.title || project.name,
+    publicDescription: realization?.public_description || projectPortfolioDescription(project),
+    locationPublic: realization?.location_public || publicLocationFromProject(project),
+    completionDate: realization?.completion_date || projectPortfolioCompletionDate(project),
+    amount: realization?.amount ? `${realization.amount} ${realization.currency || "PLN"}` : contractAmountLabel(project),
+    showAmount: realization?.show_amount ?? false,
+  }));
+  const [busy, setBusy] = useState<"draft" | "published" | null>(null);
+  const [error, setError] = useState("");
+
+  async function save(status: "draft" | "published") {
+    const title = draft.title.trim();
+    if (!title) return;
+    setBusy(status);
+    setError("");
+    try {
+      const saved = await api<PublicProfileRealization>(
+        realization
+          ? `/public-profile/me/realizations/${realization.id}?owner_type=${ownerType}`
+          : `/public-profile/me/realizations?owner_type=${ownerType}`,
+        {
+          method: realization ? "PATCH" : "POST",
+          ...jsonBody({
+            project_id: project.id,
+            title,
+            public_description: draft.publicDescription.trim(),
+            location_public: draft.locationPublic.trim(),
+            work_scope: realization?.work_scope || [],
+            completion_date: draft.completionDate || null,
+            amount: parsePortfolioAmount(draft.amount),
+            currency: realization?.currency || project.contract_currency || "PLN",
+            show_amount: draft.showAmount,
+            status,
+            cover_image_url: realization?.cover_image_url || "",
+            gallery_image_urls: realization?.gallery_image_urls || [],
+            sort_order: realization?.sort_order || 0,
+          }),
+        },
+      );
+      onSaved(saved);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zapisać realizacji");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    void save("published");
+  }
+
+  return (
+    <Modal title={realization ? "Edytuj realizację" : "Dodaj do wizytówki"} onClose={onClose} wide>
+      <form className="ic-portfolio-form" onSubmit={submit}>
+        <section>
+          <h3>Źródło</h3>
+          <label>
+            Zakończone zlecenie
+            <input value={project.name} readOnly />
+          </label>
+          <p className="form-note">Realizacja będzie powiązana z tym zleceniem przez project_id. Nie publikujemy automatycznie danych klienta ani pełnego adresu.</p>
+        </section>
+
+        <section>
+          <h3>Opis publiczny</h3>
+          <label>
+            Tytuł realizacji
+            <input value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required />
+          </label>
+          <label>
+            Opis publiczny
+            <textarea rows={5} value={draft.publicDescription} onChange={(event) => setDraft((current) => ({ ...current, publicDescription: event.target.value }))} required />
+          </label>
+          <label>
+            Lokalizacja publiczna
+            <input value={draft.locationPublic} onChange={(event) => setDraft((current) => ({ ...current, locationPublic: event.target.value }))} placeholder="np. Warszawa, Mokotów, okolice" />
+          </label>
+          <p className="form-note">Opis widzi klient na wizytówce. Usuń z niego prywatne ustalenia, nazwisko klienta i dokładny adres.</p>
+        </section>
+
+        <section>
+          <h3>Data i kwota</h3>
+          <div className="ic-portfolio-form__row">
+            <label>
+              Data zakończenia
+              <input type="date" value={draft.completionDate} onChange={(event) => setDraft((current) => ({ ...current, completionDate: event.target.value }))} />
+            </label>
+            <label>
+              Kwota realizacji
+              <input value={draft.amount} onChange={(event) => setDraft((current) => ({ ...current, amount: event.target.value }))} placeholder="np. 12000 PLN" />
+            </label>
+            <label className="ic-portfolio-toggle">
+              <input type="checkbox" checked={draft.showAmount} onChange={(event) => setDraft((current) => ({ ...current, showAmount: event.target.checked }))} />
+              Pokaż kwotę
+            </label>
+          </div>
+          <p className="form-note">Kwota jest zapisana tylko wtedy, gdy jest podana. Publicznie pokaże się dopiero po zaznaczeniu tej opcji.</p>
+        </section>
+
+        <footer className="modal-actions ic-portfolio-form__actions">
+          {error && <p className="form-error">{error}</p>}
+          <Button type="button" variant="secondary" busy={busy === "draft"} disabled={busy !== null} onClick={() => void save("draft")}>Zapisz szkic</Button>
+          <Button type="submit" icon="send" busy={busy === "published"} disabled={busy !== null}>Opublikuj realizację</Button>
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
 function ProjectView({
   projectId,
   guestToken,
@@ -3478,13 +3648,22 @@ function ProjectView({
   const [showManage, setShowManage] = useState(false);
   const [showClientLink, setShowClientLink] = useState(false);
   const [showClientCoverPicker, setShowClientCoverPicker] = useState(false);
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false);
   const [showWorkerStagePicker, setShowWorkerStagePicker] = useState(false);
   const [selectedWorkerEntry, setSelectedWorkerEntry] = useState<Entry | null>(null);
   const [deleteEntryTarget, setDeleteEntryTarget] = useState<Entry | null>(null);
+  const [portfolioRealizations, setPortfolioRealizations] = useState<PublicProfileRealization[]>([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [portfolioError, setPortfolioError] = useState("");
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const [coverBusy, setCoverBusy] = useState(false);
   const workerReportsRef = useRef<HTMLDivElement | null>(null);
   const isInvestorPanelUser = Boolean(user && isInvestor(user) && !guestToken);
+  const projectPortfolioOwnerType: PublicProfileOwnerType | null = user && !guestToken && isIndependentContractor(user)
+    ? "independent_contractor"
+    : user && !guestToken && isCompanyOwner(user)
+      ? "company"
+      : null;
   const fieldMode = Boolean(guestToken) || (uiMode !== "advanced" && !isInvestorPanelUser);
 
   const loadReports = useCallback(async (targetProject: Project | null = project) => {
@@ -3588,14 +3767,45 @@ function ProjectView({
     setShowManage(false);
     setShowClientLink(false);
     setShowClientCoverPicker(false);
+    setShowPortfolioModal(false);
     setShowAddProgressChoice(false);
     setShowWorkerStagePicker(false);
     setSelectedWorkerEntry(null);
     setDeleteEntryTarget(null);
+    setPortfolioRealizations([]);
+    setPortfolioLoading(false);
+    setPortfolioError("");
     setLoading(true);
   }, [guestToken, projectId]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!project || !projectPortfolioOwnerType || project.status !== "completed") {
+      setPortfolioRealizations([]);
+      setPortfolioLoading(false);
+      setPortfolioError("");
+      return;
+    }
+    let cancelled = false;
+    setPortfolioLoading(true);
+    setPortfolioError("");
+    api<PublicProfileRealization[]>(`/public-profile/me/realizations?owner_type=${projectPortfolioOwnerType}`)
+      .then((items) => {
+        if (!cancelled) setPortfolioRealizations(items);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPortfolioRealizations([]);
+          setPortfolioError("Nie udało się sprawdzić wizytówki.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPortfolioLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [project, projectPortfolioOwnerType]);
   useEffect(() => {
     if (!reports.some((report) => report.status === "generating")) return;
     const timer = setInterval(() => {
@@ -3757,6 +3967,28 @@ function ProjectView({
   const fallbackClientCover = projectImages[0]?.asset || null;
   const visibleClientCover = selectedClientCover || fallbackClientCover;
   const canManageClientCover = Boolean(!guestToken && ["owner", "manager"].includes(project.role || ""));
+  const projectPortfolioRealization = projectPortfolioOwnerType
+    ? portfolioRealizations.find((item) => item.project_id === project.id) || null
+    : null;
+  const canUseProjectPortfolio = Boolean(
+    projectPortfolioOwnerType
+    && project.status === "completed"
+    && (isIndependentFieldUser || isCompanyOwnerDetailUser),
+  );
+
+  function handlePortfolioSaved(item: PublicProfileRealization) {
+    setPortfolioRealizations((current) => {
+      const exists = current.some((candidate) => candidate.id === item.id);
+      return exists
+        ? current.map((candidate) => candidate.id === item.id ? item : candidate)
+        : [item, ...current];
+    });
+    setShowPortfolioModal(false);
+    notify({
+      kind: "success",
+      message: item.status === "published" ? "Realizacja została opublikowana w wizytówce." : "Realizacja została zapisana jako szkic.",
+    });
+  }
 
   async function updateClientCover(mediaId: string | null) {
     setCoverBusy(true);
@@ -4170,6 +4402,27 @@ function ProjectView({
               ) : project.status === "completed" ? (
                 <>
                   <div className="worker-completed-note"><Icon name="check" /> Zlecenie zako&#324;czone</div>
+                  {canUseProjectPortfolio && projectPortfolioRealization && (
+                    <div className="worker-completed-note"><Icon name="image" /> W wizytówce: {realizationStatusText(projectPortfolioRealization)}</div>
+                  )}
+                  {canUseProjectPortfolio && portfolioError && (
+                    <div className="worker-completed-note"><Icon name="alert" /> {portfolioError}</div>
+                  )}
+                  {canUseProjectPortfolio && (
+                    <Button
+                      type="button"
+                      variant={projectPortfolioRealization ? "secondary" : "success"}
+                      icon="image"
+                      disabled={portfolioLoading || Boolean(portfolioError)}
+                      onClick={() => setShowPortfolioModal(true)}
+                    >
+                      {portfolioLoading
+                        ? "Sprawdzam wizytówkę..."
+                        : projectPortfolioRealization
+                          ? "Edytuj realizację"
+                          : "Dodaj do wizytówki"}
+                    </Button>
+                  )}
                   {canReopenWorkerProject && (
                     <Button type="button" variant="secondary" onClick={reopenProject}>
                       Otw&oacute;rz ponownie
@@ -4346,6 +4599,15 @@ function ProjectView({
         )}
         {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} offlineScopeKey={offlineScopeKey} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
         {(isIndependentFieldUser || isCompanyOwnerDetailUser) && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
+        {projectPortfolioOwnerType && showPortfolioModal && (
+          <ProjectPortfolioModal
+            project={project}
+            ownerType={projectPortfolioOwnerType}
+            realization={projectPortfolioRealization}
+            onClose={() => setShowPortfolioModal(false)}
+            onSaved={handlePortfolioSaved}
+          />
+        )}
         {showClientCoverPicker && (
           <ClientCoverPicker
             images={projectImages}
