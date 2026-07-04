@@ -1664,25 +1664,27 @@ function ProjectsPage({
           <input type="search" placeholder={copy.searchPlaceholder} value={filter} onChange={(e) => setFilter(e.target.value)} />
           {!simpleMode && (
             <div className="company-owner-filter-row">
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtr statusu">
-                <option value="all">Wszystkie statusy</option>
-                <option value="assigned">Zlecone</option>
-                <option value="in_progress">W realizacji</option>
-                <option value="completed">Zakończono</option>
-              </select>
-              {workerOptions.length > 0 && (
-                <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)} aria-label="Filtr majstra lub ekipy">
-                  <option value="all">Wszyscy majstrowie / ekipy</option>
-                  {workerOptions.map((worker) => (
-                    <option key={worker.id} value={worker.id}>{worker.label}</option>
-                  ))}
+              <div className="company-owner-filter-selects">
+                <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filtr statusu">
+                  <option value="all">Wszystkie statusy</option>
+                  <option value="assigned">Zlecone</option>
+                  <option value="in_progress">W realizacji</option>
+                  <option value="completed">Zakończono</option>
                 </select>
-              )}
+                {workerOptions.length > 0 && (
+                  <select value={workerFilter} onChange={(event) => setWorkerFilter(event.target.value)} aria-label="Filtr majstra lub ekipy">
+                    <option value="all">Wszyscy majstrowie / ekipy</option>
+                    {workerOptions.map((worker) => (
+                      <option key={worker.id} value={worker.id}>{worker.label}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
               <div className="company-owner-sort-controls" aria-label="Sortowanie zleceń">
                 <button type="button" className={sortBy === "newest" ? "active" : ""} onClick={() => setSortBy("newest")}>Najnowsze</button>
                 <button type="button" className={sortBy === "oldest" ? "active" : ""} onClick={() => setSortBy("oldest")}>Najstarsze</button>
-                <button type="button" className={sortBy === "start" ? "active" : ""} onClick={() => setSortBy("start")}>Data rozpoczęcia</button>
-                <button type="button" className={sortBy === "end" ? "active" : ""} onClick={() => setSortBy("end")}>Data zakończenia</button>
+                <button type="button" className={sortBy === "start" ? "active" : ""} onClick={() => setSortBy("start")}>Start</button>
+                <button type="button" className={sortBy === "end" ? "active" : ""} onClick={() => setSortBy("end")}>Koniec</button>
               </div>
             </div>
           )}

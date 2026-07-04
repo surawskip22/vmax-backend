@@ -287,12 +287,13 @@ export function ManageProjectModal({
 
   return (
     <Modal title="Edytuj zlecenie" onClose={onClose} wide>
-      <div className="manage-tabs">
-        <button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>Dane</button>
-        {canAssignWorkers && <button className={tab === "people" ? "active" : ""} onClick={() => setTab("people")}>Wykonawca</button>}
-      </div>
-      {tab === "details" && (
-        <form className="form-stack job-form" onSubmit={saveDetails}>
+      <div className="manage-project-shell">
+        <div className="manage-tabs">
+          <button className={tab === "details" ? "active" : ""} onClick={() => setTab("details")}>Dane</button>
+          {canAssignWorkers && <button className={tab === "people" ? "active" : ""} onClick={() => setTab("people")}>Wykonawca</button>}
+        </div>
+        {tab === "details" && (
+          <form className="form-stack job-form" onSubmit={saveDetails}>
           <p className="job-form-intro">
             Zaktualizuj podstawowe dane zlecenia. Zmiany będą widoczne w panelu i w podglądzie klienta.
           </p>
@@ -380,10 +381,10 @@ export function ManageProjectModal({
             <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
             <Button type="submit" busy={busy}>Zapisz zmiany</Button>
           </div>
-        </form>
-      )}
-      {tab === "people" && canAssignWorkers && (
-        <div className="manage-content manage-content--worker contractor-tab">
+          </form>
+        )}
+        {tab === "people" && canAssignWorkers && (
+          <div className="manage-content manage-content--worker contractor-tab">
           <section className="worker-flow-section contractor-section">
             <header className="contractor-section-header">
               <div>
@@ -483,8 +484,9 @@ export function ManageProjectModal({
             <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
             <Button type="button" onClick={onClose}>Zapisz zmiany</Button>
           </div>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </Modal>
   );
 }
