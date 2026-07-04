@@ -3767,7 +3767,7 @@ function ProjectView({
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
-    if (!project || !projectPortfolioOwnerType || project.status !== "completed") {
+    if (!project || !projectPortfolioOwnerType) {
       setPortfolioRealizations([]);
       setPortfolioLoading(false);
       setPortfolioError("");
@@ -3944,7 +3944,8 @@ function ProjectView({
   const canStartWorkerProject = canAdd && project.status === "assigned";
   const canAddWorkerProgress = canAdd && project.status === "in_progress";
   const canFinishWorkerProject = canCloseProject && project.status === "in_progress";
-  const canReopenWorkerProject = project.status === "completed" && ((isIndependentFieldUser || isCompanyOwnerDetailUser) ? canReopenProject : canAdd);
+  const projectCompleted = project.status === "completed";
+  const canReopenWorkerProject = projectCompleted && ((isIndependentFieldUser || isCompanyOwnerDetailUser) ? canReopenProject : canAdd);
   const projectImages = entries.flatMap((entry) =>
     entry.media
       .filter((asset) => asset.kind === "image")
@@ -3957,11 +3958,11 @@ function ProjectView({
   const projectPortfolioRealization = projectPortfolioOwnerType
     ? portfolioRealizations.find((item) => item.project_id === project.id) || null
     : null;
-  const canUseProjectPortfolio = Boolean(
+  const canShowProjectPortfolio = Boolean(
     projectPortfolioOwnerType
-    && project.status === "completed"
     && (isIndependentFieldUser || isCompanyOwnerDetailUser),
   );
+  const canEditProjectPortfolio = Boolean(projectPortfolioRealization || projectCompleted);
 
   function handlePortfolioSaved(item: PublicProfileRealization) {
     setPortfolioRealizations((current) => {
@@ -4023,19 +4024,27 @@ function ProjectView({
       </div>
     </section>
   ) : null;
-  const portfolioDetailCard = canUseProjectPortfolio ? (
+  const portfolioDetailCard = canShowProjectPortfolio ? (
     <section className="worker-detail-card worker-portfolio-card">
       <div className="worker-section-heading">
         <div>
           <h2>Wizytówka</h2>
-          <p>{projectPortfolioRealization ? "To zlecenie jest już powiązane z realizacją w publicznej wizytówce." : "Dodaj zakończone zlecenie jako publiczną realizację."}</p>
+          <p>
+            {projectPortfolioRealization
+              ? "To zlecenie jest już powiązane z realizacją w publicznej wizytówce."
+              : projectCompleted
+                ? "Dodaj zakończone zlecenie jako publiczną realizację."
+                : "Dodanie realizacji będzie dostępne po zamknięciu zlecenia."}
+          </p>
         </div>
         <span className={`status status--${projectPortfolioRealization?.status === "published" ? "completed" : "assigned"}`}>
-          {portfolioStatusLabel(projectPortfolioRealization)}
+          {projectCompleted || projectPortfolioRealization ? portfolioStatusLabel(projectPortfolioRealization) : "Dostępne po zamknięciu"}
         </span>
       </div>
       {portfolioError ? (
         <p className="form-error">{portfolioError}</p>
+      ) : !projectCompleted && !projectPortfolioRealization ? (
+        <p className="form-note">Zamknij zlecenie, a potem świadomie zapisz szkic albo opublikuj realizację w wizytówce.</p>
       ) : (
         <p className="form-note">Nic nie publikuje się automatycznie. Najpierw sprawdź tytuł, opis publiczny i widoczność kwoty.</p>
       )}
@@ -4043,14 +4052,16 @@ function ProjectView({
         type="button"
         variant={projectPortfolioRealization ? "secondary" : "success"}
         icon="image"
-        disabled={portfolioLoading || Boolean(portfolioError)}
+        disabled={!canEditProjectPortfolio || portfolioLoading || Boolean(portfolioError)}
         onClick={() => setShowPortfolioModal(true)}
       >
         {portfolioLoading
           ? "Sprawdzam wizytówkę..."
           : projectPortfolioRealization
             ? "Edytuj realizację"
-            : "Dodaj do wizytówki"}
+            : projectCompleted
+              ? "Dodaj do wizytówki"
+              : "Dostępne po zamknięciu"}
       </Button>
     </section>
   ) : null;
