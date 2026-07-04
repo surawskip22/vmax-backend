@@ -226,18 +226,6 @@ h1, h2, h3, p { margin-top: 0; }
 .job-form-note { margin: 0; padding: 10px 12px; border-radius: 10px; color: #52637a; background: #eef4fb; font-size: 12px; line-height: 1.45; }
 .job-form-section--disabled { border-color: #d7e0ec; background: #f8fafc; }
 .job-form-section--disabled .job-form-section__header > span { color: #64748b; background: #edf1f6; }
-.job-form-portfolio-info .job-form-section__header { align-items: center; }
-.job-form-portfolio-info .job-form-section__header > div { flex: 1; }
-.job-form-portfolio-info em {
-  padding: 6px 10px;
-  border-radius: 999px;
-  color: #536174;
-  background: #e8eef6;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 900;
-  white-space: nowrap;
-}
 .job-form-section--disabled input:disabled, .job-form-section--disabled textarea:disabled {
   color: #7a8797;
   background: #eef2f7;
@@ -1554,6 +1542,10 @@ audio { width: 100%; margin-top: 13px; }
 .worker-section-heading { margin-bottom: 12px; display: flex; justify-content: space-between; gap: 12px; }
 .worker-section-heading h2 { margin: 0 0 3px; color: var(--navy); font-size: 19px; }
 .worker-section-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+.worker-portfolio-card { display: grid; gap: 12px; }
+.worker-portfolio-card .worker-section-heading { margin-bottom: 0; align-items: flex-start; flex-wrap: wrap; }
+.worker-portfolio-card .status { flex: 0 0 auto; white-space: nowrap; }
+.worker-portfolio-card > .button { min-height: 48px; justify-self: start; }
 .worker-empty-history { min-height: 160px; display: grid; place-items: center; gap: 8px; text-align: center; color: var(--muted); }
 .worker-empty-history svg { width: 42px; height: 42px; padding: 9px; border-radius: 14px; color: var(--orange); background: #fff0e6; }
 .worker-empty-history strong { color: var(--navy); font-size: 18px; }

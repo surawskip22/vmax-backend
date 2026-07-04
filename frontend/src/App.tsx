@@ -1336,23 +1336,6 @@ function CreateProjectModal({
           </header>
           <label>Opis zlecenia<textarea name="description" rows={4} placeholder="Krótki zakres prac..." /></label>
         </section>
-        {isIndependentContractor(user) && (
-        <section className="job-form-section job-form-section--disabled job-form-portfolio-info">
-          <header className="job-form-section__header">
-            <span><Icon name="image" /></span>
-            <div>
-              <h3>Portfolio</h3>
-              <p>Dodaj później do Mojej wizytówki</p>
-            </div>
-            <em>Dostępne po zakończeniu</em>
-          </header>
-          <p className="job-form-note">
-            Po zakończeniu zlecenia możesz zrobić z niego publiczną realizację:
-            wybrać zdjęcie główne, galerię i opis. To zlecenie nie zostanie
-            opublikowane automatycznie.
-          </p>
-        </section>
-        )}
         {error && <p className="form-error">{error}</p>}
         <div className="modal-actions job-form-actions">
           <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
@@ -3486,6 +3469,10 @@ function realizationStatusText(realization: PublicProfileRealization): string {
   return realization.status === "published" ? "opublikowane" : "szkic";
 }
 
+function portfolioStatusLabel(realization: PublicProfileRealization | null): string {
+  return realization ? `W wizytówce: ${realizationStatusText(realization)}` : "Gotowe do dodania";
+}
+
 function ProjectPortfolioModal({
   project,
   ownerType,
@@ -4036,6 +4023,37 @@ function ProjectView({
       </div>
     </section>
   ) : null;
+  const portfolioDetailCard = canUseProjectPortfolio ? (
+    <section className="worker-detail-card worker-portfolio-card">
+      <div className="worker-section-heading">
+        <div>
+          <h2>Wizytówka</h2>
+          <p>{projectPortfolioRealization ? "To zlecenie jest już powiązane z realizacją w publicznej wizytówce." : "Dodaj zakończone zlecenie jako publiczną realizację."}</p>
+        </div>
+        <span className={`status status--${projectPortfolioRealization?.status === "published" ? "completed" : "assigned"}`}>
+          {portfolioStatusLabel(projectPortfolioRealization)}
+        </span>
+      </div>
+      {portfolioError ? (
+        <p className="form-error">{portfolioError}</p>
+      ) : (
+        <p className="form-note">Nic nie publikuje się automatycznie. Najpierw sprawdź tytuł, opis publiczny i widoczność kwoty.</p>
+      )}
+      <Button
+        type="button"
+        variant={projectPortfolioRealization ? "secondary" : "success"}
+        icon="image"
+        disabled={portfolioLoading || Boolean(portfolioError)}
+        onClick={() => setShowPortfolioModal(true)}
+      >
+        {portfolioLoading
+          ? "Sprawdzam wizytówkę..."
+          : projectPortfolioRealization
+            ? "Edytuj realizację"
+            : "Dodaj do wizytówki"}
+      </Button>
+    </section>
+  ) : null;
 
   if (isInvestorPanelUser) {
     const mode = uiMode || "simple";
@@ -4387,6 +4405,7 @@ function ProjectView({
               </div>
             )}
           </section>
+          {portfolioDetailCard}
 
           {(canStartWorkerProject || canAddWorkerProgress || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
             <section className="worker-action-panel">
@@ -4402,27 +4421,6 @@ function ProjectView({
               ) : project.status === "completed" ? (
                 <>
                   <div className="worker-completed-note"><Icon name="check" /> Zlecenie zako&#324;czone</div>
-                  {canUseProjectPortfolio && projectPortfolioRealization && (
-                    <div className="worker-completed-note"><Icon name="image" /> W wizytówce: {realizationStatusText(projectPortfolioRealization)}</div>
-                  )}
-                  {canUseProjectPortfolio && portfolioError && (
-                    <div className="worker-completed-note"><Icon name="alert" /> {portfolioError}</div>
-                  )}
-                  {canUseProjectPortfolio && (
-                    <Button
-                      type="button"
-                      variant={projectPortfolioRealization ? "secondary" : "success"}
-                      icon="image"
-                      disabled={portfolioLoading || Boolean(portfolioError)}
-                      onClick={() => setShowPortfolioModal(true)}
-                    >
-                      {portfolioLoading
-                        ? "Sprawdzam wizytówkę..."
-                        : projectPortfolioRealization
-                          ? "Edytuj realizację"
-                          : "Dodaj do wizytówki"}
-                    </Button>
-                  )}
                   {canReopenWorkerProject && (
                     <Button type="button" variant="secondary" onClick={reopenProject}>
                       Otw&oacute;rz ponownie
