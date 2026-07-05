@@ -1525,6 +1525,65 @@ def delete_my_public_profile_realization(
     return {"ok": True}
 
 
+@router.get("/public-profiles")
+def list_public_profiles(
+    q: str = Query(default="", max_length=160),
+    specialization: str = Query(default="", max_length=120),
+    service_area: str = Query(default="", max_length=160),
+    limit: int = Query(default=50, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    search = q.strip().lower()
+    specialization_filter = specialization.strip().lower()
+    service_area_filter = service_area.strip().lower()
+    profiles = list(
+        db.scalars(
+            select(models.PublicProfile)
+            .where(
+                models.PublicProfile.is_public.is_(True),
+                models.PublicProfile.owner_type.in_(
+                    ("independent_contractor", "company")
+                ),
+            )
+            .order_by(models.PublicProfile.updated_at.desc())
+        ).all()
+    )
+
+    def matches(profile: models.PublicProfile) -> bool:
+        if search:
+            haystack = " ".join(
+                [
+                    profile.display_name or "",
+                    profile.public_description or "",
+                ]
+            ).lower()
+            if search not in haystack:
+                return False
+        if specialization_filter:
+            specializations = [
+                str(item).strip().lower() for item in (profile.specializations or [])
+            ]
+            if specialization_filter not in specializations:
+                return False
+        if service_area_filter and service_area_filter not in (
+            profile.service_area or ""
+        ).lower():
+            return False
+        return True
+
+    visible_profiles = [profile for profile in profiles if matches(profile)][:limit]
+    return [
+        public_profile_payload(
+            profile,
+            realizations=public_profile_realizations_for(
+                db, profile.owner_type, profile.owner_id, public_only=True
+            ),
+            public=True,
+        )
+        for profile in visible_profiles
+    ]
+
+
 @router.get("/public-profiles/{slug}")
 def get_public_profile(slug: str, db: Session = Depends(get_db)):
     normalized_slug = normalize_public_profile_slug(slug)

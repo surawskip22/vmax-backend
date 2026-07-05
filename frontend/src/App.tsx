@@ -36,13 +36,14 @@ import {
   workerKindLabelForUser,
 } from "./roleLabels";
 import { visibleSectionForUser } from "./RoleAwareSidebar";
-import { filterServiceTags, serviceTags, tagBySlug } from "./serviceTaxonomy";
+import { serviceTags, tagBySlug } from "./serviceTaxonomy";
 import type {
   ClientLink,
   Comment,
   Entry,
   MediaAsset,
   Project,
+  PublicProfile,
   PublicProfileOwnerType,
   PublicProfileRealization,
   Report,
@@ -6442,229 +6443,340 @@ function CompanyTeamPanel({
   );
 }
 
-type InvestorDiscoveryContractor = {
-  name: string;
-  kind: "Firma" | "Majster";
-  rating: string;
-  reviews: number;
-  location: string;
-  region: string;
-  radius: string;
-  status: string;
-  tags: string[];
-  initials: string;
-  accent: string;
-  realizations: number;
-};
-
-const investorDiscoveryDemo: InvestorDiscoveryContractor[] = [
-  {
-    name: "CleanPro Remonty",
-    kind: "Firma",
-    rating: "4,9",
-    reviews: 28,
-    location: "Warszawa i okolice",
-    region: "woj. mazowieckie",
-    radius: "Działa w promieniu 40 km",
-    status: "Dostępny",
-    tags: ["remont-mieszkan", "wykonczenia-wnetrz", "malowanie"],
-    initials: "CP",
-    accent: "linear-gradient(145deg, #111827, #f59e0b)",
-    realizations: 12,
-  },
-  {
-    name: "HydroInstal",
-    kind: "Firma",
-    rating: "4,8",
-    reviews: 17,
-    location: "Kraków i okolice",
-    region: "woj. małopolskie",
-    radius: "Działa w promieniu 60 km",
-    status: "Dostępny",
-    tags: ["hydraulika", "ogrzewanie", "udraznianie"],
-    initials: "HI",
-    accent: "linear-gradient(145deg, #e0f2fe, #2563eb)",
-    realizations: 8,
-  },
-  {
-    name: "Elektrix Solutions",
-    kind: "Firma",
-    rating: "4,9",
-    reviews: 31,
-    location: "Wrocław i okolice",
-    region: "woj. dolnośląskie",
-    radius: "Działa w promieniu 50 km",
-    status: "Dostępny",
-    tags: ["elektryka", "fotowoltaika", "wentylacja"],
-    initials: "ES",
-    accent: "linear-gradient(145deg, #064e3b, #0f172a)",
-    realizations: 10,
-  },
-  {
-    name: "Jan Majster",
-    kind: "Majster",
-    rating: "4,8",
-    reviews: 24,
-    location: "Łódź i okolice",
-    region: "woj. łódzkie",
-    radius: "Działa w promieniu 35 km",
-    status: "Dostępny",
-    tags: ["wykonczenia-wnetrz", "glazura", "bialy-montaz"],
-    initials: "JM",
-    accent: "linear-gradient(145deg, #f97316, #1f2937)",
-    realizations: 6,
-  },
-];
-
 function serviceTagLabel(slug: string): string {
   return tagBySlug(slug)?.label || slug;
 }
 
+function publicProfileKindLabel(profile: PublicProfile): string {
+  return profile.owner_type === "company" ? "Firma" : "Samodzielny majster";
+}
+
+function publicProfileInitials(name: string): string {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+  return initials || "PM";
+}
+
+function publicProfileAccent(profile: PublicProfile): string {
+  return profile.owner_type === "company"
+    ? "linear-gradient(145deg, #0f766e, #0f172a)"
+    : "linear-gradient(145deg, #2563eb, #f97316)";
+}
+
+function publicProfileRealizationImages(profile: PublicProfile): string[] {
+  const urls: string[] = [];
+  for (const realization of profile.realizations || []) {
+    if (realization.cover_image_url) urls.push(realization.cover_image_url);
+    for (const url of realization.gallery_image_urls || []) {
+      if (url) urls.push(url);
+    }
+  }
+  return [...new Set(urls)].slice(0, 3);
+}
+
+function publicProfileDateLabel(value?: string | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("pl-PL", { month: "short", year: "numeric" }).format(date);
+}
+
+function PublicProfilePreviewModal({ profile, onClose }: { profile: PublicProfile; onClose: () => void }) {
+  const realizations = profile.realizations || [];
+  const specializations = profile.specializations || [];
+  return (
+    <Modal title="Profil wykonawcy" onClose={onClose} wide>
+      <div className="public-profile-preview">
+        <header className="public-profile-preview__header">
+          <div className="contractor-discovery-avatar" style={{ background: publicProfileAccent(profile) }}>
+            {publicProfileInitials(profile.display_name)}
+          </div>
+          <div>
+            <small>{publicProfileKindLabel(profile)}</small>
+            <h3>{profile.display_name}</h3>
+            <p>{profile.public_description || "Właściciel nie dodał jeszcze publicznego opisu."}</p>
+            <div className="service-chip-list service-chip-list--small">
+              {specializations.length > 0
+                ? specializations.map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
+                : <span>Brak specjalizacji</span>}
+            </div>
+          </div>
+        </header>
+        <dl>
+          <div>
+            <dt>Obszar działania</dt>
+            <dd>{profile.service_area || "Nie podano"}</dd>
+          </div>
+          <div>
+            <dt>Realizacje</dt>
+            <dd>{realizations.length}</dd>
+          </div>
+          <div>
+            <dt>Telefon</dt>
+            <dd>{profile.contact_phone || "Nie podano"}</dd>
+          </div>
+          <div>
+            <dt>E-mail</dt>
+            <dd>{profile.contact_email || "Nie podano"}</dd>
+          </div>
+        </dl>
+        <section className="public-profile-preview__realizations">
+          <header>
+            <h3>Opublikowane realizacje</h3>
+            <span>{realizations.length}</span>
+          </header>
+          {realizations.length === 0 ? (
+            <p className="empty-note">Ten profil nie ma jeszcze opublikowanych realizacji.</p>
+          ) : (
+            <div>
+              {realizations.map((realization) => (
+                <article key={realization.id}>
+                  {realization.cover_image_url ? (
+                    <img src={realization.cover_image_url} alt={realization.title} loading="lazy" />
+                  ) : (
+                    <span><Icon name="image" /></span>
+                  )}
+                  <div>
+                    <h4>{realization.title}</h4>
+                    <p>{realization.public_description || "Brak publicznego opisu realizacji."}</p>
+                    <small>
+                      {[realization.location_public, publicProfileDateLabel(realization.completion_date)]
+                        .filter(Boolean)
+                        .join(" · ") || "Realizacja opublikowana"}
+                    </small>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </Modal>
+  );
+}
+
 function InvestorDiscoveryPage({ notify }: { notify: (toast: Toast) => void }) {
   const [query, setQuery] = useState("");
-  const [selectedTags, setSelectedTags] = useState(["remont-mieszkan", "wykonczenia-wnetrz", "elektryka", "hydraulika", "malowanie"]);
-  const [tagToAdd, setTagToAdd] = useState("");
-  const [city, setCity] = useState("");
-  const [region, setRegion] = useState("");
-  const [radius, setRadius] = useState("50");
-  const [sort, setSort] = useState("Najlepiej oceniani");
-  const futureMessage = "Moduł publicznych profili wykonawców jest w przygotowaniu.";
-  const availableTags = filterServiceTags(query, selectedTags).slice(0, 12);
+  const [specialization, setSpecialization] = useState("");
+  const [serviceArea, setServiceArea] = useState("");
+  const [sort, setSort] = useState("Najnowsze profile");
+  const [profiles, setProfiles] = useState<PublicProfile[]>([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(true);
+  const [profilesError, setProfilesError] = useState("");
+  const [previewProfile, setPreviewProfile] = useState<PublicProfile | null>(null);
+  const [reloadProfiles, setReloadProfiles] = useState(0);
 
-  function addTag(slug = tagToAdd) {
-    if (!slug || selectedTags.includes(slug)) return;
-    setSelectedTags((current) => [...current, slug]);
-    setTagToAdd("");
-    setQuery("");
-  }
+  const publicProfilesPath = useMemo(() => {
+    const params = new URLSearchParams();
+    const search = query.trim();
+    const area = serviceArea.trim();
+    if (search) params.set("q", search);
+    if (specialization) params.set("specialization", specialization);
+    if (area) params.set("service_area", area);
+    const suffix = params.toString();
+    return `/public-profiles${suffix ? `?${suffix}` : ""}`;
+  }, [query, serviceArea, specialization]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingProfiles(true);
+    setProfilesError("");
+    api<PublicProfile[]>(publicProfilesPath)
+      .then((items) => {
+        if (cancelled) return;
+        setProfiles(items);
+      })
+      .catch((reason) => {
+        if (cancelled) return;
+        const message = reason instanceof Error ? reason.message : "Nie udało się pobrać publicznych profili.";
+        setProfiles([]);
+        setProfilesError(message);
+        notify({ kind: "error", message });
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingProfiles(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [notify, publicProfilesPath, reloadProfiles]);
+
+  const sortedProfiles = useMemo(() => {
+    const collator = new Intl.Collator("pl", { sensitivity: "base" });
+    const items = [...profiles];
+    if (sort === "Najwięcej realizacji") {
+      return items.sort((first, second) => (second.realizations?.length || 0) - (first.realizations?.length || 0));
+    }
+    if (sort === "Nazwa A-Z") {
+      return items.sort((first, second) => collator.compare(first.display_name, second.display_name));
+    }
+    if (sort === "Firmy najpierw") {
+      return items.sort((first, second) => {
+        if (first.owner_type === second.owner_type) return collator.compare(first.display_name, second.display_name);
+        return first.owner_type === "company" ? -1 : 1;
+      });
+    }
+    return items.sort((first, second) => {
+      const firstTime = new Date(first.updated_at).getTime();
+      const secondTime = new Date(second.updated_at).getTime();
+      return (Number.isFinite(secondTime) ? secondTime : 0) - (Number.isFinite(firstTime) ? firstTime : 0);
+    });
+  }, [profiles, sort]);
 
   function clearFilters() {
     setQuery("");
-    setSelectedTags([]);
-    setTagToAdd("");
-    setCity("");
-    setRegion("");
-    setRadius("50");
-    setSort("Najlepiej oceniani");
+    setSpecialization("");
+    setServiceArea("");
+    setSort("Najnowsze profile");
   }
 
   return (
     <div className="page investor-discovery-page">
       <header className="page-header investor-discovery-header">
         <div>
-          <span className="eyebrow">Moduł przyszłościowy</span>
+          <span className="eyebrow">Publiczne wizytówki</span>
           <h1>Wyszukaj wykonawcę</h1>
-          <p>Znajdź sprawdzonych wykonawców i firmy po specjalizacji oraz obszarze działania.</p>
+          <p>Znajdź wykonawców i firmy z publiczną wizytówką, specjalizacjami oraz realizacjami.</p>
         </div>
-        <aside className="future-module-note">
-          <span><Icon name="report" /></span>
+        <aside className="discovery-live-note">
+          <span><Icon name="building" /></span>
           <div>
-            <strong>To moduł przyszłościowy</strong>
-            <small>Publiczne profile wykonawców będą widoczne po wdrożeniu profili i portfolio.</small>
+            <strong>Realne profile</strong>
+            <small>Widoczne są tylko wizytówki oznaczone przez właściciela jako publiczne.</small>
           </div>
         </aside>
       </header>
 
       <section className="investor-discovery-filters">
         <div className="discovery-filter-group discovery-filter-group--wide">
-          <label>Specjalizacje</label>
+          <label>Szukaj</label>
           <div className="discovery-search-input">
             <Icon name="search" size={18} />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Wyszukaj specjalizację..."
+              placeholder="Nazwa albo opis wykonawcy"
             />
-            <select value={tagToAdd} onChange={(event) => setTagToAdd(event.target.value)}>
-              <option value="">Wybierz z listy</option>
-              {availableTags.map((tag) => (
+            <select value={specialization} onChange={(event) => setSpecialization(event.target.value)}>
+              <option value="">Wszystkie specjalizacje</option>
+              {serviceTags.map((tag) => (
                 <option key={tag.slug} value={tag.slug}>{tag.label}</option>
               ))}
             </select>
           </div>
           <div className="service-chip-list">
-            {selectedTags.map((slug) => (
-              <button type="button" key={slug} onClick={() => setSelectedTags((current) => current.filter((item) => item !== slug))}>
-                {serviceTagLabel(slug)} <Icon name="close" size={12} />
+            {specialization ? (
+              <button type="button" onClick={() => setSpecialization("")}>
+                {serviceTagLabel(specialization)} <Icon name="close" size={12} />
               </button>
-            ))}
-            <button type="button" className="service-chip-add" onClick={() => addTag(tagToAdd || availableTags[0]?.slug)}>
-              <Icon name="plus" size={14} /> Dodaj specjalizację
-            </button>
+            ) : (
+              <span>Dowolna specjalizacja</span>
+            )}
+            {query.trim() && <span>Fraza: {query.trim()}</span>}
           </div>
         </div>
 
         <div className="discovery-filter-group">
           <label>Obszar działania</label>
           <div className="discovery-location-grid">
-            <input value={city} onChange={(event) => setCity(event.target.value)} placeholder="Miasto lub miejscowość" />
-            <select value={region} onChange={(event) => setRegion(event.target.value)}>
-              <option value="">Województwo / obszar</option>
-              <option>mazowieckie</option>
-              <option>małopolskie</option>
-              <option>dolnośląskie</option>
-              <option>łódzkie</option>
-              <option>warmińsko-mazurskie</option>
-            </select>
-            <select value={radius} onChange={(event) => setRadius(event.target.value)}>
-              <option value="10">Promień działania: 10 km</option>
-              <option value="25">Promień działania: 25 km</option>
-              <option value="50">Promień działania: 50 km</option>
-              <option value="100">Promień działania: 100 km</option>
-            </select>
+            <input value={serviceArea} onChange={(event) => setServiceArea(event.target.value)} placeholder="Miasto, województwo albo rejon" />
           </div>
         </div>
 
         <footer>
           <Button type="button" variant="secondary" onClick={clearFilters}>Wyczyść filtry</Button>
-          <Button type="button" onClick={() => notify({ kind: "info", message: futureMessage })}>Szukaj wykonawców</Button>
+          <Button type="button" icon="search" disabled={loadingProfiles} onClick={() => setReloadProfiles((current) => current + 1)}>Szukaj wykonawców</Button>
         </footer>
       </section>
 
       <div className="discovery-results-bar">
-        <p>Znaleziono 24 wykonawców</p>
+        <p>
+          {loadingProfiles
+            ? "Ładowanie profili..."
+            : `Znaleziono ${sortedProfiles.length} ${sortedProfiles.length === 1 ? "profil" : "profili"}`}
+        </p>
         <label>Sortuj:
           <select value={sort} onChange={(event) => setSort(event.target.value)}>
-            <option>Najlepiej oceniani</option>
-            <option>Najwięcej realizacji</option>
-            <option>Najbliżej</option>
             <option>Najnowsze profile</option>
+            <option>Najwięcej realizacji</option>
+            <option>Nazwa A-Z</option>
+            <option>Firmy najpierw</option>
           </select>
         </label>
       </div>
 
       <section className="contractor-discovery-list" aria-label="Wyniki wyszukiwania wykonawców">
-        {investorDiscoveryDemo.map((contractor) => (
-          <article className="contractor-discovery-card" key={contractor.name}>
-            <div className="contractor-discovery-avatar" style={{ background: contractor.accent }}>{contractor.initials}</div>
-            <div className="contractor-discovery-main">
-              <h2>{contractor.name} <span title="Profil przyszłościowy"><Icon name="check" size={15} /></span></h2>
-              <p>{contractor.kind} <b><Icon name="star" size={14} /> {contractor.rating}</b> <small>({contractor.reviews} opinii)</small></p>
-              <div className="service-chip-list service-chip-list--small">
-                {contractor.tags.slice(0, 3).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)}
+        {loadingProfiles ? (
+          <div className="loading-screen"><span className="spinner" /> Ładowanie publicznych profili...</div>
+        ) : profilesError ? (
+          <div className="empty-state">
+            <span><Icon name="alert" /></span>
+            <h3>Nie udało się pobrać profili</h3>
+            <p>{profilesError}</p>
+          </div>
+        ) : sortedProfiles.length === 0 ? (
+          <div className="empty-state">
+            <span><Icon name="search" /></span>
+            <h3>Brak publicznych profili</h3>
+            <p>Zmień frazę, specjalizację albo obszar działania. Prywatne wizytówki nie są tu pokazywane.</p>
+          </div>
+        ) : sortedProfiles.map((profile) => {
+          const images = publicProfileRealizationImages(profile);
+          const realizationCount = profile.realizations?.length || 0;
+          return (
+            <article className="contractor-discovery-card" key={profile.id}>
+              <div className="contractor-discovery-avatar" style={{ background: publicProfileAccent(profile) }}>
+                {publicProfileInitials(profile.display_name)}
               </div>
-            </div>
-            <div className="contractor-discovery-location">
-              <strong><Icon name="map-pin" size={16} /> {contractor.location}</strong>
-              <small>{contractor.region}</small>
-              <span>{contractor.status}</span>
-              <p>{contractor.radius}</p>
-            </div>
-            <div className="contractor-discovery-gallery" aria-label="Wybrane realizacje demo">
-              <strong>Wybrane realizacje</strong>
-              <div>
-                {[0, 1, 2].map((item) => <span key={item} style={{ backgroundImage: `linear-gradient(135deg, rgba(6,37,87,.18), rgba(255,90,0,.22)), linear-gradient(${120 + item * 35}deg, #dbeafe, #f8fafc)` }} />)}
-                <em>+{contractor.realizations}</em>
+              <div className="contractor-discovery-main">
+                <h2>{profile.display_name} <span title="Profil publiczny"><Icon name="check" size={15} /></span></h2>
+                <p>{publicProfileKindLabel(profile)}</p>
+                <p>{profile.public_description || "Właściciel nie dodał jeszcze publicznego opisu."}</p>
+                <div className="service-chip-list service-chip-list--small">
+                  {profile.specializations.length > 0
+                    ? profile.specializations.slice(0, 4).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
+                    : <span>Brak specjalizacji</span>}
+                </div>
               </div>
-            </div>
-            <div className="contractor-discovery-actions">
-              <Button type="button" onClick={() => notify({ kind: "info", message: "Pełna funkcja profilu pojawi się po wdrożeniu publicznych profili." })}>Zobacz profil</Button>
-              <Button type="button" variant="secondary" icon="bookmark" onClick={() => notify({ kind: "info", message: futureMessage })}>Zapisz wykonawcę</Button>
-            </div>
-          </article>
-        ))}
+              <div className="contractor-discovery-location">
+                <strong><Icon name="map-pin" size={16} /> {profile.service_area || "Obszar niepodany"}</strong>
+                <small>{profile.owner_type === "company" ? "Wizytówka firmy" : "Wizytówka majstra"}</small>
+                <span>Publiczny</span>
+                <p>{realizationCount > 0 ? `${realizationCount} opublikowanych realizacji` : "Brak opublikowanych realizacji"}</p>
+              </div>
+              <div className="contractor-discovery-gallery" aria-label="Wybrane realizacje">
+                <strong>Realizacje</strong>
+                {realizationCount > 0 ? (
+                  <div>
+                    {images.map((url) => <span key={url} style={{ backgroundImage: `url(${url})` }} />)}
+                    {Array.from({ length: Math.max(0, 3 - images.length) }).map((_, index) => (
+                      <span key={`placeholder-${profile.id}-${index}`} style={{ backgroundImage: `linear-gradient(${120 + index * 35}deg, #e0f2fe, #f8fafc)` }} />
+                    ))}
+                    <em>{realizationCount}</em>
+                  </div>
+                ) : (
+                  <p>Profil może być widoczny bez realizacji.</p>
+                )}
+              </div>
+              <div className="contractor-discovery-actions">
+                <Button type="button" onClick={() => setPreviewProfile(profile)}>Zobacz profil</Button>
+              </div>
+            </article>
+          );
+        })}
       </section>
-      <p className="future-module-footer">To moduł przyszłościowy. Funkcjonalność w przygotowaniu.</p>
+      {previewProfile && (
+        <PublicProfilePreviewModal
+          profile={previewProfile}
+          onClose={() => setPreviewProfile(null)}
+        />
+      )}
     </div>
   );
 }

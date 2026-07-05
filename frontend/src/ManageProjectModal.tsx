@@ -97,7 +97,7 @@ async function copyToClipboard(value: string): Promise<boolean> {
 }
 
 const contractTermsDisclaimer = "To informacja umowna. To nie jest faktura, płatność ani wezwanie do zapłaty.";
-const contractTermsReadonlyMessage = "Dane do podglądu - zmienia je szef firmy.";
+const contractTermsReadonlyMessage = "Dane do podgladu - zmienia je szef firmy.";
 
 function Button({
   children,

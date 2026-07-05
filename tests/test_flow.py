@@ -3670,6 +3670,137 @@ def test_public_profile_realizations_are_backend_backed_and_public_visibility():
         assert realizations[0]["amount"] is None
 
 
+def test_public_profiles_list_returns_visible_contractor_profiles_with_filters():
+    with TestClient(app) as client:
+        login(client, "discovery-independent@example.com")
+        client.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Discovery bathroom",
+                "client_name": "Anna",
+                "address": "Warszawa",
+                "template": "remont",
+            },
+        ).json()
+        client.post(f"/api/projects/{project['id']}/close")
+        profile_response = client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": True,
+                "slug": "alpha-discovery-profile",
+                "display_name": "Alpha Discovery",
+                "public_description": "Glazura i remonty lazienek",
+                "specializations": ["remont-lazienki", "glazura"],
+                "service_area": "Warszawa i Piaseczno",
+            },
+        )
+        assert profile_response.status_code == 200
+        published = client.post(
+            "/api/public-profile/me/realizations?owner_type=independent_contractor",
+            json={
+                "project_id": project["id"],
+                "title": "Publiczna realizacja",
+                "public_description": "Opis publiczny",
+                "location_public": "Warszawa",
+                "work_scope": ["Glazura"],
+                "completion_date": "2026-07-03",
+                "status": "published",
+            },
+        )
+        assert published.status_code == 201
+        draft = client.post(
+            "/api/public-profile/me/realizations?owner_type=independent_contractor",
+            json={
+                "project_id": project["id"],
+                "title": "Szkic realizacji",
+                "public_description": "Niepubliczny opis",
+                "location_public": "Warszawa",
+                "work_scope": ["Glazura"],
+                "completion_date": "2026-07-03",
+                "status": "draft",
+            },
+        )
+        assert draft.status_code == 201
+
+        login(client, "discovery-private@example.com")
+        client.post(
+            "/api/onboarding",
+            json={"profile_type": "independent_contractor"},
+        )
+        private_profile = client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": False,
+                "slug": "hidden-discovery-profile",
+                "display_name": "Hidden Discovery",
+                "public_description": "Ukryty profil glazura",
+                "specializations": ["glazura"],
+                "service_area": "Warszawa",
+            },
+        )
+        assert private_profile.status_code == 200
+
+        login(client, "discovery-company@example.com")
+        company = client.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Beta Discovery",
+            },
+        )
+        assert company.status_code == 200
+        company_profile = client.patch(
+            "/api/public-profile/me?owner_type=company",
+            json={
+                "is_public": True,
+                "slug": "beta-discovery-profile",
+                "display_name": "Beta Discovery",
+                "public_description": "Firma od instalacji i elektryki",
+                "specializations": ["elektryka"],
+                "service_area": "Gdansk i okolice",
+            },
+        )
+        assert company_profile.status_code == 200
+
+        response = client.get("/api/public-profiles")
+        assert response.status_code == 200
+        profiles = response.json()
+        names = {item["display_name"] for item in profiles}
+        assert "Alpha Discovery" in names
+        assert "Beta Discovery" in names
+        assert "Hidden Discovery" not in names
+        alpha = next(item for item in profiles if item["slug"] == "alpha-discovery-profile")
+        assert alpha["owner_type"] == "independent_contractor"
+        assert len(alpha["realizations"]) == 1
+        assert alpha["realizations"][0]["title"] == "Publiczna realizacja"
+
+        query_response = client.get("/api/public-profiles?q=glazura")
+        assert query_response.status_code == 200
+        query_slugs = {item["slug"] for item in query_response.json()}
+        assert "alpha-discovery-profile" in query_slugs
+        assert "hidden-discovery-profile" not in query_slugs
+
+        specialization_response = client.get(
+            "/api/public-profiles?specialization=elektryka"
+        )
+        assert specialization_response.status_code == 200
+        specialization_slugs = {item["slug"] for item in specialization_response.json()}
+        assert "beta-discovery-profile" in specialization_slugs
+        assert "alpha-discovery-profile" not in specialization_slugs
+        assert "hidden-discovery-profile" not in specialization_slugs
+
+        area_response = client.get("/api/public-profiles?service_area=piaseczno")
+        assert area_response.status_code == 200
+        area_slugs = {item["slug"] for item in area_response.json()}
+        assert "alpha-discovery-profile" in area_slugs
+        assert "beta-discovery-profile" not in area_slugs
+        assert "hidden-discovery-profile" not in area_slugs
+
+
 def test_company_owner_can_manage_company_public_profile_realizations():
     with TestClient(app) as client:
         user = login(client, "company-profile-owner@example.com")
