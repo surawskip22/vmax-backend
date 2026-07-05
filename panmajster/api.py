@@ -32,8 +32,10 @@ from .access import (
     current_user,
     find_pending_invitations,
     get_project_access,
+    is_company_owner,
     is_company_worker,
     is_independent_contractor,
+    is_investor,
     now,
     project_role,
     user_projects_query,
@@ -258,6 +260,64 @@ def public_profile_payload(
             for item in (realizations or [])
         ],
     }
+
+
+def job_posting_payload(item: models.JobPosting, *, public: bool = False) -> dict:
+    data = {
+        "id": item.id,
+        "title": item.title,
+        "description": item.description,
+        "location": item.location,
+        "budget_label": item.budget_label,
+        "deadline": item.deadline,
+        "specializations": item.specializations or [],
+        "current_state_description": item.current_state_description,
+        "target_contractor_type": item.target_contractor_type,
+        "status": item.status,
+        "published_at": item.published_at.isoformat() if item.published_at else None,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }
+    if not public:
+        data["investor_id"] = item.investor_id
+    return data
+
+
+def apply_job_posting_changes(
+    item: models.JobPosting,
+    payload: JobPostingCreate | JobPostingUpdate,
+    *,
+    partial: bool = False,
+) -> None:
+    changes = payload.model_dump(exclude_unset=partial)
+    for key in [
+        "title",
+        "description",
+        "location",
+        "budget_label",
+        "deadline",
+        "current_state_description",
+    ]:
+        if key in changes:
+            setattr(item, key, (changes[key] or "").strip())
+    if "specializations" in changes:
+        item.specializations = validate_public_profile_specializations(
+            changes["specializations"]
+        )
+    if "target_contractor_type" in changes:
+        item.target_contractor_type = changes["target_contractor_type"] or "any"
+    if "status" in changes:
+        status = changes["status"] or "draft"
+        if status == "published":
+            if not item.title.strip() or not item.location.strip():
+                raise HTTPException(
+                    422,
+                    "Do publikacji ogloszenia potrzebny jest tytul i lokalizacja",
+                )
+            item.published_at = item.published_at or now()
+        else:
+            item.published_at = None
+        item.status = status
 
 
 def public_profile_owner_defaults(
@@ -551,6 +611,30 @@ class ProjectUpdate(BaseModel):
     schedule_uncertainty_days: int | None = None
     contract_amount: Decimal | None = None
     contract_currency: str | None = None
+
+
+class JobPostingCreate(BaseModel):
+    title: str = Field(min_length=2, max_length=220)
+    description: str = Field(default="", max_length=5000)
+    location: str = Field(min_length=2, max_length=220)
+    budget_label: str = Field(default="", max_length=120)
+    deadline: str = Field(default="", max_length=160)
+    specializations: list[str] | None = None
+    current_state_description: str = Field(default="", max_length=4000)
+    target_contractor_type: Literal["company", "independent_contractor", "any"] = "any"
+    status: Literal["draft", "published"] = "draft"
+
+
+class JobPostingUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=2, max_length=220)
+    description: str | None = Field(default=None, max_length=5000)
+    location: str | None = Field(default=None, min_length=2, max_length=220)
+    budget_label: str | None = Field(default=None, max_length=120)
+    deadline: str | None = Field(default=None, max_length=160)
+    specializations: list[str] | None = None
+    current_state_description: str | None = Field(default=None, max_length=4000)
+    target_contractor_type: Literal["company", "independent_contractor", "any"] | None = None
+    status: Literal["draft", "published"] | None = None
 
 
 class ProjectClientCoverUpdate(BaseModel):
@@ -1403,6 +1487,70 @@ def update_me(
         setattr(user, key, value or "")
     db.commit()
     return user_payload(db, user)
+
+
+@router.get("/job-postings/me")
+def list_my_job_postings(
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not is_investor(user):
+        raise HTTPException(403, "Tylko inwestor moze zarzadzac ogloszeniami")
+    items = db.scalars(
+        select(models.JobPosting)
+        .where(models.JobPosting.investor_id == user.id)
+        .order_by(models.JobPosting.updated_at.desc())
+    ).all()
+    return [job_posting_payload(item) for item in items]
+
+
+@router.post("/job-postings/me", status_code=201)
+def create_my_job_posting(
+    payload: JobPostingCreate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not is_investor(user):
+        raise HTTPException(403, "Tylko inwestor moze oglosic zlecenie")
+    item = models.JobPosting(investor_id=user.id)
+    apply_job_posting_changes(item, payload)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return job_posting_payload(item)
+
+
+@router.patch("/job-postings/me/{posting_id}")
+def update_my_job_posting(
+    posting_id: str,
+    payload: JobPostingUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not is_investor(user):
+        raise HTTPException(403, "Tylko inwestor moze zarzadzac ogloszeniami")
+    item = db.get(models.JobPosting, posting_id)
+    if not item or item.investor_id != user.id:
+        raise HTTPException(404, "Ogloszenie nie istnieje")
+    apply_job_posting_changes(item, payload, partial=True)
+    db.commit()
+    db.refresh(item)
+    return job_posting_payload(item)
+
+
+@router.get("/job-postings/public")
+def list_public_job_postings(
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not (is_company_owner(user) or is_independent_contractor(user)):
+        raise HTTPException(403, "Tylko wykonawcy moga przegladac opublikowane zlecenia")
+    items = db.scalars(
+        select(models.JobPosting)
+        .where(models.JobPosting.status == "published")
+        .order_by(models.JobPosting.published_at.desc(), models.JobPosting.updated_at.desc())
+    ).all()
+    return [job_posting_payload(item, public=True) for item in items]
 
 
 @router.get("/public-profile/me")

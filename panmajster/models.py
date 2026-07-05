@@ -139,6 +139,28 @@ class PublicProfileRealization(Base, TimestampMixin):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class JobPosting(Base, TimestampMixin):
+    __tablename__ = "job_postings"
+    __table_args__ = (
+        Index("ix_job_postings_public", "status", "published_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    investor_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(220), default="")
+    description: Mapped[str] = mapped_column(Text, default="")
+    location: Mapped[str] = mapped_column(String(220), default="")
+    budget_label: Mapped[str] = mapped_column(String(120), default="")
+    deadline: Mapped[str] = mapped_column(String(160), default="")
+    specializations: Mapped[list[str]] = mapped_column(JSON, default=list)
+    current_state_description: Mapped[str] = mapped_column(Text, default="")
+    target_contractor_type: Mapped[str] = mapped_column(String(40), default="any")
+    status: Mapped[str] = mapped_column(String(30), default="draft", index=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
     __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)

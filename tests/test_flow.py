@@ -3872,3 +3872,78 @@ def test_investor_cannot_manage_public_profile_realizations():
 
         assert independent.status_code == 403
         assert company.status_code == 403
+
+
+def test_investor_job_posting_draft_publish_and_public_visibility():
+    with TestClient(app) as client:
+        login(client, "job-posting-investor@example.com")
+        client.post("/api/onboarding", json={"profile_type": "investor"})
+
+        draft = client.post(
+            "/api/job-postings/me",
+            json={
+                "title": "Remont kuchni w mieszkaniu",
+                "description": "Potrzebna wymiana mebli i instalacji.",
+                "location": "Warszawa Mokotow",
+                "budget_label": "15 000 - 30 000 zl",
+                "deadline": "sierpien 2026",
+                "specializations": ["montaz-kuchni", "elektryka"],
+                "current_state_description": "Stare meble sa juz zdemontowane.",
+                "target_contractor_type": "company",
+                "status": "draft",
+            },
+        )
+        assert draft.status_code == 201
+        body = draft.json()
+        assert body["status"] == "draft"
+        assert body["published_at"] is None
+        assert body["specializations"] == ["montaz-kuchni", "elektryka"]
+
+        my_postings = client.get("/api/job-postings/me")
+        assert my_postings.status_code == 200
+        assert [item["id"] for item in my_postings.json()] == [body["id"]]
+
+        login(client, "job-posting-contractor@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        public_before = client.get("/api/job-postings/public")
+        assert public_before.status_code == 200
+        assert body["id"] not in {item["id"] for item in public_before.json()}
+
+        blocked_create = client.post(
+            "/api/job-postings/me",
+            json={
+                "title": "Nie moje ogloszenie",
+                "location": "Krakow",
+            },
+        )
+        assert blocked_create.status_code == 403
+
+        login(client, "job-posting-investor@example.com")
+        published = client.patch(
+            f"/api/job-postings/me/{body['id']}",
+            json={"status": "published"},
+        )
+        assert published.status_code == 200
+        assert published.json()["status"] == "published"
+        assert published.json()["published_at"]
+
+        login(client, "job-posting-company-owner@example.com")
+        client.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Firma od ogloszen",
+            },
+        )
+        public_for_company = client.get("/api/job-postings/public")
+        assert public_for_company.status_code == 200
+        public_items = public_for_company.json()
+        posted = next(item for item in public_items if item["id"] == body["id"])
+        assert posted["title"] == "Remont kuchni w mieszkaniu"
+        assert "investor_id" not in posted
+
+        login(client, "job-posting-second-contractor@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        public_for_independent = client.get("/api/job-postings/public")
+        assert public_for_independent.status_code == 200
+        assert body["id"] in {item["id"] for item in public_for_independent.json()}

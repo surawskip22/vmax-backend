@@ -55,6 +55,27 @@ export type PublicProfile = {
   realizations?: PublicProfileRealization[];
 };
 
+export type JobPostingStatus = "draft" | "published";
+
+export type JobPostingTargetType = "company" | "independent_contractor" | "any";
+
+export type JobPosting = {
+  id: string;
+  investor_id?: string;
+  title: string;
+  description: string;
+  location: string;
+  budget_label: string;
+  deadline: string;
+  specializations: string[];
+  current_state_description: string;
+  target_contractor_type: JobPostingTargetType;
+  status: JobPostingStatus;
+  published_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Workspace = {
   id: string;
   name: string;

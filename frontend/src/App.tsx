@@ -41,6 +41,9 @@ import type {
   ClientLink,
   Comment,
   Entry,
+  JobPosting,
+  JobPostingStatus,
+  JobPostingTargetType,
   MediaAsset,
   Project,
   PublicProfile,
@@ -6781,17 +6784,62 @@ function InvestorDiscoveryPage({ notify }: { notify: (toast: Toast) => void }) {
   );
 }
 
+type PostJobTargetLabel = "Firma" | "Majster" | "Bez znaczenia";
+
+function postJobTargetToApi(value: PostJobTargetLabel): JobPostingTargetType {
+  if (value === "Firma") return "company";
+  if (value === "Majster") return "independent_contractor";
+  return "any";
+}
+
+function jobPostingTargetLabel(value: JobPostingTargetType): string {
+  if (value === "company") return "Firma";
+  if (value === "independent_contractor") return "Majster";
+  return "Bez znaczenia";
+}
+
+function jobPostingStatusLabel(status: JobPostingStatus): string {
+  return status === "published" ? "Opublikowane" : "Szkic";
+}
+
+function jobPostingDateLabel(value?: string | null): string {
+  if (!value) return "Nieopublikowane";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Nieopublikowane";
+  return new Intl.DateTimeFormat("pl-PL", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
 function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState("");
   const [term, setTerm] = useState("");
   const [description, setDescription] = useState("");
+  const [currentStateDescription, setCurrentStateDescription] = useState("");
   const [selectedTags, setSelectedTags] = useState(["remont-mieszkan", "hydraulika"]);
   const [tagToAdd, setTagToAdd] = useState("");
-  const [target, setTarget] = useState<"Firma" | "Majster" | "Bez znaczenia">("Firma");
-  const futureMessage = "Publikowanie zleceń będzie dostępne po wdrożeniu modułu zleceń w okolicy.";
+  const [target, setTarget] = useState<PostJobTargetLabel>("Firma");
+  const [postings, setPostings] = useState<JobPosting[]>([]);
+  const [loadingPostings, setLoadingPostings] = useState(true);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [error, setError] = useState("");
   const availableTags = serviceTags.filter((tag) => !selectedTags.includes(tag.slug));
+
+  const loadPostings = useCallback(async () => {
+    setLoadingPostings(true);
+    setError("");
+    try {
+      setPostings(await api<JobPosting[]>("/job-postings/me"));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się pobrać ogłoszeń.");
+    } finally {
+      setLoadingPostings(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPostings();
+  }, [loadPostings]);
 
   function addTag() {
     if (!tagToAdd) return;
@@ -6799,27 +6847,87 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
     setTagToAdd("");
   }
 
-  function submitFutureAction(event: FormEvent<HTMLFormElement>) {
+  function resetForm() {
+    setTitle("");
+    setLocation("");
+    setBudget("");
+    setTerm("");
+    setDescription("");
+    setCurrentStateDescription("");
+    setSelectedTags(["remont-mieszkan", "hydraulika"]);
+    setTagToAdd("");
+    setTarget("Firma");
+  }
+
+  async function savePosting(status: JobPostingStatus) {
+    setError("");
+    setBusyAction(status);
+    try {
+      const saved = await api<JobPosting>("/job-postings/me", {
+        method: "POST",
+        body: JSON.stringify({
+          title,
+          description,
+          location,
+          budget_label: budget,
+          deadline: term,
+          specializations: selectedTags,
+          current_state_description: currentStateDescription,
+          target_contractor_type: postJobTargetToApi(target),
+          status,
+        }),
+      });
+      setPostings((current) => [saved, ...current]);
+      resetForm();
+      notify({
+        kind: "success",
+        message: status === "published" ? "Zlecenie opublikowane" : "Szkic ogłoszenia zapisany",
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zapisać ogłoszenia.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function publishPosting(item: JobPosting) {
+    setBusyAction(`publish:${item.id}`);
+    setError("");
+    try {
+      const saved = await api<JobPosting>(`/job-postings/me/${item.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "published" }),
+      });
+      setPostings((current) => current.map((posting) => (posting.id === item.id ? saved : posting)));
+      notify({ kind: "success", message: "Ogłoszenie opublikowane" });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się opublikować ogłoszenia.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  function submitPosting(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    notify({ kind: "info", message: futureMessage });
+    void savePosting("published");
   }
 
   return (
     <div className="page investor-post-job-page">
       <header className="page-header investor-discovery-header">
         <div>
-          <span className="eyebrow">Moduł przyszłościowy</span>
+          <span className="eyebrow">Publiczne ogłoszenie</span>
           <h1>Ogłoś zlecenie</h1>
-          <p>Opublikuj zlecenie, aby firmy i majstrowie mogli je znaleźć.</p>
+          <p>Zapisz szkic albo opublikuj zlecenie, które wykonawcy znajdą później w module Szukaj zleceń.</p>
         </div>
       </header>
       <div className="post-job-layout">
-        <form className="post-job-form" onSubmit={submitFutureAction}>
+        <form className="post-job-form" onSubmit={submitPosting}>
           <section>
             <header><span>1</span><h2>Podstawowe informacje</h2></header>
             <div className="post-job-grid">
-              <label>Nazwa zlecenia<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Np. Remont łazienki 6 m²" /></label>
-              <label>Lokalizacja<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Miasto lub dzielnica" /></label>
+              <label>Nazwa zlecenia<input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Np. Remont łazienki 6 m²" required /></label>
+              <label>Lokalizacja<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Miasto lub dzielnica" required /></label>
               <label>Budżet<select value={budget} onChange={(event) => setBudget(event.target.value)}><option value="">Wybierz budżet</option><option>do 5 000 zł</option><option>5 000 - 10 000 zł</option><option>10 000 - 15 000 zł</option><option>15 000 - 30 000 zł</option><option>powyżej 30 000 zł</option></select></label>
               <label>Planowany termin<input value={term} onChange={(event) => setTerm(event.target.value)} placeholder="Np. Czerwiec 2026" /></label>
             </div>
@@ -6828,6 +6936,7 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
           <section>
             <header><span>2</span><h2>Zakres prac</h2></header>
             <label>Opis zlecenia<textarea rows={4} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Opisz szczegółowo, jakie prace mają zostać wykonane..." /></label>
+            <label>Opis stanu obecnego<textarea rows={3} value={currentStateDescription} onChange={(event) => setCurrentStateDescription(event.target.value)} placeholder="Co jest na miejscu teraz, co trzeba zabezpieczyć, co warto wiedzieć przed oględzinami..." /></label>
             <div className="service-chip-list post-job-tags">
               {selectedTags.map((slug) => (
                 <button type="button" key={slug} onClick={() => setSelectedTags((current) => current.filter((item) => item !== slug))}>
@@ -6857,13 +6966,14 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
             <header><span>4</span><h2>Widoczność i publikacja</h2></header>
             <div className="post-job-status">
               <p><Icon name="report" size={18} /> Status: <strong>Szkic</strong></p>
-              <p><Icon name="check" size={18} /> Po publikacji zlecenie trafi do modułu Zlecenia w okolicy dla wykonawców. Wykonawcy będą mogli znaleźć je po lokalizacji, specjalizacji i własnych filtrach.</p>
+              <p><Icon name="check" size={18} /> Po publikacji zlecenie będzie dostępne w backendowej liście opublikowanych ogłoszeń dla szefa firmy i samodzielnego majstra.</p>
             </div>
           </section>
 
+          {error && <p className="form-error">{error}</p>}
           <footer>
-            <Button type="button" variant="secondary" onClick={() => notify({ kind: "info", message: futureMessage })}>Zapisz szkic</Button>
-            <Button type="submit">Opublikuj zlecenie</Button>
+            <Button type="button" variant="secondary" busy={busyAction === "draft"} disabled={Boolean(busyAction)} onClick={() => void savePosting("draft")}>Zapisz szkic</Button>
+            <Button type="submit" busy={busyAction === "published"} disabled={Boolean(busyAction)}>Opublikuj zlecenie</Button>
           </footer>
         </form>
 
@@ -6882,14 +6992,49 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
                 {selectedTags.slice(0, 4).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)}
               </div>
               <p>Szukam: <strong>{target}</strong></p>
-              <Button type="button" onClick={() => notify({ kind: "info", message: futureMessage })}>Zobacz zlecenie</Button>
             </div>
+          </article>
+          <article className="post-job-own-list">
+            <header>
+              <div>
+                <h2>Twoje ogłoszenia</h2>
+                <p>{loadingPostings ? "Ładowanie..." : `${postings.length} zapisanych ogłoszeń`}</p>
+              </div>
+              <Button type="button" variant="secondary" icon="sync" disabled={loadingPostings || Boolean(busyAction)} onClick={() => void loadPostings()}>Odśwież</Button>
+            </header>
+            {loadingPostings ? (
+              <div className="loading-screen"><span className="spinner" /> Ładowanie ogłoszeń...</div>
+            ) : postings.length === 0 ? (
+              <p className="empty-note">Nie masz jeszcze zapisanych ogłoszeń.</p>
+            ) : (
+              <div>
+                {postings.map((item) => (
+                  <section key={item.id} className="post-job-own-card">
+                    <div>
+                      <span className={`status ${item.status === "published" ? "status--completed" : "status--assigned"}`}>{jobPostingStatusLabel(item.status)}</span>
+                      <h3>{item.title}</h3>
+                      <p><Icon name="map-pin" size={14} /> {item.location}</p>
+                      <small>{item.budget_label || "Budżet niepodany"} · {item.deadline || "Termin do ustalenia"} · {jobPostingTargetLabel(item.target_contractor_type)}</small>
+                    </div>
+                    <div className="service-chip-list service-chip-list--small">
+                      {item.specializations.slice(0, 3).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)}
+                    </div>
+                    <footer>
+                      <span>{item.status === "published" ? `Opublikowano: ${jobPostingDateLabel(item.published_at)}` : "Widoczne tylko dla Ciebie"}</span>
+                      {item.status === "draft" && (
+                        <Button type="button" busy={busyAction === `publish:${item.id}`} disabled={Boolean(busyAction)} onClick={() => void publishPosting(item)}>Opublikuj</Button>
+                      )}
+                    </footer>
+                  </section>
+                ))}
+              </div>
+            )}
           </article>
           <article className="post-job-info">
             <span><Icon name="report" /></span>
             <div>
               <h2>Dla inwestora</h2>
-              <p>Po publikacji wykonawcy znajdą to zlecenie w sekcji Zlecenia w okolicy.</p>
+              <p>Ogłoszenie może zostać szkicem albo publikacją. Nie tworzymy tu ofert, czatu ani wyboru wykonawcy.</p>
             </div>
           </article>
         </aside>

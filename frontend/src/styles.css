@@ -2078,6 +2078,20 @@ audio { width: 100%; margin-top: 13px; }
 .post-preview-tags { display: flex; gap: 8px; flex-wrap: wrap; }
 .post-preview-tags span { padding: 7px 10px; border-radius: 999px; color: #08653a; background: #dcfce7; font-weight: 800; }
 .post-preview-card .button { width: 100%; justify-content: center; }
+.post-job-own-list { display: grid; gap: 14px; }
+.post-job-own-list > header { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.post-job-own-list > header h2 { margin-bottom: 4px; }
+.post-job-own-list > header p { margin: 0; color: var(--muted); font-size: 13px; }
+.post-job-own-list > header .button { min-height: 36px; padding: 0 12px; }
+.post-job-own-list .loading-screen { min-height: 120px; }
+.post-job-own-list > div { display: grid; gap: 10px; }
+.post-job-own-card { padding: 12px; display: grid; gap: 10px; border: 1px solid #dbe6f2; border-radius: 12px; background: #f8fbff; }
+.post-job-own-card h3 { margin: 8px 0 5px; color: var(--navy); font-size: 16px; line-height: 1.25; }
+.post-job-own-card p { margin: 0; display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+.post-job-own-card small { display: block; margin-top: 7px; color: #536174; line-height: 1.4; }
+.post-job-own-card footer { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.post-job-own-card footer span { color: var(--muted); font-size: 12px; font-weight: 800; }
+.post-job-own-card footer .button { min-height: 34px; padding: 0 12px; }
 .post-job-info { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; align-items: start; }
 .post-job-info > span { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--blue); background: #edf3fb; }
 .post-job-info p { margin: 0; color: var(--muted); line-height: 1.55; }
