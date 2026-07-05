@@ -4651,3 +4651,166 @@ def test_estimate_access_blocks_investor_guest_and_other_company():
                 ).status_code
                 == 401
             )
+
+
+def test_sent_estimate_has_public_link_and_public_decision_without_project():
+    with TestClient(app) as client:
+        user = login(client, "estimate-share-independent@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+
+        draft = client.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "independent_contractor",
+                "owner_id": user["id"],
+                "recipient_type": "manual",
+                "recipient_name": "Klient linku",
+                "recipient_email": "estimate-share-recipient@example.com",
+                "recipient_phone": "500 400 300",
+                "source_type": "manual",
+                "title": "Oferta z linkiem",
+                "scope_summary": "Zakres publicznej oferty.",
+                "estimated_price": "18000.00",
+                "status": "draft",
+            },
+        )
+        assert draft.status_code == 201
+        assert draft.json()["share_url"] is None
+
+        sent = client.patch(
+            f"/api/estimates/me/{draft.json()['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        sent_body = sent.json()
+        assert sent_body["status"] == "sent"
+        assert sent_body["share_active"] is True
+        assert sent_body["share_url"].startswith("/estimate/")
+        token = sent_body["share_url"].rsplit("/", maxsplit=1)[1]
+
+        with TestClient(app) as public_client:
+            public = public_client.get(f"/api/public/estimates/{token}")
+            assert public.status_code == 200
+            public_body = public.json()
+            assert public_body["title"] == "Oferta z linkiem"
+            assert public_body["owner"]["display_name"] == "Samodzielny majster"
+            assert public_body["recipient_name"] == "Klient linku"
+            assert public_body["estimated_price"] == "18000.00"
+            assert "created_by_id" not in public_body
+            assert "owner_id" not in public_body
+            assert "recipient_email" not in public_body
+            assert "estimate-share-independent@example.com" not in repr(public_body)
+            assert "estimate-share-recipient@example.com" not in repr(public_body)
+
+            with SessionLocal() as db:
+                project_count_before = db.scalar(select(func.count(models.Project.id)))
+
+            accepted = public_client.post(
+                f"/api/public/estimates/{token}/decision",
+                json={"status": "accepted"},
+            )
+            assert accepted.status_code == 200
+            assert accepted.json()["status"] == "accepted"
+            assert accepted.json()["accepted_at"]
+
+            rejected_after_accept = public_client.post(
+                f"/api/public/estimates/{token}/decision",
+                json={"status": "rejected"},
+            )
+            assert rejected_after_accept.status_code == 422
+
+        with SessionLocal() as db:
+            project_count_after = db.scalar(select(func.count(models.Project.id)))
+        assert project_count_after == project_count_before
+        assert client.get("/api/estimates/me").json()[0]["status"] == "accepted"
+
+        second = client.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "independent_contractor",
+                "owner_id": user["id"],
+                "recipient_type": "manual",
+                "recipient_name": "Klient odrzucenia",
+                "title": "Oferta do odrzucenia",
+                "scope_summary": "Drugi zakres publicznej oferty.",
+                "estimated_price": "9000.00",
+                "status": "sent",
+            },
+        )
+        assert second.status_code == 201
+        reject_token = second.json()["share_url"].rsplit("/", maxsplit=1)[1]
+        with TestClient(app) as public_client:
+            rejected = public_client.post(
+                f"/api/public/estimates/{reject_token}/decision",
+                json={"status": "rejected"},
+            )
+            assert rejected.status_code == 200
+            assert rejected.json()["status"] == "rejected"
+
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(models.Project.id))) == project_count_before
+
+
+def test_estimate_delete_and_cancel_are_owner_scoped():
+    with TestClient(app) as client:
+        user = login(client, "estimate-delete-owner@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        draft = client.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "independent_contractor",
+                "owner_id": user["id"],
+                "recipient_type": "manual",
+                "recipient_name": "Klient szkicu",
+                "title": "Szkic do usuniecia",
+                "scope_summary": "Zakres szkicu.",
+                "status": "draft",
+            },
+        ).json()
+
+        with TestClient(app) as other:
+            other_user = login(other, "estimate-delete-other@example.com")
+            other.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+            blocked = other.delete(f"/api/estimates/me/{draft['id']}")
+            assert blocked.status_code == 404
+            foreign_create = other.post(
+                "/api/estimates/me",
+                json={
+                    "owner_type": "independent_contractor",
+                    "owner_id": other_user["id"],
+                    "recipient_type": "manual",
+                    "title": "Cudzy szkic",
+                    "scope_summary": "Zakres cudzego szkicu.",
+                    "status": "draft",
+                },
+            )
+            assert foreign_create.status_code == 201
+
+        deleted = client.delete(f"/api/estimates/me/{draft['id']}")
+        assert deleted.status_code == 200
+        assert deleted.json()["status"] == "deleted"
+        assert draft["id"] not in {item["id"] for item in client.get("/api/estimates/me").json()}
+
+        sent = client.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "independent_contractor",
+                "owner_id": user["id"],
+                "recipient_type": "manual",
+                "recipient_name": "Klient anulowania",
+                "title": "Oferta do anulowania",
+                "scope_summary": "Zakres wyslanej oferty.",
+                "status": "sent",
+            },
+        )
+        assert sent.status_code == 201
+        token = sent.json()["share_url"].rsplit("/", maxsplit=1)[1]
+        cancelled = client.delete(f"/api/estimates/me/{sent.json()['id']}")
+        assert cancelled.status_code == 200
+        cancelled_body = cancelled.json()
+        assert cancelled_body["status"] == "cancelled"
+        assert cancelled_body["estimate"]["status"] == "cancelled"
+        assert cancelled_body["estimate"]["share_active"] is False
+
+        with TestClient(app) as public_client:
+            assert public_client.get(f"/api/public/estimates/{token}").status_code == 404

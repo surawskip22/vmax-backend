@@ -1987,6 +1987,12 @@ audio { width: 100%; margin-top: 13px; }
 .estimate-preview-modal dd { margin: 3px 0 0; color: var(--navy); font-weight: 800; overflow-wrap: anywhere; }
 .estimate-card footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-start; }
 .estimate-card footer .button { min-height: 36px; padding: 0 11px; }
+.estimate-share-panel { padding: 12px; display: grid; gap: 10px; border: 1px solid #cfe1f6; border-radius: 12px; background: #f7fbff; }
+.estimate-share-panel strong { display: block; color: var(--navy); }
+.estimate-share-panel span { display: block; margin-top: 2px; color: var(--muted); line-height: 1.4; }
+.estimate-share-panel code { padding: 9px 10px; display: block; border: 1px solid #dbe7f5; border-radius: 9px; color: #28415f; background: #fff; font-size: 12px; overflow-wrap: anywhere; white-space: normal; }
+.estimate-share-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.estimate-share-actions .button { min-height: 36px; padding: 0 11px; }
 .estimate-form-modal,
 .estimate-preview-modal { padding: 22px; display: grid; gap: 16px; }
 .estimate-form-modal > header h3,
@@ -2007,6 +2013,23 @@ audio { width: 100%; margin-top: 13px; }
 .estimate-preview-modal footer { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .estimate-preview-modal section { padding: 12px; display: grid; gap: 6px; border: 1px solid #e1e9f3; border-radius: 12px; background: #fff; }
 .estimate-preview-modal h4 { margin: 0; color: var(--navy); font-size: 15px; }
+.public-estimate-page { min-height: 100vh; padding: 26px 18px 70px; background: #f4f7fb; }
+.public-estimate-top { width: min(980px, 100%); margin: 0 auto 18px; display: flex; gap: 16px; align-items: center; }
+.public-estimate-top h1 { margin: 2px 0 0; color: var(--navy); font-size: 36px; line-height: 1.05; }
+.public-estimate-card { width: min(980px, 100%); margin: 0 auto; padding: 24px; display: grid; gap: 16px; border: 1px solid #d7e2ef; border-radius: 16px; background: #fff; box-shadow: 0 18px 42px rgba(18,38,69,.08); }
+.public-estimate-card--message { min-height: 280px; place-items: center; text-align: center; }
+.public-estimate-card > header h2 { margin: 8px 0; color: var(--navy); font-size: 34px; line-height: 1.1; }
+.public-estimate-card > header p,
+.public-estimate-card section p,
+.public-estimate-card footer p { margin: 0; color: var(--muted); line-height: 1.55; }
+.public-estimate-card dl { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.public-estimate-card dl div { min-width: 0; padding: 12px; border: 1px solid #e1e9f3; border-radius: 12px; background: #f8fafc; }
+.public-estimate-card dt { color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.public-estimate-card dd { margin: 4px 0 0; color: var(--navy); font-weight: 850; overflow-wrap: anywhere; }
+.public-estimate-card section { padding: 14px; display: grid; gap: 7px; border: 1px solid #e1e9f3; border-radius: 12px; background: #fff; }
+.public-estimate-card section h3 { margin: 0; color: var(--navy); font-size: 17px; }
+.public-estimate-card footer { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; align-items: center; border-top: 1px solid #e7edf5; padding-top: 14px; }
+.public-estimate-message { margin: 0; padding: 12px 14px; border-radius: 12px; color: #15532b; background: #def7e7; font-weight: 800; }
 
 .investor-discovery-page,
 .investor-post-job-page { max-width: 1180px; }
@@ -2327,6 +2350,7 @@ audio { width: 100%; margin-top: 13px; }
   .media-grid { grid-template-columns: repeat(3, 1fr); }
   .estimate-card dl,
   .estimate-preview-modal dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .public-estimate-card dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investor-discovery-filters { grid-template-columns: 1fr; }
   .contractor-discovery-card { grid-template-columns: 76px minmax(0, 1fr) minmax(220px, .8fr); }
   .contractor-discovery-gallery,
@@ -2434,11 +2458,21 @@ audio { width: 100%; margin-top: 13px; }
   .estimate-preview-modal dl { grid-template-columns: 1fr; }
   .estimate-card header > strong { width: 100%; text-align: center; }
   .estimate-card footer,
+  .estimate-share-actions,
   .estimate-form-modal footer,
-  .estimate-preview-modal footer { display: grid; grid-template-columns: 1fr; }
+  .estimate-preview-modal footer,
+  .public-estimate-card footer { display: grid; grid-template-columns: 1fr; }
   .estimate-card footer .button,
+  .estimate-share-actions .button,
   .estimate-form-modal footer .button,
-  .estimate-preview-modal footer .button { width: 100%; justify-content: center; }
+  .estimate-preview-modal footer .button,
+  .public-estimate-card footer .button { width: 100%; justify-content: center; }
+  .public-estimate-page { padding: 18px 14px 70px; }
+  .public-estimate-top { align-items: flex-start; }
+  .public-estimate-top h1 { font-size: 30px; }
+  .public-estimate-card { padding: 18px; border-radius: 14px; }
+  .public-estimate-card > header h2 { font-size: 27px; }
+  .public-estimate-card dl { grid-template-columns: 1fr; }
   .investor-discovery-header { flex-direction: column; align-items: stretch; }
   .investor-discovery-header h1 { font-size: 38px; }
   .discovery-live-note { min-width: 0; }

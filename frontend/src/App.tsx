@@ -55,6 +55,7 @@ import type {
   Project,
   PublicProfile,
   PublicProfileOwnerType,
+  PublicEstimate,
   PublicProfileRealization,
   Report,
   Stage,
@@ -487,6 +488,7 @@ type Route =
   | { kind: "client"; token: string }
   | { kind: "invite"; token: string }
   | { kind: "report"; token: string }
+  | { kind: "estimate"; token: string }
   | { kind: "publicProfile"; slug: string }
   | { kind: "portfolio"; slug: string };
 
@@ -522,6 +524,8 @@ function route(): Route {
   if (matchInvite) return { kind: "invite", token: matchInvite[1] };
   const matchReport = location.pathname.match(/^\/r\/([^/]+)/);
   if (matchReport) return { kind: "report", token: matchReport[1] };
+  const matchEstimate = location.pathname.match(/^\/estimate\/([^/]+)/);
+  if (matchEstimate) return { kind: "estimate", token: matchEstimate[1] };
   const matchPublicProfile = location.pathname.match(/^\/public-profiles\/([^/]+)/);
   if (matchPublicProfile) return { kind: "publicProfile", slug: matchPublicProfile[1] };
   const matchPortfolio = location.pathname.match(/^\/portfolio\/([^/]+)/);
@@ -7697,10 +7701,10 @@ function estimateStatusClass(status: EstimateStatus): string {
   return "status--assigned";
 }
 
-function estimateAmountLabel(estimate: Estimate): string {
-  if (!estimate.estimated_price) return "Do ustalenia";
-  const parsed = Number(estimate.estimated_price);
-  if (Number.isNaN(parsed)) return `${estimate.estimated_price} zł`;
+function estimateAmountValueLabel(value?: string | null): string {
+  if (!value) return "Do ustalenia";
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return `${value} zł`;
   return new Intl.NumberFormat("pl-PL", {
     style: "currency",
     currency: "PLN",
@@ -7708,10 +7712,78 @@ function estimateAmountLabel(estimate: Estimate): string {
   }).format(parsed);
 }
 
+function estimateAmountLabel(estimate: Pick<Estimate, "estimated_price">): string {
+  return estimateAmountValueLabel(estimate.estimated_price);
+}
+
 function estimateSourceLabel(estimate: Estimate): string {
   if (estimate.source_type === "project") return "Zlecenie";
   if (estimate.source_type === "job_posting") return "Ogłoszenie";
   return "Ręczna";
+}
+
+function absoluteEstimateShareUrl(shareUrl?: string | null): string {
+  if (!shareUrl) return "";
+  try {
+    return new URL(shareUrl, location.origin).toString();
+  } catch {
+    return shareUrl;
+  }
+}
+
+function estimateMailtoLink(estimate: Estimate): string {
+  const link = absoluteEstimateShareUrl(estimate.share_url);
+  const subject = `Oferta: ${estimate.title || "wycena orientacyjna"}`;
+  const body = [
+    "Dzień dobry,",
+    "",
+    "przesyłam link do oferty wstępnej / wyceny orientacyjnej:",
+    link,
+    "",
+    "Z linku można zaakceptować albo odrzucić ofertę.",
+  ].join("\n");
+  return `mailto:${encodeURIComponent(estimate.recipient_email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function cleanEstimateAmountInput(value: string): string {
+  return value.replace(/[^\d\s,.]/g, "").replace(/\s+/g, " ");
+}
+
+function normalizeEstimateAmount(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (!/^\d[\d\s]*(?:[,.]\d{1,2})?$/.test(raw)) {
+    throw new Error("Wpisz kwotę, np. 12000 albo 12000,50.");
+  }
+  return raw.replace(/\s/g, "").replace(",", ".");
+}
+
+function isValidEstimateEmail(value: string): boolean {
+  const trimmed = value.trim();
+  return !trimmed || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
+}
+
+function validateEstimateDates(start: string, end: string): void {
+  if (start && end && end < start) {
+    throw new Error("Data zakończenia nie może być wcześniejsza niż data rozpoczęcia.");
+  }
+}
+
+function estimateDateInputValue(value?: string | null): string {
+  const raw = value || "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
+}
+
+function friendlyEstimateError(reason: unknown): string {
+  const message = reason instanceof Error ? reason.message : "Nie udało się zapisać oferty.";
+  const lower = message.toLowerCase();
+  if (lower.includes("estimated_price") || lower.includes("valid decimal") || lower.includes("finite number")) {
+    return "Wpisz kwotę, np. 12000 albo 12000,50.";
+  }
+  if (lower.includes("recipient_email") || lower.includes("adres e-mail") || lower.includes("email")) {
+    return "Wpisz poprawny e-mail odbiorcy albo zostaw pole puste.";
+  }
+  return message;
 }
 
 function jobPostingInterestOwnerLabel(ownerType: PublicProfileOwnerType): string {
@@ -7754,29 +7826,143 @@ function estimateDraftFromEstimate(user: User, estimate?: Estimate | null): Esti
     assumptions: estimate?.assumptions || "To jest oferta wstępna / wycena orientacyjna. Kwota i zakres mogą ulec zmianie po doprecyzowaniu prac.",
     estimatedPrice: estimate?.estimated_price || "",
     priceNote: estimate?.price_note || "",
-    plannedStart: estimate?.planned_start || "",
-    plannedEnd: estimate?.planned_end || "",
+    plannedStart: estimateDateInputValue(estimate?.planned_start),
+    plannedEnd: estimateDateInputValue(estimate?.planned_end),
   };
 }
 
 function estimatePayloadFromDraft(user: User, draft: EstimateDraft, status?: EstimateStatus) {
+  if (!isValidEstimateEmail(draft.recipientEmail)) {
+    throw new Error("Wpisz poprawny e-mail odbiorcy albo zostaw pole puste.");
+  }
+  validateEstimateDates(draft.plannedStart, draft.plannedEnd);
+  const normalizedAmount = normalizeEstimateAmount(draft.estimatedPrice);
   return {
     owner_type: isIndependentContractor(user) ? "independent_contractor" : "company",
     owner_id: isIndependentContractor(user) ? user.id : draft.ownerId || undefined,
     recipient_type: "manual",
-    recipient_name: draft.recipientName,
-    recipient_email: draft.recipientEmail,
-    recipient_phone: draft.recipientPhone,
+    recipient_name: draft.recipientName.trim(),
+    recipient_email: draft.recipientEmail.trim(),
+    recipient_phone: draft.recipientPhone.trim(),
     source_type: "manual",
-    title: draft.title,
-    scope_summary: draft.scopeSummary,
-    assumptions: draft.assumptions,
-    estimated_price: draft.estimatedPrice.trim() || null,
-    price_note: draft.priceNote,
+    title: draft.title.trim(),
+    scope_summary: draft.scopeSummary.trim(),
+    assumptions: draft.assumptions.trim(),
+    estimated_price: normalizedAmount,
+    price_note: draft.priceNote.trim(),
     planned_start: draft.plannedStart,
     planned_end: draft.plannedEnd,
     ...(status ? { status } : {}),
   };
+}
+
+function PublicEstimatePage({ token }: { token: string }) {
+  const [estimate, setEstimate] = useState<PublicEstimate | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState<"accepted" | "rejected" | null>(null);
+  const [message, setMessage] = useState("");
+
+  const loadEstimate = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setEstimate(await api<PublicEstimate>(`/public/estimates/${encodeURIComponent(token)}`));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się pobrać oferty.");
+      setEstimate(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadEstimate();
+  }, [loadEstimate]);
+
+  async function decide(status: "accepted" | "rejected") {
+    setBusy(status);
+    setMessage("");
+    try {
+      const saved = await api<PublicEstimate>(`/public/estimates/${encodeURIComponent(token)}/decision`, {
+        method: "POST",
+        body: JSON.stringify({ status }),
+      });
+      setEstimate(saved);
+      setMessage(status === "accepted" ? "Oferta zaakceptowana. Wykonawca skontaktuje się w sprawie dalszych kroków." : "Oferta została odrzucona.");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zapisać decyzji.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="public-estimate-page">
+      <header className="public-estimate-top">
+        <Logo compact />
+        <div>
+          <span className="eyebrow">Oferta wstępna / wycena orientacyjna</span>
+          <h1>Podgląd oferty</h1>
+        </div>
+      </header>
+      {loading ? (
+        <div className="loading-screen"><span className="spinner" /> Ładowanie oferty...</div>
+      ) : error && !estimate ? (
+        <main className="public-estimate-card public-estimate-card--message">
+          <span><Icon name="alert" /></span>
+          <h2>Nie udało się otworzyć oferty</h2>
+          <p>{error}</p>
+        </main>
+      ) : estimate ? (
+        <main className="public-estimate-card">
+          <header>
+            <span className={`status ${estimateStatusClass(estimate.status)}`}>{estimateStatusLabel(estimate.status)}</span>
+            <h2>{estimate.title}</h2>
+            <p>To jest oferta wstępna / wycena orientacyjna. To nie jest umowa.</p>
+          </header>
+          {message && <p className="public-estimate-message">{message}</p>}
+          {error && <p className="form-error">{error}</p>}
+          <dl>
+            <div><dt>Wykonawca</dt><dd>{estimate.owner.display_name}</dd></div>
+            <div><dt>Odbiorca</dt><dd>{estimate.recipient_name || "Nie podano"}</dd></div>
+            <div><dt>Kwota orientacyjna</dt><dd>{estimateAmountValueLabel(estimate.estimated_price)}</dd></div>
+            <div><dt>Status</dt><dd>{estimateStatusLabel(estimate.status)}</dd></div>
+            <div><dt>Planowany start</dt><dd>{estimate.planned_start || "Do ustalenia"}</dd></div>
+            <div><dt>Planowany koniec</dt><dd>{estimate.planned_end || "Do ustalenia"}</dd></div>
+          </dl>
+          <section>
+            <h3>Zakres prac</h3>
+            <p>{estimate.scope_summary || "Zakres nie został opisany."}</p>
+          </section>
+          <section>
+            <h3>Założenia i uwagi</h3>
+            <p>{estimate.assumptions || "Brak dodatkowych założeń."}</p>
+          </section>
+          {estimate.price_note && (
+            <section>
+              <h3>Notatka do ceny</h3>
+              <p>{estimate.price_note}</p>
+            </section>
+          )}
+          <footer>
+            {estimate.status === "sent" ? (
+              <>
+                <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>
+                  Akceptuję ofertę
+                </Button>
+                <Button type="button" variant="secondary" icon="close" busy={busy === "rejected"} disabled={Boolean(busy)} onClick={() => void decide("rejected")}>
+                  Odrzucam ofertę
+                </Button>
+              </>
+            ) : (
+              <p>{estimate.status === "accepted" ? "Oferta została zaakceptowana." : "Oferta została odrzucona."}</p>
+            )}
+          </footer>
+        </main>
+      ) : null}
+    </div>
+  );
 }
 
 function EstimatePreviewModal({ estimate, onClose }: { estimate: Estimate; onClose: () => void }) {
@@ -7810,6 +7996,12 @@ function EstimatePreviewModal({ estimate, onClose }: { estimate: Estimate; onClo
           <section>
             <h4>Notatka do ceny</h4>
             <p>{estimate.price_note}</p>
+          </section>
+        )}
+        {estimate.share_url && (
+          <section>
+            <h4>Link oferty</h4>
+            <p>{absoluteEstimateShareUrl(estimate.share_url)}</p>
           </section>
         )}
         <footer>
@@ -7855,7 +8047,7 @@ function EstimateFormModal({
         <header>
           <span className="status status--assigned">{estimate ? estimateStatusLabel(estimate.status) : "Nowa"}</span>
           <h3>Oferta wstępna / wycena orientacyjna</h3>
-          <p>To jest oferta wstępna / wycena orientacyjna. Kwota i zakres mogą ulec zmianie po doprecyzowaniu prac.</p>
+          <p>To jest oferta wstępna / wycena orientacyjna. Po wysłaniu otrzymasz link do przekazania klientowi, a klient może zaakceptować albo odrzucić ofertę z tego linku.</p>
         </header>
         {companyRole && user.workspaces.length > 1 && (
           <label>
@@ -7878,11 +8070,11 @@ function EstimateFormModal({
           </label>
           <label>
             E-mail odbiorcy
-            <input value={draft.recipientEmail} onChange={(event) => onDraftChange({ ...draft, recipientEmail: event.target.value })} maxLength={320} inputMode="email" />
+            <input value={draft.recipientEmail} onChange={(event) => onDraftChange({ ...draft, recipientEmail: event.target.value })} maxLength={320} inputMode="email" placeholder="kontakt odbiorcy, nie login użytkownika" />
           </label>
           <label>
             Telefon odbiorcy
-            <input value={draft.recipientPhone} onChange={(event) => onDraftChange({ ...draft, recipientPhone: event.target.value })} maxLength={40} />
+            <input value={draft.recipientPhone} onChange={(event) => onDraftChange({ ...draft, recipientPhone: event.target.value })} maxLength={40} placeholder="kontakt odbiorcy" />
           </label>
         </div>
         <label>
@@ -7896,15 +8088,20 @@ function EstimateFormModal({
         <div className="estimate-form-grid">
           <label>
             Kwota orientacyjna
-            <input value={draft.estimatedPrice} onChange={(event) => onDraftChange({ ...draft, estimatedPrice: event.target.value })} inputMode="decimal" />
+            <input
+              value={draft.estimatedPrice}
+              onChange={(event) => onDraftChange({ ...draft, estimatedPrice: cleanEstimateAmountInput(event.target.value) })}
+              inputMode="decimal"
+              placeholder="np. 12000 albo 12000,50"
+            />
           </label>
           <label>
             Planowany start
-            <input value={draft.plannedStart} onChange={(event) => onDraftChange({ ...draft, plannedStart: event.target.value })} maxLength={160} />
+            <input type="date" value={draft.plannedStart} onChange={(event) => onDraftChange({ ...draft, plannedStart: event.target.value })} />
           </label>
           <label>
             Planowany koniec
-            <input value={draft.plannedEnd} onChange={(event) => onDraftChange({ ...draft, plannedEnd: event.target.value })} maxLength={160} />
+            <input type="date" value={draft.plannedEnd} onChange={(event) => onDraftChange({ ...draft, plannedEnd: event.target.value })} />
           </label>
         </div>
         <label>
@@ -7922,7 +8119,7 @@ function EstimateFormModal({
           )}
           {canSend && (
             <Button type="button" icon="send" busy={busy === "sent"} disabled={Boolean(busy)} onClick={() => onSave("sent")}>
-              Wyślij ofertę
+              Wyślij i wygeneruj link
             </Button>
           )}
         </footer>
@@ -7990,6 +8187,44 @@ function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) =>
     return ["draft", "pending_approval", "approved_by_owner"].includes(estimate.status);
   }
 
+  function canDeleteOrCancel(estimate: Estimate): boolean {
+    if (["accepted", "rejected"].includes(estimate.status)) return false;
+    if (worker) return ["draft", "pending_approval"].includes(estimate.status);
+    return ["draft", "pending_approval", "approved_by_owner", "sent"].includes(estimate.status);
+  }
+
+  async function copyEstimateLink(estimate: Estimate) {
+    const link = absoluteEstimateShareUrl(estimate.share_url);
+    if (!link) return;
+    const copied = await copyToClipboard(link);
+    notify({
+      kind: copied ? "success" : "info",
+      message: copied ? "Link oferty skopiowany." : "Skopiuj link z karty oferty.",
+    });
+  }
+
+  async function deleteOrCancelEstimate(estimate: Estimate) {
+    const cancelling = estimate.status === "sent";
+    const confirmed = window.confirm(cancelling ? "Czy na pewno chcesz anulować tę ofertę?" : "Czy na pewno chcesz usunąć tę ofertę?");
+    if (!confirmed) return;
+    setBusy(`${estimate.id}:delete`);
+    try {
+      const result = await api<{ status: "deleted"; id: string } | { status: "cancelled"; estimate: Estimate }>(`/estimates/me/${estimate.id}`, {
+        method: "DELETE",
+      });
+      if (result.status === "deleted") {
+        setEstimates((current) => current.filter((item) => item.id !== estimate.id));
+      } else {
+        setEstimates((current) => current.map((item) => (item.id === result.estimate.id ? result.estimate : item)));
+      }
+      notify({ kind: "success", message: cancelling ? "Oferta anulowana." : "Oferta usunięta." });
+    } catch (reason) {
+      notify({ kind: "error", message: friendlyEstimateError(reason) });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function saveEstimate(status?: EstimateStatus) {
     setBusy(status || "save");
     setFormError("");
@@ -8017,9 +8252,12 @@ function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) =>
       }
       setFormOpen(false);
       setEditingEstimate(null);
-      notify({ kind: "success", message: status === "sent" ? "Oferta wysłana." : status === "pending_approval" ? "Szkic wysłany do zatwierdzenia." : "Szkic oferty zapisany." });
+      notify({
+        kind: "success",
+        message: status === "sent" ? "Oferta została przygotowana. Skopiuj link i wyślij go klientowi." : status === "pending_approval" ? "Szkic wysłany do zatwierdzenia." : "Szkic oferty zapisany.",
+      });
     } catch (reason) {
-      const message = reason instanceof Error ? reason.message : "Nie udało się zapisać oferty.";
+      const message = friendlyEstimateError(reason);
       setFormError(message);
       notify({ kind: "error", message });
     } finally {
@@ -8035,9 +8273,12 @@ function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) =>
         body: JSON.stringify({ status }),
       });
       setEstimates((current) => current.map((item) => (item.id === saved.id ? saved : item)));
-      notify({ kind: "success", message: `Status oferty: ${estimateStatusLabel(saved.status)}` });
+      notify({
+        kind: "success",
+        message: status === "sent" ? "Oferta została przygotowana. Skopiuj link i wyślij go klientowi." : `Status oferty: ${estimateStatusLabel(saved.status)}`,
+      });
     } catch (reason) {
-      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zmienić statusu oferty." });
+      notify({ kind: "error", message: friendlyEstimateError(reason) });
     } finally {
       setBusy(null);
     }
@@ -8107,6 +8348,39 @@ function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) =>
               <div><dt>Utworzył</dt><dd>{estimate.created_by_id === user.id ? "Ty" : "Członek firmy"}</dd></div>
             </dl>
             <p>{estimate.scope_summary || "Brak opisu zakresu."}</p>
+            {estimate.share_url ? (
+              <section className="estimate-share-panel">
+                <div>
+                  <strong>Link oferty dla klienta</strong>
+                  <span>Otwórz, skopiuj albo wstaw do e-maila. Backend nie wysyła wiadomości automatycznie.</span>
+                </div>
+                <code>{absoluteEstimateShareUrl(estimate.share_url)}</code>
+                <div className="estimate-share-actions">
+                  <a className="button button--secondary" href={estimate.share_url} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Otwórz link oferty</a>
+                  <Button type="button" variant="secondary" icon="clipboard" onClick={() => void copyEstimateLink(estimate)}>Kopiuj link</Button>
+                  {estimate.recipient_email && (
+                    <a className="button button--secondary" href={estimateMailtoLink(estimate)}><Icon name="send" size={18} /> Napisz e-mail</a>
+                  )}
+                </div>
+              </section>
+            ) : estimate.status === "sent" && !worker ? (
+              <section className="estimate-share-panel">
+                <div>
+                  <strong>Link oferty nie został jeszcze wygenerowany</strong>
+                  <span>Wygeneruj link, żeby przekazać publiczny podgląd klientowi.</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon="link"
+                  busy={busy === `${estimate.id}:sent`}
+                  disabled={Boolean(busy)}
+                  onClick={() => void changeStatus(estimate, "sent")}
+                >
+                  Wygeneruj link
+                </Button>
+              </section>
+            ) : null}
             <footer>
               <Button type="button" variant="secondary" onClick={() => setPreviewEstimate(estimate)}>Podgląd</Button>
               {canEdit(estimate) && <Button type="button" variant="secondary" onClick={() => openEdit(estimate)}>Edytuj</Button>}
@@ -8141,7 +8415,19 @@ function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) =>
                   disabled={Boolean(busy)}
                   onClick={() => void changeStatus(estimate, "sent")}
                 >
-                  {estimate.status === "approved_by_owner" ? "Wyślij zatwierdzoną ofertę" : "Wyślij ofertę"}
+                  {estimate.status === "approved_by_owner" ? "Wyślij zatwierdzoną ofertę i pokaż link" : "Wyślij i wygeneruj link"}
+                </Button>
+              )}
+              {canDeleteOrCancel(estimate) && (
+                <Button
+                  type="button"
+                  variant={estimate.status === "sent" ? "secondary" : "danger"}
+                  icon={estimate.status === "sent" ? "close" : undefined}
+                  busy={busy === `${estimate.id}:delete`}
+                  disabled={Boolean(busy)}
+                  onClick={() => void deleteOrCancelEstimate(estimate)}
+                >
+                  {estimate.status === "sent" ? "Anuluj ofertę" : "Usuń"}
                 </Button>
               )}
             </footer>
@@ -9973,6 +10259,7 @@ export default function App() {
 
   if (currentRoute.kind === "client") return <PublicProject token={currentRoute.token} />;
   if (currentRoute.kind === "report") return <PublicReport token={currentRoute.token} />;
+  if (currentRoute.kind === "estimate") return <PublicEstimatePage token={currentRoute.token} />;
   if (currentRoute.kind === "publicProfile") return <PublicProfilePage slug={currentRoute.slug} />;
   if (currentRoute.kind === "portfolio") return <PublicPortfolio slug={currentRoute.slug} />;
   if (currentRoute.kind === "guest") {

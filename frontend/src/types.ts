@@ -96,12 +96,36 @@ export type Estimate = {
   planned_start: string;
   planned_end: string;
   status: EstimateStatus;
+  share_url?: string | null;
+  share_active?: boolean;
+  shared_at?: string | null;
   sent_at?: string | null;
   approved_at?: string | null;
   accepted_at?: string | null;
   rejected_at?: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PublicEstimate = {
+  id: string;
+  owner: {
+    owner_type: PublicProfileOwnerType;
+    display_name: string;
+  };
+  recipient_name: string;
+  title: string;
+  scope_summary: string;
+  assumptions: string;
+  estimated_price?: string | null;
+  price_note: string;
+  planned_start: string;
+  planned_end: string;
+  status: EstimateStatus;
+  sent_at?: string | null;
+  accepted_at?: string | null;
+  rejected_at?: string | null;
+  shared_at?: string | null;
 };
 
 export type JobPostingContractorContact = {

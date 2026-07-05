@@ -618,6 +618,60 @@ def apply_job_posting_offer_changes(
         item.status = status
 
 
+def ensure_estimate_share(db: Session, item: models.Estimate) -> str:
+    if not item.share_token:
+        token = random_token(30)
+        while db.scalar(select(models.Estimate.id).where(models.Estimate.share_token == token)):
+            token = random_token(30)
+        item.share_token = token
+    item.share_active = True
+    item.shared_at = item.shared_at or now()
+    return item.share_token
+
+
+def estimate_share_url(item: models.Estimate) -> str | None:
+    if not item.share_token:
+        return None
+    return f"/estimate/{item.share_token}"
+
+
+def estimate_public_owner_payload(db: Session, item: models.Estimate) -> dict:
+    if item.owner_type == "company":
+        workspace = db.get(models.Workspace, item.owner_id)
+        return {
+            "owner_type": "company",
+            "display_name": (workspace.name if workspace else "") or "Firma wykonawcza",
+        }
+    user = db.get(models.User, item.owner_id)
+    display_name = ""
+    if user:
+        display_name = user.public_profile_name or user.name
+    return {
+        "owner_type": "independent_contractor",
+        "display_name": display_name or "Samodzielny majster",
+    }
+
+
+def public_estimate_payload(db: Session, item: models.Estimate) -> dict:
+    return {
+        "id": item.id,
+        "owner": estimate_public_owner_payload(db, item),
+        "recipient_name": item.recipient_name,
+        "title": item.title,
+        "scope_summary": item.scope_summary,
+        "assumptions": item.assumptions,
+        "estimated_price": money_payload(item.estimated_price),
+        "price_note": item.price_note,
+        "planned_start": item.planned_start,
+        "planned_end": item.planned_end,
+        "status": item.status,
+        "sent_at": item.sent_at.isoformat() if item.sent_at else None,
+        "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
+        "rejected_at": item.rejected_at.isoformat() if item.rejected_at else None,
+        "shared_at": item.shared_at.isoformat() if item.shared_at else None,
+    }
+
+
 def estimate_payload(item: models.Estimate) -> dict:
     return {
         "id": item.id,
@@ -639,6 +693,9 @@ def estimate_payload(item: models.Estimate) -> dict:
         "planned_start": item.planned_start,
         "planned_end": item.planned_end,
         "status": item.status,
+        "share_url": estimate_share_url(item),
+        "share_active": item.share_active,
+        "shared_at": item.shared_at.isoformat() if item.shared_at else None,
         "sent_at": item.sent_at.isoformat() if item.sent_at else None,
         "approved_at": item.approved_at.isoformat() if item.approved_at else None,
         "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
@@ -838,6 +895,7 @@ def ensure_estimate_ready_to_send(item: models.Estimate) -> None:
 
 
 def apply_initial_estimate_status(
+    db: Session,
     item: models.Estimate,
     status: str,
     actor: str,
@@ -855,6 +913,7 @@ def apply_initial_estimate_status(
         ensure_estimate_ready_to_send(item)
         item.status = "sent"
         item.sent_at = item.sent_at or now()
+        ensure_estimate_share(db, item)
         if actor == "company_owner":
             item.approved_by_id = user.id
             item.approved_at = item.approved_at or now()
@@ -865,12 +924,15 @@ def apply_initial_estimate_status(
 
 
 def change_estimate_status(
+    db: Session,
     item: models.Estimate,
     status: str,
     actor: str,
     user: models.User,
 ) -> None:
     if status == item.status:
+        if status == "sent":
+            ensure_estimate_share(db, item)
         return
     if item.status in {"accepted", "rejected", "cancelled"}:
         raise HTTPException(422, "Ten status oferty jest finalny")
@@ -878,9 +940,12 @@ def change_estimate_status(
     if actor == "company_worker":
         if item.status == "draft" and status in {"pending_approval", "cancelled"}:
             item.status = status
+            if status == "cancelled":
+                item.share_active = False
             return
         if item.status == "pending_approval" and status == "cancelled":
             item.status = status
+            item.share_active = False
             return
         raise HTTPException(403, "Pracownik firmy nie moze wyslac ani zatwierdzic oferty")
 
@@ -889,9 +954,11 @@ def change_estimate_status(
             ensure_estimate_ready_to_send(item)
             item.status = "sent"
             item.sent_at = item.sent_at or now()
+            ensure_estimate_share(db, item)
             return
         if item.status == "draft" and status == "cancelled":
             item.status = status
+            item.share_active = False
             return
         if item.status == "sent" and status in {"accepted", "rejected", "cancelled"}:
             item.status = status
@@ -899,6 +966,8 @@ def change_estimate_status(
                 item.accepted_at = item.accepted_at or now()
             elif status == "rejected":
                 item.rejected_at = item.rejected_at or now()
+            else:
+                item.share_active = False
             return
         raise HTTPException(422, "Nielegalna zmiana statusu oferty")
 
@@ -912,11 +981,13 @@ def change_estimate_status(
             ensure_estimate_ready_to_send(item)
             item.status = "sent"
             item.sent_at = item.sent_at or now()
+            ensure_estimate_share(db, item)
             item.approved_by_id = item.approved_by_id or user.id
             item.approved_at = item.approved_at or now()
             return
         if item.status in {"draft", "pending_approval", "approved_by_owner"} and status == "cancelled":
             item.status = status
+            item.share_active = False
             return
         if item.status == "sent" and status in {"accepted", "rejected", "cancelled"}:
             item.status = status
@@ -924,6 +995,8 @@ def change_estimate_status(
                 item.accepted_at = item.accepted_at or now()
             elif status == "rejected":
                 item.rejected_at = item.rejected_at or now()
+            else:
+                item.share_active = False
             return
     raise HTTPException(422, "Nielegalna zmiana statusu oferty")
 
@@ -1302,6 +1375,10 @@ class EstimateUpdate(BaseModel):
 
 class EstimateStatusUpdate(BaseModel):
     status: EstimateStatus
+
+
+class PublicEstimateDecision(BaseModel):
+    status: Literal["accepted", "rejected"]
 
 
 class ProjectClientCoverUpdate(BaseModel):
@@ -2524,7 +2601,7 @@ def create_my_estimate(
         created_by_id=user.id,
     )
     apply_estimate_changes(item, payload, db=db)
-    apply_initial_estimate_status(item, payload.status, actor, user)
+    apply_initial_estimate_status(db, item, payload.status, actor, user)
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -2560,10 +2637,83 @@ def update_my_estimate_status(
     if not item:
         raise HTTPException(404, "Oferta nie istnieje")
     actor = estimate_actor_for_item(db, user, item)
-    change_estimate_status(item, payload.status, actor, user)
+    change_estimate_status(db, item, payload.status, actor, user)
     db.commit()
     db.refresh(item)
     return estimate_payload(item)
+
+
+@router.delete("/estimates/me/{estimate_id}")
+def delete_or_cancel_my_estimate(
+    estimate_id: str,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.Estimate, estimate_id)
+    if not item:
+        raise HTTPException(404, "Oferta nie istnieje")
+    actor = estimate_actor_for_item(db, user, item)
+    if item.status in {"accepted", "rejected"}:
+        raise HTTPException(422, "Zaakceptowana lub odrzucona oferta zostaje w historii")
+    if actor == "company_worker" and item.status not in {"draft", "pending_approval"}:
+        raise HTTPException(403, "Pracownik moze usunac tylko wlasny szkic")
+
+    if item.status == "sent":
+        item.status = "cancelled"
+        item.share_active = False
+        db.commit()
+        db.refresh(item)
+        return {"status": "cancelled", "estimate": estimate_payload(item)}
+
+    if item.status in {"draft", "pending_approval", "approved_by_owner", "cancelled"}:
+        db.delete(item)
+        db.commit()
+        return {"status": "deleted", "id": estimate_id}
+
+    raise HTTPException(422, "Nie mozna usunac tej oferty")
+
+
+def public_estimate_by_token(db: Session, token: str) -> models.Estimate:
+    item = db.scalar(
+        select(models.Estimate).where(
+            models.Estimate.share_token == token,
+            models.Estimate.share_active.is_(True),
+        )
+    )
+    if not item or item.status not in {"sent", "accepted", "rejected"}:
+        raise HTTPException(404, "Oferta nie istnieje albo link wygasl")
+    return item
+
+
+@router.get("/public/estimates/{token}")
+def get_public_estimate(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return public_estimate_payload(db, public_estimate_by_token(db, token))
+
+
+@router.post("/public/estimates/{token}/decision")
+def decide_public_estimate(
+    token: str,
+    payload: PublicEstimateDecision,
+    db: Session = Depends(get_db),
+):
+    item = public_estimate_by_token(db, token)
+    if item.status == payload.status:
+        return public_estimate_payload(db, item)
+    if item.status != "sent":
+        raise HTTPException(422, "Ta oferta ma juz finalna decyzje")
+    item.status = payload.status
+    if payload.status == "accepted":
+        item.accepted_at = item.accepted_at or now()
+        item.rejected_at = None
+    else:
+        item.rejected_at = item.rejected_at or now()
+        item.accepted_at = None
+    db.commit()
+    db.refresh(item)
+    return public_estimate_payload(db, item)
 
 
 @router.get("/public-profile/me")
