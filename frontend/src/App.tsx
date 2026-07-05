@@ -7265,18 +7265,29 @@ function InvestorJobInterestList({
 }) {
   const interests = posting.interests || [];
   const count = posting.interest_count ?? interests.length;
+  const newCount = interests.filter((interest) => interest.status === "new").length;
+  const [expanded, setExpanded] = useState(false);
+  const hasInterests = interests.length > 0;
   return (
-    <section className="post-job-interests">
-      <header>
+    <section className={`post-job-interests ${expanded ? "post-job-interests--expanded" : ""}`}>
+      <header className="post-job-interests__summary">
         <div>
           <h4>Zainteresowani wykonawcy</h4>
           <p>Skontaktuj się z wykonawcą telefonicznie lub mailowo. Oferty i umowy będą osobnym krokiem.</p>
         </div>
-        <span>{count}</span>
+        <div className="post-job-interest-counters" aria-label="Podsumowanie zgłoszeń zainteresowania">
+          <span><strong>{count}</strong><small>łącznie</small></span>
+          {newCount > 0 && <span><strong>{newCount}</strong><small>nowe</small></span>}
+        </div>
+        {hasInterests && (
+          <Button type="button" variant="secondary" onClick={() => setExpanded((current) => !current)}>
+            {expanded ? "Ukryj" : "Pokaż"}
+          </Button>
+        )}
       </header>
-      {interests.length === 0 ? (
+      {!hasInterests ? (
         <p className="empty-note">Brak zainteresowanych wykonawców. Gdy ktoś zgłosi się do ogłoszenia, zobaczysz tutaj jego wizytówkę i dane kontaktowe.</p>
-      ) : (
+      ) : expanded ? (
         <div className="post-job-interest-list">
           {interests.map((interest) => {
             const contractor = interest.contractor;
@@ -7303,10 +7314,15 @@ function InvestorJobInterestList({
                   <div><dt>Telefon</dt><dd>{phone || "Nie podano"}</dd></div>
                   <div><dt>E-mail</dt><dd>{email || "Nie podano"}</dd></div>
                 </dl>
-                {interest.message && <p className="post-job-interest-message">{interest.message}</p>}
+                {interest.message && (
+                  <div className="post-job-interest-note">
+                    <small>Notatka od wykonawcy</small>
+                    <p>{interest.message}</p>
+                  </div>
+                )}
                 <footer>
                   {phone && <a className="button button--secondary" href={`tel:${phone.replace(/\s+/g, "")}`}><Icon name="phone" size={18} /> Zadzwoń</a>}
-                  {email && <a className="button button--secondary" href={`mailto:${email}`}><Icon name="send" size={18} /> Napisz e-mail</a>}
+                  {email && <a className="button button--secondary" href={`mailto:${email}`}><Icon name="send" size={18} /> E-mail</a>}
                   {contractor?.slug && <a className="button button--secondary" href={publicPortfolioPath(contractor.slug)} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Zobacz wizytówkę</a>}
                   <Button
                     type="button"
@@ -7331,6 +7347,10 @@ function InvestorJobInterestList({
             );
           })}
         </div>
+      ) : (
+        <p className="post-job-interests__collapsed">
+          Zgłoszenia zainteresowania są zwinięte. Kliknij „Pokaż”, żeby zobaczyć wizytówki i dane kontaktowe.
+        </p>
       )}
     </section>
   );
