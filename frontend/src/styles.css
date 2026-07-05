@@ -2073,13 +2073,33 @@ audio { width: 100%; margin-top: 13px; }
 .public-profile-preview__realizations h3 { margin: 0; color: var(--navy); font-size: 19px; }
 .public-profile-preview__realizations > header span { min-width: 30px; height: 30px; display: grid; place-items: center; border-radius: 999px; color: var(--blue); background: #edf3fb; font-size: 12px; font-weight: 900; }
 .public-profile-preview__realizations > div { display: grid; gap: 10px; }
-.public-profile-preview__realizations article { min-width: 0; padding: 12px; display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 12px; border: 1px solid #d7e2ef; border-radius: 12px; background: #fff; }
+.public-profile-preview__realizations article,
+.public-profile-realization-card { min-width: 0; padding: 12px; display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 12px; border: 1px solid #d7e2ef; border-radius: 12px; background: #fff; }
+.public-profile-realization-card { width: 100%; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.public-profile-realization-card:hover { transform: translateY(-1px); border-color: #b9c9dc; box-shadow: 0 10px 24px rgba(18,38,69,.08); }
 .public-profile-preview__realizations img,
-.public-profile-preview__realizations article > span { width: 86px; aspect-ratio: 1 / .76; border-radius: 9px; background: #edf3fb; object-fit: cover; }
-.public-profile-preview__realizations article > span { display: grid; place-items: center; color: var(--blue); }
+.public-profile-preview__realizations article > span,
+.public-profile-realization-card > span { width: 86px; aspect-ratio: 1 / .76; border-radius: 9px; background: #edf3fb; object-fit: cover; }
+.public-profile-preview__realizations article > span,
+.public-profile-realization-card > span { display: grid; place-items: center; color: var(--blue); }
 .public-profile-preview__realizations h4 { margin: 0 0 5px; color: var(--navy); }
 .public-profile-preview__realizations p { margin: 0 0 7px; color: #475569; line-height: 1.45; }
 .public-profile-preview__realizations small { color: var(--muted); font-weight: 800; }
+.public-realization-detail { padding: 22px; display: grid; gap: 18px; }
+.public-realization-detail__cover { min-height: 260px; border-radius: 14px; overflow: hidden; background: #edf3fb; }
+.public-realization-detail__cover img { width: 100%; height: 100%; max-height: 420px; object-fit: cover; display: block; }
+.public-realization-detail__cover span { min-height: 260px; display: grid; place-items: center; color: var(--blue); }
+.public-realization-detail h3 { margin: 6px 0 10px; color: var(--navy); font-size: 30px; line-height: 1.12; }
+.public-realization-detail p { margin: 0; color: #475569; line-height: 1.55; }
+.public-realization-detail dl { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.public-realization-detail dl div { min-width: 0; padding: 12px; border: 1px solid #d7e2ef; border-radius: 10px; background: #f8fafc; }
+.public-realization-detail dt { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.public-realization-detail dd { margin: 4px 0 0; color: var(--navy); overflow-wrap: anywhere; }
+.public-realization-detail__gallery { display: grid; gap: 10px; }
+.public-realization-detail__gallery h4 { margin: 0; color: var(--navy); }
+.public-realization-detail__gallery > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.public-realization-detail__gallery img { width: 100%; aspect-ratio: 1 / .72; object-fit: cover; border-radius: 10px; background: #edf3fb; }
+.public-realization-detail footer { display: flex; justify-content: flex-end; }
 .post-job-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); gap: 24px; align-items: start; }
 .post-job-form { overflow: hidden; display: grid; border: 1px solid #d7e2ef; border-radius: 16px; background: #fff; box-shadow: 0 16px 34px rgba(18,38,69,.06); }
 .post-job-form section { padding: 22px; display: grid; gap: 16px; border-bottom: 1px solid #e3ebf5; }
@@ -2131,11 +2151,11 @@ audio { width: 100%; margin-top: 13px; }
 .post-job-own-card footer span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .post-job-own-card footer .button { min-height: 34px; padding: 0 12px; }
 .post-job-interests { margin-top: 4px; padding-top: 10px; display: grid; gap: 10px; border-top: 1px solid #dbe6f2; }
-.post-job-interests__summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.post-job-interests__summary { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: stretch; }
 .post-job-interests h4 { margin: 0 0 4px; color: var(--navy); font-size: 14px; }
 .post-job-interests__summary p { margin: 0; display: block; color: var(--muted); line-height: 1.4; }
-.post-job-interests__summary .button { min-height: 34px; padding: 0 12px; }
-.post-job-interest-counters { display: flex; gap: 8px; align-items: center; }
+.post-job-interests__summary .button { width: 100%; min-height: 38px; padding: 0 12px; justify-content: center; }
+.post-job-interest-counters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .post-job-interest-counters span { min-width: 54px; padding: 7px 9px; display: grid; justify-items: center; border-radius: 10px; color: #166534; background: #e6f7ec; }
 .post-job-interest-counters strong { color: #166534; font-size: 16px; line-height: 1; }
 .post-job-interest-counters small { margin-top: 2px; color: #34724a; font-size: 10px; font-weight: 900; text-transform: uppercase; }
@@ -2360,7 +2380,11 @@ audio { width: 100%; margin-top: 13px; }
   .public-profile-preview { padding: 16px; }
   .public-profile-preview__header,
   .public-profile-preview dl,
-  .public-profile-preview__realizations article { grid-template-columns: 1fr; }
+  .public-profile-preview__realizations article,
+  .public-profile-realization-card,
+  .public-realization-detail dl,
+  .public-realization-detail__gallery > div { grid-template-columns: 1fr; }
+  .public-realization-detail { padding: 16px; }
   .public-profile-preview__header .contractor-discovery-avatar { width: 64px; height: 64px; }
   .post-job-segments { grid-template-columns: 1fr; }
   .post-job-form section { padding: 16px; }

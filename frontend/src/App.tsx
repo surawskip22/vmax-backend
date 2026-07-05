@@ -6496,9 +6496,77 @@ function publicProfileDateLabel(value?: string | null): string {
   return new Intl.DateTimeFormat("pl-PL", { month: "short", year: "numeric" }).format(date);
 }
 
+function publicRealizationAmountLabel(realization: PublicProfileRealization): string {
+  if (!realization.show_amount || !realization.amount) return "";
+  return `${realization.amount} ${realization.currency || "PLN"}`;
+}
+
+function publicRealizationImages(realization: PublicProfileRealization): string[] {
+  return [...new Set([realization.cover_image_url, ...(realization.gallery_image_urls || [])].filter(Boolean))];
+}
+
+function PublicRealizationDetailModal({
+  realization,
+  onClose,
+}: {
+  realization: PublicProfileRealization;
+  onClose: () => void;
+}) {
+  const images = publicRealizationImages(realization);
+  const amountLabel = publicRealizationAmountLabel(realization);
+  return (
+    <Modal title="Szczegóły realizacji" onClose={onClose} wide>
+      <div className="public-realization-detail">
+        <div className="public-realization-detail__cover">
+          {images[0] ? (
+            <img src={images[0]} alt={realization.title} />
+          ) : (
+            <span><Icon name="image" size={42} /></span>
+          )}
+        </div>
+        <section>
+          <span className="eyebrow">Publiczna realizacja</span>
+          <h3>{realization.title}</h3>
+          <p>{realization.public_description || "Wykonawca nie dodał jeszcze publicznego opisu realizacji."}</p>
+          <dl>
+            <div>
+              <dt>Termin</dt>
+              <dd>{publicProfileDateLabel(realization.completion_date) || "Nie podano"}</dd>
+            </div>
+            {amountLabel && (
+              <div>
+                <dt>Kwota</dt>
+                <dd>{amountLabel}</dd>
+              </div>
+            )}
+            <div>
+              <dt>Zakres</dt>
+              <dd>{realization.work_scope.length > 0 ? realization.work_scope.join(", ") : "Nie podano"}</dd>
+            </div>
+          </dl>
+        </section>
+        {images.length > 1 && (
+          <section className="public-realization-detail__gallery">
+            <h4>Galeria</h4>
+            <div>
+              {images.slice(1).map((url) => (
+                <img src={url} alt={realization.title} key={url} loading="lazy" />
+              ))}
+            </div>
+          </section>
+        )}
+        <footer>
+          <Button type="button" variant="secondary" onClick={onClose}>Zamknij</Button>
+        </footer>
+      </div>
+    </Modal>
+  );
+}
+
 function PublicProfileDetails({ profile }: { profile: PublicProfile }) {
   const realizations = profile.realizations || [];
   const specializations = profile.specializations || [];
+  const [selectedRealization, setSelectedRealization] = useState<PublicProfileRealization | null>(null);
   return (
     <div className="public-profile-preview">
       <header className="public-profile-preview__header">
@@ -6544,7 +6612,12 @@ function PublicProfileDetails({ profile }: { profile: PublicProfile }) {
         ) : (
           <div>
             {realizations.map((realization) => (
-              <article key={realization.id}>
+              <button
+                type="button"
+                className="public-profile-realization-card"
+                onClick={() => setSelectedRealization(realization)}
+                key={realization.id}
+              >
                 {realization.cover_image_url ? (
                   <img src={realization.cover_image_url} alt={realization.title} loading="lazy" />
                 ) : (
@@ -6557,13 +6630,19 @@ function PublicProfileDetails({ profile }: { profile: PublicProfile }) {
                     {[realization.location_public, publicProfileDateLabel(realization.completion_date)]
                       .filter(Boolean)
                       .join(" · ") || "Realizacja opublikowana"}
-                  </small>
-                </div>
-              </article>
+                    </small>
+                  </div>
+              </button>
             ))}
           </div>
         )}
       </section>
+      {selectedRealization && (
+        <PublicRealizationDetailModal
+          realization={selectedRealization}
+          onClose={() => setSelectedRealization(null)}
+        />
+      )}
     </div>
   );
 }
