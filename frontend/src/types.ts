@@ -109,11 +109,18 @@ export type Estimate = {
 
 export type PublicEstimate = {
   id: string;
+  number: string;
   owner: {
     owner_type: PublicProfileOwnerType;
     display_name: string;
+    contact_phone: string;
+    contact_email: string;
+    slug: string;
+    profile_url: string;
   };
   recipient_name: string;
+  recipient_email: string;
+  recipient_phone: string;
   title: string;
   scope_summary: string;
   assumptions: string;
@@ -122,6 +129,7 @@ export type PublicEstimate = {
   planned_start: string;
   planned_end: string;
   status: EstimateStatus;
+  created_at: string;
   sent_at?: string | null;
   accepted_at?: string | null;
   rejected_at?: string | null;

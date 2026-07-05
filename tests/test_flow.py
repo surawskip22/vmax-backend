@@ -4657,6 +4657,17 @@ def test_sent_estimate_has_public_link_and_public_decision_without_project():
     with TestClient(app) as client:
         user = login(client, "estimate-share-independent@example.com")
         client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        public_profile = client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": True,
+                "slug": "estimate-share-majster",
+                "display_name": "Majster Publiczny",
+                "contact_phone": "600 700 800",
+                "contact_email": "public-estimate-contact@example.com",
+            },
+        )
+        assert public_profile.status_code == 200
 
         draft = client.post(
             "/api/estimates/me",
@@ -4693,14 +4704,18 @@ def test_sent_estimate_has_public_link_and_public_decision_without_project():
             assert public.status_code == 200
             public_body = public.json()
             assert public_body["title"] == "Oferta z linkiem"
-            assert public_body["owner"]["display_name"] == "Samodzielny majster"
+            assert public_body["number"]
+            assert public_body["owner"]["display_name"] == "Majster Publiczny"
+            assert public_body["owner"]["contact_phone"] == "600 700 800"
+            assert public_body["owner"]["contact_email"] == "public-estimate-contact@example.com"
+            assert public_body["owner"]["profile_url"] == "/public-profiles/estimate-share-majster"
             assert public_body["recipient_name"] == "Klient linku"
+            assert public_body["recipient_email"] == "estimate-share-recipient@example.com"
+            assert public_body["recipient_phone"] == "500 400 300"
             assert public_body["estimated_price"] == "18000.00"
             assert "created_by_id" not in public_body
             assert "owner_id" not in public_body
-            assert "recipient_email" not in public_body
             assert "estimate-share-independent@example.com" not in repr(public_body)
-            assert "estimate-share-recipient@example.com" not in repr(public_body)
 
             with SessionLocal() as db:
                 project_count_before = db.scalar(select(func.count(models.Project.id)))

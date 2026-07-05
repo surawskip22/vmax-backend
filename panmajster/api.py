@@ -635,28 +635,60 @@ def estimate_share_url(item: models.Estimate) -> str | None:
     return f"/estimate/{item.share_token}"
 
 
+def public_profile_for_estimate_owner(
+    db: Session,
+    item: models.Estimate,
+) -> models.PublicProfile | None:
+    return db.scalar(
+        select(models.PublicProfile).where(
+            models.PublicProfile.owner_type == item.owner_type,
+            models.PublicProfile.owner_id == item.owner_id,
+        )
+    )
+
+
 def estimate_public_owner_payload(db: Session, item: models.Estimate) -> dict:
+    profile = public_profile_for_estimate_owner(db, item)
+    public_profile = profile if profile and profile.is_public else None
     if item.owner_type == "company":
         workspace = db.get(models.Workspace, item.owner_id)
+        display_name = (
+            public_profile.display_name
+            if public_profile and public_profile.display_name
+            else (workspace.name if workspace else "") or "Firma wykonawcza"
+        )
         return {
             "owner_type": "company",
-            "display_name": (workspace.name if workspace else "") or "Firma wykonawcza",
+            "display_name": display_name,
+            "contact_phone": public_profile.contact_phone if public_profile else "",
+            "contact_email": public_profile.contact_email if public_profile else "",
+            "slug": public_profile.slug if public_profile else "",
+            "profile_url": f"/public-profiles/{public_profile.slug}" if public_profile and public_profile.slug else "",
         }
     user = db.get(models.User, item.owner_id)
     display_name = ""
     if user:
         display_name = user.public_profile_name or user.name
+    if public_profile and public_profile.display_name:
+        display_name = public_profile.display_name
     return {
         "owner_type": "independent_contractor",
         "display_name": display_name or "Samodzielny majster",
+        "contact_phone": public_profile.contact_phone if public_profile else "",
+        "contact_email": public_profile.contact_email if public_profile else "",
+        "slug": public_profile.slug if public_profile else "",
+        "profile_url": f"/public-profiles/{public_profile.slug}" if public_profile and public_profile.slug else "",
     }
 
 
 def public_estimate_payload(db: Session, item: models.Estimate) -> dict:
     return {
         "id": item.id,
+        "number": item.id[:8].upper(),
         "owner": estimate_public_owner_payload(db, item),
         "recipient_name": item.recipient_name,
+        "recipient_email": item.recipient_email,
+        "recipient_phone": item.recipient_phone,
         "title": item.title,
         "scope_summary": item.scope_summary,
         "assumptions": item.assumptions,
@@ -665,6 +697,7 @@ def public_estimate_payload(db: Session, item: models.Estimate) -> dict:
         "planned_start": item.planned_start,
         "planned_end": item.planned_end,
         "status": item.status,
+        "created_at": item.created_at.isoformat(),
         "sent_at": item.sent_at.isoformat() if item.sent_at else None,
         "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
         "rejected_at": item.rejected_at.isoformat() if item.rejected_at else None,

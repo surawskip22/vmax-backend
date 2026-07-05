@@ -7856,6 +7856,45 @@ function estimatePayloadFromDraft(user: User, draft: EstimateDraft, status?: Est
   };
 }
 
+function publicEstimateStatusLabel(status: EstimateStatus): string {
+  if (status === "sent") return "Do akceptacji";
+  return estimateStatusLabel(status);
+}
+
+function publicEstimateDateLabel(value?: string | null): string {
+  if (!value) return "Nie podano";
+  const parsed = new Date(value.includes("T") ? value : `${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat("pl-PL", { day: "2-digit", month: "long", year: "numeric" }).format(parsed);
+}
+
+function publicEstimateAmountLabel(value?: string | null): string {
+  if (!value) return "Do ustalenia";
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return `${value} zł`;
+  const hasCents = Math.abs(parsed % 1) > 0;
+  return new Intl.NumberFormat("pl-PL", {
+    style: "currency",
+    currency: "PLN",
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(parsed);
+}
+
+function publicEstimateContactValue(value?: string | null): string {
+  return value?.trim() || "Nie podano";
+}
+
+function publicEstimateDecisionError(reason: unknown, status: "accepted" | "rejected"): string {
+  if (reason instanceof ApiError) {
+    if (reason.status === 404) return "Ta oferta nie jest już dostępna.";
+    if (reason.status === 422) return "Oferta została już wcześniej zaakceptowana albo odrzucona.";
+  }
+  return status === "accepted"
+    ? "Nie udało się zaakceptować oferty. Spróbuj ponownie."
+    : "Nie udało się odrzucić oferty. Spróbuj ponownie.";
+}
+
 function PublicEstimatePage({ token }: { token: string }) {
   const [estimate, setEstimate] = useState<PublicEstimate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -7883,6 +7922,7 @@ function PublicEstimatePage({ token }: { token: string }) {
   async function decide(status: "accepted" | "rejected") {
     setBusy(status);
     setMessage("");
+    setError("");
     try {
       const saved = await api<PublicEstimate>(`/public/estimates/${encodeURIComponent(token)}/decision`, {
         method: "POST",
@@ -7891,21 +7931,17 @@ function PublicEstimatePage({ token }: { token: string }) {
       setEstimate(saved);
       setMessage(status === "accepted" ? "Oferta zaakceptowana. Wykonawca skontaktuje się w sprawie dalszych kroków." : "Oferta została odrzucona.");
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Nie udało się zapisać decyzji.");
+      setError(publicEstimateDecisionError(reason, status));
     } finally {
       setBusy(null);
     }
   }
 
+  const documentDate = estimate?.sent_at || estimate?.shared_at || estimate?.created_at;
+  const ownerProfileUrl = estimate?.owner.profile_url || (estimate?.owner.slug ? publicProfilePath(estimate.owner.slug) : "");
+
   return (
     <div className="public-estimate-page">
-      <header className="public-estimate-top">
-        <Logo compact />
-        <div>
-          <span className="eyebrow">Oferta wstępna / wycena orientacyjna</span>
-          <h1>Podgląd oferty</h1>
-        </div>
-      </header>
       {loading ? (
         <div className="loading-screen"><span className="spinner" /> Ładowanie oferty...</div>
       ) : error && !estimate ? (
@@ -7915,37 +7951,111 @@ function PublicEstimatePage({ token }: { token: string }) {
           <p>{error}</p>
         </main>
       ) : estimate ? (
-        <main className="public-estimate-card">
-          <header>
-            <span className={`status ${estimateStatusClass(estimate.status)}`}>{estimateStatusLabel(estimate.status)}</span>
-            <h2>{estimate.title}</h2>
-            <p>To jest oferta wstępna / wycena orientacyjna. To nie jest umowa.</p>
+        <main className="public-estimate-document">
+          <header className="public-estimate-document__header">
+            <Logo compact />
+            <div>
+              <span className="eyebrow">Oferta wstępna / wycena orientacyjna</span>
+              <h1>{estimate.title}</h1>
+              <p>Wstępna propozycja zakresu prac i kosztów do weryfikacji i akceptacji.</p>
+            </div>
+            <aside>
+              <span className={`status ${estimateStatusClass(estimate.status)}`}>{publicEstimateStatusLabel(estimate.status)}</span>
+              <small>Oferta #{estimate.number || estimate.id.slice(0, 8).toUpperCase()}</small>
+              <small>{publicEstimateDateLabel(documentDate)}</small>
+            </aside>
           </header>
-          {message && <p className="public-estimate-message">{message}</p>}
-          {error && <p className="form-error">{error}</p>}
-          <dl>
-            <div><dt>Wykonawca</dt><dd>{estimate.owner.display_name}</dd></div>
-            <div><dt>Odbiorca</dt><dd>{estimate.recipient_name || "Nie podano"}</dd></div>
-            <div><dt>Kwota orientacyjna</dt><dd>{estimateAmountValueLabel(estimate.estimated_price)}</dd></div>
-            <div><dt>Status</dt><dd>{estimateStatusLabel(estimate.status)}</dd></div>
-            <div><dt>Planowany start</dt><dd>{estimate.planned_start || "Do ustalenia"}</dd></div>
-            <div><dt>Planowany koniec</dt><dd>{estimate.planned_end || "Do ustalenia"}</dd></div>
-          </dl>
-          <section>
-            <h3>Zakres prac</h3>
-            <p>{estimate.scope_summary || "Zakres nie został opisany."}</p>
+
+          <section className="public-estimate-hero">
+            <div>
+              <span>Dokument dla klienta</span>
+              <h2>{publicEstimateStatusLabel(estimate.status)}</h2>
+              <p>Oferta pokazuje orientacyjny zakres, terminy i koszt. Akceptacja nie tworzy automatycznie zlecenia, umowy ani płatności.</p>
+            </div>
+            <div className="public-estimate-amount-card">
+              <small>Kwota orientacyjna</small>
+              <strong>{publicEstimateAmountLabel(estimate.estimated_price)}</strong>
+              <p>{estimate.price_note || "Kwota może ulec zmianie po doprecyzowaniu prac."}</p>
+            </div>
           </section>
-          <section>
-            <h3>Założenia i uwagi</h3>
-            <p>{estimate.assumptions || "Brak dodatkowych założeń."}</p>
-          </section>
-          {estimate.price_note && (
-            <section>
-              <h3>Notatka do ceny</h3>
-              <p>{estimate.price_note}</p>
-            </section>
+
+          {message && (
+            <p className={`public-estimate-message ${estimate.status === "rejected" ? "public-estimate-message--rejected" : ""}`}>
+              {message}
+            </p>
           )}
-          <footer>
+          {error && <p className="form-error">{error}</p>}
+
+          <section className="public-estimate-party-grid" aria-label="Strony oferty">
+            <article className="public-estimate-section-card">
+              <span><Icon name={estimate.owner.owner_type === "company" ? "building" : "tools"} /></span>
+              <div>
+                <h3>Dane wykonawcy</h3>
+                <p className="public-estimate-party-name">{estimate.owner.display_name || "Nie podano"}</p>
+                <p>{estimate.owner.owner_type === "company" ? "Firma wykonawcza" : "Samodzielny majster"}</p>
+                <ul>
+                  <li><Icon name="phone" size={16} /> {estimate.owner.contact_phone ? <a href={`tel:${estimate.owner.contact_phone.replace(/\s+/g, "")}`}>{estimate.owner.contact_phone}</a> : "Telefon: Nie podano"}</li>
+                  <li><Icon name="send" size={16} /> {estimate.owner.contact_email ? <a href={`mailto:${estimate.owner.contact_email}`}>{estimate.owner.contact_email}</a> : "E-mail: Nie podano"}</li>
+                  {ownerProfileUrl && <li><Icon name="link" size={16} /> <a href={ownerProfileUrl} target="_blank" rel="noreferrer">Zobacz wizytówkę</a></li>}
+                </ul>
+              </div>
+            </article>
+            <article className="public-estimate-section-card">
+              <span><Icon name="users" /></span>
+              <div>
+                <h3>Dane klienta / odbiorcy</h3>
+                <p className="public-estimate-party-name">{publicEstimateContactValue(estimate.recipient_name)}</p>
+                <ul>
+                  <li><Icon name="send" size={16} /> {estimate.recipient_email ? <a href={`mailto:${estimate.recipient_email}`}>{estimate.recipient_email}</a> : "E-mail: Nie podano"}</li>
+                  <li><Icon name="phone" size={16} /> {estimate.recipient_phone ? <a href={`tel:${estimate.recipient_phone.replace(/\s+/g, "")}`}>{estimate.recipient_phone}</a> : "Telefon: Nie podano"}</li>
+                </ul>
+              </div>
+            </article>
+          </section>
+
+          <section className="public-estimate-section-card public-estimate-section-card--wide">
+            <span><Icon name="clipboard" /></span>
+            <div>
+              <h3>Zakres prac</h3>
+              <p>{estimate.scope_summary || "Zakres nie został opisany."}</p>
+            </div>
+          </section>
+
+          <section className="public-estimate-detail-grid" aria-label="Terminy i kwota">
+            <article className="public-estimate-section-card">
+              <span><Icon name="sync" /></span>
+              <div>
+                <h3>Terminy</h3>
+                <dl>
+                  <div><dt>Planowany start</dt><dd>{estimate.planned_start ? publicEstimateDateLabel(estimate.planned_start) : "Do ustalenia"}</dd></div>
+                  <div><dt>Planowany koniec</dt><dd>{estimate.planned_end ? publicEstimateDateLabel(estimate.planned_end) : "Do ustalenia"}</dd></div>
+                </dl>
+              </div>
+            </article>
+            <article className="public-estimate-section-card public-estimate-section-card--amount">
+              <span><Icon name="report" /></span>
+              <div>
+                <h3>Kwota orientacyjna</h3>
+                <strong>{publicEstimateAmountLabel(estimate.estimated_price)}</strong>
+                <p>{estimate.price_note || "Cena orientacyjna, do potwierdzenia po doprecyzowaniu prac."}</p>
+              </div>
+            </article>
+          </section>
+
+          <section className="public-estimate-section-card public-estimate-section-card--wide">
+            <span><Icon name="bookmark" /></span>
+            <div>
+              <h3>Uwagi i założenia</h3>
+              <p>{estimate.assumptions || "Brak dodatkowych założeń."}</p>
+            </div>
+          </section>
+
+          <section className="public-estimate-notice">
+            <Icon name="alert" />
+            <p>To jest oferta wstępna / wycena orientacyjna. Nie jest fakturą, umową ani wezwaniem do zapłaty. Kwota i zakres mogą ulec zmianie po doprecyzowaniu prac.</p>
+          </section>
+
+          <footer className="public-estimate-actions">
             {estimate.status === "sent" ? (
               <>
                 <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>
@@ -7956,7 +8066,9 @@ function PublicEstimatePage({ token }: { token: string }) {
                 </Button>
               </>
             ) : (
-              <p>{estimate.status === "accepted" ? "Oferta została zaakceptowana." : "Oferta została odrzucona."}</p>
+              <p className={`public-estimate-final-state ${estimate.status === "accepted" ? "public-estimate-final-state--accepted" : estimate.status === "rejected" ? "public-estimate-final-state--rejected" : ""}`}>
+                {estimate.status === "accepted" ? "Oferta zaakceptowana." : estimate.status === "rejected" ? "Oferta odrzucona." : `Status oferty: ${publicEstimateStatusLabel(estimate.status)}.`}
+              </p>
             )}
           </footer>
         </main>
