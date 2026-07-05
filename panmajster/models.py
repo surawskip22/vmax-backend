@@ -225,6 +225,38 @@ class JobPostingOffer(Base, TimestampMixin):
     rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class Estimate(Base, TimestampMixin):
+    __tablename__ = "estimates"
+    __table_args__ = (
+        Index("ix_estimates_owner", "owner_type", "owner_id"),
+        Index("ix_estimates_source", "source_type", "source_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    owner_type: Mapped[str] = mapped_column(String(40), index=True)
+    owner_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    approved_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
+    recipient_type: Mapped[str] = mapped_column(String(30), default="manual")
+    recipient_name: Mapped[str] = mapped_column(String(180), default="")
+    recipient_email: Mapped[str] = mapped_column(String(320), default="")
+    recipient_phone: Mapped[str] = mapped_column(String(40), default="")
+    source_type: Mapped[str] = mapped_column(String(40), default="manual")
+    source_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    title: Mapped[str] = mapped_column(String(220), default="")
+    scope_summary: Mapped[str] = mapped_column(Text, default="")
+    assumptions: Mapped[str] = mapped_column(Text, default="")
+    estimated_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    price_note: Mapped[str] = mapped_column(Text, default="")
+    planned_start: Mapped[str] = mapped_column(String(160), default="")
+    planned_end: Mapped[str] = mapped_column(String(160), default="")
+    status: Mapped[str] = mapped_column(String(30), default="draft", index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
     __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)

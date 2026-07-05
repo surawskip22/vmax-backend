@@ -4424,3 +4424,230 @@ def test_investor_and_company_worker_cannot_create_job_posting_offers():
             },
         )
         assert blocked_worker.status_code == 403
+
+
+def test_independent_contractor_can_create_and_send_estimate():
+    with TestClient(app) as client:
+        user = login(client, "estimate-independent@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+
+        created = client.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "independent_contractor",
+                "owner_id": user["id"],
+                "recipient_type": "manual",
+                "recipient_name": "Klient testowy",
+                "recipient_email": "estimate-recipient@example.com",
+                "recipient_phone": "500 000 100",
+                "source_type": "manual",
+                "title": "Wycena remontu lazienki",
+                "scope_summary": "Demontaz, hydraulika i montaz.",
+                "estimated_price": "12000.00",
+                "status": "draft",
+            },
+        )
+        assert created.status_code == 201
+        body = created.json()
+        assert body["owner_type"] == "independent_contractor"
+        assert body["owner_id"] == user["id"]
+        assert body["created_by_id"] == user["id"]
+        assert body["recipient_email"] == "estimate-recipient@example.com"
+        assert body["recipient_email"] != "estimate-independent@example.com"
+        assert body["status"] == "draft"
+
+        sent = client.patch(
+            f"/api/estimates/me/{body['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        sent_body = sent.json()
+        assert sent_body["status"] == "sent"
+        assert sent_body["sent_at"]
+
+        listed = client.get("/api/estimates/me")
+        assert listed.status_code == 200
+        assert [item["id"] for item in listed.json()] == [body["id"]]
+
+
+def test_company_owner_can_create_and_send_company_estimate():
+    with TestClient(app) as client:
+        login(client, "estimate-owner@example.com")
+        onboarded = client.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Wycen"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+
+        created = client.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "company",
+                "owner_id": workspace_id,
+                "recipient_type": "client",
+                "recipient_name": "Klient firmowy",
+                "source_type": "manual",
+                "title": "Oferta firmy",
+                "scope_summary": "Zakres firmowej wyceny.",
+                "status": "draft",
+            },
+        )
+        assert created.status_code == 201
+        body = created.json()
+        assert body["owner_type"] == "company"
+        assert body["owner_id"] == workspace_id
+        assert body["status"] == "draft"
+
+        sent = client.patch(
+            f"/api/estimates/me/{body['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        sent_body = sent.json()
+        assert sent_body["status"] == "sent"
+        assert sent_body["approved_by_id"]
+        assert sent_body["approved_at"]
+
+
+def test_company_worker_estimate_requires_owner_approval_to_send():
+    with TestClient(app) as owner:
+        owner_user = login(owner, "estimate-worker-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Zatwierdzen"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+
+        with TestClient(app) as worker:
+            login(worker, "estimate-worker@example.com")
+            worker.post("/api/onboarding", json={"profile_type": "company_worker"})
+            added = owner.post(
+                "/api/workers",
+                json={
+                    "workspace_id": workspace_id,
+                    "label": "Pracownik od wycen",
+                    "profile_kind": "craftsman",
+                    "email": "estimate-worker@example.com",
+                    "phone": "500 200 300",
+                },
+            )
+            assert added.status_code == 201
+
+            created = worker.post(
+                "/api/estimates/me",
+                json={
+                    "owner_type": "company",
+                    "owner_id": workspace_id,
+                    "recipient_type": "manual",
+                    "recipient_name": "Klient szkicu",
+                    "title": "Szkic pracownika",
+                    "scope_summary": "Zakres do zatwierdzenia.",
+                    "status": "pending_approval",
+                },
+            )
+            assert created.status_code == 201
+            body = created.json()
+            assert body["status"] == "pending_approval"
+            assert body["owner_id"] == workspace_id
+
+            worker_sent = worker.patch(
+                f"/api/estimates/me/{body['id']}/status",
+                json={"status": "sent"},
+            )
+            assert worker_sent.status_code == 403
+
+            with TestClient(app) as other_worker:
+                login(other_worker, "estimate-other-worker@example.com")
+                other_worker.post("/api/onboarding", json={"profile_type": "company_worker"})
+                owner.post(
+                    "/api/workers",
+                    json={
+                        "workspace_id": workspace_id,
+                        "label": "Drugi pracownik",
+                        "profile_kind": "craftsman",
+                        "email": "estimate-other-worker@example.com",
+                    },
+                )
+                other_list = other_worker.get("/api/estimates/me")
+                assert other_list.status_code == 200
+                assert other_list.json() == []
+                other_edit = other_worker.patch(
+                    f"/api/estimates/me/{body['id']}",
+                    json={"title": "Cudza zmiana"},
+                )
+                assert other_edit.status_code == 404
+
+        owner_list = owner.get("/api/estimates/me")
+        assert owner_list.status_code == 200
+        assert body["id"] in {item["id"] for item in owner_list.json()}
+
+        approved = owner.patch(
+            f"/api/estimates/me/{body['id']}/status",
+            json={"status": "approved_by_owner"},
+        )
+        assert approved.status_code == 200
+        assert approved.json()["approved_by_id"] == owner_user["id"]
+
+        sent = owner.patch(
+            f"/api/estimates/me/{body['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        assert sent.json()["status"] == "sent"
+        assert sent.json()["sent_at"]
+
+
+def test_estimate_access_blocks_investor_guest_and_other_company():
+    with TestClient(app) as owner:
+        login(owner, "estimate-access-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Dostepu"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        created = owner.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "company",
+                "owner_id": workspace_id,
+                "title": "Oferta firmy do ochrony",
+                "scope_summary": "Zakres chroniony.",
+                "status": "draft",
+            },
+        ).json()
+
+        with TestClient(app) as investor:
+            login(investor, "estimate-investor@example.com")
+            investor.post("/api/onboarding", json={"profile_type": "investor"})
+            blocked = investor.post(
+                "/api/estimates/me",
+                json={
+                    "title": "Inwestor nie tworzy oferty",
+                    "scope_summary": "Zakres",
+                    "status": "draft",
+                },
+            )
+            assert blocked.status_code == 403
+            assert investor.get("/api/estimates/me").status_code == 403
+
+        with TestClient(app) as other_owner:
+            login(other_owner, "estimate-other-owner@example.com")
+            other_owner.post(
+                "/api/onboarding",
+                json={"profile_type": "company_owner", "company_name": "Cudza Firma Wycen"},
+            )
+            other_status = other_owner.patch(
+                f"/api/estimates/me/{created['id']}/status",
+                json={"status": "sent"},
+            )
+            assert other_status.status_code == 404
+
+        with TestClient(app) as public_client:
+            assert public_client.get("/api/estimates/me").status_code == 401
+            assert (
+                public_client.get(
+                    "/api/estimates/me",
+                    headers={"x-guest-token": "guest-token"},
+                ).status_code
+                == 401
+            )

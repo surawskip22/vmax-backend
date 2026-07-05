@@ -618,6 +618,325 @@ def apply_job_posting_offer_changes(
         item.status = status
 
 
+def estimate_payload(item: models.Estimate) -> dict:
+    return {
+        "id": item.id,
+        "owner_type": item.owner_type,
+        "owner_id": item.owner_id,
+        "created_by_id": item.created_by_id,
+        "approved_by_id": item.approved_by_id,
+        "recipient_type": item.recipient_type,
+        "recipient_name": item.recipient_name,
+        "recipient_email": item.recipient_email,
+        "recipient_phone": item.recipient_phone,
+        "source_type": item.source_type,
+        "source_id": item.source_id,
+        "title": item.title,
+        "scope_summary": item.scope_summary,
+        "assumptions": item.assumptions,
+        "estimated_price": money_payload(item.estimated_price),
+        "price_note": item.price_note,
+        "planned_start": item.planned_start,
+        "planned_end": item.planned_end,
+        "status": item.status,
+        "sent_at": item.sent_at.isoformat() if item.sent_at else None,
+        "approved_at": item.approved_at.isoformat() if item.approved_at else None,
+        "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
+        "rejected_at": item.rejected_at.isoformat() if item.rejected_at else None,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }
+
+
+def company_workspace_ids_for_user(
+    db: Session,
+    user: models.User,
+    *,
+    manager_only: bool = False,
+) -> list[str]:
+    query = select(models.WorkspaceMember.workspace_id).where(
+        models.WorkspaceMember.user_id == user.id
+    )
+    if manager_only:
+        query = query.where(models.WorkspaceMember.role.in_(["owner", "admin"]))
+    return list(db.scalars(query).all())
+
+
+def require_company_workspace_member(
+    db: Session,
+    user: models.User,
+    workspace_id: str,
+) -> None:
+    membership = db.scalar(
+        select(models.WorkspaceMember).where(
+            models.WorkspaceMember.workspace_id == workspace_id,
+            models.WorkspaceMember.user_id == user.id,
+        )
+    )
+    if not membership:
+        raise HTTPException(404, "Oferta nie istnieje")
+
+
+def resolve_estimate_owner(
+    db: Session,
+    user: models.User,
+    owner_type: str | None,
+    owner_id: str | None,
+) -> tuple[str, str, str]:
+    if is_independent_contractor(user):
+        if owner_type and owner_type != "independent_contractor":
+            raise HTTPException(403, "Samodzielny majster moze tworzyc tylko swoje oferty")
+        if owner_id and owner_id != user.id:
+            raise HTTPException(403, "Nie mozesz tworzyc ofert innego wykonawcy")
+        return "independent_contractor", user.id, "independent_contractor"
+
+    if is_company_owner(user):
+        if owner_type and owner_type != "company":
+            raise HTTPException(403, "Szef firmy moze tworzyc oferty firmy")
+        workspace_ids = company_workspace_ids_for_user(db, user, manager_only=True)
+        selected_owner_id = owner_id or (workspace_ids[0] if workspace_ids else None)
+        if not selected_owner_id:
+            raise HTTPException(404, "Nie znaleziono firmy dla tego konta")
+        if selected_owner_id not in workspace_ids:
+            raise HTTPException(403, "Brak dostepu do tej firmy")
+        return "company", selected_owner_id, "company_owner"
+
+    if is_company_worker(user):
+        if owner_type and owner_type != "company":
+            raise HTTPException(403, "Pracownik firmy moze przygotowac tylko szkic firmy")
+        workspace_ids = company_workspace_ids_for_user(db, user)
+        selected_owner_id = owner_id or (workspace_ids[0] if workspace_ids else None)
+        if not selected_owner_id:
+            raise HTTPException(403, "Nie masz przypisanej firmy")
+        if selected_owner_id not in workspace_ids:
+            raise HTTPException(403, "Brak dostepu do tej firmy")
+        return "company", selected_owner_id, "company_worker"
+
+    raise HTTPException(403, "Inwestor nie tworzy ofert wykonawcy")
+
+
+def estimate_actor_for_item(
+    db: Session,
+    user: models.User,
+    item: models.Estimate,
+) -> str:
+    if is_independent_contractor(user):
+        if item.owner_type == "independent_contractor" and item.owner_id == user.id:
+            return "independent_contractor"
+        raise HTTPException(404, "Oferta nie istnieje")
+
+    if is_company_owner(user):
+        if item.owner_type == "company" and can_manage_workspace(db, item.owner_id, user.id):
+            return "company_owner"
+        raise HTTPException(404, "Oferta nie istnieje")
+
+    if is_company_worker(user):
+        if item.owner_type != "company":
+            raise HTTPException(404, "Oferta nie istnieje")
+        require_company_workspace_member(db, user, item.owner_id)
+        if item.created_by_id != user.id:
+            raise HTTPException(404, "Oferta nie istnieje")
+        return "company_worker"
+
+    raise HTTPException(403, "Inwestor nie ma dostepu do ofert wykonawcy")
+
+
+def visible_estimates_for_user(db: Session, user: models.User) -> list[models.Estimate]:
+    if is_independent_contractor(user):
+        query = select(models.Estimate).where(
+            models.Estimate.owner_type == "independent_contractor",
+            models.Estimate.owner_id == user.id,
+        )
+    elif is_company_owner(user):
+        workspace_ids = company_workspace_ids_for_user(db, user, manager_only=True)
+        if not workspace_ids:
+            return []
+        query = select(models.Estimate).where(
+            models.Estimate.owner_type == "company",
+            models.Estimate.owner_id.in_(workspace_ids),
+        )
+    elif is_company_worker(user):
+        workspace_ids = company_workspace_ids_for_user(db, user)
+        if not workspace_ids:
+            return []
+        query = select(models.Estimate).where(
+            models.Estimate.owner_type == "company",
+            models.Estimate.owner_id.in_(workspace_ids),
+            models.Estimate.created_by_id == user.id,
+        )
+    else:
+        raise HTTPException(403, "Inwestor nie ma dostepu do ofert wykonawcy")
+
+    return list(
+        db.scalars(
+            query.order_by(
+                models.Estimate.updated_at.desc(),
+                models.Estimate.created_at.desc(),
+            )
+        ).all()
+    )
+
+
+def validate_estimate_source(
+    db: Session,
+    owner_type: str,
+    owner_id: str,
+    source_type: str,
+    source_id: str | None,
+) -> None:
+    if source_type == "manual":
+        if source_id:
+            raise HTTPException(422, "Oferta manualna nie ma source_id")
+        return
+    if source_type == "project":
+        if not source_id:
+            raise HTTPException(422, "Oferta powiazana ze zleceniem wymaga source_id")
+        project = db.get(models.Project, source_id)
+        if not project:
+            raise HTTPException(404, "Zlecenie nie istnieje")
+        if owner_type == "independent_contractor":
+            if project.created_by_id != owner_id:
+                raise HTTPException(403, "Nie masz dostepu do tego zlecenia")
+        elif project.workspace_id != owner_id:
+            raise HTTPException(403, "To zlecenie nie nalezy do tej firmy")
+        return
+    if source_type == "job_posting":
+        if source_id and not db.get(models.JobPosting, source_id):
+            raise HTTPException(404, "Ogloszenie nie istnieje")
+        return
+    raise HTTPException(422, "Nieobslugiwane zrodlo oferty")
+
+
+def apply_estimate_changes(
+    item: models.Estimate,
+    payload: EstimateCreate | EstimateUpdate,
+    *,
+    db: Session,
+    partial: bool = False,
+) -> None:
+    changes = payload.model_dump(exclude_unset=partial)
+    if "source_type" in changes or "source_id" in changes:
+        source_type = changes.get("source_type", item.source_type) or "manual"
+        source_id = changes.get("source_id", item.source_id)
+        validate_estimate_source(db, item.owner_type, item.owner_id, source_type, source_id)
+        item.source_type = source_type
+        item.source_id = source_id
+    for key in ["recipient_name", "recipient_phone", "title", "scope_summary", "assumptions", "price_note", "planned_start", "planned_end"]:
+        if key in changes:
+            setattr(item, key, (changes[key] or "").strip())
+    if "recipient_type" in changes:
+        item.recipient_type = changes["recipient_type"] or "manual"
+    if "recipient_email" in changes:
+        item.recipient_email = optional_email(changes["recipient_email"] or "")
+    if "estimated_price" in changes:
+        item.estimated_price = changes["estimated_price"]
+
+
+def ensure_estimate_ready_to_send(item: models.Estimate) -> None:
+    if not item.title.strip() or not item.scope_summary.strip():
+        raise HTTPException(422, "Do wyslania oferty potrzebny jest tytul i zakres prac")
+
+
+def apply_initial_estimate_status(
+    item: models.Estimate,
+    status: str,
+    actor: str,
+    user: models.User,
+) -> None:
+    if actor == "company_worker":
+        if status not in {"draft", "pending_approval"}:
+            raise HTTPException(403, "Pracownik firmy nie moze wyslac oferty")
+        item.status = status
+        return
+
+    if status == "pending_approval":
+        raise HTTPException(422, "Zatwierdzenia wymaga tylko szkic pracownika")
+    if status == "sent":
+        ensure_estimate_ready_to_send(item)
+        item.status = "sent"
+        item.sent_at = item.sent_at or now()
+        if actor == "company_owner":
+            item.approved_by_id = user.id
+            item.approved_at = item.approved_at or now()
+        return
+    if status != "draft":
+        raise HTTPException(422, "Nielegalny status poczatkowy oferty")
+    item.status = "draft"
+
+
+def change_estimate_status(
+    item: models.Estimate,
+    status: str,
+    actor: str,
+    user: models.User,
+) -> None:
+    if status == item.status:
+        return
+    if item.status in {"accepted", "rejected", "cancelled"}:
+        raise HTTPException(422, "Ten status oferty jest finalny")
+
+    if actor == "company_worker":
+        if item.status == "draft" and status in {"pending_approval", "cancelled"}:
+            item.status = status
+            return
+        if item.status == "pending_approval" and status == "cancelled":
+            item.status = status
+            return
+        raise HTTPException(403, "Pracownik firmy nie moze wyslac ani zatwierdzic oferty")
+
+    if actor == "independent_contractor":
+        if item.status == "draft" and status == "sent":
+            ensure_estimate_ready_to_send(item)
+            item.status = "sent"
+            item.sent_at = item.sent_at or now()
+            return
+        if item.status == "draft" and status == "cancelled":
+            item.status = status
+            return
+        if item.status == "sent" and status in {"accepted", "rejected", "cancelled"}:
+            item.status = status
+            if status == "accepted":
+                item.accepted_at = item.accepted_at or now()
+            elif status == "rejected":
+                item.rejected_at = item.rejected_at or now()
+            return
+        raise HTTPException(422, "Nielegalna zmiana statusu oferty")
+
+    if actor == "company_owner":
+        if item.status == "pending_approval" and status == "approved_by_owner":
+            item.status = status
+            item.approved_by_id = user.id
+            item.approved_at = item.approved_at or now()
+            return
+        if item.status in {"draft", "pending_approval", "approved_by_owner"} and status == "sent":
+            ensure_estimate_ready_to_send(item)
+            item.status = "sent"
+            item.sent_at = item.sent_at or now()
+            item.approved_by_id = item.approved_by_id or user.id
+            item.approved_at = item.approved_at or now()
+            return
+        if item.status in {"draft", "pending_approval", "approved_by_owner"} and status == "cancelled":
+            item.status = status
+            return
+        if item.status == "sent" and status in {"accepted", "rejected", "cancelled"}:
+            item.status = status
+            if status == "accepted":
+                item.accepted_at = item.accepted_at or now()
+            elif status == "rejected":
+                item.rejected_at = item.rejected_at or now()
+            return
+    raise HTTPException(422, "Nielegalna zmiana statusu oferty")
+
+
+def ensure_estimate_editable(item: models.Estimate, actor: str) -> None:
+    if actor == "company_worker":
+        if item.status not in {"draft", "pending_approval"}:
+            raise HTTPException(422, "Pracownik moze edytowac tylko wlasny szkic")
+        return
+    if item.status not in {"draft", "pending_approval", "approved_by_owner"}:
+        raise HTTPException(422, "Wyslana lub finalna oferta nie jest edytowalna")
+
+
 def get_or_create_public_profile(
     db: Session, user: models.User, owner_type: str
 ) -> models.PublicProfile:
@@ -930,6 +1249,59 @@ class JobPostingOfferUpdate(BaseModel):
 
 class JobPostingOfferInvestorUpdate(BaseModel):
     status: Literal["accepted", "rejected"]
+
+
+EstimateOwnerType = Literal["independent_contractor", "company"]
+EstimateRecipientType = Literal["manual", "investor", "client"]
+EstimateSourceType = Literal["manual", "project", "job_posting"]
+EstimateStatus = Literal[
+    "draft",
+    "pending_approval",
+    "approved_by_owner",
+    "sent",
+    "accepted",
+    "rejected",
+    "cancelled",
+]
+
+
+class EstimateCreate(BaseModel):
+    owner_type: EstimateOwnerType | None = None
+    owner_id: str | None = None
+    recipient_type: EstimateRecipientType = "manual"
+    recipient_name: str = Field(default="", max_length=180)
+    recipient_email: str = Field(default="", max_length=320)
+    recipient_phone: str = Field(default="", max_length=40)
+    source_type: EstimateSourceType = "manual"
+    source_id: str | None = None
+    title: str = Field(min_length=1, max_length=220)
+    scope_summary: str = Field(default="", max_length=5000)
+    assumptions: str = Field(default="", max_length=4000)
+    estimated_price: Decimal | None = Field(default=None, ge=0)
+    price_note: str = Field(default="", max_length=1000)
+    planned_start: str = Field(default="", max_length=160)
+    planned_end: str = Field(default="", max_length=160)
+    status: Literal["draft", "pending_approval", "sent"] = "draft"
+
+
+class EstimateUpdate(BaseModel):
+    recipient_type: EstimateRecipientType | None = None
+    recipient_name: str | None = Field(default=None, max_length=180)
+    recipient_email: str | None = Field(default=None, max_length=320)
+    recipient_phone: str | None = Field(default=None, max_length=40)
+    source_type: EstimateSourceType | None = None
+    source_id: str | None = None
+    title: str | None = Field(default=None, min_length=1, max_length=220)
+    scope_summary: str | None = Field(default=None, max_length=5000)
+    assumptions: str | None = Field(default=None, max_length=4000)
+    estimated_price: Decimal | None = Field(default=None, ge=0)
+    price_note: str | None = Field(default=None, max_length=1000)
+    planned_start: str | None = Field(default=None, max_length=160)
+    planned_end: str | None = Field(default=None, max_length=160)
+
+
+class EstimateStatusUpdate(BaseModel):
+    status: EstimateStatus
 
 
 class ProjectClientCoverUpdate(BaseModel):
@@ -2127,6 +2499,71 @@ def update_my_job_posting_offer_as_investor(
         profile=db.get(models.PublicProfile, item.public_profile_id),
         include_contact=True,
     )
+
+
+@router.get("/estimates/me")
+def list_my_estimates(
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    return [estimate_payload(item) for item in visible_estimates_for_user(db, user)]
+
+
+@router.post("/estimates/me", status_code=201)
+def create_my_estimate(
+    payload: EstimateCreate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    owner_type, owner_id, actor = resolve_estimate_owner(
+        db, user, payload.owner_type, payload.owner_id
+    )
+    item = models.Estimate(
+        owner_type=owner_type,
+        owner_id=owner_id,
+        created_by_id=user.id,
+    )
+    apply_estimate_changes(item, payload, db=db)
+    apply_initial_estimate_status(item, payload.status, actor, user)
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return estimate_payload(item)
+
+
+@router.patch("/estimates/me/{estimate_id}")
+def update_my_estimate(
+    estimate_id: str,
+    payload: EstimateUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.Estimate, estimate_id)
+    if not item:
+        raise HTTPException(404, "Oferta nie istnieje")
+    actor = estimate_actor_for_item(db, user, item)
+    ensure_estimate_editable(item, actor)
+    apply_estimate_changes(item, payload, db=db, partial=True)
+    db.commit()
+    db.refresh(item)
+    return estimate_payload(item)
+
+
+@router.patch("/estimates/me/{estimate_id}/status")
+def update_my_estimate_status(
+    estimate_id: str,
+    payload: EstimateStatusUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.Estimate, estimate_id)
+    if not item:
+        raise HTTPException(404, "Oferta nie istnieje")
+    actor = estimate_actor_for_item(db, user, item)
+    change_estimate_status(item, payload.status, actor, user)
+    db.commit()
+    db.refresh(item)
+    return estimate_payload(item)
 
 
 @router.get("/public-profile/me")
