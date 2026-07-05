@@ -2032,6 +2032,30 @@ audio { width: 100%; margin-top: 13px; }
 .contractor-job-detail dt { margin-bottom: 5px; color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
 .contractor-job-detail dd { margin: 0; color: var(--navy); overflow-wrap: anywhere; }
 .contractor-job-detail h4 { margin: 0 0 10px; color: var(--navy); font-size: 17px; }
+.job-interest-detail-cta { padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; border: 1px solid #d7e2ef; border-radius: 12px; background: #f8fbff; }
+.job-interest-detail-cta strong { color: var(--navy); }
+.job-interest-detail-cta > div:last-child { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.job-interest-submitted { margin: 0; min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #cfe6d7; border-radius: 10px; color: #166534; background: #edf8f0; font-weight: 900; }
+.job-interest-modal { padding: 22px; display: grid; gap: 18px; }
+.job-interest-modal > header h3 { margin: 10px 0 8px; color: var(--navy); font-size: 23px; line-height: 1.15; }
+.job-interest-modal > header p,
+.job-interest-guard p,
+.job-interest-profile p { margin: 0; color: var(--muted); line-height: 1.5; }
+.job-interest-guard { padding: 16px; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 13px; border: 1px solid #f7d7bd; border-radius: 12px; background: #fff8f2; }
+.job-interest-guard > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; color: #9a4a12; background: #ffe7d2; }
+.job-interest-guard h4 { margin: 0 0 6px; color: var(--navy); }
+.job-interest-guard .button { margin-top: 12px; }
+.job-interest-form { display: grid; gap: 16px; }
+.job-interest-form label { display: grid; gap: 7px; color: var(--navy); font-weight: 800; }
+.job-interest-form textarea { width: 100%; min-height: 110px; padding: 12px; border: 1px solid #cbd8e8; border-radius: 10px; color: var(--navy); background: #fff; font: inherit; resize: vertical; }
+.job-interest-form footer { display: flex; justify-content: flex-end; gap: 10px; }
+.job-interest-profile { padding: 14px; display: grid; gap: 12px; border: 1px solid #d7e2ef; border-radius: 12px; background: #f8fbff; }
+.job-interest-profile small { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.job-interest-profile strong { display: block; margin: 3px 0; color: var(--navy); font-size: 18px; }
+.job-interest-profile dl { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.job-interest-profile dl div { min-width: 0; padding: 10px; border: 1px solid #dde7f3; border-radius: 9px; background: #fff; }
+.job-interest-profile dt { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.job-interest-profile dd { margin: 3px 0 0; color: var(--navy); overflow-wrap: anywhere; }
 .future-module-footer { margin: 24px 0 0; color: var(--muted); font-style: italic; text-align: center; }
 .public-profile-preview { padding: 24px; display: grid; gap: 18px; }
 .public-profile-preview__header { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -2104,6 +2128,24 @@ audio { width: 100%; margin-top: 13px; }
 .post-job-own-card footer { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .post-job-own-card footer span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .post-job-own-card footer .button { min-height: 34px; padding: 0 12px; }
+.post-job-interests { margin-top: 4px; padding-top: 10px; display: grid; gap: 10px; border-top: 1px solid #dbe6f2; }
+.post-job-interests > header { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.post-job-interests h4 { margin: 0 0 4px; color: var(--navy); font-size: 14px; }
+.post-job-interests > header p { margin: 0; display: block; color: var(--muted); line-height: 1.4; }
+.post-job-interests > header > span { min-width: 32px; height: 32px; display: grid; place-items: center; border-radius: 999px; color: #166534; background: #e6f7ec; font-weight: 900; }
+.post-job-interests .empty-note { display: block; }
+.post-job-interest-list { display: grid; gap: 10px; }
+.post-job-interest-card { padding: 12px; display: grid; gap: 10px; border: 1px solid #d7e2ef; border-radius: 12px; background: #fff; }
+.post-job-interest-card header { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.post-job-interest-card strong { color: var(--navy); }
+.post-job-interest-card small { margin-top: 2px; }
+.post-job-interest-card dl { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.post-job-interest-card dl div { min-width: 0; padding: 8px; border: 1px solid #e1e9f3; border-radius: 9px; background: #f8fafc; }
+.post-job-interest-card dt { color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.post-job-interest-card dd { margin: 2px 0 0; color: var(--navy); overflow-wrap: anywhere; }
+.post-job-own-card .post-job-interest-message { display: block; padding: 9px 10px; border-left: 3px solid var(--blue); background: #f4f8ff; color: #40506a; line-height: 1.45; }
+.post-job-interest-card footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-start; }
+.post-job-interest-card footer .button { min-height: 34px; padding: 0 10px; }
 .post-job-info { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; align-items: start; }
 .post-job-info > span { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--blue); background: #edf3fb; }
 .post-job-info p { margin: 0; color: var(--muted); line-height: 1.55; }
@@ -2291,6 +2333,15 @@ audio { width: 100%; margin-top: 13px; }
   .contractor-discovery-actions { grid-template-columns: 1fr; }
   .contractor-job-detail { padding: 16px; }
   .contractor-job-detail dl { grid-template-columns: 1fr; }
+  .job-interest-detail-cta,
+  .job-interest-profile dl,
+  .post-job-interest-card dl { grid-template-columns: 1fr; }
+  .job-interest-detail-cta > div:last-child,
+  .job-interest-form footer,
+  .post-job-interest-card footer { display: grid; grid-template-columns: 1fr; }
+  .job-interest-detail-cta .button,
+  .job-interest-form footer .button,
+  .post-job-interest-card footer .button { width: 100%; justify-content: center; }
   .public-profile-preview { padding: 16px; }
   .public-profile-preview__header,
   .public-profile-preview dl,

@@ -41,7 +41,10 @@ import type {
   ClientLink,
   Comment,
   Entry,
+  JobInterestContext,
   JobPosting,
+  JobPostingInterest,
+  JobPostingInterestStatus,
   JobPostingStatus,
   JobPostingTargetType,
   MediaAsset,
@@ -6564,7 +6567,102 @@ function PublicProfilePreviewModal({ profile, onClose }: { profile: PublicProfil
   );
 }
 
-function JobPostingPreviewModal({ posting, onClose }: { posting: JobPosting; onClose: () => void }) {
+function JobPostingInterestModal({
+  posting,
+  context,
+  contextLoading,
+  message,
+  busy,
+  error,
+  onMessageChange,
+  onSubmit,
+  onClose,
+  onOpenPortfolio,
+}: {
+  posting: JobPosting;
+  context: JobInterestContext | null;
+  contextLoading: boolean;
+  message: string;
+  busy: boolean;
+  error: string;
+  onMessageChange: (value: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onClose: () => void;
+  onOpenPortfolio: () => void;
+}) {
+  const profile = context?.public_profile || null;
+  const canSubmit = Boolean(context?.can_submit);
+  return (
+    <Modal title="Zgłoszenie zainteresowania" onClose={onClose}>
+      <div className="job-interest-modal">
+        <header>
+          <span className="status status--completed">Opublikowane zlecenie</span>
+          <h3>{posting.title}</h3>
+          <p>Zgłaszasz zainteresowanie. Inwestor zobaczy Twoje dane kontaktowe z wizytówki. To nie jest jeszcze oferta cenowa.</p>
+        </header>
+
+        {contextLoading ? (
+          <div className="loading-screen"><span className="spinner" /> Sprawdzanie wizytówki...</div>
+        ) : !canSubmit ? (
+          <section className="job-interest-guard">
+            <span><Icon name="alert" /></span>
+            <div>
+              <h4>Wizytówka wymaga uzupełnienia</h4>
+              <p>{error || context?.reason || "Uzupełnij telefon lub e-mail w wizytówce i włącz publiczny profil, żeby móc zgłaszać zainteresowanie zleceniami."}</p>
+              <Button type="button" icon="link" onClick={onOpenPortfolio}>Przejdź do wizytówki</Button>
+            </div>
+          </section>
+        ) : (
+          <form className="job-interest-form" onSubmit={onSubmit}>
+            <section className="job-interest-profile">
+              <div>
+                <small>Publiczna wizytówka</small>
+                <strong>{profile?.display_name || "Twoja wizytówka"}</strong>
+                <p>{jobPostingInterestOwnerLabel(context!.owner_type)}</p>
+              </div>
+              <dl>
+                <div><dt>Telefon</dt><dd>{profile?.contact_phone || "Nie podano"}</dd></div>
+                <div><dt>E-mail</dt><dd>{profile?.contact_email || "Nie podano"}</dd></div>
+                <div><dt>Slug</dt><dd>{profile?.slug || "Nie podano"}</dd></div>
+              </dl>
+              {profile?.slug && (
+                <a className="button button--secondary" href={publicPortfolioPath(profile.slug)} target="_blank" rel="noreferrer">
+                  <Icon name="link" size={18} /> Zobacz publicznie
+                </a>
+              )}
+            </section>
+
+            <label>
+              Krótka wiadomość
+              <textarea
+                value={message}
+                onChange={(event) => onMessageChange(event.target.value)}
+                rows={4}
+                maxLength={1000}
+              />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            <footer>
+              <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
+              <Button type="submit" icon="send" busy={busy}>Wyślij zainteresowanie</Button>
+            </footer>
+          </form>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function JobPostingPreviewModal({
+  posting,
+  onClose,
+  onInterest,
+}: {
+  posting: JobPosting;
+  onClose: () => void;
+  onInterest: (posting: JobPosting) => void;
+}) {
+  const hasInterest = Boolean(posting.my_interest);
   return (
     <Modal title="Szczegóły zlecenia" onClose={onClose} wide>
       <div className="contractor-job-detail">
@@ -6593,13 +6691,45 @@ function JobPostingPreviewModal({ posting, onClose }: { posting: JobPosting; onC
           <h4>Stan obecny</h4>
           <p>{posting.current_state_description || "Inwestor nie opisał jeszcze stanu obecnego."}</p>
         </section>
-        <p className="empty-note">Możliwość zgłoszenia zainteresowania będzie dostępna w kolejnym kroku.</p>
+        <section className="job-interest-detail-cta">
+          {hasInterest ? (
+            <>
+              <strong>Zgłoszono zainteresowanie</strong>
+              <p>Inwestor ma Twoje dane kontaktowe z wizytówki.</p>
+            </>
+          ) : (
+            <>
+              <strong>Zgłoś zainteresowanie</strong>
+              <p>Wyślij jednorazowe zgłoszenie. Dalszy kontakt odbywa się telefonicznie albo mailowo poza aplikacją.</p>
+            </>
+          )}
+          <div>
+            <Button type="button" variant="secondary" onClick={onClose}>Zamknij</Button>
+            <Button
+              type="button"
+              icon={hasInterest ? "check" : "send"}
+              disabled={hasInterest}
+              onClick={() => {
+                onClose();
+                onInterest(posting);
+              }}
+            >
+              {hasInterest ? "Zgłoszono zainteresowanie" : "Jestem zainteresowany"}
+            </Button>
+          </div>
+        </section>
       </div>
     </Modal>
   );
 }
 
-function ContractorJobSearchPage() {
+function ContractorJobSearchPage({
+  notify,
+  onOpenPortfolio,
+}: {
+  notify: (toast: Toast) => void;
+  onOpenPortfolio: () => void;
+}) {
   const [postings, setPostings] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -6608,6 +6738,12 @@ function ContractorJobSearchPage() {
   const [location, setLocation] = useState("");
   const [budget, setBudget] = useState("");
   const [selectedPosting, setSelectedPosting] = useState<JobPosting | null>(null);
+  const [interestPosting, setInterestPosting] = useState<JobPosting | null>(null);
+  const [interestContext, setInterestContext] = useState<JobInterestContext | null>(null);
+  const [interestContextLoading, setInterestContextLoading] = useState(false);
+  const [interestMessage, setInterestMessage] = useState(DEFAULT_JOB_INTEREST_MESSAGE);
+  const [interestBusy, setInterestBusy] = useState(false);
+  const [interestError, setInterestError] = useState("");
 
   const loadPostings = useCallback(async () => {
     setLoading(true);
@@ -6653,19 +6789,75 @@ function ContractorJobSearchPage() {
     setBudget("");
   }
 
+  async function openInterestModal(posting: JobPosting) {
+    setInterestPosting(posting);
+    setInterestContext(null);
+    setInterestMessage(DEFAULT_JOB_INTEREST_MESSAGE);
+    setInterestError("");
+    setInterestContextLoading(true);
+    try {
+      setInterestContext(await api<JobInterestContext>("/job-posting-interests/me/context"));
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udało się sprawdzić wizytówki.";
+      setInterestError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setInterestContextLoading(false);
+    }
+  }
+
+  function closeInterestModal() {
+    setInterestPosting(null);
+    setInterestContext(null);
+    setInterestError("");
+    setInterestBusy(false);
+  }
+
+  function openPortfolioFromInterestModal() {
+    closeInterestModal();
+    onOpenPortfolio();
+  }
+
+  async function submitInterest(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!interestPosting) return;
+    setInterestBusy(true);
+    setInterestError("");
+    try {
+      const created = await api<JobPostingInterest>(`/job-postings/public/${interestPosting.id}/interest`, {
+        method: "POST",
+        body: JSON.stringify({ message: interestMessage }),
+      });
+      setPostings((current) => current.map((item) => (
+        item.id === interestPosting.id ? { ...item, my_interest: created } : item
+      )));
+      setSelectedPosting((current) => (
+        current?.id === interestPosting.id ? { ...current, my_interest: created } : current
+      ));
+      closeInterestModal();
+      notify({ kind: "success", message: "Zgłoszono zainteresowanie. Inwestor zobaczy dane kontaktowe z wizytówki." });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udało się wysłać zainteresowania.";
+      setInterestError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setInterestBusy(false);
+    }
+  }
+
   return (
     <div className="page investor-discovery-page contractor-jobs-page">
       <header className="page-header investor-discovery-header">
         <div>
           <span className="eyebrow">Opublikowane ogłoszenia</span>
           <h1>Szukaj zleceń</h1>
-          <p>Przeglądaj zlecenia opublikowane przez inwestorów. Na tym etapie to tylko lista i podgląd szczegółów.</p>
+          <p>Przeglądaj zlecenia opublikowane przez inwestorów i zgłaszaj jednorazowe zainteresowanie kontaktem.</p>
         </div>
         <aside className="discovery-live-note">
-          <span><Icon name="clipboard" /></span>
+          <span><Icon name="send" /></span>
           <div>
-            <strong>Bez ofert i czatu</strong>
-            <small>Zgłoszenia zainteresowania pojawią się w kolejnym kroku.</small>
+            <strong>Zainteresowanie bez ofert</strong>
+            <small>Inwestor zobaczy kontakt z Twojej publicznej wizytówki.</small>
           </div>
         </aside>
       </header>
@@ -6764,6 +6956,13 @@ function ContractorJobSearchPage() {
             </div>
             <div className="contractor-discovery-actions">
               <Button type="button" onClick={() => setSelectedPosting(posting)}>Zobacz zlecenie</Button>
+              {posting.my_interest ? (
+                <p className="job-interest-submitted"><Icon name="check" size={16} /> Zgłoszono zainteresowanie</p>
+              ) : (
+                <Button type="button" variant="secondary" icon="send" onClick={() => void openInterestModal(posting)}>
+                  Jestem zainteresowany
+                </Button>
+              )}
             </div>
           </article>
         ))}
@@ -6773,6 +6972,21 @@ function ContractorJobSearchPage() {
         <JobPostingPreviewModal
           posting={selectedPosting}
           onClose={() => setSelectedPosting(null)}
+          onInterest={(posting) => void openInterestModal(posting)}
+        />
+      )}
+      {interestPosting && (
+        <JobPostingInterestModal
+          posting={interestPosting}
+          context={interestContext}
+          contextLoading={interestContextLoading}
+          message={interestMessage}
+          busy={interestBusy}
+          error={interestError}
+          onMessageChange={setInterestMessage}
+          onSubmit={submitInterest}
+          onClose={closeInterestModal}
+          onOpenPortfolio={openPortfolioFromInterestModal}
         />
       )}
     </div>
@@ -7001,6 +7215,8 @@ function InvestorDiscoveryPage({ notify }: { notify: (toast: Toast) => void }) {
 
 type PostJobTargetLabel = "Firma" | "Majster" | "Bez znaczenia";
 
+const DEFAULT_JOB_INTEREST_MESSAGE = "Dzień dobry, jestem zainteresowany realizacją tego zlecenia. Proszę o kontakt.";
+
 function postJobTargetToApi(value: PostJobTargetLabel): JobPostingTargetType {
   if (value === "Firma") return "company";
   if (value === "Majster") return "independent_contractor";
@@ -7017,11 +7233,107 @@ function jobPostingStatusLabel(status: JobPostingStatus): string {
   return status === "published" ? "Opublikowane" : "Szkic";
 }
 
+function jobPostingInterestStatusLabel(status: JobPostingInterestStatus): string {
+  if (status === "contact") return "Do kontaktu";
+  if (status === "rejected") return "Odrzucone";
+  return "Nowe";
+}
+
+function jobPostingInterestOwnerLabel(ownerType: PublicProfileOwnerType): string {
+  return ownerType === "company" ? "Firma" : "Samodzielny majster";
+}
+
+function publicPortfolioPath(slug?: string): string {
+  return slug ? `/portfolio/${encodeURIComponent(slug)}` : "/app";
+}
+
 function jobPostingDateLabel(value?: string | null): string {
   if (!value) return "Nieopublikowane";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Nieopublikowane";
   return new Intl.DateTimeFormat("pl-PL", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+function InvestorJobInterestList({
+  posting,
+  busyAction,
+  onStatusChange,
+}: {
+  posting: JobPosting;
+  busyAction: string | null;
+  onStatusChange: (postingId: string, interest: JobPostingInterest, status: JobPostingInterestStatus) => void;
+}) {
+  const interests = posting.interests || [];
+  const count = posting.interest_count ?? interests.length;
+  return (
+    <section className="post-job-interests">
+      <header>
+        <div>
+          <h4>Zainteresowani wykonawcy</h4>
+          <p>Skontaktuj się z wykonawcą telefonicznie lub mailowo. Oferty i umowy będą osobnym krokiem.</p>
+        </div>
+        <span>{count}</span>
+      </header>
+      {interests.length === 0 ? (
+        <p className="empty-note">Brak zainteresowanych wykonawców. Gdy ktoś zgłosi się do ogłoszenia, zobaczysz tutaj jego wizytówkę i dane kontaktowe.</p>
+      ) : (
+        <div className="post-job-interest-list">
+          {interests.map((interest) => {
+            const contractor = interest.contractor;
+            const phone = contractor?.contact_phone || "";
+            const email = contractor?.contact_email || "";
+            return (
+              <article className="post-job-interest-card" key={interest.id}>
+                <header>
+                  <div>
+                    <strong>{contractor?.display_name || "Wykonawca"}</strong>
+                    <small>{jobPostingInterestOwnerLabel(interest.contractor_owner_type)} · {jobPostingInterestStatusLabel(interest.status)}</small>
+                  </div>
+                  <span className={`status ${interest.status === "rejected" ? "status--paused" : interest.status === "contact" ? "status--completed" : "status--assigned"}`}>
+                    {jobPostingInterestStatusLabel(interest.status)}
+                  </span>
+                </header>
+                <div className="service-chip-list service-chip-list--small">
+                  {(contractor?.specializations || []).length > 0
+                    ? contractor!.specializations.slice(0, 4).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
+                    : <span>Brak specjalizacji</span>}
+                </div>
+                <dl>
+                  <div><dt>Obszar</dt><dd>{contractor?.service_area || "Nie podano"}</dd></div>
+                  <div><dt>Telefon</dt><dd>{phone || "Nie podano"}</dd></div>
+                  <div><dt>E-mail</dt><dd>{email || "Nie podano"}</dd></div>
+                </dl>
+                {interest.message && <p className="post-job-interest-message">{interest.message}</p>}
+                <footer>
+                  {phone && <a className="button button--secondary" href={`tel:${phone.replace(/\s+/g, "")}`}><Icon name="phone" size={18} /> Zadzwoń</a>}
+                  {email && <a className="button button--secondary" href={`mailto:${email}`}><Icon name="send" size={18} /> Napisz e-mail</a>}
+                  {contractor?.slug && <a className="button button--secondary" href={publicPortfolioPath(contractor.slug)} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Zobacz wizytówkę</a>}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={interest.status === "contact" || Boolean(busyAction)}
+                    busy={busyAction === `interest:${interest.id}:contact`}
+                    onClick={() => onStatusChange(posting.id, interest, "contact")}
+                  >
+                    Do kontaktu
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={interest.status === "rejected" || Boolean(busyAction)}
+                    busy={busyAction === `interest:${interest.id}:rejected`}
+                    onClick={() => onStatusChange(posting.id, interest, "rejected")}
+                  >
+                    Odrzuć
+                  </Button>
+                </footer>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
@@ -7117,6 +7429,33 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
       notify({ kind: "success", message: "Ogłoszenie opublikowane" });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Nie udało się opublikować ogłoszenia.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  async function updateInterestStatus(
+    postingId: string,
+    interest: JobPostingInterest,
+    status: JobPostingInterestStatus,
+  ) {
+    setBusyAction(`interest:${interest.id}:${status}`);
+    setError("");
+    try {
+      const saved = await api<JobPostingInterest>(`/job-postings/me/interests/${interest.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setPostings((current) => current.map((posting) => {
+        if (posting.id !== postingId) return posting;
+        return {
+          ...posting,
+          interests: (posting.interests || []).map((item) => (item.id === saved.id ? saved : item)),
+        };
+      }));
+      notify({ kind: "success", message: `Status zainteresowania: ${jobPostingInterestStatusLabel(saved.status)}` });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zmienić statusu zainteresowania.");
     } finally {
       setBusyAction(null);
     }
@@ -7240,6 +7579,11 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
                         <Button type="button" busy={busyAction === `publish:${item.id}`} disabled={Boolean(busyAction)} onClick={() => void publishPosting(item)}>Opublikuj</Button>
                       )}
                     </footer>
+                    <InvestorJobInterestList
+                      posting={item}
+                      busyAction={busyAction}
+                      onStatusChange={(postingId, interest, status) => void updateInterestStatus(postingId, interest, status)}
+                    />
                   </section>
                 ))}
               </div>
@@ -8551,7 +8895,10 @@ export default function App() {
   ) : visibleSection === "postJob" && isInvestor(user) ? (
     <InvestorPostJobPage notify={notify} />
   ) : visibleSection === "jobSearch" && (isIndependentContractor(user) || isCompanyOwner(user)) ? (
-    <ContractorJobSearchPage />
+    <ContractorJobSearchPage
+      notify={notify}
+      onOpenPortfolio={() => setSection("portfolio")}
+    />
   ) : visibleSection === "team" ? (
     <TeamPage user={user} projects={projects} onProject={setSelectedProject} onUserUpdated={setUser} notify={notify} />
   ) : visibleSection === "settings" ? (

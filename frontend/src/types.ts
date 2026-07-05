@@ -59,6 +59,38 @@ export type JobPostingStatus = "draft" | "published";
 
 export type JobPostingTargetType = "company" | "independent_contractor" | "any";
 
+export type JobPostingInterestStatus = "new" | "contact" | "rejected";
+
+export type JobPostingInterest = {
+  id: string;
+  job_posting_id: string;
+  contractor_owner_type: PublicProfileOwnerType;
+  contractor_owner_id: string;
+  public_profile_id: string;
+  message: string;
+  status: JobPostingInterestStatus;
+  created_at: string;
+  updated_at: string;
+  contractor?: {
+    display_name: string;
+    owner_type: PublicProfileOwnerType;
+    specializations: string[];
+    service_area: string;
+    contact_phone: string;
+    contact_email: string;
+    slug: string;
+    is_public: boolean;
+  };
+};
+
+export type JobInterestContext = {
+  owner_type: PublicProfileOwnerType;
+  owner_id: string;
+  can_submit: boolean;
+  reason: string;
+  public_profile?: PublicProfile | null;
+};
+
 export type JobPosting = {
   id: string;
   investor_id?: string;
@@ -74,6 +106,9 @@ export type JobPosting = {
   published_at?: string | null;
   created_at: string;
   updated_at: string;
+  my_interest?: JobPostingInterest | null;
+  interests?: JobPostingInterest[];
+  interest_count?: number;
 };
 
 export type Workspace = {

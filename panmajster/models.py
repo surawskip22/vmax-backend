@@ -161,6 +161,32 @@ class JobPosting(Base, TimestampMixin):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class JobPostingInterest(Base, TimestampMixin):
+    __tablename__ = "job_posting_interests"
+    __table_args__ = (
+        UniqueConstraint(
+            "job_posting_id",
+            "contractor_owner_type",
+            "contractor_owner_id",
+            name="uq_job_posting_interest_contractor",
+        ),
+        Index("ix_job_posting_interests_posting", "job_posting_id"),
+        Index("ix_job_posting_interests_contractor", "contractor_owner_type", "contractor_owner_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    job_posting_id: Mapped[str] = mapped_column(
+        ForeignKey("job_postings.id", ondelete="CASCADE")
+    )
+    contractor_owner_type: Mapped[str] = mapped_column(String(40))
+    contractor_owner_id: Mapped[str] = mapped_column(String(36))
+    public_profile_id: Mapped[str] = mapped_column(
+        ForeignKey("public_profiles.id", ondelete="CASCADE"), index=True
+    )
+    message: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(30), default="new", index=True)
+
+
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
     __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)

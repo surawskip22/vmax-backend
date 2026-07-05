@@ -3947,3 +3947,218 @@ def test_investor_job_posting_draft_publish_and_public_visibility():
         public_for_independent = client.get("/api/job-postings/public")
         assert public_for_independent.status_code == 200
         assert body["id"] in {item["id"] for item in public_for_independent.json()}
+
+
+def create_job_posting(
+    client: TestClient,
+    email: str,
+    *,
+    title: str,
+    status: str = "published",
+) -> dict:
+    login(client, email)
+    client.post("/api/onboarding", json={"profile_type": "investor"})
+    response = client.post(
+        "/api/job-postings/me",
+        json={
+            "title": title,
+            "description": "Opis publicznego ogloszenia testowego.",
+            "location": "Warszawa",
+            "budget_label": "10 000 - 15 000 zl",
+            "deadline": "lipiec 2026",
+            "specializations": ["remont-lazienki", "hydraulika"],
+            "current_state_description": "Stan obecny do oceny na miejscu.",
+            "target_contractor_type": "any",
+            "status": status,
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+def test_job_posting_interest_flow_shares_public_profile_contact_only():
+    with TestClient(app) as client:
+        posting = create_job_posting(
+            client,
+            "interest-investor@example.com",
+            title="Zlecenie z zainteresowaniami",
+        )
+        draft = create_job_posting(
+            client,
+            "interest-draft-investor@example.com",
+            title="Szkic bez zainteresowan",
+            status="draft",
+        )
+
+        login(client, "interest-contractor-login@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+
+        blocked_profile = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Chce poznac szczegoly."},
+        )
+        assert blocked_profile.status_code == 422
+        assert "publiczna wizytowke" in blocked_profile.json()["detail"]
+
+        no_contact_profile = client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": True,
+                "slug": "interest-independent-no-contact",
+                "display_name": "Majster Bez Kontaktu",
+                "specializations": ["remont-lazienki"],
+                "contact_phone": "",
+                "contact_email": "",
+            },
+        )
+        assert no_contact_profile.status_code == 200
+        blocked_contact = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Mam termin."},
+        )
+        assert blocked_contact.status_code == 422
+        assert "telefon lub e-mail" in blocked_contact.json()["detail"]
+
+        ready_profile = client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": True,
+                "slug": "interest-independent-ready",
+                "display_name": "Majster Kontaktowy",
+                "public_description": "Remonty lazienek i hydraulika.",
+                "specializations": ["remont-lazienki", "hydraulika"],
+                "service_area": "Warszawa i okolice",
+                "contact_phone": "500 100 200",
+                "contact_email": "public-contact@example.com",
+            },
+        )
+        assert ready_profile.status_code == 200
+        context = client.get("/api/job-posting-interests/me/context")
+        assert context.status_code == 200
+        assert context.json()["can_submit"] is True
+
+        blocked_draft = client.post(
+            f"/api/job-postings/public/{draft['id']}/interest",
+            json={"message": "Szkic tez widze?"},
+        )
+        assert blocked_draft.status_code == 422
+
+        created = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Dzien dobry, jestem zainteresowany realizacja."},
+        )
+        assert created.status_code == 201
+        interest = created.json()
+        assert interest["status"] == "new"
+        assert interest["contractor_owner_type"] == "independent_contractor"
+
+        duplicate = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Drugie zgloszenie."},
+        )
+        assert duplicate.status_code == 409
+
+        public_list = client.get("/api/job-postings/public")
+        assert public_list.status_code == 200
+        public_posting = next(item for item in public_list.json() if item["id"] == posting["id"])
+        assert public_posting["my_interest"]["id"] == interest["id"]
+
+        login(client, "interest-investor@example.com")
+        my_postings = client.get("/api/job-postings/me")
+        assert my_postings.status_code == 200
+        investor_posting = next(item for item in my_postings.json() if item["id"] == posting["id"])
+        assert investor_posting["interest_count"] == 1
+        contractor = investor_posting["interests"][0]["contractor"]
+        assert contractor["display_name"] == "Majster Kontaktowy"
+        assert contractor["contact_phone"] == "500 100 200"
+        assert contractor["contact_email"] == "public-contact@example.com"
+        assert contractor["contact_email"] != "interest-contractor-login@example.com"
+        assert contractor["slug"] == "interest-independent-ready"
+
+        all_interests = client.get("/api/job-postings/me/interests")
+        assert all_interests.status_code == 200
+        assert [item["id"] for item in all_interests.json()] == [interest["id"]]
+
+        updated = client.patch(
+            f"/api/job-postings/me/interests/{interest['id']}",
+            json={"status": "contact"},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["status"] == "contact"
+
+        login(client, "interest-other-investor@example.com")
+        client.post("/api/onboarding", json={"profile_type": "investor"})
+        other_interests = client.get("/api/job-postings/me/interests")
+        assert other_interests.status_code == 200
+        assert other_interests.json() == []
+
+
+def test_company_owner_can_interest_job_posting_as_company():
+    with TestClient(app) as client:
+        posting = create_job_posting(
+            client,
+            "company-interest-investor@example.com",
+            title="Zlecenie dla firmy",
+        )
+
+        login(client, "company-interest-owner@example.com")
+        client.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Firma Zainteresowana",
+            },
+        )
+        profile = client.patch(
+            "/api/public-profile/me?owner_type=company",
+            json={
+                "is_public": True,
+                "slug": "firma-zainteresowana",
+                "display_name": "Firma Zainteresowana",
+                "specializations": ["hydraulika"],
+                "service_area": "Mazowsze",
+                "contact_phone": "600 200 300",
+                "contact_email": "firma-public@example.com",
+            },
+        )
+        assert profile.status_code == 200
+
+        created = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Firma jest zainteresowana ogledzinami."},
+        )
+        assert created.status_code == 201
+        interest = created.json()
+        assert interest["contractor_owner_type"] == "company"
+
+        login(client, "company-interest-investor@example.com")
+        all_interests = client.get("/api/job-postings/me/interests")
+        assert all_interests.status_code == 200
+        body = all_interests.json()
+        assert len(body) == 1
+        assert body[0]["contractor"]["owner_type"] == "company"
+        assert body[0]["contractor"]["contact_email"] == "firma-public@example.com"
+        assert body[0]["contractor"]["contact_email"] != "company-interest-owner@example.com"
+
+
+def test_investor_and_company_worker_cannot_interest_job_postings():
+    with TestClient(app) as client:
+        posting = create_job_posting(
+            client,
+            "blocked-role-investor@example.com",
+            title="Zlecenie dla wykonawcy",
+        )
+
+        blocked_investor = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Nie jestem wykonawca."},
+        )
+        assert blocked_investor.status_code == 403
+
+        login(client, "blocked-role-worker@example.com")
+        client.post("/api/onboarding", json={"profile_type": "company_worker"})
+        blocked_worker = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Pracownik nie zglasza."},
+        )
+        assert blocked_worker.status_code == 403
