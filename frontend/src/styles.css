@@ -1953,6 +1953,8 @@ audio { width: 100%; margin-top: 13px; }
 .portfolio-images img:first-child { grid-row: span 2; }
 .portfolio-page article h2 { margin: 20px 0 8px; color: var(--navy); }
 .portfolio-page article p, .portfolio-page article > span { color: var(--muted); line-height: 1.6; }
+.public-profile-page__main { max-width: 980px; grid-template-columns: 1fr; }
+.public-profile-page .public-profile-preview { border: 1px solid #d7e2ef; border-radius: 16px; background: #fff; box-shadow: 0 16px 34px rgba(18,38,69,.06); }
 .toast { position: fixed; z-index: 150; right: 24px; bottom: 24px; max-width: min(420px, calc(100vw - 40px)); padding: 14px 18px; display: flex; align-items: center; gap: 10px; color: #fff; border-radius: 10px; box-shadow: 0 10px 35px rgba(0,0,0,.2); animation: toast-in .25s ease; }
 .toast--success { background: #187c32; }
 .toast--error { background: #b82b25; }
@@ -2138,8 +2140,11 @@ audio { width: 100%; margin-top: 13px; }
 .post-job-interest-counters strong { color: #166534; font-size: 16px; line-height: 1; }
 .post-job-interest-counters small { margin-top: 2px; color: #34724a; font-size: 10px; font-weight: 900; text-transform: uppercase; }
 .post-job-interests .empty-note { display: block; }
-.post-job-interests__collapsed { margin: 0; display: block; padding: 9px 10px; border: 1px solid #e1e9f3; border-radius: 10px; color: var(--muted); background: #fff; line-height: 1.4; }
 .post-job-interest-list { max-height: 430px; overflow-y: auto; padding-right: 4px; display: grid; gap: 9px; scrollbar-gutter: stable; }
+.post-job-interest-list--modal { max-height: min(62vh, 620px); padding-right: 6px; }
+.post-job-interests-panel { padding: 22px; display: grid; gap: 16px; }
+.post-job-interests-panel > header h3 { margin: 6px 0 8px; color: var(--navy); font-size: 26px; line-height: 1.15; }
+.post-job-interests-panel > header p { margin: 0; color: var(--muted); line-height: 1.5; }
 .post-job-interest-card { padding: 10px; display: grid; gap: 8px; border: 1px solid #d7e2ef; border-radius: 12px; background: #fff; }
 .post-job-interest-card header { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
 .post-job-interest-card strong { color: var(--navy); }

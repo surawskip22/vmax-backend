@@ -483,6 +483,7 @@ type Route =
   | { kind: "client"; token: string }
   | { kind: "invite"; token: string }
   | { kind: "report"; token: string }
+  | { kind: "publicProfile"; slug: string }
   | { kind: "portfolio"; slug: string };
 
 const statusLabels: Record<string, string> = {
@@ -517,6 +518,8 @@ function route(): Route {
   if (matchInvite) return { kind: "invite", token: matchInvite[1] };
   const matchReport = location.pathname.match(/^\/r\/([^/]+)/);
   if (matchReport) return { kind: "report", token: matchReport[1] };
+  const matchPublicProfile = location.pathname.match(/^\/public-profiles\/([^/]+)/);
+  if (matchPublicProfile) return { kind: "publicProfile", slug: matchPublicProfile[1] };
   const matchPortfolio = location.pathname.match(/^\/portfolio\/([^/]+)/);
   if (matchPortfolio) return { kind: "portfolio", slug: matchPortfolio[1] };
   if (location.pathname.startsWith("/app")) return { kind: "app" };
@@ -6493,76 +6496,82 @@ function publicProfileDateLabel(value?: string | null): string {
   return new Intl.DateTimeFormat("pl-PL", { month: "short", year: "numeric" }).format(date);
 }
 
-function PublicProfilePreviewModal({ profile, onClose }: { profile: PublicProfile; onClose: () => void }) {
+function PublicProfileDetails({ profile }: { profile: PublicProfile }) {
   const realizations = profile.realizations || [];
   const specializations = profile.specializations || [];
   return (
-    <Modal title="Profil wykonawcy" onClose={onClose} wide>
-      <div className="public-profile-preview">
-        <header className="public-profile-preview__header">
-          <div className="contractor-discovery-avatar" style={{ background: publicProfileAccent(profile) }}>
-            {publicProfileInitials(profile.display_name)}
+    <div className="public-profile-preview">
+      <header className="public-profile-preview__header">
+        <div className="contractor-discovery-avatar" style={{ background: publicProfileAccent(profile) }}>
+          {publicProfileInitials(profile.display_name)}
+        </div>
+        <div>
+          <small>{publicProfileKindLabel(profile)}</small>
+          <h3>{profile.display_name}</h3>
+          <p>{profile.public_description || "Właściciel nie dodał jeszcze publicznego opisu."}</p>
+          <div className="service-chip-list service-chip-list--small">
+            {specializations.length > 0
+              ? specializations.map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
+              : <span>Brak specjalizacji</span>}
           </div>
-          <div>
-            <small>{publicProfileKindLabel(profile)}</small>
-            <h3>{profile.display_name}</h3>
-            <p>{profile.public_description || "Właściciel nie dodał jeszcze publicznego opisu."}</p>
-            <div className="service-chip-list service-chip-list--small">
-              {specializations.length > 0
-                ? specializations.map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
-                : <span>Brak specjalizacji</span>}
-            </div>
-          </div>
+        </div>
+      </header>
+      <dl>
+        <div>
+          <dt>Obszar działania</dt>
+          <dd>{profile.service_area || "Nie podano"}</dd>
+        </div>
+        <div>
+          <dt>Realizacje</dt>
+          <dd>{realizations.length}</dd>
+        </div>
+        <div>
+          <dt>Telefon</dt>
+          <dd>{profile.contact_phone || "Nie podano"}</dd>
+        </div>
+        <div>
+          <dt>E-mail</dt>
+          <dd>{profile.contact_email || "Nie podano"}</dd>
+        </div>
+      </dl>
+      <section className="public-profile-preview__realizations">
+        <header>
+          <h3>Opublikowane realizacje</h3>
+          <span>{realizations.length}</span>
         </header>
-        <dl>
+        {realizations.length === 0 ? (
+          <p className="empty-note">Ten profil nie ma jeszcze opublikowanych realizacji.</p>
+        ) : (
           <div>
-            <dt>Obszar działania</dt>
-            <dd>{profile.service_area || "Nie podano"}</dd>
+            {realizations.map((realization) => (
+              <article key={realization.id}>
+                {realization.cover_image_url ? (
+                  <img src={realization.cover_image_url} alt={realization.title} loading="lazy" />
+                ) : (
+                  <span><Icon name="image" /></span>
+                )}
+                <div>
+                  <h4>{realization.title}</h4>
+                  <p>{realization.public_description || "Brak publicznego opisu realizacji."}</p>
+                  <small>
+                    {[realization.location_public, publicProfileDateLabel(realization.completion_date)]
+                      .filter(Boolean)
+                      .join(" · ") || "Realizacja opublikowana"}
+                  </small>
+                </div>
+              </article>
+            ))}
           </div>
-          <div>
-            <dt>Realizacje</dt>
-            <dd>{realizations.length}</dd>
-          </div>
-          <div>
-            <dt>Telefon</dt>
-            <dd>{profile.contact_phone || "Nie podano"}</dd>
-          </div>
-          <div>
-            <dt>E-mail</dt>
-            <dd>{profile.contact_email || "Nie podano"}</dd>
-          </div>
-        </dl>
-        <section className="public-profile-preview__realizations">
-          <header>
-            <h3>Opublikowane realizacje</h3>
-            <span>{realizations.length}</span>
-          </header>
-          {realizations.length === 0 ? (
-            <p className="empty-note">Ten profil nie ma jeszcze opublikowanych realizacji.</p>
-          ) : (
-            <div>
-              {realizations.map((realization) => (
-                <article key={realization.id}>
-                  {realization.cover_image_url ? (
-                    <img src={realization.cover_image_url} alt={realization.title} loading="lazy" />
-                  ) : (
-                    <span><Icon name="image" /></span>
-                  )}
-                  <div>
-                    <h4>{realization.title}</h4>
-                    <p>{realization.public_description || "Brak publicznego opisu realizacji."}</p>
-                    <small>
-                      {[realization.location_public, publicProfileDateLabel(realization.completion_date)]
-                        .filter(Boolean)
-                        .join(" · ") || "Realizacja opublikowana"}
-                    </small>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function PublicProfilePreviewModal({ profile, onClose }: { profile: PublicProfile; onClose: () => void }) {
+  return (
+    <Modal title="Profil wykonawcy" onClose={onClose} wide>
+      <PublicProfileDetails profile={profile} />
     </Modal>
   );
 }
@@ -6626,7 +6635,7 @@ function JobPostingInterestModal({
                 <div><dt>Slug</dt><dd>{profile?.slug || "Nie podano"}</dd></div>
               </dl>
               {profile?.slug && (
-                <a className="button button--secondary" href={publicPortfolioPath(profile.slug)} target="_blank" rel="noreferrer">
+                <a className="button button--secondary" href={publicProfilePath(profile.slug)} target="_blank" rel="noreferrer">
                   <Icon name="link" size={18} /> Zobacz publicznie
                 </a>
               )}
@@ -7243,8 +7252,8 @@ function jobPostingInterestOwnerLabel(ownerType: PublicProfileOwnerType): string
   return ownerType === "company" ? "Firma" : "Samodzielny majster";
 }
 
-function publicPortfolioPath(slug?: string): string {
-  return slug ? `/portfolio/${encodeURIComponent(slug)}` : "/app";
+function publicProfilePath(slug?: string): string {
+  return slug ? `/public-profiles/${encodeURIComponent(slug)}` : "/app";
 }
 
 function jobPostingDateLabel(value?: string | null): string {
@@ -7266,91 +7275,97 @@ function InvestorJobInterestList({
   const interests = posting.interests || [];
   const count = posting.interest_count ?? interests.length;
   const newCount = interests.filter((interest) => interest.status === "new").length;
-  const [expanded, setExpanded] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(false);
   const hasInterests = interests.length > 0;
   return (
-    <section className={`post-job-interests ${expanded ? "post-job-interests--expanded" : ""}`}>
+    <section className="post-job-interests">
       <header className="post-job-interests__summary">
         <div>
           <h4>Zainteresowani wykonawcy</h4>
-          <p>Skontaktuj się z wykonawcą telefonicznie lub mailowo. Oferty i umowy będą osobnym krokiem.</p>
+          <p>Zobacz firmy i majstrów, którzy zgłosili zainteresowanie.</p>
         </div>
         <div className="post-job-interest-counters" aria-label="Podsumowanie zgłoszeń zainteresowania">
           <span><strong>{count}</strong><small>łącznie</small></span>
           {newCount > 0 && <span><strong>{newCount}</strong><small>nowe</small></span>}
         </div>
         {hasInterests && (
-          <Button type="button" variant="secondary" onClick={() => setExpanded((current) => !current)}>
-            {expanded ? "Ukryj" : "Pokaż"}
+          <Button type="button" variant="secondary" onClick={() => setPanelOpen(true)}>
+            Pokaż zainteresowanych
           </Button>
         )}
       </header>
-      {!hasInterests ? (
+      {!hasInterests && (
         <p className="empty-note">Brak zainteresowanych wykonawców. Gdy ktoś zgłosi się do ogłoszenia, zobaczysz tutaj jego wizytówkę i dane kontaktowe.</p>
-      ) : expanded ? (
-        <div className="post-job-interest-list">
-          {interests.map((interest) => {
-            const contractor = interest.contractor;
-            const phone = contractor?.contact_phone || "";
-            const email = contractor?.contact_email || "";
-            return (
-              <article className="post-job-interest-card" key={interest.id}>
-                <header>
-                  <div>
-                    <strong>{contractor?.display_name || "Wykonawca"}</strong>
-                    <small>{jobPostingInterestOwnerLabel(interest.contractor_owner_type)} · {jobPostingInterestStatusLabel(interest.status)}</small>
-                  </div>
-                  <span className={`status ${interest.status === "rejected" ? "status--paused" : interest.status === "contact" ? "status--completed" : "status--assigned"}`}>
-                    {jobPostingInterestStatusLabel(interest.status)}
-                  </span>
-                </header>
-                <div className="service-chip-list service-chip-list--small">
-                  {(contractor?.specializations || []).length > 0
-                    ? contractor!.specializations.slice(0, 4).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
-                    : <span>Brak specjalizacji</span>}
-                </div>
-                <dl>
-                  <div><dt>Obszar</dt><dd>{contractor?.service_area || "Nie podano"}</dd></div>
-                  <div><dt>Telefon</dt><dd>{phone || "Nie podano"}</dd></div>
-                  <div><dt>E-mail</dt><dd>{email || "Nie podano"}</dd></div>
-                </dl>
-                {interest.message && (
-                  <div className="post-job-interest-note">
-                    <small>Notatka od wykonawcy</small>
-                    <p>{interest.message}</p>
-                  </div>
-                )}
-                <footer>
-                  {phone && <a className="button button--secondary" href={`tel:${phone.replace(/\s+/g, "")}`}><Icon name="phone" size={18} /> Zadzwoń</a>}
-                  {email && <a className="button button--secondary" href={`mailto:${email}`}><Icon name="send" size={18} /> E-mail</a>}
-                  {contractor?.slug && <a className="button button--secondary" href={publicPortfolioPath(contractor.slug)} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Zobacz wizytówkę</a>}
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={interest.status === "contact" || Boolean(busyAction)}
-                    busy={busyAction === `interest:${interest.id}:contact`}
-                    onClick={() => onStatusChange(posting.id, interest, "contact")}
-                  >
-                    Do kontaktu
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={interest.status === "rejected" || Boolean(busyAction)}
-                    busy={busyAction === `interest:${interest.id}:rejected`}
-                    onClick={() => onStatusChange(posting.id, interest, "rejected")}
-                  >
-                    Odrzuć
-                  </Button>
-                </footer>
-              </article>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="post-job-interests__collapsed">
-          Zgłoszenia zainteresowania są zwinięte. Kliknij „Pokaż”, żeby zobaczyć wizytówki i dane kontaktowe.
-        </p>
+      )}
+      {panelOpen && (
+        <Modal title="Zainteresowani wykonawcy" onClose={() => setPanelOpen(false)} wide>
+          <div className="post-job-interests-panel">
+            <header>
+              <span className="eyebrow">Zgłoszenia zainteresowania</span>
+              <h3>{posting.title}</h3>
+              <p>Skontaktuj się z wykonawcą telefonicznie lub mailowo. Oferty i umowy będą osobnym krokiem.</p>
+            </header>
+            <div className="post-job-interest-list post-job-interest-list--modal">
+              {interests.map((interest) => {
+                const contractor = interest.contractor;
+                const phone = contractor?.contact_phone || "";
+                const email = contractor?.contact_email || "";
+                return (
+                  <article className="post-job-interest-card" key={interest.id}>
+                    <header>
+                      <div>
+                        <strong>{contractor?.display_name || "Wykonawca"}</strong>
+                        <small>{jobPostingInterestOwnerLabel(interest.contractor_owner_type)} · {jobPostingInterestStatusLabel(interest.status)}</small>
+                      </div>
+                      <span className={`status ${interest.status === "rejected" ? "status--paused" : interest.status === "contact" ? "status--completed" : "status--assigned"}`}>
+                        {jobPostingInterestStatusLabel(interest.status)}
+                      </span>
+                    </header>
+                    <div className="service-chip-list service-chip-list--small">
+                      {(contractor?.specializations || []).length > 0
+                        ? contractor!.specializations.slice(0, 4).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
+                        : <span>Brak specjalizacji</span>}
+                    </div>
+                    <dl>
+                      <div><dt>Obszar</dt><dd>{contractor?.service_area || "Nie podano"}</dd></div>
+                      <div><dt>Telefon</dt><dd>{phone || "Nie podano"}</dd></div>
+                      <div><dt>E-mail</dt><dd>{email || "Nie podano"}</dd></div>
+                    </dl>
+                    {interest.message && (
+                      <div className="post-job-interest-note">
+                        <small>Notatka od wykonawcy</small>
+                        <p>{interest.message}</p>
+                      </div>
+                    )}
+                    <footer>
+                      {phone && <a className="button button--secondary" href={`tel:${phone.replace(/\s+/g, "")}`}><Icon name="phone" size={18} /> Zadzwoń</a>}
+                      {email && <a className="button button--secondary" href={`mailto:${email}`}><Icon name="send" size={18} /> E-mail</a>}
+                      {contractor?.slug && <a className="button button--secondary" href={publicProfilePath(contractor.slug)} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Zobacz wizytówkę</a>}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={interest.status === "contact" || Boolean(busyAction)}
+                        busy={busyAction === `interest:${interest.id}:contact`}
+                        onClick={() => onStatusChange(posting.id, interest, "contact")}
+                      >
+                        Do kontaktu
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={interest.status === "rejected" || Boolean(busyAction)}
+                        busy={busyAction === `interest:${interest.id}:rejected`}
+                        onClick={() => onStatusChange(posting.id, interest, "rejected")}
+                      >
+                        Odrzuć
+                      </Button>
+                    </footer>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </Modal>
       )}
     </section>
   );
@@ -8733,6 +8748,60 @@ function PublicPortfolio({ slug }: { slug: string }) {
   );
 }
 
+function PublicProfilePage({ slug }: { slug: string }) {
+  const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    setProfile(null);
+    setError("");
+    api<PublicProfile>(`/public-profiles/${encodeURIComponent(slug)}`)
+      .then((data) => {
+        if (!cancelled) setProfile(data);
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : "Wizytówka jest niedostępna.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  if (error) {
+    return (
+      <div className="public-page">
+        <Logo />
+        <div className="loading-screen">{error}</div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="public-page">
+        <Logo />
+        <div className="loading-screen">Ładowanie wizytówki...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="portfolio-page public-profile-page">
+      <header>
+        <Logo />
+        <div>
+          <span className="eyebrow">{publicProfileKindLabel(profile)}</span>
+          <h1>{profile.display_name}</h1>
+          <p>{profile.public_description || "Publiczna wizytówka wykonawcy w Pan Majster."}</p>
+        </div>
+      </header>
+      <main className="public-profile-page__main">
+        <PublicProfileDetails profile={profile} />
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   const [currentRoute, setCurrentRoute] = useState<Route>(route);
   const [user, setUser] = useState<User | null>(null);
@@ -8854,6 +8923,7 @@ export default function App() {
 
   if (currentRoute.kind === "client") return <PublicProject token={currentRoute.token} />;
   if (currentRoute.kind === "report") return <PublicReport token={currentRoute.token} />;
+  if (currentRoute.kind === "publicProfile") return <PublicProfilePage slug={currentRoute.slug} />;
   if (currentRoute.kind === "portfolio") return <PublicPortfolio slug={currentRoute.slug} />;
   if (currentRoute.kind === "guest") {
     return <GuestEntry token={currentRoute.token} notify={notify} onQueue={refreshQueue} />;
