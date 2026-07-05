@@ -4,7 +4,7 @@ import { isCompanyOwner, isCompanyWorker, isIndependentContractor, isInvestor } 
 import { peopleLabelsForUser, profileLabels } from "./roleLabels";
 import type { User } from "./types";
 
-type SectionId = "home" | "projects" | "reports" | "team" | "portfolio" | "discover" | "postJob" | "jobSearch" | "settings";
+type SectionId = "home" | "projects" | "reports" | "team" | "portfolio" | "discover" | "postJob" | "jobSearch" | "estimates" | "settings";
 type NavItem = {
   id: SectionId;
   label: string;
@@ -15,12 +15,14 @@ function getNavigationForUser(user: User): NavItem[] {
   if (isCompanyWorker(user)) {
     return [
       { id: "projects", label: "Moje zlecenia", icon: "clipboard" },
+      { id: "estimates", label: "Szkice ofert", icon: "report" },
       { id: "settings", label: "Ustawienia", icon: "settings" },
     ];
   }
   if (isIndependentContractor(user)) {
     return [
       { id: "projects", label: "Moje zlecenia", icon: "clipboard" },
+      { id: "estimates", label: "Oferty / Wyceny", icon: "report" },
       { id: "jobSearch", label: "Szukaj zleceń", icon: "search" },
       { id: "reports", label: "Raporty", icon: "report" },
       { id: "portfolio", label: "Moja wizytówka", icon: "image" },
@@ -40,6 +42,7 @@ function getNavigationForUser(user: User): NavItem[] {
   if (isCompanyOwner(user)) {
     return [
       { id: "projects", label: "Zlecenia", icon: "clipboard" },
+      { id: "estimates", label: "Oferty firmy", icon: "report" },
       { id: "jobSearch", label: "Szukaj zleceń", icon: "search" },
       { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
       { id: "reports", label: "Raporty", icon: "report" },

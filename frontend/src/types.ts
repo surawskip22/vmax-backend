@@ -63,6 +63,47 @@ export type JobPostingInterestStatus = "new" | "contact" | "rejected";
 
 export type JobPostingOfferStatus = "draft" | "sent" | "accepted" | "rejected";
 
+export type EstimateStatus =
+  | "draft"
+  | "pending_approval"
+  | "approved_by_owner"
+  | "sent"
+  | "accepted"
+  | "rejected"
+  | "cancelled";
+
+export type EstimateRecipientType = "manual" | "investor" | "client";
+
+export type EstimateSourceType = "manual" | "project" | "job_posting";
+
+export type Estimate = {
+  id: string;
+  owner_type: PublicProfileOwnerType;
+  owner_id: string;
+  created_by_id: string;
+  approved_by_id?: string | null;
+  recipient_type: EstimateRecipientType;
+  recipient_name: string;
+  recipient_email: string;
+  recipient_phone: string;
+  source_type: EstimateSourceType;
+  source_id?: string | null;
+  title: string;
+  scope_summary: string;
+  assumptions: string;
+  estimated_price?: string | null;
+  price_note: string;
+  planned_start: string;
+  planned_end: string;
+  status: EstimateStatus;
+  sent_at?: string | null;
+  approved_at?: string | null;
+  accepted_at?: string | null;
+  rejected_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type JobPostingContractorContact = {
   display_name: string;
   owner_type: PublicProfileOwnerType;

@@ -1962,6 +1962,52 @@ audio { width: 100%; margin-top: 13px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(15px); } }
 .loading-screen { min-height: 280px; display: flex; align-items: center; justify-content: center; gap: 12px; color: var(--muted); }
 
+.estimates-page { max-width: 1180px; }
+.estimates-header { align-items: center; }
+.estimates-header h1 { font-size: 44px; }
+.estimates-toolbar { margin-bottom: 16px; padding: 14px 16px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; border: 1px solid #d7e2ef; border-radius: 14px; background: #fff; box-shadow: 0 12px 28px rgba(18,38,69,.05); }
+.estimates-toolbar > div { min-width: 86px; padding: 9px 12px; display: grid; justify-items: center; border-radius: 12px; color: #1d4e89; background: #eaf3ff; }
+.estimates-toolbar strong { color: #1d4e89; font-size: 22px; line-height: 1; }
+.estimates-toolbar span { margin-top: 3px; font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.estimates-toolbar p { margin: 0; color: var(--muted); line-height: 1.45; }
+.estimates-list { display: grid; gap: 14px; }
+.estimate-card { padding: 16px; display: grid; gap: 13px; border: 1px solid #d7e2ef; border-radius: 14px; background: #fff; box-shadow: 0 14px 30px rgba(18,38,69,.06); }
+.estimate-card header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+.estimate-card h2 { margin: 8px 0 5px; color: var(--navy); font-size: 20px; line-height: 1.2; }
+.estimate-card header p,
+.estimate-card > p { margin: 0; color: var(--muted); line-height: 1.48; }
+.estimate-card header > strong { padding: 10px 12px; border-radius: 12px; color: #08653a; background: #dcfce7; white-space: nowrap; }
+.estimate-card dl,
+.estimate-preview-modal dl { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.estimate-card dl div,
+.estimate-preview-modal dl div { min-width: 0; padding: 10px; border: 1px solid #e1e9f3; border-radius: 10px; background: #f8fafc; }
+.estimate-card dt,
+.estimate-preview-modal dt { color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.estimate-card dd,
+.estimate-preview-modal dd { margin: 3px 0 0; color: var(--navy); font-weight: 800; overflow-wrap: anywhere; }
+.estimate-card footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-start; }
+.estimate-card footer .button { min-height: 36px; padding: 0 11px; }
+.estimate-form-modal,
+.estimate-preview-modal { padding: 22px; display: grid; gap: 16px; }
+.estimate-form-modal > header h3,
+.estimate-preview-modal > header h3 { margin: 8px 0; color: var(--navy); font-size: 25px; line-height: 1.14; }
+.estimate-form-modal > header p,
+.estimate-preview-modal > header p,
+.estimate-preview-modal section p { margin: 0; color: var(--muted); line-height: 1.5; }
+.estimate-form-modal label { min-width: 0; display: grid; gap: 7px; color: var(--navy); font-size: 13px; font-weight: 800; }
+.estimate-form-modal input,
+.estimate-form-modal select,
+.estimate-form-modal textarea { width: 100%; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid #cbd8e8; border-radius: 10px; color: var(--navy); background: #fff; font: inherit; }
+.estimate-form-modal textarea { min-height: 110px; padding: 12px; resize: vertical; }
+.estimate-form-modal input:focus,
+.estimate-form-modal select:focus,
+.estimate-form-modal textarea:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127,255,.12); }
+.estimate-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.estimate-form-modal footer,
+.estimate-preview-modal footer { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.estimate-preview-modal section { padding: 12px; display: grid; gap: 6px; border: 1px solid #e1e9f3; border-radius: 12px; background: #fff; }
+.estimate-preview-modal h4 { margin: 0; color: var(--navy); font-size: 15px; }
+
 .investor-discovery-page,
 .investor-post-job-page { max-width: 1180px; }
 .investor-discovery-header { align-items: center; }
@@ -2279,6 +2325,8 @@ audio { width: 100%; margin-top: 13px; }
   .investor-settings-card--profile { grid-row: auto; }
   .project-layout { grid-template-columns: 270px 1fr; }
   .media-grid { grid-template-columns: repeat(3, 1fr); }
+  .estimate-card dl,
+  .estimate-preview-modal dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .investor-discovery-filters { grid-template-columns: 1fr; }
   .contractor-discovery-card { grid-template-columns: 76px minmax(0, 1fr) minmax(220px, .8fr); }
   .contractor-discovery-gallery,
@@ -2369,12 +2417,28 @@ audio { width: 100%; margin-top: 13px; }
   .queue-badge { min-width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--orange); font-size: 11px; font-weight: 800; }
   .bottom-nav { position: fixed; z-index: 25; inset: auto 0 0; min-height: 67px; padding-bottom: env(safe-area-inset-bottom); display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid #dbe1e8; background: rgba(255,255,255,.97); backdrop-filter: blur(10px); }
   .bottom-nav--2 { grid-template-columns: repeat(2, 1fr); }
+  .bottom-nav--3 { grid-template-columns: repeat(3, 1fr); }
   .bottom-nav button { padding: 7px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border: 0; color: #6b7686; background: transparent; font-size: 10px; }
   .bottom-nav button.active { color: var(--orange); }
   .bottom-nav svg { width: 21px; height: 21px; }
   .page { padding: 25px 16px 95px; }
   .page-header { align-items: flex-start; }
   .page-header h1 { font-size: 36px; }
+  .estimates-header { align-items: stretch; }
+  .estimates-header h1 { font-size: 36px; }
+  .estimates-toolbar { grid-template-columns: 1fr; align-items: stretch; }
+  .estimates-toolbar .button { width: 100%; justify-content: center; }
+  .estimate-card header,
+  .estimate-form-grid,
+  .estimate-card dl,
+  .estimate-preview-modal dl { grid-template-columns: 1fr; }
+  .estimate-card header > strong { width: 100%; text-align: center; }
+  .estimate-card footer,
+  .estimate-form-modal footer,
+  .estimate-preview-modal footer { display: grid; grid-template-columns: 1fr; }
+  .estimate-card footer .button,
+  .estimate-form-modal footer .button,
+  .estimate-preview-modal footer .button { width: 100%; justify-content: center; }
   .investor-discovery-header { flex-direction: column; align-items: stretch; }
   .investor-discovery-header h1 { font-size: 38px; }
   .discovery-live-note { min-width: 0; }

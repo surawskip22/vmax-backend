@@ -41,6 +41,8 @@ import type {
   ClientLink,
   Comment,
   Entry,
+  Estimate,
+  EstimateStatus,
   JobInterestContext,
   JobPosting,
   JobPostingOffer,
@@ -7679,6 +7681,39 @@ function jobPostingOfferAmountLabel(offer: JobPostingOffer): string {
   }).format(parsed);
 }
 
+function estimateStatusLabel(status: EstimateStatus): string {
+  if (status === "pending_approval") return "Do zatwierdzenia";
+  if (status === "approved_by_owner") return "Zatwierdzona przez szefa";
+  if (status === "sent") return "Wysłana";
+  if (status === "accepted") return "Zaakceptowana";
+  if (status === "rejected") return "Odrzucona";
+  if (status === "cancelled") return "Anulowana";
+  return "Szkic";
+}
+
+function estimateStatusClass(status: EstimateStatus): string {
+  if (status === "sent" || status === "approved_by_owner" || status === "accepted") return "status--completed";
+  if (status === "rejected" || status === "cancelled") return "status--paused";
+  return "status--assigned";
+}
+
+function estimateAmountLabel(estimate: Estimate): string {
+  if (!estimate.estimated_price) return "Do ustalenia";
+  const parsed = Number(estimate.estimated_price);
+  if (Number.isNaN(parsed)) return `${estimate.estimated_price} zł`;
+  return new Intl.NumberFormat("pl-PL", {
+    style: "currency",
+    currency: "PLN",
+    maximumFractionDigits: 0,
+  }).format(parsed);
+}
+
+function estimateSourceLabel(estimate: Estimate): string {
+  if (estimate.source_type === "project") return "Zlecenie";
+  if (estimate.source_type === "job_posting") return "Ogłoszenie";
+  return "Ręczna";
+}
+
 function jobPostingInterestOwnerLabel(ownerType: PublicProfileOwnerType): string {
   return ownerType === "company" ? "Firma" : "Samodzielny majster";
 }
@@ -7692,6 +7727,452 @@ function jobPostingDateLabel(value?: string | null): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Nieopublikowane";
   return new Intl.DateTimeFormat("pl-PL", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
+type EstimateDraft = {
+  ownerId: string;
+  title: string;
+  recipientName: string;
+  recipientEmail: string;
+  recipientPhone: string;
+  scopeSummary: string;
+  assumptions: string;
+  estimatedPrice: string;
+  priceNote: string;
+  plannedStart: string;
+  plannedEnd: string;
+};
+
+function estimateDraftFromEstimate(user: User, estimate?: Estimate | null): EstimateDraft {
+  return {
+    ownerId: estimate?.owner_id || user.workspaces[0]?.id || "",
+    title: estimate?.title || "",
+    recipientName: estimate?.recipient_name || "",
+    recipientEmail: estimate?.recipient_email || "",
+    recipientPhone: estimate?.recipient_phone || "",
+    scopeSummary: estimate?.scope_summary || "",
+    assumptions: estimate?.assumptions || "To jest oferta wstępna / wycena orientacyjna. Kwota i zakres mogą ulec zmianie po doprecyzowaniu prac.",
+    estimatedPrice: estimate?.estimated_price || "",
+    priceNote: estimate?.price_note || "",
+    plannedStart: estimate?.planned_start || "",
+    plannedEnd: estimate?.planned_end || "",
+  };
+}
+
+function estimatePayloadFromDraft(user: User, draft: EstimateDraft, status?: EstimateStatus) {
+  return {
+    owner_type: isIndependentContractor(user) ? "independent_contractor" : "company",
+    owner_id: isIndependentContractor(user) ? user.id : draft.ownerId || undefined,
+    recipient_type: "manual",
+    recipient_name: draft.recipientName,
+    recipient_email: draft.recipientEmail,
+    recipient_phone: draft.recipientPhone,
+    source_type: "manual",
+    title: draft.title,
+    scope_summary: draft.scopeSummary,
+    assumptions: draft.assumptions,
+    estimated_price: draft.estimatedPrice.trim() || null,
+    price_note: draft.priceNote,
+    planned_start: draft.plannedStart,
+    planned_end: draft.plannedEnd,
+    ...(status ? { status } : {}),
+  };
+}
+
+function EstimatePreviewModal({ estimate, onClose }: { estimate: Estimate; onClose: () => void }) {
+  return (
+    <Modal title="Oferta wstępna / wycena orientacyjna" onClose={onClose} wide>
+      <div className="estimate-preview-modal">
+        <header>
+          <span className={`status ${estimateStatusClass(estimate.status)}`}>{estimateStatusLabel(estimate.status)}</span>
+          <h3>{estimate.title}</h3>
+          <p>To nie jest umowa. To robocza oferta wstępna / wycena orientacyjna.</p>
+        </header>
+        <dl>
+          <div><dt>Odbiorca</dt><dd>{estimate.recipient_name || "Nie podano"}</dd></div>
+          <div><dt>E-mail</dt><dd>{estimate.recipient_email || "Nie podano"}</dd></div>
+          <div><dt>Telefon</dt><dd>{estimate.recipient_phone || "Nie podano"}</dd></div>
+          <div><dt>Kwota</dt><dd>{estimateAmountLabel(estimate)}</dd></div>
+          <div><dt>Start</dt><dd>{estimate.planned_start || "Do ustalenia"}</dd></div>
+          <div><dt>Koniec</dt><dd>{estimate.planned_end || "Do ustalenia"}</dd></div>
+          <div><dt>Źródło</dt><dd>{estimateSourceLabel(estimate)}</dd></div>
+          <div><dt>Status</dt><dd>{estimateStatusLabel(estimate.status)}</dd></div>
+        </dl>
+        <section>
+          <h4>Zakres prac</h4>
+          <p>{estimate.scope_summary || "Zakres nie został jeszcze opisany."}</p>
+        </section>
+        <section>
+          <h4>Założenia i uwagi</h4>
+          <p>{estimate.assumptions || "Brak dodatkowych założeń."}</p>
+        </section>
+        {estimate.price_note && (
+          <section>
+            <h4>Notatka do ceny</h4>
+            <p>{estimate.price_note}</p>
+          </section>
+        )}
+        <footer>
+          <Button type="button" onClick={onClose}>Zamknij</Button>
+        </footer>
+      </div>
+    </Modal>
+  );
+}
+
+function EstimateFormModal({
+  user,
+  estimate,
+  draft,
+  busy,
+  error,
+  onDraftChange,
+  onClose,
+  onSave,
+}: {
+  user: User;
+  estimate?: Estimate | null;
+  draft: EstimateDraft;
+  busy: string | null;
+  error: string;
+  onDraftChange: (draft: EstimateDraft) => void;
+  onClose: () => void;
+  onSave: (status?: EstimateStatus) => void;
+}) {
+  const worker = isCompanyWorker(user);
+  const companyRole = isCompanyOwner(user) || worker;
+  const canSend = !worker;
+  const canRequestApproval = worker && (!estimate || estimate.status === "draft");
+  return (
+    <Modal title={estimate ? "Edytuj ofertę" : "Nowa oferta / wycena"} onClose={onClose} wide>
+      <form
+        className="estimate-form-modal"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave();
+        }}
+      >
+        <header>
+          <span className="status status--assigned">{estimate ? estimateStatusLabel(estimate.status) : "Nowa"}</span>
+          <h3>Oferta wstępna / wycena orientacyjna</h3>
+          <p>To jest oferta wstępna / wycena orientacyjna. Kwota i zakres mogą ulec zmianie po doprecyzowaniu prac.</p>
+        </header>
+        {companyRole && user.workspaces.length > 1 && (
+          <label>
+            Firma
+            <select value={draft.ownerId} onChange={(event) => onDraftChange({ ...draft, ownerId: event.target.value })}>
+              {user.workspaces.map((workspace) => (
+                <option value={workspace.id} key={workspace.id}>{workspace.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label>
+          Tytuł oferty
+          <input value={draft.title} onChange={(event) => onDraftChange({ ...draft, title: event.target.value })} maxLength={220} required />
+        </label>
+        <div className="estimate-form-grid">
+          <label>
+            Odbiorca: imię/nazwa
+            <input value={draft.recipientName} onChange={(event) => onDraftChange({ ...draft, recipientName: event.target.value })} maxLength={180} />
+          </label>
+          <label>
+            E-mail odbiorcy
+            <input value={draft.recipientEmail} onChange={(event) => onDraftChange({ ...draft, recipientEmail: event.target.value })} maxLength={320} inputMode="email" />
+          </label>
+          <label>
+            Telefon odbiorcy
+            <input value={draft.recipientPhone} onChange={(event) => onDraftChange({ ...draft, recipientPhone: event.target.value })} maxLength={40} />
+          </label>
+        </div>
+        <label>
+          Zakres prac
+          <textarea value={draft.scopeSummary} onChange={(event) => onDraftChange({ ...draft, scopeSummary: event.target.value })} rows={5} maxLength={5000} required />
+        </label>
+        <label>
+          Założenia i uwagi
+          <textarea value={draft.assumptions} onChange={(event) => onDraftChange({ ...draft, assumptions: event.target.value })} rows={3} maxLength={4000} />
+        </label>
+        <div className="estimate-form-grid">
+          <label>
+            Kwota orientacyjna
+            <input value={draft.estimatedPrice} onChange={(event) => onDraftChange({ ...draft, estimatedPrice: event.target.value })} inputMode="decimal" />
+          </label>
+          <label>
+            Planowany start
+            <input value={draft.plannedStart} onChange={(event) => onDraftChange({ ...draft, plannedStart: event.target.value })} maxLength={160} />
+          </label>
+          <label>
+            Planowany koniec
+            <input value={draft.plannedEnd} onChange={(event) => onDraftChange({ ...draft, plannedEnd: event.target.value })} maxLength={160} />
+          </label>
+        </div>
+        <label>
+          Notatka do ceny
+          <input value={draft.priceNote} onChange={(event) => onDraftChange({ ...draft, priceNote: event.target.value })} maxLength={1000} />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <footer>
+          <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
+          <Button type="submit" variant="secondary" busy={busy === "save"} disabled={Boolean(busy)}>Zapisz szkic</Button>
+          {canRequestApproval && (
+            <Button type="button" icon="send" busy={busy === "pending_approval"} disabled={Boolean(busy)} onClick={() => onSave("pending_approval")}>
+              Wyślij do zatwierdzenia
+            </Button>
+          )}
+          {canSend && (
+            <Button type="button" icon="send" busy={busy === "sent"} disabled={Boolean(busy)} onClick={() => onSave("sent")}>
+              Wyślij ofertę
+            </Button>
+          )}
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
+function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) => void }) {
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [previewEstimate, setPreviewEstimate] = useState<Estimate | null>(null);
+  const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [draft, setDraft] = useState<EstimateDraft>(() => estimateDraftFromEstimate(user));
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const worker = isCompanyWorker(user);
+  const owner = isCompanyOwner(user);
+  const independent = isIndependentContractor(user);
+  const pageTitle = worker ? "Szkice ofert" : owner ? "Oferty firmy" : "Oferty / Wyceny";
+
+  const loadEstimates = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setEstimates(await api<Estimate[]>("/estimates/me"));
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udało się pobrać ofert.";
+      setError(message);
+      setEstimates([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadEstimates();
+  }, [loadEstimates]);
+
+  function openCreate() {
+    setEditingEstimate(null);
+    setDraft(estimateDraftFromEstimate(user));
+    setFormError("");
+    setFormOpen(true);
+  }
+
+  function openEdit(estimate: Estimate) {
+    setEditingEstimate(estimate);
+    setDraft(estimateDraftFromEstimate(user, estimate));
+    setFormError("");
+    setFormOpen(true);
+  }
+
+  function canEdit(estimate: Estimate): boolean {
+    if (worker) return ["draft", "pending_approval"].includes(estimate.status);
+    if (independent) return estimate.status === "draft";
+    return ["draft", "pending_approval", "approved_by_owner"].includes(estimate.status);
+  }
+
+  function canSend(estimate: Estimate): boolean {
+    if (worker) return false;
+    if (independent) return estimate.status === "draft";
+    return ["draft", "pending_approval", "approved_by_owner"].includes(estimate.status);
+  }
+
+  async function saveEstimate(status?: EstimateStatus) {
+    setBusy(status || "save");
+    setFormError("");
+    try {
+      let saved: Estimate;
+      if (editingEstimate) {
+        saved = await api<Estimate>(`/estimates/me/${editingEstimate.id}`, {
+          method: "PATCH",
+          body: JSON.stringify(estimatePayloadFromDraft(user, draft)),
+        });
+        if (status && status !== saved.status) {
+          saved = await api<Estimate>(`/estimates/me/${saved.id}/status`, {
+            method: "PATCH",
+            body: JSON.stringify({ status }),
+          });
+        }
+        setEstimates((current) => current.map((item) => (item.id === saved.id ? saved : item)));
+      } else {
+        const initialStatus = status || "draft";
+        saved = await api<Estimate>("/estimates/me", {
+          method: "POST",
+          body: JSON.stringify(estimatePayloadFromDraft(user, draft, initialStatus)),
+        });
+        setEstimates((current) => [saved, ...current]);
+      }
+      setFormOpen(false);
+      setEditingEstimate(null);
+      notify({ kind: "success", message: status === "sent" ? "Oferta wysłana." : status === "pending_approval" ? "Szkic wysłany do zatwierdzenia." : "Szkic oferty zapisany." });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udało się zapisać oferty.";
+      setFormError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function changeStatus(estimate: Estimate, status: EstimateStatus) {
+    setBusy(`${estimate.id}:${status}`);
+    try {
+      const saved = await api<Estimate>(`/estimates/me/${estimate.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setEstimates((current) => current.map((item) => (item.id === saved.id ? saved : item)));
+      notify({ kind: "success", message: `Status oferty: ${estimateStatusLabel(saved.status)}` });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się zmienić statusu oferty." });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (!independent && !owner && !worker) {
+    return (
+      <div className="page estimates-page">
+        <div className="empty-state">
+          <span><Icon name="alert" /></span>
+          <h3>Brak dostępu</h3>
+          <p>Ten moduł jest dostępny tylko dla wykonawców.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="page estimates-page">
+      <header className="page-header estimates-header">
+        <div>
+          <span className="eyebrow">Oferta wstępna / wycena orientacyjna</span>
+          <h1>{pageTitle}</h1>
+          <p>{worker ? "Przygotuj szkic oferty firmy i wyślij go do zatwierdzenia szefowi." : "Twórz robocze wyceny, zapisuj szkice i wysyłaj oferty do klienta poza aplikacją."}</p>
+        </div>
+        <Button type="button" icon="plus" onClick={openCreate}>{worker ? "Nowy szkic" : "Nowa oferta"}</Button>
+      </header>
+
+      <section className="estimates-toolbar">
+        <div>
+          <strong>{estimates.length}</strong>
+          <span>{estimates.length === 1 ? "oferta" : "ofert"}</span>
+        </div>
+        <p>Bez PDF, umów, płatności i automatycznego tworzenia zlecenia.</p>
+        <Button type="button" variant="secondary" icon="sync" disabled={loading} onClick={() => void loadEstimates()}>Odśwież</Button>
+      </section>
+
+      <section className="estimates-list" aria-label={pageTitle}>
+        {loading ? (
+          <div className="loading-screen"><span className="spinner" /> Ładowanie ofert...</div>
+        ) : error ? (
+          <div className="empty-state">
+            <span><Icon name="alert" /></span>
+            <h3>Nie udało się pobrać ofert</h3>
+            <p>{error}</p>
+          </div>
+        ) : estimates.length === 0 ? (
+          <div className="empty-state">
+            <span><Icon name="report" /></span>
+            <h3>{worker ? "Brak szkiców ofert" : "Brak ofert"}</h3>
+            <p>{worker ? "Utwórz pierwszy szkic i wyślij go szefowi do zatwierdzenia." : "Utwórz pierwszą ofertę wstępną albo wycenę orientacyjną."}</p>
+          </div>
+        ) : estimates.map((estimate) => (
+          <article className="estimate-card" key={estimate.id}>
+            <header>
+              <div>
+                <span className={`status ${estimateStatusClass(estimate.status)}`}>{estimateStatusLabel(estimate.status)}</span>
+                <h2>{estimate.title}</h2>
+                <p>{estimate.recipient_name || "Odbiorca niepodany"}</p>
+              </div>
+              <strong>{estimateAmountLabel(estimate)}</strong>
+            </header>
+            <dl>
+              <div><dt>Start</dt><dd>{estimate.planned_start || "Do ustalenia"}</dd></div>
+              <div><dt>Koniec</dt><dd>{estimate.planned_end || "Do ustalenia"}</dd></div>
+              <div><dt>Źródło</dt><dd>{estimateSourceLabel(estimate)}</dd></div>
+              <div><dt>Utworzył</dt><dd>{estimate.created_by_id === user.id ? "Ty" : "Członek firmy"}</dd></div>
+            </dl>
+            <p>{estimate.scope_summary || "Brak opisu zakresu."}</p>
+            <footer>
+              <Button type="button" variant="secondary" onClick={() => setPreviewEstimate(estimate)}>Podgląd</Button>
+              {canEdit(estimate) && <Button type="button" variant="secondary" onClick={() => openEdit(estimate)}>Edytuj</Button>}
+              {worker && estimate.status === "draft" && (
+                <Button
+                  type="button"
+                  icon="send"
+                  busy={busy === `${estimate.id}:pending_approval`}
+                  disabled={Boolean(busy)}
+                  onClick={() => void changeStatus(estimate, "pending_approval")}
+                >
+                  Wyślij do zatwierdzenia
+                </Button>
+              )}
+              {owner && estimate.status === "pending_approval" && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  icon="check"
+                  busy={busy === `${estimate.id}:approved_by_owner`}
+                  disabled={Boolean(busy)}
+                  onClick={() => void changeStatus(estimate, "approved_by_owner")}
+                >
+                  Zatwierdź
+                </Button>
+              )}
+              {canSend(estimate) && (
+                <Button
+                  type="button"
+                  icon="send"
+                  busy={busy === `${estimate.id}:sent`}
+                  disabled={Boolean(busy)}
+                  onClick={() => void changeStatus(estimate, "sent")}
+                >
+                  {estimate.status === "approved_by_owner" ? "Wyślij zatwierdzoną ofertę" : "Wyślij ofertę"}
+                </Button>
+              )}
+            </footer>
+          </article>
+        ))}
+      </section>
+
+      {previewEstimate && (
+        <EstimatePreviewModal
+          estimate={previewEstimate}
+          onClose={() => setPreviewEstimate(null)}
+        />
+      )}
+      {formOpen && (
+        <EstimateFormModal
+          user={user}
+          estimate={editingEstimate}
+          draft={draft}
+          busy={busy}
+          error={formError}
+          onDraftChange={setDraft}
+          onClose={() => {
+            setFormOpen(false);
+            setEditingEstimate(null);
+            setFormError("");
+          }}
+          onSave={(status) => void saveEstimate(status)}
+        />
+      )}
+    </div>
+  );
 }
 
 function InvestorJobInterestList({
@@ -9542,6 +10023,8 @@ export default function App() {
     />
   ) : visibleSection === "reports" ? (
     <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
+  ) : visibleSection === "estimates" && (isIndependentContractor(user) || isCompanyOwner(user) || isCompanyWorker(user)) ? (
+    <EstimatesPage user={user} notify={notify} />
   ) : visibleSection === "portfolio" ? (
     <IndependentPortfolioPage
       user={user}
