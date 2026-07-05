@@ -2038,6 +2038,7 @@ audio { width: 100%; margin-top: 13px; }
 .job-interest-detail-cta strong { color: var(--navy); }
 .job-interest-detail-cta > div:last-child { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
 .job-interest-submitted { margin: 0; min-height: 42px; display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #cfe6d7; border-radius: 10px; color: #166534; background: #edf8f0; font-weight: 900; }
+.job-offer-submitted { margin: 0; color: #41546c; font-size: 12px; font-weight: 900; text-align: center; }
 .job-interest-modal { padding: 22px; display: grid; gap: 18px; }
 .job-interest-modal > header h3 { margin: 10px 0 8px; color: var(--navy); font-size: 23px; line-height: 1.15; }
 .job-interest-modal > header p,
@@ -2051,6 +2052,32 @@ audio { width: 100%; margin-top: 13px; }
 .job-interest-form label { display: grid; gap: 7px; color: var(--navy); font-weight: 800; }
 .job-interest-form textarea { width: 100%; min-height: 110px; padding: 12px; border: 1px solid #cbd8e8; border-radius: 10px; color: var(--navy); background: #fff; font: inherit; resize: vertical; }
 .job-interest-form footer { display: flex; justify-content: flex-end; gap: 10px; }
+.job-offer-form,
+.job-offer-detail-modal { padding: 22px; display: grid; gap: 16px; }
+.job-offer-form > header h3,
+.job-offer-detail-modal > header h3 { margin: 8px 0; color: var(--navy); font-size: 24px; line-height: 1.15; }
+.job-offer-form > header p,
+.job-offer-detail-modal > header p,
+.job-offer-summary p,
+.job-offer-contractor p { margin: 0; color: var(--muted); line-height: 1.5; }
+.job-offer-form label { min-width: 0; display: grid; gap: 7px; color: var(--navy); font-size: 13px; font-weight: 800; }
+.job-offer-form input,
+.job-offer-form textarea { width: 100%; min-width: 0; min-height: 44px; padding: 0 12px; border: 1px solid #cbd8e8; border-radius: 10px; color: var(--navy); background: #fff; font: inherit; }
+.job-offer-form textarea { min-height: 110px; padding: 12px; resize: vertical; }
+.job-offer-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.job-offer-form footer,
+.job-offer-detail-modal footer { display: flex; justify-content: flex-end; gap: 10px; }
+.job-offer-summary { display: grid; gap: 14px; }
+.job-offer-summary dl { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.job-offer-summary dl div,
+.job-offer-contractor { min-width: 0; padding: 12px; border: 1px solid #dbe6f2; border-radius: 12px; background: #f8fbff; }
+.job-offer-summary dt { color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.job-offer-summary dd { margin: 3px 0 0; color: var(--navy); font-weight: 900; overflow-wrap: anywhere; }
+.job-offer-summary section { padding: 12px; display: grid; gap: 5px; border: 1px solid #e1e9f3; border-radius: 12px; background: #fff; }
+.job-offer-summary h4 { margin: 0; color: var(--navy); font-size: 14px; }
+.job-offer-contractor { display: grid; gap: 10px; }
+.job-offer-contractor small { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.job-offer-contractor strong { display: block; margin: 3px 0; color: var(--navy); font-size: 18px; }
 .job-interest-profile { padding: 14px; display: grid; gap: 12px; border: 1px solid #d7e2ef; border-radius: 12px; background: #f8fbff; }
 .job-interest-profile small { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
 .job-interest-profile strong { display: block; margin: 3px 0; color: var(--navy); font-size: 18px; }
@@ -2151,15 +2178,21 @@ audio { width: 100%; margin-top: 13px; }
 .post-job-own-card footer span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .post-job-own-card footer .button { min-height: 34px; padding: 0 12px; }
 .post-job-interests { margin-top: 4px; padding-top: 10px; display: grid; gap: 10px; border-top: 1px solid #dbe6f2; }
+.post-job-offers { margin-top: 4px; padding-top: 10px; display: grid; gap: 10px; border-top: 1px solid #dbe6f2; }
 .post-job-interests__summary { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: stretch; }
-.post-job-interests h4 { margin: 0 0 4px; color: var(--navy); font-size: 14px; }
+.post-job-interests h4,
+.post-job-offers h4 { margin: 0 0 4px; color: var(--navy); font-size: 14px; }
 .post-job-interests__summary p { margin: 0; display: block; color: var(--muted); line-height: 1.4; }
 .post-job-interests__summary .button { width: 100%; min-height: 38px; padding: 0 12px; justify-content: center; }
 .post-job-interest-counters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .post-job-interest-counters span { min-width: 54px; padding: 7px 9px; display: grid; justify-items: center; border-radius: 10px; color: #166534; background: #e6f7ec; }
+.post-job-offer-counters span { color: #1d4e89; background: #eaf3ff; }
 .post-job-interest-counters strong { color: #166534; font-size: 16px; line-height: 1; }
+.post-job-offer-counters strong { color: #1d4e89; }
 .post-job-interest-counters small { margin-top: 2px; color: #34724a; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.post-job-offer-counters small { color: #35699f; }
 .post-job-interests .empty-note { display: block; }
+.post-job-offers .empty-note { display: block; }
 .post-job-interest-list { max-height: 430px; overflow-y: auto; padding-right: 4px; display: grid; gap: 9px; scrollbar-gutter: stable; }
 .post-job-interest-list--modal { max-height: min(62vh, 620px); padding-right: 6px; }
 .post-job-interests-panel { padding: 22px; display: grid; gap: 16px; }
@@ -2178,6 +2211,8 @@ audio { width: 100%; margin-top: 13px; }
 .post-job-own-card .post-job-interest-note p { margin: 0; display: block; color: #40506a; line-height: 1.45; }
 .post-job-interest-card footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-start; }
 .post-job-interest-card footer .button { min-height: 34px; padding: 0 10px; }
+.post-job-offer-card h4 { margin: 0; color: var(--navy); font-size: 15px; }
+.post-job-offer-card > p { margin: 0; display: block; color: var(--muted); line-height: 1.45; }
 .post-job-info { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 14px; align-items: start; }
 .post-job-info > span { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 50%; color: var(--blue); background: #edf3fb; }
 .post-job-info p { margin: 0; color: var(--muted); line-height: 1.55; }
@@ -2350,7 +2385,9 @@ audio { width: 100%; margin-top: 13px; }
   .discovery-search-input select { grid-column: 1 / -1; border-top: 1px solid #e2e8f0; border-radius: 0; }
   .discovery-location-grid,
   .post-job-grid,
-  .post-job-grid--three { grid-template-columns: 1fr; }
+  .post-job-grid--three,
+  .job-offer-grid,
+  .job-offer-summary dl { grid-template-columns: 1fr; }
   .discovery-location-grid select:last-child { grid-column: auto; }
   .discovery-results-bar { align-items: stretch; flex-direction: column; }
   .discovery-results-bar label { align-items: stretch; flex-direction: column; }
@@ -2371,9 +2408,13 @@ audio { width: 100%; margin-top: 13px; }
   .post-job-interest-card dl { grid-template-columns: 1fr; }
   .job-interest-detail-cta > div:last-child,
   .job-interest-form footer,
+  .job-offer-form footer,
+  .job-offer-detail-modal footer,
   .post-job-interest-card footer { display: grid; grid-template-columns: 1fr; }
   .job-interest-detail-cta .button,
   .job-interest-form footer .button,
+  .job-offer-form footer .button,
+  .job-offer-detail-modal footer .button,
   .post-job-interests__summary .button,
   .post-job-interest-card footer .button { width: 100%; justify-content: center; }
   .post-job-interest-counters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }

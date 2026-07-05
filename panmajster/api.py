@@ -293,12 +293,62 @@ def job_posting_interest_payload(
     return data
 
 
+def money_payload(value: Decimal | None) -> str | None:
+    return f"{value:.2f}" if value is not None else None
+
+
+def job_posting_offer_payload(
+    item: models.JobPostingOffer,
+    *,
+    profile: models.PublicProfile | None = None,
+    include_contact: bool = False,
+    job_posting: models.JobPosting | None = None,
+) -> dict:
+    data = {
+        "id": item.id,
+        "job_posting_id": item.job_posting_id,
+        "interest_id": item.interest_id,
+        "contractor_owner_type": item.contractor_owner_type,
+        "contractor_owner_id": item.contractor_owner_id,
+        "public_profile_id": item.public_profile_id,
+        "title": item.title,
+        "scope_summary": item.scope_summary,
+        "assumptions": item.assumptions,
+        "estimated_price": money_payload(item.estimated_price),
+        "price_note": item.price_note,
+        "planned_start": item.planned_start,
+        "planned_end": item.planned_end,
+        "status": item.status,
+        "sent_at": item.sent_at.isoformat() if item.sent_at else None,
+        "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
+        "rejected_at": item.rejected_at.isoformat() if item.rejected_at else None,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }
+    if include_contact and profile:
+        data["contractor"] = {
+            "display_name": profile.display_name,
+            "owner_type": profile.owner_type,
+            "specializations": profile.specializations or [],
+            "service_area": profile.service_area,
+            "contact_phone": profile.contact_phone,
+            "contact_email": profile.contact_email,
+            "slug": profile.slug,
+            "is_public": profile.is_public,
+        }
+    if job_posting:
+        data["job_posting"] = job_posting_payload(job_posting, public=True)
+    return data
+
+
 def job_posting_payload(
     item: models.JobPosting,
     *,
     public: bool = False,
     my_interest: models.JobPostingInterest | None = None,
+    my_offer: models.JobPostingOffer | None = None,
     interests: list[models.JobPostingInterest] | None = None,
+    offers: list[models.JobPostingOffer] | None = None,
     db: Session | None = None,
 ) -> dict:
     data = {
@@ -320,6 +370,8 @@ def job_posting_payload(
         data["investor_id"] = item.investor_id
     if my_interest:
         data["my_interest"] = job_posting_interest_payload(my_interest)
+    if my_offer:
+        data["my_offer"] = job_posting_offer_payload(my_offer)
     if interests is not None:
         data["interest_count"] = len(interests)
         data["interests"] = [
@@ -329,6 +381,16 @@ def job_posting_payload(
                 include_contact=True,
             )
             for interest in interests
+        ]
+    if offers is not None:
+        data["offer_count"] = len(offers)
+        data["offers"] = [
+            job_posting_offer_payload(
+                offer,
+                profile=db.get(models.PublicProfile, offer.public_profile_id) if db else None,
+                include_contact=True,
+            )
+            for offer in offers
         ]
     return data
 
@@ -472,6 +534,88 @@ def job_posting_interests_for(
             .order_by(models.JobPostingInterest.created_at.desc())
         ).all()
     )
+
+
+def job_posting_offers_for(
+    db: Session,
+    posting_id: str,
+    *,
+    investor_view: bool = False,
+) -> list[models.JobPostingOffer]:
+    query = select(models.JobPostingOffer).where(
+        models.JobPostingOffer.job_posting_id == posting_id
+    )
+    if investor_view:
+        query = query.where(models.JobPostingOffer.status != "draft")
+    return list(
+        db.scalars(
+            query.order_by(
+                models.JobPostingOffer.updated_at.desc(),
+                models.JobPostingOffer.created_at.desc(),
+            )
+        ).all()
+    )
+
+
+def contractor_offer_for_posting(
+    db: Session,
+    posting_id: str,
+    owner_type: str,
+    owner_id: str,
+) -> models.JobPostingOffer | None:
+    return db.scalar(
+        select(models.JobPostingOffer).where(
+            models.JobPostingOffer.job_posting_id == posting_id,
+            models.JobPostingOffer.contractor_owner_type == owner_type,
+            models.JobPostingOffer.contractor_owner_id == owner_id,
+        )
+    )
+
+
+def contractor_interest_for_offer(
+    db: Session,
+    posting_id: str,
+    owner_type: str,
+    owner_id: str,
+) -> models.JobPostingInterest | None:
+    return db.scalar(
+        select(models.JobPostingInterest).where(
+            models.JobPostingInterest.job_posting_id == posting_id,
+            models.JobPostingInterest.contractor_owner_type == owner_type,
+            models.JobPostingInterest.contractor_owner_id == owner_id,
+        )
+    )
+
+
+def apply_job_posting_offer_changes(
+    item: models.JobPostingOffer,
+    payload: JobPostingOfferCreate | JobPostingOfferUpdate,
+    *,
+    partial: bool = False,
+) -> None:
+    changes = payload.model_dump(exclude_unset=partial)
+    for key in [
+        "title",
+        "scope_summary",
+        "assumptions",
+        "price_note",
+        "planned_start",
+        "planned_end",
+    ]:
+        if key in changes:
+            setattr(item, key, (changes[key] or "").strip())
+    if "estimated_price" in changes:
+        item.estimated_price = changes["estimated_price"]
+    if "status" in changes:
+        status = changes["status"] or "draft"
+        if status == "sent":
+            if not item.title.strip() or not item.scope_summary.strip():
+                raise HTTPException(
+                    422,
+                    "Do wyslania oferty potrzebny jest tytul i zakres prac",
+                )
+            item.sent_at = item.sent_at or now()
+        item.status = status
 
 
 def get_or_create_public_profile(
@@ -760,6 +904,32 @@ class JobPostingInterestCreate(BaseModel):
 
 class JobPostingInterestUpdate(BaseModel):
     status: Literal["new", "contact", "rejected"]
+
+
+class JobPostingOfferCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=220)
+    scope_summary: str = Field(default="", max_length=5000)
+    assumptions: str = Field(default="", max_length=4000)
+    estimated_price: Decimal | None = Field(default=None, ge=0)
+    price_note: str = Field(default="", max_length=1000)
+    planned_start: str = Field(default="", max_length=160)
+    planned_end: str = Field(default="", max_length=160)
+    status: Literal["draft", "sent"] = "draft"
+
+
+class JobPostingOfferUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=220)
+    scope_summary: str | None = Field(default=None, max_length=5000)
+    assumptions: str | None = Field(default=None, max_length=4000)
+    estimated_price: Decimal | None = Field(default=None, ge=0)
+    price_note: str | None = Field(default=None, max_length=1000)
+    planned_start: str | None = Field(default=None, max_length=160)
+    planned_end: str | None = Field(default=None, max_length=160)
+    status: Literal["draft", "sent"] | None = None
+
+
+class JobPostingOfferInvestorUpdate(BaseModel):
+    status: Literal["accepted", "rejected"]
 
 
 class ProjectClientCoverUpdate(BaseModel):
@@ -1630,6 +1800,7 @@ def list_my_job_postings(
         job_posting_payload(
             item,
             interests=job_posting_interests_for(db, item.id),
+            offers=job_posting_offers_for(db, item.id, investor_view=True),
             db=db,
         )
         for item in items
@@ -1649,7 +1820,7 @@ def create_my_job_posting(
     db.add(item)
     db.commit()
     db.refresh(item)
-    return job_posting_payload(item, interests=[], db=db)
+    return job_posting_payload(item, interests=[], offers=[], db=db)
 
 
 @router.patch("/job-postings/me/{posting_id}")
@@ -1670,6 +1841,7 @@ def update_my_job_posting(
     return job_posting_payload(
         item,
         interests=job_posting_interests_for(db, item.id),
+        offers=job_posting_offers_for(db, item.id, investor_view=True),
         db=db,
     )
 
@@ -1752,12 +1924,20 @@ def list_public_job_postings(
             models.JobPostingInterest.contractor_owner_id == owner_id,
         )
     ).all()
-    by_posting = {item.job_posting_id: item for item in interests}
+    offers = db.scalars(
+        select(models.JobPostingOffer).where(
+            models.JobPostingOffer.contractor_owner_type == owner_type,
+            models.JobPostingOffer.contractor_owner_id == owner_id,
+        )
+    ).all()
+    interest_by_posting = {item.job_posting_id: item for item in interests}
+    offer_by_posting = {item.job_posting_id: item for item in offers}
     return [
         job_posting_payload(
             item,
             public=True,
-            my_interest=by_posting.get(item.id),
+            my_interest=interest_by_posting.get(item.id),
+            my_offer=offer_by_posting.get(item.id),
         )
         for item in items
     ]
@@ -1799,6 +1979,154 @@ def create_job_posting_interest(
         raise HTTPException(409, "Zainteresowanie zostalo juz zgloszone") from exc
     db.refresh(item)
     return job_posting_interest_payload(item)
+
+
+@router.get("/job-posting-offers/me")
+def list_my_job_posting_offers(
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    owner_type, owner_id = contractor_interest_identity(db, user)
+    items = db.scalars(
+        select(models.JobPostingOffer)
+        .where(
+            models.JobPostingOffer.contractor_owner_type == owner_type,
+            models.JobPostingOffer.contractor_owner_id == owner_id,
+        )
+        .order_by(
+            models.JobPostingOffer.updated_at.desc(),
+            models.JobPostingOffer.created_at.desc(),
+        )
+    ).all()
+    return [
+        job_posting_offer_payload(
+            item,
+            job_posting=db.get(models.JobPosting, item.job_posting_id),
+        )
+        for item in items
+    ]
+
+
+@router.post("/job-postings/public/{posting_id}/offer", status_code=201)
+def create_job_posting_offer(
+    posting_id: str,
+    payload: JobPostingOfferCreate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    posting = db.get(models.JobPosting, posting_id)
+    if not posting or posting.status != "published":
+        raise HTTPException(422, "Oferte mozna przygotowac tylko do opublikowanego ogloszenia")
+    owner_type, owner_id = contractor_interest_identity(db, user)
+    interest = contractor_interest_for_offer(db, posting.id, owner_type, owner_id)
+    if not interest:
+        raise HTTPException(422, "Najpierw zglos zainteresowanie tym zleceniem")
+    existing = contractor_offer_for_posting(db, posting.id, owner_type, owner_id)
+    if existing:
+        raise HTTPException(409, "Oferta do tego ogloszenia juz istnieje")
+
+    item = models.JobPostingOffer(
+        job_posting_id=posting.id,
+        interest_id=interest.id,
+        contractor_owner_type=owner_type,
+        contractor_owner_id=owner_id,
+        public_profile_id=interest.public_profile_id,
+    )
+    apply_job_posting_offer_changes(item, payload)
+    db.add(item)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Oferta do tego ogloszenia juz istnieje") from exc
+    db.refresh(item)
+    return job_posting_offer_payload(item)
+
+
+@router.patch("/job-posting-offers/me/{offer_id}")
+def update_my_job_posting_offer(
+    offer_id: str,
+    payload: JobPostingOfferUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    owner_type, owner_id = contractor_interest_identity(db, user)
+    item = db.get(models.JobPostingOffer, offer_id)
+    if (
+        not item
+        or item.contractor_owner_type != owner_type
+        or item.contractor_owner_id != owner_id
+    ):
+        raise HTTPException(404, "Oferta nie istnieje")
+    if item.status != "draft":
+        raise HTTPException(422, "Po wyslaniu oferta nie jest edytowalna")
+    apply_job_posting_offer_changes(item, payload, partial=True)
+    db.commit()
+    db.refresh(item)
+    return job_posting_offer_payload(item)
+
+
+@router.get("/job-postings/me/offers")
+def list_my_job_posting_offers_as_investor(
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not is_investor(user):
+        raise HTTPException(403, "Tylko inwestor widzi oferty do swoich ogloszen")
+    items = db.scalars(
+        select(models.JobPostingOffer)
+        .join(models.JobPosting, models.JobPosting.id == models.JobPostingOffer.job_posting_id)
+        .where(
+            models.JobPosting.investor_id == user.id,
+            models.JobPostingOffer.status != "draft",
+        )
+        .order_by(
+            models.JobPostingOffer.updated_at.desc(),
+            models.JobPostingOffer.created_at.desc(),
+        )
+    ).all()
+    return [
+        job_posting_offer_payload(
+            item,
+            profile=db.get(models.PublicProfile, item.public_profile_id),
+            include_contact=True,
+            job_posting=db.get(models.JobPosting, item.job_posting_id),
+        )
+        for item in items
+    ]
+
+
+@router.patch("/job-postings/me/offers/{offer_id}")
+def update_my_job_posting_offer_as_investor(
+    offer_id: str,
+    payload: JobPostingOfferInvestorUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not is_investor(user):
+        raise HTTPException(403, "Tylko inwestor moze zmieniac status ofert")
+    item = db.get(models.JobPostingOffer, offer_id)
+    if not item:
+        raise HTTPException(404, "Oferta nie istnieje")
+    posting = db.get(models.JobPosting, item.job_posting_id)
+    if not posting or posting.investor_id != user.id:
+        raise HTTPException(404, "Oferta nie istnieje")
+    if item.status == "draft":
+        raise HTTPException(422, "Szkic oferty nie jest widoczny dla inwestora")
+    item.status = payload.status
+    if payload.status == "accepted":
+        item.accepted_at = item.accepted_at or now()
+        item.rejected_at = None
+    else:
+        item.rejected_at = item.rejected_at or now()
+        item.accepted_at = None
+    db.commit()
+    db.refresh(item)
+    return job_posting_offer_payload(
+        item,
+        profile=db.get(models.PublicProfile, item.public_profile_id),
+        include_contact=True,
+    )
 
 
 @router.get("/public-profile/me")

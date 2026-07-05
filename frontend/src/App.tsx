@@ -43,6 +43,8 @@ import type {
   Entry,
   JobInterestContext,
   JobPosting,
+  JobPostingOffer,
+  JobPostingOfferStatus,
   JobPostingInterest,
   JobPostingInterestStatus,
   JobPostingStatus,
@@ -6741,16 +6743,210 @@ function JobPostingInterestModal({
   );
 }
 
+function JobPostingOfferSummary({ offer }: { offer: JobPostingOffer }) {
+  return (
+    <div className="job-offer-summary">
+      <dl>
+        <div><dt>Kwota orientacyjna</dt><dd>{jobPostingOfferAmountLabel(offer)}</dd></div>
+        <div><dt>Start</dt><dd>{offer.planned_start || "Do ustalenia"}</dd></div>
+        <div><dt>Czas / koniec</dt><dd>{offer.planned_end || "Do ustalenia"}</dd></div>
+        <div><dt>Status</dt><dd>{jobPostingOfferStatusLabel(offer.status)}</dd></div>
+      </dl>
+      <section>
+        <h4>Zakres prac</h4>
+        <p>{offer.scope_summary || "Zakres nie został jeszcze opisany."}</p>
+      </section>
+      {offer.assumptions && (
+        <section>
+          <h4>Założenia</h4>
+          <p>{offer.assumptions}</p>
+        </section>
+      )}
+      {offer.price_note && (
+        <section>
+          <h4>Notatka do ceny</h4>
+          <p>{offer.price_note}</p>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function JobPostingOfferDetailModal({
+  offer,
+  onClose,
+}: {
+  offer: JobPostingOffer;
+  onClose: () => void;
+}) {
+  return (
+    <Modal title="Oferta wstępna" onClose={onClose} wide>
+      <div className="job-offer-detail-modal">
+        <header>
+          <span className={`status ${offer.status === "accepted" ? "status--completed" : offer.status === "rejected" ? "status--paused" : "status--assigned"}`}>
+            {jobPostingOfferStatusLabel(offer.status)}
+          </span>
+          <h3>{offer.title}</h3>
+          <p>To jest wstępna wycena orientacyjna wykonawcy, bez umowy, płatności i automatycznego utworzenia zlecenia.</p>
+        </header>
+        {offer.contractor && (
+          <section className="job-offer-contractor">
+            <div>
+              <small>Wykonawca</small>
+              <strong>{offer.contractor.display_name}</strong>
+              <p>{jobPostingInterestOwnerLabel(offer.contractor.owner_type)} · {offer.contractor.service_area || "Obszar niepodany"}</p>
+            </div>
+            <div className="service-chip-list service-chip-list--small">
+              {offer.contractor.specializations.length > 0
+                ? offer.contractor.specializations.slice(0, 4).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
+                : <span>Brak specjalizacji</span>}
+            </div>
+          </section>
+        )}
+        <JobPostingOfferSummary offer={offer} />
+        <footer>
+          <Button type="button" onClick={onClose}>Zamknij</Button>
+        </footer>
+      </div>
+    </Modal>
+  );
+}
+
+function JobPostingOfferModal({
+  posting,
+  title,
+  scope,
+  assumptions,
+  price,
+  priceNote,
+  plannedStart,
+  plannedEnd,
+  busy,
+  error,
+  onTitleChange,
+  onScopeChange,
+  onAssumptionsChange,
+  onPriceChange,
+  onPriceNoteChange,
+  onPlannedStartChange,
+  onPlannedEndChange,
+  onSubmit,
+  onClose,
+}: {
+  posting: JobPosting;
+  title: string;
+  scope: string;
+  assumptions: string;
+  price: string;
+  priceNote: string;
+  plannedStart: string;
+  plannedEnd: string;
+  busy: JobPostingOfferStatus | null;
+  error: string;
+  onTitleChange: (value: string) => void;
+  onScopeChange: (value: string) => void;
+  onAssumptionsChange: (value: string) => void;
+  onPriceChange: (value: string) => void;
+  onPriceNoteChange: (value: string) => void;
+  onPlannedStartChange: (value: string) => void;
+  onPlannedEndChange: (value: string) => void;
+  onSubmit: (status: "draft" | "sent") => void;
+  onClose: () => void;
+}) {
+  const existing = posting.my_offer || null;
+  const locked = Boolean(existing && existing.status !== "draft");
+  if (locked && existing) {
+    return (
+      <JobPostingOfferDetailModal
+        offer={existing}
+        onClose={onClose}
+      />
+    );
+  }
+  return (
+    <Modal title="Oferta wstępna / wycena orientacyjna" onClose={onClose} wide>
+      <form
+        className="job-offer-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit("sent");
+        }}
+      >
+        <header>
+          <span className="status status--assigned">{existing ? "Szkic oferty" : "Nowa oferta"}</span>
+          <h3>{posting.title}</h3>
+          <p>Przygotuj orientacyjną ofertę dla inwestora. To jeszcze nie jest umowa ani automatyczne przyjęcie zlecenia.</p>
+        </header>
+        <label>
+          Tytuł oferty
+          <input value={title} onChange={(event) => onTitleChange(event.target.value)} maxLength={220} required />
+        </label>
+        <label>
+          Zakres prac
+          <textarea
+            value={scope}
+            onChange={(event) => onScopeChange(event.target.value)}
+            rows={5}
+            maxLength={5000}
+            placeholder="Opisz, co obejmuje wstępna wycena."
+          />
+        </label>
+        <label>
+          Założenia i zastrzeżenia
+          <textarea
+            value={assumptions}
+            onChange={(event) => onAssumptionsChange(event.target.value)}
+            rows={3}
+            maxLength={4000}
+            placeholder="Np. wycena do potwierdzenia po oględzinach."
+          />
+        </label>
+        <div className="job-offer-grid">
+          <label>
+            Kwota orientacyjna
+            <input value={price} onChange={(event) => onPriceChange(event.target.value)} inputMode="decimal" placeholder="Np. 12500" />
+          </label>
+          <label>
+            Start
+            <input value={plannedStart} onChange={(event) => onPlannedStartChange(event.target.value)} maxLength={160} placeholder="Np. sierpień 2026" />
+          </label>
+          <label>
+            Czas / koniec
+            <input value={plannedEnd} onChange={(event) => onPlannedEndChange(event.target.value)} maxLength={160} placeholder="Np. 2 tygodnie" />
+          </label>
+        </div>
+        <label>
+          Notatka do ceny
+          <input value={priceNote} onChange={(event) => onPriceNoteChange(event.target.value)} maxLength={1000} placeholder="Np. kwota orientacyjna, materiały osobno" />
+        </label>
+        {error && <p className="form-error">{error}</p>}
+        <footer>
+          <Button type="button" variant="secondary" onClick={onClose}>Anuluj</Button>
+          <Button type="button" variant="secondary" busy={busy === "draft"} disabled={Boolean(busy)} onClick={() => onSubmit("draft")}>
+            Zapisz szkic
+          </Button>
+          <Button type="submit" icon="send" busy={busy === "sent"} disabled={Boolean(busy)}>
+            Wyślij ofertę
+          </Button>
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
 function JobPostingPreviewModal({
   posting,
   onClose,
   onInterest,
+  onOffer,
 }: {
   posting: JobPosting;
   onClose: () => void;
   onInterest: (posting: JobPosting) => void;
+  onOffer: (posting: JobPosting) => void;
 }) {
   const hasInterest = Boolean(posting.my_interest);
+  const offer = posting.my_offer || null;
   return (
     <Modal title="Szczegóły zlecenia" onClose={onClose} wide>
       <div className="contractor-job-detail">
@@ -6782,8 +6978,8 @@ function JobPostingPreviewModal({
         <section className="job-interest-detail-cta">
           {hasInterest ? (
             <>
-              <strong>Zgłoszono zainteresowanie</strong>
-              <p>Inwestor ma Twoje dane kontaktowe z wizytówki.</p>
+              <strong>{offer ? `Oferta: ${jobPostingOfferStatusLabel(offer.status)}` : "Zgłoszono zainteresowanie"}</strong>
+              <p>{offer ? "Możesz podejrzeć wysłaną ofertę albo dokończyć szkic." : "Inwestor ma Twoje dane kontaktowe z wizytówki. Możesz przygotować wstępną ofertę."}</p>
             </>
           ) : (
             <>
@@ -6796,14 +6992,30 @@ function JobPostingPreviewModal({
             <Button
               type="button"
               icon={hasInterest ? "check" : "send"}
-              disabled={hasInterest}
+              disabled={hasInterest && Boolean(offer)}
               onClick={() => {
                 onClose();
-                onInterest(posting);
+                if (hasInterest) {
+                  onOffer(posting);
+                } else {
+                  onInterest(posting);
+                }
               }}
             >
-              {hasInterest ? "Zgłoszono zainteresowanie" : "Jestem zainteresowany"}
+              {hasInterest ? (offer ? "Oferta przygotowana" : "Przygotuj ofertę") : "Jestem zainteresowany"}
             </Button>
+            {hasInterest && offer && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  onClose();
+                  onOffer(posting);
+                }}
+              >
+                {offer.status === "draft" ? "Edytuj ofertę" : "Podgląd oferty"}
+              </Button>
+            )}
           </div>
         </section>
       </div>
@@ -6832,6 +7044,16 @@ function ContractorJobSearchPage({
   const [interestMessage, setInterestMessage] = useState(DEFAULT_JOB_INTEREST_MESSAGE);
   const [interestBusy, setInterestBusy] = useState(false);
   const [interestError, setInterestError] = useState("");
+  const [offerPosting, setOfferPosting] = useState<JobPosting | null>(null);
+  const [offerTitle, setOfferTitle] = useState("");
+  const [offerScope, setOfferScope] = useState("");
+  const [offerAssumptions, setOfferAssumptions] = useState("");
+  const [offerPrice, setOfferPrice] = useState("");
+  const [offerPriceNote, setOfferPriceNote] = useState("");
+  const [offerPlannedStart, setOfferPlannedStart] = useState("");
+  const [offerPlannedEnd, setOfferPlannedEnd] = useState("");
+  const [offerBusy, setOfferBusy] = useState<JobPostingOfferStatus | null>(null);
+  const [offerError, setOfferError] = useState("");
 
   const loadPostings = useCallback(async () => {
     setLoading(true);
@@ -6906,6 +7128,82 @@ function ContractorJobSearchPage({
     onOpenPortfolio();
   }
 
+  function openOfferModal(posting: JobPosting) {
+    if (!posting.my_interest) {
+      notify({ kind: "info", message: "Najpierw zgłoś zainteresowanie zleceniem." });
+      void openInterestModal(posting);
+      return;
+    }
+    const offer = posting.my_offer || null;
+    setOfferPosting(posting);
+    setOfferTitle(offer?.title || `Oferta wstępna: ${posting.title}`);
+    setOfferScope(offer?.scope_summary || "");
+    setOfferAssumptions(offer?.assumptions || "Oferta orientacyjna do potwierdzenia po rozmowie i oględzinach.");
+    setOfferPrice(offer?.estimated_price || "");
+    setOfferPriceNote(offer?.price_note || "");
+    setOfferPlannedStart(offer?.planned_start || "");
+    setOfferPlannedEnd(offer?.planned_end || "");
+    setOfferError("");
+    setOfferBusy(null);
+  }
+
+  function closeOfferModal() {
+    setOfferPosting(null);
+    setOfferError("");
+    setOfferBusy(null);
+  }
+
+  function updatePostingOffer(postingId: string, offer: JobPostingOffer) {
+    setPostings((current) => current.map((item) => (
+      item.id === postingId ? { ...item, my_offer: offer } : item
+    )));
+    setSelectedPosting((current) => (
+      current?.id === postingId ? { ...current, my_offer: offer } : current
+    ));
+    setOfferPosting((current) => (
+      current?.id === postingId ? { ...current, my_offer: offer } : current
+    ));
+  }
+
+  async function submitOffer(status: "draft" | "sent") {
+    if (!offerPosting) return;
+    setOfferBusy(status);
+    setOfferError("");
+    try {
+      const body = {
+        title: offerTitle,
+        scope_summary: offerScope,
+        assumptions: offerAssumptions,
+        estimated_price: offerPrice.trim() || null,
+        price_note: offerPriceNote,
+        planned_start: offerPlannedStart,
+        planned_end: offerPlannedEnd,
+        status,
+      };
+      const saved = offerPosting.my_offer
+        ? await api<JobPostingOffer>(`/job-posting-offers/me/${offerPosting.my_offer.id}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          })
+        : await api<JobPostingOffer>(`/job-postings/public/${offerPosting.id}/offer`, {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+      updatePostingOffer(offerPosting.id, saved);
+      notify({
+        kind: "success",
+        message: status === "sent" ? "Oferta wstępna wysłana inwestorowi." : "Szkic oferty zapisany.",
+      });
+      closeOfferModal();
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udało się zapisać oferty.";
+      setOfferError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setOfferBusy(null);
+    }
+  }
+
   async function submitInterest(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!interestPosting) return;
@@ -6944,8 +7242,8 @@ function ContractorJobSearchPage({
         <aside className="discovery-live-note">
           <span><Icon name="send" /></span>
           <div>
-            <strong>Zainteresowanie bez ofert</strong>
-            <small>Inwestor zobaczy kontakt z Twojej publicznej wizytówki.</small>
+            <strong>Zainteresowanie i oferta</strong>
+            <small>Po zgłoszeniu możesz wysłać wstępną wycenę orientacyjną.</small>
           </div>
         </aside>
       </header>
@@ -7045,7 +7343,19 @@ function ContractorJobSearchPage({
             <div className="contractor-discovery-actions">
               <Button type="button" onClick={() => setSelectedPosting(posting)}>Zobacz zlecenie</Button>
               {posting.my_interest ? (
-                <p className="job-interest-submitted"><Icon name="check" size={16} /> Zgłoszono zainteresowanie</p>
+                <>
+                  <p className="job-interest-submitted"><Icon name="check" size={16} /> Zgłoszono zainteresowanie</p>
+                  <Button type="button" variant="secondary" icon={posting.my_offer?.status === "sent" ? "check" : "report"} onClick={() => openOfferModal(posting)}>
+                    {posting.my_offer
+                      ? posting.my_offer.status === "draft"
+                        ? "Edytuj ofertę"
+                        : "Podgląd oferty"
+                      : "Przygotuj ofertę"}
+                  </Button>
+                  {posting.my_offer && (
+                    <p className="job-offer-submitted">Oferta: {jobPostingOfferStatusLabel(posting.my_offer.status)}</p>
+                  )}
+                </>
               ) : (
                 <Button type="button" variant="secondary" icon="send" onClick={() => void openInterestModal(posting)}>
                   Jestem zainteresowany
@@ -7061,6 +7371,7 @@ function ContractorJobSearchPage({
           posting={selectedPosting}
           onClose={() => setSelectedPosting(null)}
           onInterest={(posting) => void openInterestModal(posting)}
+          onOffer={openOfferModal}
         />
       )}
       {interestPosting && (
@@ -7075,6 +7386,29 @@ function ContractorJobSearchPage({
           onSubmit={submitInterest}
           onClose={closeInterestModal}
           onOpenPortfolio={openPortfolioFromInterestModal}
+        />
+      )}
+      {offerPosting && (
+        <JobPostingOfferModal
+          posting={offerPosting}
+          title={offerTitle}
+          scope={offerScope}
+          assumptions={offerAssumptions}
+          price={offerPrice}
+          priceNote={offerPriceNote}
+          plannedStart={offerPlannedStart}
+          plannedEnd={offerPlannedEnd}
+          busy={offerBusy}
+          error={offerError}
+          onTitleChange={setOfferTitle}
+          onScopeChange={setOfferScope}
+          onAssumptionsChange={setOfferAssumptions}
+          onPriceChange={setOfferPrice}
+          onPriceNoteChange={setOfferPriceNote}
+          onPlannedStartChange={setOfferPlannedStart}
+          onPlannedEndChange={setOfferPlannedEnd}
+          onSubmit={(status) => void submitOffer(status)}
+          onClose={closeOfferModal}
         />
       )}
     </div>
@@ -7327,6 +7661,24 @@ function jobPostingInterestStatusLabel(status: JobPostingInterestStatus): string
   return "Nowe";
 }
 
+function jobPostingOfferStatusLabel(status: JobPostingOfferStatus): string {
+  if (status === "sent") return "Wysłana";
+  if (status === "accepted") return "Zaakceptowana";
+  if (status === "rejected") return "Odrzucona";
+  return "Szkic";
+}
+
+function jobPostingOfferAmountLabel(offer: JobPostingOffer): string {
+  if (!offer.estimated_price) return "Do ustalenia";
+  const parsed = Number(offer.estimated_price);
+  if (Number.isNaN(parsed)) return `${offer.estimated_price} zł`;
+  return new Intl.NumberFormat("pl-PL", {
+    style: "currency",
+    currency: "PLN",
+    maximumFractionDigits: 0,
+  }).format(parsed);
+}
+
 function jobPostingInterestOwnerLabel(ownerType: PublicProfileOwnerType): string {
   return ownerType === "company" ? "Firma" : "Samodzielny majster";
 }
@@ -7445,6 +7797,107 @@ function InvestorJobInterestList({
             </div>
           </div>
         </Modal>
+      )}
+    </section>
+  );
+}
+
+function InvestorJobOfferList({
+  posting,
+  busyAction,
+  onStatusChange,
+}: {
+  posting: JobPosting;
+  busyAction: string | null;
+  onStatusChange: (postingId: string, offer: JobPostingOffer, status: "accepted" | "rejected") => void;
+}) {
+  const offers = posting.offers || [];
+  const count = posting.offer_count ?? offers.length;
+  const newCount = offers.filter((offer) => offer.status === "sent").length;
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [previewOffer, setPreviewOffer] = useState<JobPostingOffer | null>(null);
+  const hasOffers = offers.length > 0;
+  return (
+    <section className="post-job-offers">
+      <header className="post-job-interests__summary">
+        <div>
+          <h4>Oferty wstępne</h4>
+          <p>Orientacyjne wyceny od wykonawców zainteresowanych tym ogłoszeniem.</p>
+        </div>
+        <div className="post-job-interest-counters post-job-offer-counters" aria-label="Podsumowanie ofert wstępnych">
+          <span><strong>{count}</strong><small>łącznie</small></span>
+          {newCount > 0 && <span><strong>{newCount}</strong><small>wysłane</small></span>}
+        </div>
+        {hasOffers && (
+          <Button type="button" variant="secondary" onClick={() => setPanelOpen(true)}>
+            Pokaż oferty
+          </Button>
+        )}
+      </header>
+      {!hasOffers && (
+        <p className="empty-note">Brak wysłanych ofert. Szkice wykonawców nie są widoczne dla inwestora.</p>
+      )}
+      {panelOpen && (
+        <Modal title="Oferty wstępne" onClose={() => setPanelOpen(false)} wide>
+          <div className="post-job-interests-panel">
+            <header>
+              <span className="eyebrow">Wyceny orientacyjne</span>
+              <h3>{posting.title}</h3>
+              <p>Porównaj wstępne zakresy i kwoty. Akceptacja oferty nie tworzy jeszcze zlecenia, umowy ani płatności.</p>
+            </header>
+            <div className="post-job-interest-list post-job-interest-list--modal">
+              {offers.map((offer) => {
+                const contractor = offer.contractor;
+                return (
+                  <article className="post-job-interest-card post-job-offer-card" key={offer.id}>
+                    <header>
+                      <div>
+                        <strong>{contractor?.display_name || "Wykonawca"}</strong>
+                        <small>{jobPostingInterestOwnerLabel(offer.contractor_owner_type)} · {jobPostingOfferStatusLabel(offer.status)}</small>
+                      </div>
+                      <span className={`status ${offer.status === "accepted" ? "status--completed" : offer.status === "rejected" ? "status--paused" : "status--assigned"}`}>
+                        {jobPostingOfferStatusLabel(offer.status)}
+                      </span>
+                    </header>
+                    <h4>{offer.title}</h4>
+                    <p>{offer.scope_summary || "Brak opisu zakresu."}</p>
+                    <dl>
+                      <div><dt>Kwota</dt><dd>{jobPostingOfferAmountLabel(offer)}</dd></div>
+                      <div><dt>Start</dt><dd>{offer.planned_start || "Do ustalenia"}</dd></div>
+                      <div><dt>Czas / koniec</dt><dd>{offer.planned_end || "Do ustalenia"}</dd></div>
+                    </dl>
+                    <footer>
+                      <Button type="button" variant="secondary" onClick={() => setPreviewOffer(offer)}>Zobacz ofertę</Button>
+                      <Button
+                        type="button"
+                        disabled={offer.status === "accepted" || Boolean(busyAction)}
+                        busy={busyAction === `offer:${offer.id}:accepted`}
+                        onClick={() => onStatusChange(posting.id, offer, "accepted")}
+                      >
+                        Zaakceptuj
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={offer.status === "rejected" || Boolean(busyAction)}
+                        busy={busyAction === `offer:${offer.id}:rejected`}
+                        onClick={() => onStatusChange(posting.id, offer, "rejected")}
+                      >
+                        Odrzuć
+                      </Button>
+                    </footer>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </Modal>
+      )}
+      {previewOffer && (
+        <JobPostingOfferDetailModal
+          offer={previewOffer}
+          onClose={() => setPreviewOffer(null)}
+        />
       )}
     </section>
   );
@@ -7575,6 +8028,38 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
     }
   }
 
+  async function updateOfferStatus(
+    postingId: string,
+    offer: JobPostingOffer,
+    status: "accepted" | "rejected",
+  ) {
+    setBusyAction(`offer:${offer.id}:${status}`);
+    setError("");
+    try {
+      const saved = await api<JobPostingOffer>(`/job-postings/me/offers/${offer.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setPostings((current) => current.map((posting) => {
+        if (posting.id !== postingId) return posting;
+        return {
+          ...posting,
+          offers: (posting.offers || []).map((item) => (item.id === saved.id ? { ...item, ...saved } : item)),
+        };
+      }));
+      notify({
+        kind: "success",
+        message: status === "accepted"
+          ? "Oferta oznaczona jako zaakceptowana. Nie utworzono automatycznie zlecenia ani umowy."
+          : "Oferta oznaczona jako odrzucona.",
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zmienić statusu oferty.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   function submitPosting(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     void savePosting("published");
@@ -7697,6 +8182,11 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
                       posting={item}
                       busyAction={busyAction}
                       onStatusChange={(postingId, interest, status) => void updateInterestStatus(postingId, interest, status)}
+                    />
+                    <InvestorJobOfferList
+                      posting={item}
+                      busyAction={busyAction}
+                      onStatusChange={(postingId, offer, status) => void updateOfferStatus(postingId, offer, status)}
                     />
                   </section>
                 ))}

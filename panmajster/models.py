@@ -187,6 +187,44 @@ class JobPostingInterest(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(30), default="new", index=True)
 
 
+class JobPostingOffer(Base, TimestampMixin):
+    __tablename__ = "job_posting_offers"
+    __table_args__ = (
+        UniqueConstraint(
+            "job_posting_id",
+            "contractor_owner_type",
+            "contractor_owner_id",
+            name="uq_job_posting_offer_contractor",
+        ),
+        Index("ix_job_posting_offers_posting", "job_posting_id"),
+        Index("ix_job_posting_offers_contractor", "contractor_owner_type", "contractor_owner_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    job_posting_id: Mapped[str] = mapped_column(
+        ForeignKey("job_postings.id", ondelete="CASCADE")
+    )
+    interest_id: Mapped[str] = mapped_column(
+        ForeignKey("job_posting_interests.id", ondelete="CASCADE"), index=True
+    )
+    contractor_owner_type: Mapped[str] = mapped_column(String(40))
+    contractor_owner_id: Mapped[str] = mapped_column(String(36))
+    public_profile_id: Mapped[str] = mapped_column(
+        ForeignKey("public_profiles.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(220), default="")
+    scope_summary: Mapped[str] = mapped_column(Text, default="")
+    assumptions: Mapped[str] = mapped_column(Text, default="")
+    estimated_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    price_note: Mapped[str] = mapped_column(Text, default="")
+    planned_start: Mapped[str] = mapped_column(String(160), default="")
+    planned_end: Mapped[str] = mapped_column(String(160), default="")
+    status: Mapped[str] = mapped_column(String(30), default="draft", index=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
     __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)

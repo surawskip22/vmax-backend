@@ -4162,3 +4162,265 @@ def test_investor_and_company_worker_cannot_interest_job_postings():
             json={"message": "Pracownik nie zglasza."},
         )
         assert blocked_worker.status_code == 403
+
+
+def test_job_posting_offer_flow_requires_interest_and_does_not_create_project():
+    with TestClient(app) as client:
+        posting = create_job_posting(
+            client,
+            "offer-investor@example.com",
+            title="Zlecenie pod oferte",
+        )
+        draft = create_job_posting(
+            client,
+            "offer-draft-investor@example.com",
+            title="Szkic bez ofert",
+            status="draft",
+        )
+
+        login(client, "offer-contractor@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        profile = client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": True,
+                "slug": "offer-independent-ready",
+                "display_name": "Majster Ofertowy",
+                "public_description": "Wyceny i remonty lazienek.",
+                "specializations": ["remont-lazienki", "hydraulika"],
+                "service_area": "Warszawa",
+                "contact_phone": "501 111 222",
+                "contact_email": "offer-public@example.com",
+            },
+        )
+        assert profile.status_code == 200
+
+        blocked_without_interest = client.post(
+            f"/api/job-postings/public/{posting['id']}/offer",
+            json={
+                "title": "Oferta przed zainteresowaniem",
+                "scope_summary": "Zakres",
+                "status": "draft",
+            },
+        )
+        assert blocked_without_interest.status_code == 422
+        assert "zglos zainteresowanie" in blocked_without_interest.json()["detail"]
+
+        blocked_draft_posting = client.post(
+            f"/api/job-postings/public/{draft['id']}/offer",
+            json={
+                "title": "Oferta do szkicu",
+                "scope_summary": "Zakres",
+                "status": "draft",
+            },
+        )
+        assert blocked_draft_posting.status_code == 422
+
+        interest_response = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Chce przygotowac wstepna wycene."},
+        )
+        assert interest_response.status_code == 201
+        interest = interest_response.json()
+
+        draft_offer = client.post(
+            f"/api/job-postings/public/{posting['id']}/offer",
+            json={
+                "title": "Oferta wstepna na remont",
+                "scope_summary": "",
+                "assumptions": "Po ogledzinach mozliwa korekta.",
+                "estimated_price": "12500.00",
+                "price_note": "Kwota orientacyjna brutto.",
+                "planned_start": "sierpien 2026",
+                "planned_end": "2 tygodnie",
+                "status": "draft",
+            },
+        )
+        assert draft_offer.status_code == 201
+        offer = draft_offer.json()
+        assert offer["status"] == "draft"
+        assert offer["interest_id"] == interest["id"]
+        assert offer["contractor_owner_type"] == "independent_contractor"
+        assert offer["estimated_price"] == "12500.00"
+
+        duplicate = client.post(
+            f"/api/job-postings/public/{posting['id']}/offer",
+            json={
+                "title": "Druga oferta",
+                "scope_summary": "Duplikat",
+                "status": "draft",
+            },
+        )
+        assert duplicate.status_code == 409
+
+        public_list = client.get("/api/job-postings/public")
+        assert public_list.status_code == 200
+        public_posting = next(item for item in public_list.json() if item["id"] == posting["id"])
+        assert public_posting["my_offer"]["id"] == offer["id"]
+        assert public_posting["my_offer"]["status"] == "draft"
+
+        login(client, "offer-investor@example.com")
+        investor_postings_before_send = client.get("/api/job-postings/me")
+        assert investor_postings_before_send.status_code == 200
+        investor_posting_before_send = next(
+            item for item in investor_postings_before_send.json() if item["id"] == posting["id"]
+        )
+        assert investor_posting_before_send["offer_count"] == 0
+        assert investor_posting_before_send["offers"] == []
+
+        login(client, "offer-contractor@example.com")
+        sent = client.patch(
+            f"/api/job-posting-offers/me/{offer['id']}",
+            json={
+                "scope_summary": "Demontaz, hydraulika, plytki i bialy montaz.",
+                "status": "sent",
+            },
+        )
+        assert sent.status_code == 200
+        sent_offer = sent.json()
+        assert sent_offer["status"] == "sent"
+        assert sent_offer["sent_at"]
+
+        blocked_edit_sent = client.patch(
+            f"/api/job-posting-offers/me/{offer['id']}",
+            json={"title": "Zmiana po wyslaniu"},
+        )
+        assert blocked_edit_sent.status_code == 422
+
+        my_offers = client.get("/api/job-posting-offers/me")
+        assert my_offers.status_code == 200
+        assert my_offers.json()[0]["job_posting"]["id"] == posting["id"]
+
+        login(client, "offer-investor@example.com")
+        my_postings = client.get("/api/job-postings/me")
+        assert my_postings.status_code == 200
+        investor_posting = next(item for item in my_postings.json() if item["id"] == posting["id"])
+        assert investor_posting["offer_count"] == 1
+        contractor = investor_posting["offers"][0]["contractor"]
+        assert contractor["display_name"] == "Majster Ofertowy"
+        assert contractor["contact_email"] == "offer-public@example.com"
+        assert contractor["contact_email"] != "offer-contractor@example.com"
+
+        investor_offers = client.get("/api/job-postings/me/offers")
+        assert investor_offers.status_code == 200
+        assert [item["id"] for item in investor_offers.json()] == [offer["id"]]
+
+        login(client, "offer-other-investor@example.com")
+        client.post("/api/onboarding", json={"profile_type": "investor"})
+        other_offers = client.get("/api/job-postings/me/offers")
+        assert other_offers.status_code == 200
+        assert other_offers.json() == []
+
+        with SessionLocal() as db:
+            project_count_before = db.scalar(select(func.count(models.Project.id)))
+
+        login(client, "offer-investor@example.com")
+        accepted = client.patch(
+            f"/api/job-postings/me/offers/{offer['id']}",
+            json={"status": "accepted"},
+        )
+        assert accepted.status_code == 200
+        assert accepted.json()["status"] == "accepted"
+        assert accepted.json()["accepted_at"]
+
+        with SessionLocal() as db:
+            project_count_after = db.scalar(select(func.count(models.Project.id)))
+        assert project_count_after == project_count_before
+
+
+def test_company_owner_can_send_and_investor_can_reject_job_posting_offer():
+    with TestClient(app) as client:
+        posting = create_job_posting(
+            client,
+            "company-offer-investor@example.com",
+            title="Zlecenie pod oferte firmy",
+        )
+
+        login(client, "company-offer-owner@example.com")
+        client.post(
+            "/api/onboarding",
+            json={
+                "profile_type": "company_owner",
+                "company_name": "Firma Ofertowa",
+            },
+        )
+        profile = client.patch(
+            "/api/public-profile/me?owner_type=company",
+            json={
+                "is_public": True,
+                "slug": "firma-ofertowa",
+                "display_name": "Firma Ofertowa",
+                "specializations": ["hydraulika"],
+                "service_area": "Mazowsze",
+                "contact_phone": "600 333 444",
+                "contact_email": "firma-offer-public@example.com",
+            },
+        )
+        assert profile.status_code == 200
+
+        interest = client.post(
+            f"/api/job-postings/public/{posting['id']}/interest",
+            json={"message": "Firma przygotuje wycene."},
+        )
+        assert interest.status_code == 201
+        assert interest.json()["contractor_owner_type"] == "company"
+
+        offer = client.post(
+            f"/api/job-postings/public/{posting['id']}/offer",
+            json={
+                "title": "Oferta firmy",
+                "scope_summary": "Kompleksowa realizacja z materialem.",
+                "estimated_price": "30000.00",
+                "planned_start": "wrzesien 2026",
+                "status": "sent",
+            },
+        )
+        assert offer.status_code == 201
+        body = offer.json()
+        assert body["contractor_owner_type"] == "company"
+        assert body["status"] == "sent"
+
+        login(client, "company-offer-investor@example.com")
+        all_offers = client.get("/api/job-postings/me/offers")
+        assert all_offers.status_code == 200
+        assert all_offers.json()[0]["contractor"]["owner_type"] == "company"
+        assert all_offers.json()[0]["contractor"]["contact_email"] == "firma-offer-public@example.com"
+
+        rejected = client.patch(
+            f"/api/job-postings/me/offers/{body['id']}",
+            json={"status": "rejected"},
+        )
+        assert rejected.status_code == 200
+        assert rejected.json()["status"] == "rejected"
+        assert rejected.json()["rejected_at"]
+
+
+def test_investor_and_company_worker_cannot_create_job_posting_offers():
+    with TestClient(app) as client:
+        posting = create_job_posting(
+            client,
+            "blocked-offer-investor@example.com",
+            title="Zlecenie bez ofert z roli",
+        )
+
+        blocked_investor = client.post(
+            f"/api/job-postings/public/{posting['id']}/offer",
+            json={
+                "title": "Nie jestem wykonawca",
+                "scope_summary": "Zakres",
+                "status": "sent",
+            },
+        )
+        assert blocked_investor.status_code == 403
+
+        login(client, "blocked-offer-worker@example.com")
+        client.post("/api/onboarding", json={"profile_type": "company_worker"})
+        blocked_worker = client.post(
+            f"/api/job-postings/public/{posting['id']}/offer",
+            json={
+                "title": "Pracownik nie sklada",
+                "scope_summary": "Zakres",
+                "status": "sent",
+            },
+        )
+        assert blocked_worker.status_code == 403
