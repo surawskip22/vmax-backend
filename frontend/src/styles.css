@@ -2014,7 +2014,8 @@ audio { width: 100%; margin-top: 13px; }
 .estimate-preview-modal section { padding: 12px; display: grid; gap: 6px; border: 1px solid #e1e9f3; border-radius: 12px; background: #fff; }
 .estimate-preview-modal h4 { margin: 0; color: var(--navy); font-size: 15px; }
 .public-estimate-page { min-height: 100vh; padding: 30px 18px 72px; background: linear-gradient(180deg, #f2f6fb 0%, #f8fafc 100%); }
-.public-estimate-document { width: min(1040px, 100%); margin: 0 auto; display: grid; gap: 16px; }
+.public-estimate-document { width: min(1040px, 100%); max-width: 100%; min-width: 0; margin: 0 auto; display: grid; gap: 16px; }
+.public-estimate-document > * { min-width: 0; max-width: 100%; }
 .public-estimate-document__header { padding: 22px; display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(180px, auto); gap: 18px; align-items: center; border: 1px solid #d7e2ef; border-radius: 16px; background: #fff; box-shadow: 0 18px 42px rgba(18,38,69,.08); }
 .public-estimate-document__header h1 { margin: 5px 0 6px; color: var(--navy); font-size: 40px; line-height: 1.05; letter-spacing: 0; overflow-wrap: anywhere; }
 .public-estimate-document__header p { margin: 0; color: var(--muted); line-height: 1.48; }
@@ -2026,6 +2027,8 @@ audio { width: 100%; margin-top: 13px; }
 .public-estimate-card--message h2 { margin: 0; color: var(--navy); }
 .public-estimate-card--message p { margin: 0; color: var(--muted); }
 .public-estimate-hero { padding: 24px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 330px); gap: 18px; align-items: stretch; border-radius: 16px; color: #fff; background: linear-gradient(135deg, #06204d, #123e78); box-shadow: 0 18px 42px rgba(18,38,69,.12); }
+.public-estimate-hero > div,
+.public-estimate-amount-card { min-width: 0; max-width: 100%; }
 .public-estimate-hero span,
 .public-estimate-amount-card small { font-size: 11px; font-weight: 900; text-transform: uppercase; opacity: .82; }
 .public-estimate-hero h2 { margin: 10px 0 8px; font-size: 34px; line-height: 1.08; }
@@ -2035,15 +2038,16 @@ audio { width: 100%; margin-top: 13px; }
 .public-estimate-party-grid,
 .public-estimate-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .public-estimate-section-card { min-width: 0; padding: 18px; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 14px; border: 1px solid #d7e2ef; border-radius: 14px; background: #fff; box-shadow: 0 14px 30px rgba(18,38,69,.05); }
+.public-estimate-section-card > div { min-width: 0; max-width: 100%; }
 .public-estimate-section-card--wide { grid-template-columns: 48px minmax(0, 1fr); }
 .public-estimate-section-card > span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 13px; color: var(--orange); background: #fff3e8; }
 .public-estimate-section-card h3 { margin: 0 0 8px; color: var(--navy); font-size: 18px; }
 .public-estimate-section-card p { margin: 0; color: var(--muted); line-height: 1.58; overflow-wrap: anywhere; }
 .public-estimate-party-name { color: var(--navy) !important; font-size: 18px; font-weight: 900; }
 .public-estimate-section-card ul { margin: 12px 0 0; padding: 0; display: grid; gap: 8px; list-style: none; color: var(--muted); }
-.public-estimate-section-card li { display: flex; gap: 8px; align-items: center; min-width: 0; overflow-wrap: anywhere; }
+.public-estimate-section-card li { display: flex; gap: 8px; align-items: flex-start; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .public-estimate-section-card li svg { flex: 0 0 auto; color: #64748b; }
-.public-estimate-section-card a { color: #1458a8; font-weight: 850; text-decoration: none; overflow-wrap: anywhere; }
+.public-estimate-section-card a { min-width: 0; max-width: 100%; color: #1458a8; font-weight: 850; text-decoration: none; overflow-wrap: anywhere; word-break: break-word; }
 .public-estimate-section-card a:hover { text-decoration: underline; }
 .public-estimate-section-card dl { margin: 0; display: grid; gap: 9px; }
 .public-estimate-section-card dt { color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
@@ -2511,6 +2515,10 @@ audio { width: 100%; margin-top: 13px; }
   .public-estimate-section-card { padding: 15px; grid-template-columns: 38px minmax(0, 1fr); }
   .public-estimate-section-card > span { width: 38px; height: 38px; }
   .public-estimate-card { padding: 18px; border-radius: 14px; }
+  .public-estimate-party-name,
+  .public-estimate-section-card a,
+  .public-estimate-section-card dd,
+  .public-estimate-section-card p { overflow-wrap: anywhere; }
   .investor-discovery-header { flex-direction: column; align-items: stretch; }
   .investor-discovery-header h1 { font-size: 38px; }
   .discovery-live-note { min-width: 0; }
@@ -2919,6 +2927,24 @@ audio { width: 100%; margin-top: 13px; }
   .lightbox { padding: 12px; }
   .portfolio-page > header h1 { font-size: 42px; }
   .toast { right: 15px; bottom: 82px; }
+}
+
+@media (max-width: 414px) {
+  .public-estimate-page { padding: 18px 10px 64px; }
+  .public-estimate-document { gap: 12px; }
+  .public-estimate-document__header,
+  .public-estimate-hero,
+  .public-estimate-section-card,
+  .public-estimate-notice { border-radius: 12px; }
+  .public-estimate-document__header { padding: 16px; }
+  .public-estimate-document__header h1 { font-size: 28px; line-height: 1.08; }
+  .public-estimate-hero { padding: 16px; }
+  .public-estimate-hero h2 { font-size: 26px; }
+  .public-estimate-amount-card { padding: 15px; }
+  .public-estimate-amount-card strong { font-size: 28px; }
+  .public-estimate-section-card { padding: 14px; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; }
+  .public-estimate-section-card > span { width: 34px; height: 34px; border-radius: 11px; }
+  .public-estimate-notice { padding: 14px; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
