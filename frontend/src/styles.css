@@ -2020,6 +2020,18 @@ audio { width: 100%; margin-top: 13px; }
 .contractor-discovery-gallery em { display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, rgba(2,20,48,.72), rgba(2,20,48,.52)); font-style: normal; font-weight: 900; }
 .contractor-discovery-actions { display: grid; gap: 9px; }
 .contractor-discovery-actions .button { width: 100%; justify-content: center; }
+.contractor-job-card__icon { color: #fff; background: linear-gradient(145deg, #0f766e, #2563eb); }
+.contractor-job-card__icon svg { width: 30px; height: 30px; }
+.contractor-job-card__facts p { margin: 0; color: var(--navy); font-weight: 900; line-height: 1.35; }
+.contractor-job-detail { padding: 24px; display: grid; gap: 18px; }
+.contractor-job-detail > header h3 { margin: 10px 0 8px; color: var(--navy); font-size: 30px; line-height: 1.08; }
+.contractor-job-detail > header p,
+.contractor-job-detail section p { margin: 0; color: #475569; line-height: 1.55; }
+.contractor-job-detail dl { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.contractor-job-detail dl div { min-width: 0; padding: 12px; border: 1px solid #d7e2ef; border-radius: 10px; background: #f8fafc; }
+.contractor-job-detail dt { margin-bottom: 5px; color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
+.contractor-job-detail dd { margin: 0; color: var(--navy); overflow-wrap: anywhere; }
+.contractor-job-detail h4 { margin: 0 0 10px; color: var(--navy); font-size: 17px; }
 .future-module-footer { margin: 24px 0 0; color: var(--muted); font-style: italic; text-align: center; }
 .public-profile-preview { padding: 24px; display: grid; gap: 18px; }
 .public-profile-preview__header { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -2277,6 +2289,8 @@ audio { width: 100%; margin-top: 13px; }
   .contractor-discovery-actions { grid-column: 1 / -1; }
   .contractor-discovery-main { grid-column: 2; }
   .contractor-discovery-actions { grid-template-columns: 1fr; }
+  .contractor-job-detail { padding: 16px; }
+  .contractor-job-detail dl { grid-template-columns: 1fr; }
   .public-profile-preview { padding: 16px; }
   .public-profile-preview__header,
   .public-profile-preview dl,

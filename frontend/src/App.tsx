@@ -6564,6 +6564,221 @@ function PublicProfilePreviewModal({ profile, onClose }: { profile: PublicProfil
   );
 }
 
+function JobPostingPreviewModal({ posting, onClose }: { posting: JobPosting; onClose: () => void }) {
+  return (
+    <Modal title="Szczegóły zlecenia" onClose={onClose} wide>
+      <div className="contractor-job-detail">
+        <header>
+          <span className="status status--completed">Opublikowane</span>
+          <h3>{posting.title}</h3>
+          <p>{posting.description || "Inwestor nie dodał jeszcze szczegółowego opisu."}</p>
+        </header>
+        <dl>
+          <div><dt>Lokalizacja</dt><dd>{posting.location || "Nie podano"}</dd></div>
+          <div><dt>Budżet</dt><dd>{posting.budget_label || "Do ustalenia"}</dd></div>
+          <div><dt>Termin</dt><dd>{posting.deadline || "Do ustalenia"}</dd></div>
+          <div><dt>Kogo szuka inwestor</dt><dd>{jobPostingTargetLabel(posting.target_contractor_type)}</dd></div>
+          <div><dt>Status</dt><dd>{jobPostingStatusLabel(posting.status)}</dd></div>
+          <div><dt>Publikacja</dt><dd>{jobPostingDateLabel(posting.published_at)}</dd></div>
+        </dl>
+        <section>
+          <h4>Specjalizacje</h4>
+          <div className="service-chip-list service-chip-list--small">
+            {posting.specializations.length > 0
+              ? posting.specializations.map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
+              : <span>Brak specjalizacji</span>}
+          </div>
+        </section>
+        <section>
+          <h4>Stan obecny</h4>
+          <p>{posting.current_state_description || "Inwestor nie opisał jeszcze stanu obecnego."}</p>
+        </section>
+        <p className="empty-note">Możliwość zgłoszenia zainteresowania będzie dostępna w kolejnym kroku.</p>
+      </div>
+    </Modal>
+  );
+}
+
+function ContractorJobSearchPage() {
+  const [postings, setPostings] = useState<JobPosting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
+  const [specialization, setSpecialization] = useState("");
+  const [location, setLocation] = useState("");
+  const [budget, setBudget] = useState("");
+  const [selectedPosting, setSelectedPosting] = useState<JobPosting | null>(null);
+
+  const loadPostings = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const items = await api<JobPosting[]>("/job-postings/public");
+      setPostings(items.filter((item) => item.status === "published"));
+    } catch (reason) {
+      setPostings([]);
+      setError(reason instanceof Error ? reason.message : "Nie udało się pobrać opublikowanych zleceń.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPostings();
+  }, [loadPostings]);
+
+  const budgetOptions = useMemo(() => {
+    return [...new Set(postings.map((item) => item.budget_label).filter(Boolean))].sort((first, second) => first.localeCompare(second, "pl"));
+  }, [postings]);
+
+  const filteredPostings = useMemo(() => {
+    const search = query.trim().toLowerCase();
+    const area = location.trim().toLowerCase();
+    return postings.filter((item) => {
+      if (search) {
+        const haystack = `${item.title} ${item.description}`.toLowerCase();
+        if (!haystack.includes(search)) return false;
+      }
+      if (specialization && !item.specializations.includes(specialization)) return false;
+      if (area && !item.location.toLowerCase().includes(area)) return false;
+      if (budget && item.budget_label !== budget) return false;
+      return true;
+    });
+  }, [budget, location, postings, query, specialization]);
+
+  function clearFilters() {
+    setQuery("");
+    setSpecialization("");
+    setLocation("");
+    setBudget("");
+  }
+
+  return (
+    <div className="page investor-discovery-page contractor-jobs-page">
+      <header className="page-header investor-discovery-header">
+        <div>
+          <span className="eyebrow">Opublikowane ogłoszenia</span>
+          <h1>Szukaj zleceń</h1>
+          <p>Przeglądaj zlecenia opublikowane przez inwestorów. Na tym etapie to tylko lista i podgląd szczegółów.</p>
+        </div>
+        <aside className="discovery-live-note">
+          <span><Icon name="clipboard" /></span>
+          <div>
+            <strong>Bez ofert i czatu</strong>
+            <small>Zgłoszenia zainteresowania pojawią się w kolejnym kroku.</small>
+          </div>
+        </aside>
+      </header>
+
+      <section className="investor-discovery-filters">
+        <div className="discovery-filter-group discovery-filter-group--wide">
+          <label>Szukaj</label>
+          <div className="discovery-search-input">
+            <Icon name="search" size={18} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Tytuł albo opis zlecenia"
+            />
+            <select value={specialization} onChange={(event) => setSpecialization(event.target.value)}>
+              <option value="">Wszystkie specjalizacje</option>
+              {serviceTags.map((tag) => (
+                <option key={tag.slug} value={tag.slug}>{tag.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="service-chip-list">
+            {specialization ? (
+              <button type="button" onClick={() => setSpecialization("")}>
+                {serviceTagLabel(specialization)} <Icon name="close" size={12} />
+              </button>
+            ) : (
+              <span>Dowolna specjalizacja</span>
+            )}
+            {query.trim() && <span>Fraza: {query.trim()}</span>}
+          </div>
+        </div>
+
+        <div className="discovery-filter-group">
+          <label>Lokalizacja i budżet</label>
+          <div className="discovery-location-grid">
+            <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Miasto, dzielnica albo rejon" />
+            <select value={budget} onChange={(event) => setBudget(event.target.value)}>
+              <option value="">Dowolny budżet</option>
+              {budgetOptions.map((item) => <option value={item} key={item}>{item}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <footer>
+          <Button type="button" variant="secondary" onClick={clearFilters}>Wyczyść filtry</Button>
+          <Button type="button" icon="sync" disabled={loading} onClick={() => void loadPostings()}>Odśwież</Button>
+        </footer>
+      </section>
+
+      <div className="discovery-results-bar">
+        <p>
+          {loading
+            ? "Ładowanie zleceń..."
+            : `Znaleziono ${filteredPostings.length} ${filteredPostings.length === 1 ? "zlecenie" : "zleceń"}`}
+        </p>
+      </div>
+
+      <section className="contractor-discovery-list" aria-label="Opublikowane zlecenia inwestorów">
+        {loading ? (
+          <div className="loading-screen"><span className="spinner" /> Ładowanie opublikowanych zleceń...</div>
+        ) : error ? (
+          <div className="empty-state">
+            <span><Icon name="alert" /></span>
+            <h3>Nie udało się pobrać zleceń</h3>
+            <p>{error}</p>
+          </div>
+        ) : filteredPostings.length === 0 ? (
+          <div className="empty-state">
+            <span><Icon name="search" /></span>
+            <h3>Brak opublikowanych zleceń</h3>
+            <p>Brak opublikowanych zleceń. Wróć później albo zmień filtry.</p>
+          </div>
+        ) : filteredPostings.map((posting) => (
+          <article className="contractor-discovery-card contractor-job-card" key={posting.id}>
+            <div className="contractor-discovery-avatar contractor-job-card__icon"><Icon name="clipboard" /></div>
+            <div className="contractor-discovery-main">
+              <h2>{posting.title}</h2>
+              <p>{posting.description || "Brak szczegółowego opisu."}</p>
+              <div className="service-chip-list service-chip-list--small">
+                {posting.specializations.length > 0
+                  ? posting.specializations.slice(0, 4).map((slug) => <span key={slug}>{serviceTagLabel(slug)}</span>)
+                  : <span>Brak specjalizacji</span>}
+              </div>
+            </div>
+            <div className="contractor-discovery-location">
+              <strong><Icon name="map-pin" size={16} /> {posting.location || "Lokalizacja niepodana"}</strong>
+              <small>{posting.deadline || "Termin do ustalenia"}</small>
+              <span>Opublikowane</span>
+              <p>Szukam: {jobPostingTargetLabel(posting.target_contractor_type)}</p>
+            </div>
+            <div className="contractor-discovery-gallery contractor-job-card__facts" aria-label="Parametry zlecenia">
+              <strong>Parametry</strong>
+              <p>{posting.budget_label || "Budżet do ustalenia"}</p>
+              <p>{jobPostingDateLabel(posting.published_at)}</p>
+            </div>
+            <div className="contractor-discovery-actions">
+              <Button type="button" onClick={() => setSelectedPosting(posting)}>Zobacz zlecenie</Button>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      {selectedPosting && (
+        <JobPostingPreviewModal
+          posting={selectedPosting}
+          onClose={() => setSelectedPosting(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 function InvestorDiscoveryPage({ notify }: { notify: (toast: Toast) => void }) {
   const [query, setQuery] = useState("");
   const [specialization, setSpecialization] = useState("");
@@ -8335,6 +8550,8 @@ export default function App() {
     <InvestorDiscoveryPage notify={notify} />
   ) : visibleSection === "postJob" && isInvestor(user) ? (
     <InvestorPostJobPage notify={notify} />
+  ) : visibleSection === "jobSearch" && (isIndependentContractor(user) || isCompanyOwner(user)) ? (
+    <ContractorJobSearchPage />
   ) : visibleSection === "team" ? (
     <TeamPage user={user} projects={projects} onProject={setSelectedProject} onUserUpdated={setUser} notify={notify} />
   ) : visibleSection === "settings" ? (

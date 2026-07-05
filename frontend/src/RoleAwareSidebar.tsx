@@ -4,7 +4,7 @@ import { isCompanyOwner, isCompanyWorker, isIndependentContractor, isInvestor } 
 import { peopleLabelsForUser, profileLabels } from "./roleLabels";
 import type { User } from "./types";
 
-type SectionId = "home" | "projects" | "reports" | "team" | "portfolio" | "discover" | "postJob" | "settings";
+type SectionId = "home" | "projects" | "reports" | "team" | "portfolio" | "discover" | "postJob" | "jobSearch" | "settings";
 type NavItem = {
   id: SectionId;
   label: string;
@@ -21,6 +21,7 @@ function getNavigationForUser(user: User): NavItem[] {
   if (isIndependentContractor(user)) {
     return [
       { id: "projects", label: "Moje zlecenia", icon: "clipboard" },
+      { id: "jobSearch", label: "Szukaj zleceń", icon: "search" },
       { id: "reports", label: "Raporty", icon: "report" },
       { id: "portfolio", label: "Moja wizytówka", icon: "image" },
       { id: "settings", label: "Ustawienia", icon: "settings" },
@@ -39,6 +40,7 @@ function getNavigationForUser(user: User): NavItem[] {
   if (isCompanyOwner(user)) {
     return [
       { id: "projects", label: "Zlecenia", icon: "clipboard" },
+      { id: "jobSearch", label: "Szukaj zleceń", icon: "search" },
       { id: "team", label: peopleLabelsForUser(user).section, icon: "users" },
       { id: "reports", label: "Raporty", icon: "report" },
       { id: "portfolio", label: "Wizytówka firmy", icon: "image" },
