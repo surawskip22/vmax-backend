@@ -2263,6 +2263,19 @@ audio { width: 100%; margin-top: 13px; }
 .post-job-preview { display: grid; gap: 18px; }
 .post-job-preview article { padding: 18px; border: 1px solid #d7e2ef; border-radius: 16px; background: #fff; box-shadow: 0 16px 34px rgba(18,38,69,.06); }
 .post-job-preview h2 { margin: 0 0 14px; color: var(--navy); font-size: 18px; }
+.post-job-draft-alert { margin-bottom: 18px; padding: 16px; display: grid; gap: 12px; border: 1px solid #bfdbfe; border-radius: 16px; background: #f8fbff; box-shadow: 0 14px 30px rgba(18,38,69,.06); }
+.post-job-draft-alert > header { display: grid; grid-template-columns: 42px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.post-job-draft-alert > header > span { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; color: var(--blue); background: #e9f2ff; }
+.post-job-draft-alert strong { color: var(--navy); }
+.post-job-draft-alert p,
+.post-job-draft-alert small { margin: 0; color: var(--muted); line-height: 1.45; }
+.post-job-draft-alert em { padding: 7px 10px; border-radius: 999px; color: #1e3a8a; background: #e9f2ff; font-size: 12px; font-style: normal; font-weight: 900; white-space: nowrap; }
+.post-job-draft-alert__list { display: grid; gap: 10px; }
+.post-job-draft-row { padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; border: 1px solid #d7e2ef; border-radius: 12px; background: #fff; }
+.post-job-draft-row.is-active { border-color: var(--blue); box-shadow: inset 4px 0 var(--blue); }
+.post-job-draft-row > div:first-child { min-width: 0; display: grid; gap: 4px; }
+.post-job-draft-row > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.post-job-draft-row .button { min-height: 36px; padding: 0 12px; }
 .post-preview-card { padding: 16px; display: grid; gap: 12px; border: 1px solid #dbe6f2; border-radius: 14px; background: #fff; }
 .post-preview-card h3 { margin: 0; color: var(--navy); font-size: 21px; line-height: 1.2; }
 .post-preview-card p { margin: 0; color: var(--muted); display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
@@ -2587,6 +2600,13 @@ audio { width: 100%; margin-top: 13px; }
   .public-realization-detail__gallery > div { grid-template-columns: 1fr; }
   .public-realization-detail { padding: 16px; }
   .public-profile-preview__header .contractor-discovery-avatar { width: 64px; height: 64px; }
+  .post-job-draft-alert { padding: 14px; border-radius: 14px; }
+  .post-job-draft-alert > header,
+  .post-job-draft-row { grid-template-columns: 1fr; align-items: stretch; }
+  .post-job-draft-alert > header > span,
+  .post-job-draft-alert em { justify-self: start; }
+  .post-job-draft-row > div:last-child { display: grid; grid-template-columns: 1fr; justify-content: stretch; }
+  .post-job-draft-row .button { width: 100%; justify-content: center; }
   .post-job-segments { grid-template-columns: 1fr; }
   .post-job-form section { padding: 16px; }
   .post-job-form footer { padding: 14px 16px; display: grid; grid-template-columns: 1fr; }

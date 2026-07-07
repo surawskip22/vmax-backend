@@ -8803,8 +8803,10 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
   const [loadingPostings, setLoadingPostings] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const formRef = useRef<HTMLFormElement | null>(null);
   const availableTags = serviceTags.filter((tag) => !selectedTags.includes(tag.slug));
   const editingPosting = editingPostingId ? postings.find((item) => item.id === editingPostingId) || null : null;
+  const draftPostings = useMemo(() => postings.filter((item) => item.status === "draft"), [postings]);
 
   const loadPostings = useCallback(async () => {
     setLoadingPostings(true);
@@ -8867,7 +8869,9 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
     setSelectedTags(item.specializations.length > 0 ? item.specializations : []);
     setTagToAdd("");
     setTarget(postJobTargetFromApi(item.target_contractor_type));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   function cancelEditing() {
@@ -8994,13 +8998,54 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
           <p>Zapisz szkic albo opublikuj zlecenie, które wykonawcy znajdą później w module Szukaj zleceń.</p>
         </div>
       </header>
+      {draftPostings.length > 0 && (
+        <section className="post-job-draft-alert" aria-label="Zapisane szkice ogłoszeń">
+          <header>
+            <span><Icon name="report" size={20} /></span>
+            <div>
+              <strong>{draftPostings.length === 1 ? "Masz zapisany szkic ogłoszenia" : "Masz zapisane szkice ogłoszeń"}</strong>
+              <p>Możesz od razu wrócić do edycji albo opublikować wybrany szkic bez tworzenia duplikatu.</p>
+            </div>
+            <em>{draftPostings.length} {draftPostings.length === 1 ? "szkic" : "szkice"}</em>
+          </header>
+          <div className="post-job-draft-alert__list">
+            {draftPostings.map((item) => (
+              <article className={`post-job-draft-row ${editingPostingId === item.id ? "is-active" : ""}`} key={item.id}>
+                <div>
+                  <strong>{item.title || "Szkic bez tytułu"}</strong>
+                  <small>{item.location || "Lokalizacja niepodana"} · {item.budget_label || "Budżet niepodany"} · {item.deadline || "Termin do ustalenia"}</small>
+                </div>
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    icon="report"
+                    disabled={Boolean(busyAction)}
+                    onClick={() => editDraft(item)}
+                  >
+                    Edytuj szkic
+                  </Button>
+                  <Button
+                    type="button"
+                    busy={busyAction === `publish:${item.id}`}
+                    disabled={Boolean(busyAction)}
+                    onClick={() => void publishPosting(item)}
+                  >
+                    Opublikuj
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="post-job-layout">
-        <form className={`post-job-form ${editingPosting ? "post-job-form--editing" : ""}`} onSubmit={submitPosting}>
+        <form ref={formRef} className={`post-job-form ${editingPosting ? "post-job-form--editing" : ""}`} onSubmit={submitPosting}>
           {editingPosting && (
             <div className="post-job-editing-banner">
               <span><Icon name="report" size={18} /></span>
               <div>
-                <strong>Edytujesz szkic</strong>
+                <strong>Edytujesz szkic: {editingPosting.title || "Szkic bez tytułu"}</strong>
                 <p>Popraw dane ogłoszenia i zapisz zmiany albo opublikuj ten szkic bez tworzenia duplikatu.</p>
               </div>
             </div>
