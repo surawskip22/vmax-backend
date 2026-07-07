@@ -1242,6 +1242,9 @@ def validate_estimate_source(
     owner_id: str,
     source_type: str,
     source_id: str | None,
+    *,
+    actor: str | None = None,
+    user: models.User | None = None,
 ) -> None:
     if source_type == "manual":
         if source_id:
@@ -1258,6 +1261,10 @@ def validate_estimate_source(
                 raise HTTPException(403, "Nie masz dostepu do tego zlecenia")
         elif project.workspace_id != owner_id:
             raise HTTPException(403, "To zlecenie nie nalezy do tej firmy")
+        if actor == "company_worker" and (
+            not user or not project_role(db, project.id, user.id)
+        ):
+            raise HTTPException(403, "Pracownik moze przygotowac szkic tylko do przypisanego zlecenia")
         return
     if source_type == "job_posting":
         if source_id and not db.get(models.JobPosting, source_id):
@@ -1271,13 +1278,23 @@ def apply_estimate_changes(
     payload: EstimateCreate | EstimateUpdate,
     *,
     db: Session,
+    actor: str | None = None,
+    user: models.User | None = None,
     partial: bool = False,
 ) -> None:
     changes = payload.model_dump(exclude_unset=partial)
     if "source_type" in changes or "source_id" in changes:
         source_type = changes.get("source_type", item.source_type) or "manual"
         source_id = changes.get("source_id", item.source_id)
-        validate_estimate_source(db, item.owner_type, item.owner_id, source_type, source_id)
+        validate_estimate_source(
+            db,
+            item.owner_type,
+            item.owner_id,
+            source_type,
+            source_id,
+            actor=actor,
+            user=user,
+        )
         item.source_type = source_type
         item.source_id = source_id
     for key in ["recipient_name", "recipient_phone", "title", "scope_summary", "assumptions", "price_note", "planned_start", "planned_end"]:
@@ -3115,7 +3132,7 @@ def create_my_estimate(
         owner_id=owner_id,
         created_by_id=user.id,
     )
-    apply_estimate_changes(item, payload, db=db)
+    apply_estimate_changes(item, payload, db=db, actor=actor, user=user)
     apply_initial_estimate_status(db, item, payload.status, actor, user)
     db.add(item)
     db.commit()
@@ -3135,7 +3152,7 @@ def update_my_estimate(
         raise HTTPException(404, "Oferta nie istnieje")
     actor = estimate_actor_for_item(db, user, item)
     ensure_estimate_editable(item, actor)
-    apply_estimate_changes(item, payload, db=db, partial=True)
+    apply_estimate_changes(item, payload, db=db, actor=actor, user=user, partial=True)
     db.commit()
     db.refresh(item)
     return estimate_payload(item)

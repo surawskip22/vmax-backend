@@ -4597,6 +4597,106 @@ def test_company_worker_estimate_requires_owner_approval_to_send():
         assert sent.json()["sent_at"]
 
 
+def test_company_worker_can_prepare_project_estimate_draft_for_owner():
+    with TestClient(app) as owner:
+        login(owner, "estimate-project-worker-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Wycen Projektowych"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        with TestClient(app) as worker:
+            login(worker, "estimate-project-worker@example.com")
+            worker.post("/api/onboarding", json={"profile_type": "company_worker"})
+        worker_profile = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik od wycen projektowych",
+                "profile_kind": "craftsman",
+                "email": "estimate-project-worker@example.com",
+            },
+        ).json()
+        assigned_project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker_profile["id"],
+                "name": "Zlecenie z dodatkowa wycena",
+                "client_name": "Klient wyceny",
+                "description": "Zakres bazowy zlecenia.",
+                "template": "custom",
+            },
+        ).json()
+        unassigned_project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "name": "Nieprzypisane zlecenie firmowe",
+                "client_name": "Inny klient",
+                "template": "custom",
+            },
+        ).json()
+
+        with TestClient(app) as worker:
+            login(worker, "estimate-project-worker@example.com")
+            created = worker.post(
+                "/api/estimates/me",
+                json={
+                    "owner_type": "company",
+                    "owner_id": workspace_id,
+                    "recipient_type": "client",
+                    "recipient_name": "Klient wyceny",
+                    "source_type": "project",
+                    "source_id": assigned_project["id"],
+                    "title": "Szkic dodatkowych prac",
+                    "scope_summary": "Dodatkowy zakres do zatwierdzenia.",
+                    "status": "pending_approval",
+                },
+            )
+            assert created.status_code == 201
+            body = created.json()
+            assert body["status"] == "pending_approval"
+            assert body["owner_type"] == "company"
+            assert body["owner_id"] == workspace_id
+            assert body["source_type"] == "project"
+            assert body["source_id"] == assigned_project["id"]
+            assert body["project_id"] is None
+
+            blocked_unassigned = worker.post(
+                "/api/estimates/me",
+                json={
+                    "owner_type": "company",
+                    "owner_id": workspace_id,
+                    "source_type": "project",
+                    "source_id": unassigned_project["id"],
+                    "title": "Cudzy szkic projektowy",
+                    "scope_summary": "Nie powinno przejsc.",
+                    "status": "pending_approval",
+                },
+            )
+            assert blocked_unassigned.status_code == 403
+            assert worker.patch(
+                f"/api/estimates/me/{body['id']}/status",
+                json={"status": "sent"},
+            ).status_code == 403
+            assert worker.post(f"/api/estimates/me/{body['id']}/project").status_code == 403
+
+        owner_list = owner.get("/api/estimates/me")
+        assert owner_list.status_code == 200
+        owner_item = next(item for item in owner_list.json() if item["id"] == body["id"])
+        assert owner_item["source_type"] == "project"
+        assert owner_item["source_id"] == assigned_project["id"]
+
+        sent = owner.patch(
+            f"/api/estimates/me/{body['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        assert sent.json()["status"] == "sent"
+        assert sent.json()["share_url"].startswith("/estimate/")
+
+
 def test_estimate_access_blocks_investor_guest_and_other_company():
     with TestClient(app) as owner:
         login(owner, "estimate-access-owner@example.com")

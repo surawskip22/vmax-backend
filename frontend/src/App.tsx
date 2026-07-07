@@ -3804,6 +3804,9 @@ function ProjectView({
   const [contractError, setContractError] = useState("");
   const [showContractModal, setShowContractModal] = useState(false);
   const [contractBusy, setContractBusy] = useState<string | null>(null);
+  const [projectEstimateDraft, setProjectEstimateDraft] = useState<EstimateDraft | null>(null);
+  const [projectEstimateBusy, setProjectEstimateBusy] = useState<string | null>(null);
+  const [projectEstimateError, setProjectEstimateError] = useState("");
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const [coverBusy, setCoverBusy] = useState(false);
   const workerReportsRef = useRef<HTMLDivElement | null>(null);
@@ -3929,6 +3932,9 @@ function ProjectView({
     setContractError("");
     setShowContractModal(false);
     setContractBusy(null);
+    setProjectEstimateDraft(null);
+    setProjectEstimateBusy(null);
+    setProjectEstimateError("");
     setLoading(true);
   }, [guestToken, projectId]);
 
@@ -4032,6 +4038,7 @@ function ProjectView({
     && project.status !== "completed"
     && (user && isCompanyWorker(user) && !guestToken ? true : canAdd),
   );
+  const canCreateProjectEstimateDraft = Boolean(user && !guestToken && isCompanyWorker(user) && project.role);
   const projectIdForStatusActions = project.id;
 
   function changeMode(next: "field" | "expanded") {
@@ -4097,6 +4104,38 @@ function ProjectView({
     if (!user || guestToken) return false;
     if (["owner", "manager"].includes(project?.role || "")) return true;
     return entry.author?.id === user.id;
+  }
+
+  function openProjectEstimateDraft() {
+    if (!user || !project) return;
+    setProjectEstimateDraft(estimateDraftFromProject(user, project));
+    setProjectEstimateError("");
+  }
+
+  async function saveProjectEstimateDraft(status?: EstimateStatus) {
+    if (!user || !projectEstimateDraft) return;
+    const nextStatus = status || "draft";
+    setProjectEstimateBusy(nextStatus === "draft" ? "save" : nextStatus);
+    setProjectEstimateError("");
+    try {
+      await api<Estimate>("/estimates/me", {
+        method: "POST",
+        body: JSON.stringify(estimatePayloadFromDraft(user, projectEstimateDraft, nextStatus)),
+      });
+      setProjectEstimateDraft(null);
+      notify({
+        kind: "success",
+        message: nextStatus === "pending_approval"
+          ? "Szkic wyceny trafił do szefa firmy."
+          : "Szkic wyceny zapisany. Szef firmy zobaczy go w Oferty firmy.",
+      });
+    } catch (reason) {
+      const message = friendlyEstimateError(reason);
+      setProjectEstimateError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setProjectEstimateBusy(null);
+    }
   }
 
   async function deleteDocumentationEntry() {
@@ -4757,10 +4796,15 @@ function ProjectView({
           {portfolioDetailCard}
           {projectContractCard}
 
-          {(canStartWorkerProject || canAddWorkerProgress || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
+          {(canStartWorkerProject || canAddWorkerProgress || canCreateProjectEstimateDraft || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
             <section className="worker-action-panel">
               {canStartWorkerProject && <Button type="button" icon="plus" onClick={startProject}>{isCompanyOwnerDetailUser ? "Rozpocznij zlecenie" : "Rozpocznij robot&#281;"}</Button>}
               {canAddWorkerProgress && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj post&#281;p</Button>}
+              {canCreateProjectEstimateDraft && (
+                <Button type="button" variant="secondary" icon="report" onClick={openProjectEstimateDraft}>
+                  Przygotuj szkic wyceny
+                </Button>
+              )}
               {isCompanyOwnerDetailUser && canAddWorkerProgress && (
                 <Button type="button" variant="secondary" className="problem" icon="alert" onClick={() => setEntryModal({ kind: "problem", mode: "text" })}>
                   Zgłoś problem
@@ -4946,6 +4990,20 @@ function ProjectView({
           </Modal>
         )}
         {entryModal && <NewEntryModal project={project} kind={entryModal.kind} mode={entryModal.mode} guestToken={guestToken} offlineScopeKey={offlineScopeKey} onClose={() => setEntryModal(null)} onSaved={() => { setEntryModal(null); void refreshAfterProjectMutation(); notify({ kind: "success", message: "Wpis zapisany" }); }} onQueued={() => { setEntryModal(null); onQueue(); notify({ kind: "info", message: "Wpis zapisany offline i czeka na wysłanie" }); }} />}
+        {projectEstimateDraft && user && (
+          <EstimateFormModal
+            user={user}
+            draft={projectEstimateDraft}
+            busy={projectEstimateBusy}
+            error={projectEstimateError}
+            onDraftChange={setProjectEstimateDraft}
+            onClose={() => {
+              setProjectEstimateDraft(null);
+              setProjectEstimateError("");
+            }}
+            onSave={(status) => void saveProjectEstimateDraft(status)}
+          />
+        )}
         {(isIndependentFieldUser || isCompanyOwnerDetailUser) && showManage && <ManageProjectModal project={project} user={user!} onClose={() => setShowManage(false)} onRefresh={refreshAfterProjectMutation} notify={notify} />}
         {projectPortfolioOwnerType && showPortfolioModal && (
           <ProjectPortfolioModal
@@ -8161,6 +8219,8 @@ function jobPostingDateLabel(value?: string | null): string {
 
 type EstimateDraft = {
   ownerId: string;
+  sourceType: "manual" | "project" | "job_posting";
+  sourceId: string;
   title: string;
   recipientName: string;
   recipientEmail: string;
@@ -8182,6 +8242,8 @@ type EstimateProjectResult = {
 function estimateDraftFromEstimate(user: User, estimate?: Estimate | null): EstimateDraft {
   return {
     ownerId: estimate?.owner_id || user.workspaces[0]?.id || "",
+    sourceType: estimate?.source_type || "manual",
+    sourceId: estimate?.source_id || "",
     title: estimate?.title || "",
     recipientName: estimate?.recipient_name || "",
     recipientEmail: estimate?.recipient_email || "",
@@ -8192,6 +8254,25 @@ function estimateDraftFromEstimate(user: User, estimate?: Estimate | null): Esti
     priceNote: estimate?.price_note || "",
     plannedStart: estimateDateInputValue(estimate?.planned_start),
     plannedEnd: estimateDateInputValue(estimate?.planned_end),
+  };
+}
+
+function estimateDraftFromProject(user: User, project: Project): EstimateDraft {
+  const base = estimateDraftFromEstimate(user);
+  const title = `Wycena dodatkowych prac - ${project.name}`.slice(0, 220);
+  return {
+    ...base,
+    ownerId: project.workspace_id || base.ownerId,
+    sourceType: "project",
+    sourceId: project.id,
+    title,
+    recipientName: project.client_name || "",
+    recipientEmail: project.client_email || "",
+    scopeSummary: project.description
+      ? `Dodatkowe prace do zlecenia: ${project.name}\n\n${project.description}`
+      : `Dodatkowe prace do zlecenia: ${project.name}`,
+    plannedStart: estimateDateInputValue(project.planned_start_date),
+    plannedEnd: estimateDateInputValue(project.planned_end_date),
   };
 }
 
@@ -8208,7 +8289,8 @@ function estimatePayloadFromDraft(user: User, draft: EstimateDraft, status?: Est
     recipient_name: draft.recipientName.trim(),
     recipient_email: draft.recipientEmail.trim(),
     recipient_phone: draft.recipientPhone.trim(),
-    source_type: "manual",
+    source_type: draft.sourceType,
+    source_id: draft.sourceType === "manual" ? undefined : draft.sourceId || undefined,
     title: draft.title.trim(),
     scope_summary: draft.scopeSummary.trim(),
     assumptions: draft.assumptions.trim(),
@@ -8879,6 +8961,7 @@ function EstimateFormModal({
   const companyRole = isCompanyOwner(user) || worker;
   const canSend = !worker;
   const canRequestApproval = worker && (!estimate || estimate.status === "draft");
+  const projectLinked = draft.sourceType === "project";
   return (
     <Modal title={estimate ? "Edytuj ofertę" : "Nowa oferta / wycena"} onClose={onClose} wide>
       <form
@@ -8891,9 +8974,16 @@ function EstimateFormModal({
         <header>
           <span className="status status--assigned">{estimate ? estimateStatusLabel(estimate.status) : "Nowa"}</span>
           <h3>Oferta wstępna / wycena orientacyjna</h3>
-          <p>To jest oferta wstępna / wycena orientacyjna. Po wysłaniu otrzymasz link do przekazania klientowi, a klient może zaakceptować albo odrzucić ofertę z tego linku.</p>
+          <p>
+            {worker
+              ? "Przygotuj szkic oferty firmy. Szef firmy zobaczy go w Oferty firmy i dopiero on może wysłać ofertę klientowi."
+              : "To jest oferta wstępna / wycena orientacyjna. Po wysłaniu otrzymasz link do przekazania klientowi, a klient może zaakceptować albo odrzucić ofertę z tego linku."}
+          </p>
         </header>
-        {companyRole && user.workspaces.length > 1 && (
+        {projectLinked && (
+          <p className="form-note">Szkic jest powiązany z istniejącym zleceniem jako wycena dodatkowych prac. Nie utworzy nowego zlecenia ani nie wyśle linku klientowi bez decyzji szefa firmy.</p>
+        )}
+        {companyRole && user.workspaces.length > 1 && !projectLinked && (
           <label>
             Firma
             <select value={draft.ownerId} onChange={(event) => onDraftChange({ ...draft, ownerId: event.target.value })}>
