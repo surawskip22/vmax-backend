@@ -8346,6 +8346,29 @@ function publicEstimateDecisionError(reason: unknown, status: "accepted" | "reje
     : "Nie udało się odrzucić oferty. Spróbuj ponownie.";
 }
 
+function PublicDocumentPrintToolbar() {
+  return (
+    <section className="public-document-toolbar no-print" aria-label="Drukowanie dokumentu">
+      <div>
+        <strong>Drukuj albo zapisz dokument</strong>
+        <p>W oknie drukowania możesz wybrać zapis jako PDF. To nie generuje pliku na serwerze.</p>
+      </div>
+      <Button type="button" variant="secondary" icon="report" onClick={() => window.print()}>
+        Drukuj / zapisz PDF
+      </Button>
+    </section>
+  );
+}
+
+function PublicDocumentFooter() {
+  return (
+    <footer className="public-document-footer">
+      <strong>Pan Majster</strong>
+      <span>Dokument udostępniony publicznym linkiem. Zachowaj kopię po wydruku albo zapisie jako PDF.</span>
+    </footer>
+  );
+}
+
 function PublicEstimatePage({ token }: { token: string }) {
   const [estimate, setEstimate] = useState<PublicEstimate | null>(null);
   const [loading, setLoading] = useState(true);
@@ -8417,6 +8440,8 @@ function PublicEstimatePage({ token }: { token: string }) {
             </aside>
           </header>
 
+          <PublicDocumentPrintToolbar />
+
           <section className="public-estimate-hero">
             <div>
               <span>Dokument dla klienta</span>
@@ -8431,11 +8456,11 @@ function PublicEstimatePage({ token }: { token: string }) {
           </section>
 
           {message && (
-            <p className={`public-estimate-message ${estimate.status === "rejected" ? "public-estimate-message--rejected" : ""}`}>
+            <p className={`public-estimate-message no-print ${estimate.status === "rejected" ? "public-estimate-message--rejected" : ""}`}>
               {message}
             </p>
           )}
-          {error && <p className="form-error">{error}</p>}
+          {error && <p className="form-error no-print">{error}</p>}
 
           <section className="public-estimate-party-grid" aria-label="Strony oferty">
             <article className="public-estimate-section-card">
@@ -8506,7 +8531,9 @@ function PublicEstimatePage({ token }: { token: string }) {
             <p>To jest oferta wstępna / wycena orientacyjna. Nie jest fakturą, umową ani wezwaniem do zapłaty. Kwota i zakres mogą ulec zmianie po doprecyzowaniu prac.</p>
           </section>
 
-          <footer className="public-estimate-actions">
+          <PublicDocumentFooter />
+
+          <footer className="public-estimate-actions no-print">
             {estimate.status === "sent" ? (
               <>
                 <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>
@@ -8599,6 +8626,8 @@ function PublicContractPage({ token }: { token: string }) {
             </aside>
           </header>
 
+          <PublicDocumentPrintToolbar />
+
           <section className="public-estimate-hero public-contract-hero">
             <div>
               <span>Dokument dla klienta</span>
@@ -8613,11 +8642,11 @@ function PublicContractPage({ token }: { token: string }) {
           </section>
 
           {message && (
-            <p className={`public-estimate-message ${contract.status === "rejected" ? "public-estimate-message--rejected" : ""}`}>
+            <p className={`public-estimate-message no-print ${contract.status === "rejected" ? "public-estimate-message--rejected" : ""}`}>
               {message}
             </p>
           )}
-          {error && <p className="form-error">{error}</p>}
+          {error && <p className="form-error no-print">{error}</p>}
 
           <section className="public-estimate-party-grid" aria-label="Strony umowy">
             <article className="public-estimate-section-card">
@@ -8692,7 +8721,9 @@ function PublicContractPage({ token }: { token: string }) {
             <p>{contract.legal_note || "To jest umowa wykonania prac. Ten widok nie jest fakturą, PDF-em ani wezwaniem do zapłaty."}</p>
           </section>
 
-          <footer className="public-estimate-actions">
+          <PublicDocumentFooter />
+
+          <footer className="public-estimate-actions no-print">
             {contract.status === "sent" ? (
               <>
                 <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>

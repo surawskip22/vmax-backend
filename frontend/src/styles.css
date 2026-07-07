@@ -2050,6 +2050,14 @@ audio { width: 100%; margin-top: 13px; }
 .public-estimate-document__header p { margin: 0; color: var(--muted); line-height: 1.48; }
 .public-estimate-document__header aside { justify-self: end; display: grid; gap: 8px; justify-items: end; color: var(--muted); font-weight: 800; }
 .public-estimate-document__header aside small { display: block; }
+.public-document-toolbar { padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; border: 1px solid #d7e2ef; border-radius: 14px; background: rgba(255,255,255,.92); box-shadow: 0 14px 30px rgba(18,38,69,.05); }
+.public-document-toolbar strong { display: block; color: var(--navy); font-weight: 900; }
+.public-document-toolbar p { margin: 3px 0 0; color: var(--muted); line-height: 1.45; overflow-wrap: anywhere; }
+.public-document-toolbar .button { min-height: 42px; padding: 0 15px; white-space: nowrap; }
+.public-document-footer { padding: 14px 2px 0; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: baseline; justify-content: space-between; border-top: 1px solid #d7e2ef; color: var(--muted); line-height: 1.45; }
+.public-document-footer strong { color: var(--navy); font-weight: 900; }
+.public-document-footer span { min-width: 0; overflow-wrap: anywhere; }
+.public-estimate-document :where(h1, h2, h3, p, li, dd, a, strong, small, span) { overflow-wrap: anywhere; }
 .public-estimate-card { width: min(720px, 100%); margin: 0 auto; padding: 24px; display: grid; gap: 16px; border: 1px solid #d7e2ef; border-radius: 16px; background: #fff; box-shadow: 0 18px 42px rgba(18,38,69,.08); }
 .public-estimate-card--message { min-height: 280px; place-items: center; text-align: center; }
 .public-estimate-card--message > span { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; color: var(--orange); background: #fff4e8; }
@@ -2574,6 +2582,9 @@ audio { width: 100%; margin-top: 13px; }
   .public-estimate-document__header { padding: 18px; grid-template-columns: 1fr; justify-items: start; }
   .public-estimate-document__header h1 { font-size: 30px; }
   .public-estimate-document__header aside { grid-column: auto; }
+  .public-document-toolbar { padding: 14px; grid-template-columns: 1fr; }
+  .public-document-toolbar .button { width: 100%; justify-content: center; white-space: normal; }
+  .public-document-footer { display: grid; grid-template-columns: 1fr; }
   .public-estimate-hero,
   .public-estimate-party-grid,
   .public-estimate-detail-grid { grid-template-columns: 1fr; }
@@ -3008,9 +3019,11 @@ audio { width: 100%; margin-top: 13px; }
   .public-estimate-document__header,
   .public-estimate-hero,
   .public-estimate-section-card,
-  .public-estimate-notice { border-radius: 12px; }
+  .public-estimate-notice,
+  .public-document-toolbar { border-radius: 12px; }
   .public-estimate-document__header { padding: 16px; }
   .public-estimate-document__header h1 { font-size: 28px; line-height: 1.08; }
+  .public-document-toolbar { padding: 13px; }
   .public-estimate-hero { padding: 16px; }
   .public-estimate-hero h2 { font-size: 26px; }
   .public-estimate-amount-card { padding: 15px; }
@@ -3018,6 +3031,173 @@ audio { width: 100%; margin-top: 13px; }
   .public-estimate-section-card { padding: 14px; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; }
   .public-estimate-section-card > span { width: 34px; height: 34px; border-radius: 11px; }
   .public-estimate-notice { padding: 14px; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; }
+}
+
+@media print {
+  @page { size: A4; margin: 14mm; }
+
+  html,
+  body,
+  #root { background: #fff !important; }
+
+  body {
+    color: #0f172a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .no-print,
+  .toast,
+  .mobile-appbar,
+  .mobile-menu-panel,
+  .mobile-menu-backdrop,
+  .bottom-nav,
+  .sidebar,
+  .ui-mode-bar { display: none !important; }
+
+  .public-estimate-page,
+  .public-contract-page {
+    min-height: auto !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .public-estimate-document,
+  .public-contract-document {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    gap: 8mm !important;
+  }
+
+  .public-estimate-document > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .public-estimate-document__header,
+  .public-estimate-hero,
+  .public-estimate-section-card,
+  .public-estimate-notice,
+  .public-document-footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  .public-estimate-document__header {
+    padding: 0 0 8mm !important;
+    grid-template-columns: auto minmax(0, 1fr) minmax(36mm, auto) !important;
+    border: 0 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    border-radius: 0 !important;
+  }
+
+  .public-estimate-document__header h1 {
+    color: #0f172a !important;
+    font-size: 24pt !important;
+    line-height: 1.08 !important;
+  }
+
+  .public-estimate-document__header p,
+  .public-estimate-document__header aside,
+  .public-estimate-document__header aside small,
+  .public-estimate-document .eyebrow {
+    color: #475569 !important;
+  }
+
+  .public-estimate-hero {
+    padding: 8mm !important;
+    color: #0f172a !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 0 !important;
+  }
+
+  .public-estimate-hero h2,
+  .public-estimate-hero p,
+  .public-estimate-hero span {
+    color: #0f172a !important;
+  }
+
+  .public-estimate-amount-card {
+    color: #0f172a !important;
+    background: #fff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+
+  .public-estimate-party-grid,
+  .public-estimate-detail-grid {
+    gap: 5mm !important;
+  }
+
+  .public-estimate-section-card {
+    padding: 6mm !important;
+    border-color: #cbd5e1 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .public-estimate-section-card > span {
+    color: #0f172a !important;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  .public-estimate-section-card h3,
+  .public-estimate-section-card dd,
+  .public-estimate-section-card--amount strong,
+  .public-estimate-party-name {
+    color: #0f172a !important;
+  }
+
+  .public-estimate-section-card p,
+  .public-estimate-section-card li,
+  .public-estimate-section-card dt,
+  .public-estimate-section-card a {
+    color: #334155 !important;
+  }
+
+  .public-estimate-section-card p,
+  .public-estimate-section-card li,
+  .public-estimate-section-card dd,
+  .public-estimate-section-card a,
+  .public-estimate-notice p,
+  .public-document-footer {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .public-estimate-notice {
+    color: #0f172a !important;
+    background: #fff !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 0 !important;
+  }
+
+  .public-estimate-notice svg,
+  .public-estimate-section-card li svg {
+    color: #475569 !important;
+  }
+
+  .public-document-footer {
+    margin-top: 2mm;
+    padding-top: 5mm;
+    border-top: 1px solid #cbd5e1;
+    color: #475569 !important;
+  }
+
+  .public-document-footer strong {
+    color: #0f172a !important;
+  }
+
+  .status {
+    color: #0f172a !important;
+    background: #fff !important;
+    border: 1px solid #94a3b8 !important;
+    box-shadow: none !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
