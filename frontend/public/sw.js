@@ -1,4 +1,4 @@
-const CACHE = "pan-majster-5d";
+const CACHE = "pan-majster-5e";
 const SHELL = ["/", "/app", "/brand/logo.png", "/brand/symbol.png", "/brand/app-icon.png"];
 
 self.addEventListener("install", (event) => {
@@ -9,7 +9,11 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))),
+      Promise.all(
+        keys
+          .filter((key) => key.startsWith("pan-majster-") && key !== CACHE)
+          .map((key) => caches.delete(key)),
+      ),
     ),
   );
   self.clients.claim();

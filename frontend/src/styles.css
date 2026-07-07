@@ -2670,9 +2670,9 @@ audio { width: 100%; margin-top: 13px; }
   .company-owner-job-card__details { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .company-owner-job-card__actions { margin-inline: 14px; grid-template-columns: 1fr; }
   .company-owner-job-card__actions .button { white-space: normal; }
-  .app-main:has(.worker-workspace) .mobile-appbar,
   .app-main:has(.worker-workspace) .bottom-nav,
   .app-main:has(.worker-workspace) > .ui-mode-bar { display: none; }
+  .app-shell:has(.worker-workspace) .app-main { padding-top: 65px; }
   .worker-detail-topbar,
   .worker-detail-hero__main,
   .worker-detail-mode { width: min(430px, 100%); }
