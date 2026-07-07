@@ -7651,6 +7651,12 @@ function postJobTargetToApi(value: PostJobTargetLabel): JobPostingTargetType {
   return "any";
 }
 
+function postJobTargetFromApi(value: JobPostingTargetType): PostJobTargetLabel {
+  if (value === "company") return "Firma";
+  if (value === "independent_contractor") return "Majster";
+  return "Bez znaczenia";
+}
+
 function jobPostingTargetLabel(value: JobPostingTargetType): string {
   if (value === "company") return "Firma";
   if (value === "independent_contractor") return "Majster";
@@ -8793,10 +8799,12 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
   const [tagToAdd, setTagToAdd] = useState("");
   const [target, setTarget] = useState<PostJobTargetLabel>("Firma");
   const [postings, setPostings] = useState<JobPosting[]>([]);
+  const [editingPostingId, setEditingPostingId] = useState<string | null>(null);
   const [loadingPostings, setLoadingPostings] = useState(true);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [error, setError] = useState("");
   const availableTags = serviceTags.filter((tag) => !selectedTags.includes(tag.slug));
+  const editingPosting = editingPostingId ? postings.find((item) => item.id === editingPostingId) || null : null;
 
   const loadPostings = useCallback(async () => {
     setLoadingPostings(true);
@@ -8830,31 +8838,64 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
     setSelectedTags(["remont-mieszkan", "hydraulika"]);
     setTagToAdd("");
     setTarget("Firma");
+    setEditingPostingId(null);
+  }
+
+  function jobPostingFormPayload(status: JobPostingStatus) {
+    return {
+      title,
+      description,
+      location,
+      budget_label: budget,
+      deadline: term,
+      specializations: selectedTags,
+      current_state_description: currentStateDescription,
+      target_contractor_type: postJobTargetToApi(target),
+      status,
+    };
+  }
+
+  function editDraft(item: JobPosting) {
+    setError("");
+    setEditingPostingId(item.id);
+    setTitle(item.title || "");
+    setLocation(item.location || "");
+    setBudget(item.budget_label || "");
+    setTerm(item.deadline || "");
+    setDescription(item.description || "");
+    setCurrentStateDescription(item.current_state_description || "");
+    setSelectedTags(item.specializations.length > 0 ? item.specializations : []);
+    setTagToAdd("");
+    setTarget(postJobTargetFromApi(item.target_contractor_type));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEditing() {
+    resetForm();
+    setError("");
   }
 
   async function savePosting(status: JobPostingStatus) {
     setError("");
-    setBusyAction(status);
+    const editingId = editingPostingId;
+    const actionKey = editingId ? `${status}:${editingId}` : status;
+    setBusyAction(actionKey);
     try {
-      const saved = await api<JobPosting>("/job-postings/me", {
-        method: "POST",
-        body: JSON.stringify({
-          title,
-          description,
-          location,
-          budget_label: budget,
-          deadline: term,
-          specializations: selectedTags,
-          current_state_description: currentStateDescription,
-          target_contractor_type: postJobTargetToApi(target),
-          status,
-        }),
+      const saved = await api<JobPosting>(editingId ? `/job-postings/me/${editingId}` : "/job-postings/me", {
+        method: editingId ? "PATCH" : "POST",
+        body: JSON.stringify(jobPostingFormPayload(status)),
       });
-      setPostings((current) => [saved, ...current]);
+      setPostings((current) => (
+        editingId
+          ? current.map((posting) => (posting.id === saved.id ? saved : posting))
+          : [saved, ...current]
+      ));
       resetForm();
       notify({
         kind: "success",
-        message: status === "published" ? "Zlecenie opublikowane" : "Szkic ogłoszenia zapisany",
+        message: status === "published"
+          ? "Zlecenie opublikowane"
+          : editingId ? "Zmiany w szkicu zapisane" : "Szkic ogłoszenia zapisany",
       });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Nie udało się zapisać ogłoszenia.");
@@ -8954,7 +8995,16 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
         </div>
       </header>
       <div className="post-job-layout">
-        <form className="post-job-form" onSubmit={submitPosting}>
+        <form className={`post-job-form ${editingPosting ? "post-job-form--editing" : ""}`} onSubmit={submitPosting}>
+          {editingPosting && (
+            <div className="post-job-editing-banner">
+              <span><Icon name="report" size={18} /></span>
+              <div>
+                <strong>Edytujesz szkic</strong>
+                <p>Popraw dane ogłoszenia i zapisz zmiany albo opublikuj ten szkic bez tworzenia duplikatu.</p>
+              </div>
+            </div>
+          )}
           <section>
             <header><span>1</span><h2>Podstawowe informacje</h2></header>
             <div className="post-job-grid">
@@ -8997,15 +9047,32 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
           <section>
             <header><span>4</span><h2>Widoczność i publikacja</h2></header>
             <div className="post-job-status">
-              <p><Icon name="report" size={18} /> Status: <strong>Szkic</strong></p>
+              <p><Icon name="report" size={18} /> Status: <strong>{editingPosting ? "Edytujesz szkic" : "Szkic"}</strong></p>
               <p><Icon name="check" size={18} /> Po publikacji zlecenie będzie dostępne w backendowej liście opublikowanych ogłoszeń dla szefa firmy i samodzielnego majstra.</p>
             </div>
           </section>
 
           {error && <p className="form-error">{error}</p>}
           <footer>
-            <Button type="button" variant="secondary" busy={busyAction === "draft"} disabled={Boolean(busyAction)} onClick={() => void savePosting("draft")}>Zapisz szkic</Button>
-            <Button type="submit" busy={busyAction === "published"} disabled={Boolean(busyAction)}>Opublikuj zlecenie</Button>
+            {editingPosting && (
+              <Button type="button" variant="ghost" disabled={Boolean(busyAction)} onClick={cancelEditing}>Anuluj edycję</Button>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              busy={busyAction === (editingPosting ? `draft:${editingPosting.id}` : "draft")}
+              disabled={Boolean(busyAction)}
+              onClick={() => void savePosting("draft")}
+            >
+              {editingPosting ? "Zapisz zmiany" : "Zapisz szkic"}
+            </Button>
+            <Button
+              type="submit"
+              busy={busyAction === (editingPosting ? `published:${editingPosting.id}` : "published")}
+              disabled={Boolean(busyAction)}
+            >
+              Opublikuj zlecenie
+            </Button>
           </footer>
         </form>
 
@@ -9054,7 +9121,18 @@ function InvestorPostJobPage({ notify }: { notify: (toast: Toast) => void }) {
                     <footer>
                       <span>{item.status === "published" ? `Opublikowano: ${jobPostingDateLabel(item.published_at)}` : "Widoczne tylko dla Ciebie"}</span>
                       {item.status === "draft" && (
-                        <Button type="button" busy={busyAction === `publish:${item.id}`} disabled={Boolean(busyAction)} onClick={() => void publishPosting(item)}>Opublikuj</Button>
+                        <div className="post-job-own-card__actions">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            icon="report"
+                            disabled={Boolean(busyAction)}
+                            onClick={() => editDraft(item)}
+                          >
+                            Edytuj szkic
+                          </Button>
+                          <Button type="button" busy={busyAction === `publish:${item.id}`} disabled={Boolean(busyAction)} onClick={() => void publishPosting(item)}>Opublikuj</Button>
+                        </div>
                       )}
                     </footer>
                     <InvestorJobInterestList

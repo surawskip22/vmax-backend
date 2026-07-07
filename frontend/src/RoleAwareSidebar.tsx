@@ -4,14 +4,14 @@ import { isCompanyOwner, isCompanyWorker, isIndependentContractor, isInvestor } 
 import { peopleLabelsForUser, profileLabels } from "./roleLabels";
 import type { User } from "./types";
 
-type SectionId = "home" | "projects" | "reports" | "team" | "portfolio" | "discover" | "postJob" | "jobSearch" | "estimates" | "settings";
-type NavItem = {
+export type SectionId = "home" | "projects" | "reports" | "team" | "portfolio" | "discover" | "postJob" | "jobSearch" | "estimates" | "settings";
+export type NavItem = {
   id: SectionId;
   label: string;
   icon: Parameters<typeof Icon>[0]["name"];
 };
 
-function getNavigationForUser(user: User): NavItem[] {
+export function getNavigationForUser(user: User): NavItem[] {
   if (isCompanyWorker(user)) {
     return [
       { id: "projects", label: "Moje zlecenia", icon: "clipboard" },

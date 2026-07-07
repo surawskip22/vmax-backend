@@ -678,7 +678,7 @@ h1, h2, h3, p { margin-top: 0; }
 .admin-users > article > span { color: var(--muted); font-size: 12px; }
 .beta-box { display: flex; gap: 14px; padding: 16px; color: #17652b; border: 1px solid #bee5c6; border-radius: 10px; background: #effbf1; }
 .beta-box p { margin: 4px 0 0; font-size: 12px; }
-.mobile-appbar, .bottom-nav { display: none; }
+.mobile-appbar, .bottom-nav, .mobile-menu-backdrop, .mobile-menu-panel { display: none; }
 
 .project-header { margin-bottom: 20px; }
 .back-button { padding: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #4f5e72; }
@@ -2255,6 +2255,10 @@ audio { width: 100%; margin-top: 13px; }
 .post-job-status { padding: 12px; display: grid; gap: 8px; border: 1px solid #dbe6f2; border-radius: 12px; background: #f8fbff; }
 .post-job-status p { margin: 0; display: flex; gap: 9px; align-items: center; color: var(--muted); }
 .post-job-status strong { padding: 4px 8px; border-radius: 999px; color: var(--blue); background: #e9f2ff; text-transform: uppercase; font-size: 11px; }
+.post-job-editing-banner { margin: 18px 22px 0; padding: 14px; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 12px; align-items: start; border: 1px solid #bfdbfe; border-radius: 12px; color: #1e3a8a; background: #eff6ff; }
+.post-job-editing-banner > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; color: var(--blue); background: #fff; }
+.post-job-editing-banner strong { display: block; color: var(--navy); }
+.post-job-editing-banner p { margin: 4px 0 0; color: #425a7d; line-height: 1.45; }
 .post-job-form footer { padding: 18px 22px; display: flex; justify-content: flex-end; gap: 12px; background: #fbfdff; }
 .post-job-preview { display: grid; gap: 18px; }
 .post-job-preview article { padding: 18px; border: 1px solid #d7e2ef; border-radius: 16px; background: #fff; box-shadow: 0 16px 34px rgba(18,38,69,.06); }
@@ -2279,6 +2283,7 @@ audio { width: 100%; margin-top: 13px; }
 .post-job-own-card footer { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .post-job-own-card footer span { color: var(--muted); font-size: 12px; font-weight: 800; }
 .post-job-own-card footer .button { min-height: 34px; padding: 0 12px; }
+.post-job-own-card__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .post-job-interests { margin-top: 4px; padding-top: 10px; display: grid; gap: 10px; border-top: 1px solid #dbe6f2; }
 .post-job-offers { margin-top: 4px; padding-top: 10px; display: grid; gap: 10px; border-top: 1px solid #dbe6f2; }
 .post-job-interests__summary { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: stretch; }
@@ -2469,10 +2474,21 @@ audio { width: 100%; margin-top: 13px; }
   .ui-mode-switch button { min-height: 34px; padding: 0 10px; font-size: 12px; }
   .field-mode-switcher .ui-mode-switch { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .field-mode-switcher .ui-mode-switch button { width: 100%; }
-  .mobile-appbar { position: fixed; z-index: 30; inset: 0 0 auto; height: 65px; padding: 5px 15px; display: flex; align-items: center; justify-content: space-between; color: #fff; background: linear-gradient(135deg, #031e49, #0b3a76); }
+  .mobile-appbar { position: fixed; z-index: 30; inset: 0 0 auto; height: 65px; padding: 5px 15px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #fff; background: linear-gradient(135deg, #031e49, #0b3a76); }
+  .mobile-appbar__identity { min-width: 0; display: flex; align-items: center; gap: 10px; }
+  .mobile-appbar__identity .brand { flex: 0 0 auto; }
+  .mobile-appbar__title { min-width: 0; color: #fff; font-size: 15px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-appbar .brand img { width: 60px; height: 50px; }
   .mobile-appbar__actions { display: flex; align-items: center; gap: 5px; }
   .mobile-appbar .icon-button { color: #fff; }
+  .mobile-menu-backdrop { position: fixed; z-index: 34; inset: 0; display: block; border: 0; background: rgba(3, 19, 43, .38); }
+  .mobile-menu-panel { position: fixed; z-index: 35; top: 73px; right: 12px; left: 12px; max-width: 390px; max-height: calc(100vh - 96px); margin-left: auto; padding: 14px; display: grid; gap: 12px; overflow-y: auto; border: 1px solid #d7e2ef; border-radius: 16px; background: #fff; box-shadow: 0 24px 60px rgba(3,19,43,.24); }
+  .mobile-menu-panel header { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--navy); }
+  .mobile-menu-panel header strong { font-size: 18px; }
+  .mobile-menu-panel > div { display: grid; gap: 6px; }
+  .mobile-menu-panel button:not(.icon-button) { min-height: 44px; padding: 0 12px; display: flex; align-items: center; gap: 10px; border: 0; border-radius: 11px; color: var(--navy); background: transparent; font: inherit; font-weight: 850; text-align: left; }
+  .mobile-menu-panel button:not(.icon-button).active { color: var(--blue); background: #edf3ff; box-shadow: inset 3px 0 var(--blue); }
+  .mobile-menu-panel .logout-button { width: 100%; justify-content: center; color: #7f1d1d !important; background: #fff1f2 !important; }
   .queue-badge { min-width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--orange); font-size: 11px; font-weight: 800; }
   .bottom-nav { position: fixed; z-index: 25; inset: auto 0 0; min-height: 67px; padding-bottom: env(safe-area-inset-bottom); display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid #dbe1e8; background: rgba(255,255,255,.97); backdrop-filter: blur(10px); }
   .bottom-nav--2 { grid-template-columns: repeat(2, 1fr); }
@@ -2631,13 +2647,11 @@ audio { width: 100%; margin-top: 13px; }
     grid-template-columns: 1fr;
   }
   .app-main:has(.worker-home),
-  .app-main:has(.worker-settings-page) { padding-top: 0; background: #edf2f7; }
-  .app-main:has(.worker-home) .mobile-appbar,
+  .app-main:has(.worker-settings-page) { background: #edf2f7; }
   .app-main:has(.worker-home) > .ui-mode-bar,
-  .app-main:has(.worker-settings-page) .mobile-appbar,
   .app-main:has(.worker-settings-page) > .ui-mode-bar { display: none; }
   .worker-home, .worker-settings-page { width: min(430px, 100%); max-width: 430px; min-height: 100vh; padding: 0 16px 92px; background: #f8fafc; }
-  .worker-mobile-header { display: flex; }
+  .worker-mobile-header { display: none; }
   .worker-page-header { display: grid; gap: 13px; }
   .worker-title-row { align-items: stretch; }
   .worker-title-row > .button { width: 100%; }
