@@ -3807,6 +3807,12 @@ function ProjectView({
   const [projectEstimateDraft, setProjectEstimateDraft] = useState<EstimateDraft | null>(null);
   const [projectEstimateBusy, setProjectEstimateBusy] = useState<string | null>(null);
   const [projectEstimateError, setProjectEstimateError] = useState("");
+  const [guestEstimateDraft, setGuestEstimateDraft] = useState<GuestEstimateDraft | null>(null);
+  const [guestContractDraft, setGuestContractDraft] = useState<ContractDraft | null>(null);
+  const [guestDocumentBusy, setGuestDocumentBusy] = useState<string | null>(null);
+  const [guestEstimateMessage, setGuestEstimateMessage] = useState("");
+  const [guestContractMessage, setGuestContractMessage] = useState("");
+  const [guestDocumentError, setGuestDocumentError] = useState("");
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const [coverBusy, setCoverBusy] = useState(false);
   const workerReportsRef = useRef<HTMLDivElement | null>(null);
@@ -3935,6 +3941,12 @@ function ProjectView({
     setProjectEstimateDraft(null);
     setProjectEstimateBusy(null);
     setProjectEstimateError("");
+    setGuestEstimateDraft(null);
+    setGuestContractDraft(null);
+    setGuestDocumentBusy(null);
+    setGuestEstimateMessage("");
+    setGuestContractMessage("");
+    setGuestDocumentError("");
     setLoading(true);
   }, [guestToken, projectId]);
 
@@ -4138,6 +4150,75 @@ function ProjectView({
     }
   }
 
+  function openGuestEstimateDraft() {
+    if (!project) return;
+    setGuestEstimateDraft(guestEstimateDraftFromProject(project));
+    setGuestEstimateMessage("");
+    setGuestDocumentError("");
+  }
+
+  async function saveGuestEstimateDraft() {
+    if (!guestToken || !project || !guestEstimateDraft) return;
+    setGuestDocumentBusy("guest-estimate");
+    setGuestDocumentError("");
+    try {
+      validateEstimateDates(guestEstimateDraft.plannedStart, guestEstimateDraft.plannedEnd);
+      await api(`/projects/${project.id}/guest-estimate-draft`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: guestEstimateDraft.title.trim(),
+          scope_summary: guestEstimateDraft.scopeSummary.trim(),
+          assumptions: guestEstimateDraft.assumptions.trim(),
+          estimated_price: normalizeEstimateAmount(guestEstimateDraft.estimatedPrice),
+          price_note: guestEstimateDraft.priceNote.trim(),
+          planned_start: guestEstimateDraft.plannedStart,
+          planned_end: guestEstimateDraft.plannedEnd,
+          contact_note: guestEstimateDraft.contactNote.trim(),
+        }),
+      }, guestToken);
+      setGuestEstimateDraft(null);
+      setGuestEstimateMessage("Szkic wyceny wysłany do szefa do zatwierdzenia.");
+      notify({ kind: "success", message: "Szkic wyceny wysłany do szefa do zatwierdzenia." });
+    } catch (reason) {
+      const message = friendlyEstimateError(reason);
+      setGuestDocumentError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setGuestDocumentBusy(null);
+    }
+  }
+
+  function openGuestContractDraft() {
+    if (!project) return;
+    setGuestContractDraft(contractDraftFromProject(project));
+    setGuestContractMessage("");
+    setGuestDocumentError("");
+  }
+
+  async function saveGuestContractDraft() {
+    if (!guestToken || !project || !guestContractDraft) return;
+    setGuestDocumentBusy("guest-contract");
+    setGuestDocumentError("");
+    try {
+      const result = await api<{ created: boolean; message?: string; contract?: { id: string; status: ProjectContractStatus } | null }>(`/projects/${project.id}/guest-contract-draft`, {
+        method: "POST",
+        body: JSON.stringify(projectContractPayloadFromDraft(guestContractDraft)),
+      }, guestToken);
+      setGuestContractDraft(null);
+      const message = result.created
+        ? "Szkic danych do umowy wysłany do szefa do zatwierdzenia."
+        : result.message || "Umowa dla tego zlecenia już istnieje. Skontaktuj się z szefem albo zgłoś uwagi.";
+      setGuestContractMessage(message);
+      notify({ kind: result.created ? "success" : "info", message });
+    } catch (reason) {
+      const message = friendlyEstimateError(reason);
+      setGuestDocumentError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setGuestDocumentBusy(null);
+    }
+  }
+
   async function deleteDocumentationEntry() {
     if (!deleteEntryTarget) return;
     try {
@@ -4203,7 +4284,9 @@ function ProjectView({
   );
   const canEditProjectPortfolio = Boolean(projectPortfolioRealization || projectCompleted);
   const canManageProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser) && ["owner", "manager"].includes(project.role || ""));
-  const canShowProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || (isCompanyWorkerFieldUser && projectContract)));
+  const canCreateWorkerContractDraft = Boolean(!guestToken && isCompanyWorkerFieldUser && project.role);
+  const canShowProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || isCompanyWorkerFieldUser));
+  const canSubmitGuestDocumentDrafts = Boolean(guestToken && project.workspace_id && project.guest && ["add", "history"].includes(project.guest.permission));
 
   function handlePortfolioSaved(item: PublicProfileRealization) {
     setPortfolioRealizations((current) => {
@@ -4387,8 +4470,12 @@ function ProjectView({
           <h2>Umowa</h2>
           <p>
             {projectContract
-              ? "Umowa dla tego zlecenia jest powiązana z projektem i publicznym linkiem akceptacji."
-              : "Utwórz szkic umowy z danych zlecenia, popraw zakres i wyślij klientowi link do akceptacji."}
+              ? projectContract.status === "pending_approval"
+                ? "Szkic umowy czeka na sprawdzenie i wysłanie przez szefa firmy."
+                : "Umowa dla tego zlecenia jest powiązana z projektem i publicznym linkiem akceptacji."
+              : isCompanyWorkerFieldUser
+                ? "Przygotuj dane do umowy dla szefa. Szef może je sprawdzić, poprawić i wysłać klientowi."
+                : "Utwórz szkic umowy z danych zlecenia, popraw zakres i wyślij klientowi link do akceptacji."}
           </p>
         </div>
         <span className={`status ${projectContract ? contractStatusClass(projectContract.status) : "status--assigned"}`}>
@@ -4403,6 +4490,7 @@ function ProjectView({
             <div><dt>Klient</dt><dd>{projectContract.client_name || "Nie podano"}</dd></div>
             <div><dt>Kwota</dt><dd>{projectContractAmountLabel(projectContract.price_amount, projectContract.price_currency)}</dd></div>
             <div><dt>Termin</dt><dd>{projectContract.planned_start || "?"} - {projectContract.planned_end || "?"}</dd></div>
+            <div><dt>Źródło</dt><dd>{user ? draftOriginLabel(projectContract, user) : "Szkic"}</dd></div>
           </dl>
           {projectContract.share_url && (
             <section className="worker-contract-share">
@@ -4411,12 +4499,15 @@ function ProjectView({
             </section>
           )}
           <div className="worker-contract-card__actions">
-            {projectContract.status === "draft" && canManageProjectContract && (
+            {["draft", "pending_approval"].includes(projectContract.status) && canManageProjectContract && (
               <>
                 <Button type="button" variant="secondary" icon="settings" onClick={() => setShowContractModal(true)}>Edytuj</Button>
                 <Button type="button" icon="send" busy={contractBusy === "send"} disabled={Boolean(contractBusy)} onClick={() => void sendProjectContract(projectContract)}>Wyślij / wygeneruj link</Button>
                 <Button type="button" variant="secondary" icon="close" busy={contractBusy === "cancel"} disabled={Boolean(contractBusy)} onClick={() => void cancelProjectContract(projectContract)}>Anuluj</Button>
               </>
+            )}
+            {projectContract.status === "pending_approval" && isCompanyWorkerFieldUser && projectContract.created_by_id === user?.id && (
+              <Button type="button" variant="secondary" icon="settings" onClick={() => setShowContractModal(true)}>Edytuj szkic</Button>
             )}
             {projectContract.status === "sent" && (
               <>
@@ -4432,10 +4523,10 @@ function ProjectView({
         </div>
       ) : (
         <div className="worker-contract-card__empty">
-          <p>Umowa nie powstaje automatycznie z oferty ani ze zlecenia. Najpierw utwórz szkic i sprawdź dane.</p>
-          {canManageProjectContract && (
+          <p>{isCompanyWorkerFieldUser ? "Nie wysyłasz umowy klientowi. Przygotuj szkic, a szef firmy zdecyduje, co dalej." : "Umowa nie powstaje automatycznie z oferty ani ze zlecenia. Najpierw utwórz szkic i sprawdź dane."}</p>
+          {(canManageProjectContract || canCreateWorkerContractDraft) && (
             <Button type="button" icon="plus" busy={contractBusy === "create"} disabled={contractLoading || Boolean(contractBusy)} onClick={() => void createProjectContract()}>
-              Utwórz umowę
+              {isCompanyWorkerFieldUser ? "Przygotuj szkic umowy" : "Utwórz umowę"}
             </Button>
           )}
         </div>
@@ -4796,13 +4887,18 @@ function ProjectView({
           {portfolioDetailCard}
           {projectContractCard}
 
-          {(canStartWorkerProject || canAddWorkerProgress || canCreateProjectEstimateDraft || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
+          {(canStartWorkerProject || canAddWorkerProgress || canCreateProjectEstimateDraft || canCreateWorkerContractDraft || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
             <section className="worker-action-panel">
               {canStartWorkerProject && <Button type="button" icon="plus" onClick={startProject}>{isCompanyOwnerDetailUser ? "Rozpocznij zlecenie" : "Rozpocznij robot&#281;"}</Button>}
               {canAddWorkerProgress && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj post&#281;p</Button>}
               {canCreateProjectEstimateDraft && (
                 <Button type="button" variant="secondary" icon="report" onClick={openProjectEstimateDraft}>
                   Przygotuj szkic wyceny
+                </Button>
+              )}
+              {canCreateWorkerContractDraft && !projectContract && (
+                <Button type="button" variant="secondary" icon="clipboard" busy={contractBusy === "create"} disabled={contractLoading || Boolean(contractBusy)} onClick={() => void createProjectContract()}>
+                  Przygotuj szkic umowy
                 </Button>
               )}
               {isCompanyOwnerDetailUser && canAddWorkerProgress && (
@@ -5080,6 +5176,99 @@ function ProjectView({
               loading={reportsLoading}
               error={reportError}
             />
+          )}
+          {canSubmitGuestDocumentDrafts && (
+            <section className="guest-document-drafts">
+              <article className="worker-detail-card guest-document-card">
+                <div className="worker-section-heading">
+                  <div>
+                    <h2>Szkic wyceny / dodatkowe prace</h2>
+                    <p>Widzisz dodatkowe prace albo zmianę zakresu? Przygotuj szkic wyceny dla szefa. Szef może go później zatwierdzić i wysłać klientowi.</p>
+                  </div>
+                </div>
+                {guestEstimateMessage && <p className="form-success">{guestEstimateMessage}</p>}
+                {!guestEstimateDraft ? (
+                  <Button type="button" variant="secondary" icon="report" onClick={openGuestEstimateDraft}>Przygotuj szkic wyceny</Button>
+                ) : (
+                  <form className="guest-document-form" onSubmit={(event) => { event.preventDefault(); void saveGuestEstimateDraft(); }}>
+                    <label>
+                      Tytuł
+                      <input value={guestEstimateDraft.title} onChange={(event) => setGuestEstimateDraft({ ...guestEstimateDraft, title: event.target.value })} required />
+                    </label>
+                    <label>
+                      Zakres / opis
+                      <textarea value={guestEstimateDraft.scopeSummary} onChange={(event) => setGuestEstimateDraft({ ...guestEstimateDraft, scopeSummary: event.target.value })} required />
+                    </label>
+                    <div className="estimate-form-grid">
+                      <label>
+                        Kwota orientacyjna
+                        <input inputMode="decimal" value={guestEstimateDraft.estimatedPrice} onChange={(event) => setGuestEstimateDraft({ ...guestEstimateDraft, estimatedPrice: cleanEstimateAmountInput(event.target.value) })} placeholder="np. 12000" />
+                      </label>
+                      <label>
+                        Termin
+                        <input type="date" value={guestEstimateDraft.plannedEnd} onChange={(event) => setGuestEstimateDraft({ ...guestEstimateDraft, plannedEnd: event.target.value })} />
+                      </label>
+                    </div>
+                    <label>
+                      Uwagi
+                      <textarea value={guestEstimateDraft.priceNote} onChange={(event) => setGuestEstimateDraft({ ...guestEstimateDraft, priceNote: event.target.value })} />
+                    </label>
+                    <label>
+                      Kontakt do ekipy
+                      <input value={guestEstimateDraft.contactNote} onChange={(event) => setGuestEstimateDraft({ ...guestEstimateDraft, contactNote: event.target.value })} placeholder="np. telefon brygadzisty, jeśli potrzebny" />
+                    </label>
+                    {guestDocumentError && <p className="form-error">{guestDocumentError}</p>}
+                    <div className="guest-document-form__actions">
+                      <Button type="button" variant="secondary" disabled={guestDocumentBusy === "guest-estimate"} onClick={() => setGuestEstimateDraft(null)}>Anuluj</Button>
+                      <Button type="submit" icon="send" busy={guestDocumentBusy === "guest-estimate"} disabled={Boolean(guestDocumentBusy)}>Wyślij do szefa</Button>
+                    </div>
+                  </form>
+                )}
+              </article>
+
+              <article className="worker-detail-card guest-document-card">
+                <div className="worker-section-heading">
+                  <div>
+                    <h2>Szkic danych do umowy</h2>
+                    <p>Możesz przygotować propozycję danych do umowy. Szef sprawdzi ją i zdecyduje, czy wysłać umowę klientowi.</p>
+                  </div>
+                </div>
+                {guestContractMessage && <p className="form-success">{guestContractMessage}</p>}
+                {!guestContractDraft ? (
+                  <Button type="button" variant="secondary" icon="clipboard" onClick={openGuestContractDraft}>Przygotuj szkic danych do umowy</Button>
+                ) : (
+                  <form className="guest-document-form" onSubmit={(event) => { event.preventDefault(); void saveGuestContractDraft(); }}>
+                    <label>
+                      Zakres prac
+                      <textarea value={guestContractDraft.scopeSummary} onChange={(event) => setGuestContractDraft({ ...guestContractDraft, scopeSummary: event.target.value })} required />
+                    </label>
+                    <div className="estimate-form-grid">
+                      <label>
+                        Start
+                        <input type="date" value={guestContractDraft.plannedStart} onChange={(event) => setGuestContractDraft({ ...guestContractDraft, plannedStart: event.target.value })} />
+                      </label>
+                      <label>
+                        Koniec
+                        <input type="date" value={guestContractDraft.plannedEnd} onChange={(event) => setGuestContractDraft({ ...guestContractDraft, plannedEnd: event.target.value })} />
+                      </label>
+                    </div>
+                    <label>
+                      Kwota
+                      <input inputMode="decimal" value={guestContractDraft.priceAmount} onChange={(event) => setGuestContractDraft({ ...guestContractDraft, priceAmount: cleanEstimateAmountInput(event.target.value) })} placeholder="np. 12000" />
+                    </label>
+                    <label>
+                      Uwagi
+                      <textarea value={guestContractDraft.priceNote} onChange={(event) => setGuestContractDraft({ ...guestContractDraft, priceNote: event.target.value })} />
+                    </label>
+                    {guestDocumentError && <p className="form-error">{guestDocumentError}</p>}
+                    <div className="guest-document-form__actions">
+                      <Button type="button" variant="secondary" disabled={guestDocumentBusy === "guest-contract"} onClick={() => setGuestContractDraft(null)}>Anuluj</Button>
+                      <Button type="submit" icon="send" busy={guestDocumentBusy === "guest-contract"} disabled={Boolean(guestDocumentBusy)}>Wyślij do szefa</Button>
+                    </div>
+                  </form>
+                )}
+              </article>
+            </section>
           )}
           {showClientLink && clientLink?.url && (
             <div className="share-result">
@@ -8095,6 +8284,7 @@ function estimateStatusClass(status: EstimateStatus): string {
 }
 
 function contractStatusLabel(status: ProjectContractStatus): string {
+  if (status === "pending_approval") return "Do zatwierdzenia";
   if (status === "sent") return "Wysłana do akceptacji";
   if (status === "accepted") return "Zaakceptowana";
   if (status === "rejected") return "Odrzucona";
@@ -8127,6 +8317,12 @@ function estimateSourceLabel(estimate: Estimate): string {
   if (estimate.source_type === "project") return "Zlecenie";
   if (estimate.source_type === "job_posting") return "Ogłoszenie";
   return "Ręczna";
+}
+
+function draftOriginLabel(item: Pick<Estimate | ProjectContract, "draft_origin" | "draft_origin_label" | "created_by_id">, user: User): string {
+  if (item.draft_origin === "guest_link") return item.draft_origin_label ? `Z linka /g: ${item.draft_origin_label}` : "Z linka /g";
+  if (item.draft_origin === "worker") return item.created_by_id === user.id ? "Ty" : "Od pracownika";
+  return item.created_by_id === user.id ? "Ty" : "Członek firmy";
 }
 
 function absoluteEstimateShareUrl(shareUrl?: string | null): string {
@@ -8233,6 +8429,17 @@ type EstimateDraft = {
   plannedEnd: string;
 };
 
+type GuestEstimateDraft = {
+  title: string;
+  scopeSummary: string;
+  assumptions: string;
+  estimatedPrice: string;
+  priceNote: string;
+  plannedStart: string;
+  plannedEnd: string;
+  contactNote: string;
+};
+
 type EstimateProjectResult = {
   created: boolean;
   project: Project;
@@ -8273,6 +8480,19 @@ function estimateDraftFromProject(user: User, project: Project): EstimateDraft {
       : `Dodatkowe prace do zlecenia: ${project.name}`,
     plannedStart: estimateDateInputValue(project.planned_start_date),
     plannedEnd: estimateDateInputValue(project.planned_end_date),
+  };
+}
+
+function guestEstimateDraftFromProject(project: Project): GuestEstimateDraft {
+  return {
+    title: `Szkic wyceny - ${project.name}`.slice(0, 220),
+    scopeSummary: "",
+    assumptions: "Szkic przygotowany przez ekipę terenową z linku /g. Szef firmy sprawdza i wysyła ofertę klientowi.",
+    estimatedPrice: "",
+    priceNote: "",
+    plannedStart: estimateDateInputValue(project.planned_start_date),
+    plannedEnd: estimateDateInputValue(project.planned_end_date),
+    contactNote: "",
   };
 }
 
@@ -8387,6 +8607,30 @@ function contractDraftFromContract(contract?: ProjectContract | null): ContractD
     changeTerms: contract?.change_terms || "",
     attachmentsNote: contract?.attachments_note || "",
     legalNote: contract?.legal_note || "",
+  };
+}
+
+function contractDraftFromProject(project: Project): ContractDraft {
+  return {
+    contractorName: "",
+    contractorEmail: "",
+    contractorPhone: "",
+    clientName: project.client_name || "",
+    clientEmail: project.client_email || "",
+    clientPhone: "",
+    workAddress: project.address || "",
+    projectName: project.name || "Umowa wykonania prac",
+    scopeSummary: project.description || "",
+    termsSummary: "Szkic danych do umowy przygotowany przez ekipę terenową. Szef firmy sprawdza zakres, terminy i warunki przed wysłaniem klientowi.",
+    plannedStart: estimateDateInputValue(project.planned_start_date),
+    plannedEnd: estimateDateInputValue(project.planned_end_date),
+    priceAmount: project.contract_amount || "",
+    priceCurrency: project.contract_currency || "PLN",
+    priceNote: "",
+    depositAmount: "",
+    changeTerms: "",
+    attachmentsNote: "",
+    legalNote: "To szkic danych do umowy. Formalna umowa powstaje dopiero po zatwierdzeniu i wysłaniu przez szefa firmy.",
   };
 }
 
@@ -9340,7 +9584,7 @@ function EstimatesPage({
               <div><dt>Start</dt><dd>{estimate.planned_start || "Do ustalenia"}</dd></div>
               <div><dt>Koniec</dt><dd>{estimate.planned_end || "Do ustalenia"}</dd></div>
               <div><dt>Źródło</dt><dd>{estimateSourceLabel(estimate)}</dd></div>
-              <div><dt>Utworzył</dt><dd>{estimate.created_by_id === user.id ? "Ty" : "Członek firmy"}</dd></div>
+              <div><dt>Utworzył</dt><dd>{draftOriginLabel(estimate, user)}</dd></div>
             </dl>
             <p>{estimate.scope_summary || "Brak opisu zakresu."}</p>
             {estimate.share_url ? (

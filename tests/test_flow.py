@@ -4697,6 +4697,67 @@ def test_company_worker_can_prepare_project_estimate_draft_for_owner():
         assert sent.json()["share_url"].startswith("/estimate/")
 
 
+def test_guest_link_can_prepare_project_estimate_draft_for_owner():
+    with TestClient(app) as owner:
+        login(owner, "guest-estimate-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Guest Estimate"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "name": "Zlecenie z linkiem guest wyceny",
+                "client_name": "Klient guest",
+                "client_email": "guest-client@example.com",
+                "description": "Zakres bazowy.",
+                "template": "custom",
+            },
+        ).json()
+        link = owner.post(
+            f"/api/projects/{project['id']}/guest-links",
+            json={"label": "Ekipa link guest", "kind": "worker", "permission": "add"},
+        ).json()
+
+        with TestClient(app) as guest:
+            created = guest.post(
+                f"/api/projects/{project['id']}/guest-estimate-draft",
+                headers={"x-guest-token": link["token"]},
+                json={
+                    "title": "Szkic wyceny z linku",
+                    "scope_summary": "Dodatkowy zakres z placu budowy.",
+                    "estimated_price": "3200.00",
+                    "price_note": "Kwota orientacyjna.",
+                    "planned_end": "2026-09-30",
+                    "contact_note": "Kontakt do ekipy: 500 500 500",
+                },
+            )
+            assert created.status_code == 201
+            body = created.json()
+            assert body["status"] == "pending_approval"
+            assert body["source_type"] == "project"
+            assert body["source_id"] == project["id"]
+            assert body["project_id"] is None
+            assert body["draft_origin"] == "guest_link"
+            assert body["draft_origin_label"] == "Ekipa link guest"
+            assert body["estimated_price"] == "3200.00"
+            assert "owner_id" not in body
+            assert "created_by_id" not in body
+            assert "share_url" not in body
+            assert guest.get("/api/estimates/me", headers={"x-guest-token": link["token"]}).status_code == 401
+
+        owner_list = owner.get("/api/estimates/me")
+        assert owner_list.status_code == 200
+        owner_item = next(item for item in owner_list.json() if item["id"] == body["id"])
+        assert owner_item["owner_type"] == "company"
+        assert owner_item["owner_id"] == workspace_id
+        assert owner_item["status"] == "pending_approval"
+        assert owner_item["draft_origin"] == "guest_link"
+        assert owner_item["source_id"] == project["id"]
+
+
 def test_estimate_access_blocks_investor_guest_and_other_company():
     with TestClient(app) as owner:
         login(owner, "estimate-access-owner@example.com")
@@ -5184,6 +5245,177 @@ def test_project_contract_public_reject_and_cancel_blocks_link():
             assert public_client.get(f"/api/contracts/public/{second_token}").status_code == 404
 
 
+def test_company_worker_can_prepare_project_contract_draft_for_owner():
+    with TestClient(app) as owner:
+        login(owner, "contract-worker-draft-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Worker Contract"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        with TestClient(app) as worker:
+            worker_user = login(worker, "contract-worker-draft@example.com")
+            worker.post("/api/onboarding", json={"profile_type": "company_worker"})
+        worker_profile = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik szkicow umow",
+                "profile_kind": "craftsman",
+                "email": "contract-worker-draft@example.com",
+            },
+        ).json()
+        assigned_project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker_profile["id"],
+                "name": "Zlecenie z umowa workera",
+                "client_name": "Klient worker contract",
+                "client_email": "worker-contract-client@example.com",
+                "description": "Zakres firmowy.",
+                "contract_amount": "18000.00",
+                "template": "custom",
+            },
+        ).json()
+        unassigned_project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "name": "Nieprzypisane umowy",
+                "client_name": "Klient bez workera",
+                "template": "custom",
+            },
+        ).json()
+
+        with TestClient(app) as worker:
+            login(worker, "contract-worker-draft@example.com")
+            created = worker.post(
+                f"/api/projects/{assigned_project['id']}/contract",
+                json={
+                    "scope_summary": "Szkic zakresu umowy od pracownika.",
+                    "terms_summary": "Warunki do sprawdzenia przez szefa.",
+                    "price_amount": "18500.00",
+                },
+            )
+            assert created.status_code == 201
+            body = created.json()
+            assert body["created"] is True
+            contract = body["contract"]
+            assert contract["status"] == "pending_approval"
+            assert contract["project_id"] == assigned_project["id"]
+            assert contract["owner_type"] == "company"
+            assert contract["company_id"] == workspace_id
+            assert contract["created_by_id"] == worker_user["id"]
+            assert contract["draft_origin"] == "worker"
+            assert contract["price_amount"] == "18500.00"
+            assert contract["share_url"] is None
+            assert worker.patch(
+                f"/api/contracts/me/{contract['id']}/status",
+                json={"status": "sent"},
+            ).status_code == 403
+            assert worker.post(f"/api/projects/{unassigned_project['id']}/contract").status_code in {403, 404}
+
+        owner_contracts = owner.get(f"/api/contracts/me?project_id={assigned_project['id']}")
+        assert owner_contracts.status_code == 200
+        owner_item = owner_contracts.json()[0]
+        assert owner_item["id"] == contract["id"]
+        assert owner_item["status"] == "pending_approval"
+        assert owner_item["draft_origin"] == "worker"
+
+        patched = owner.patch(
+            f"/api/contracts/me/{contract['id']}",
+            json={"scope_summary": "Szkic poprawiony przez szefa."},
+        )
+        assert patched.status_code == 200
+        assert patched.json()["scope_summary"] == "Szkic poprawiony przez szefa."
+        sent = owner.patch(
+            f"/api/contracts/me/{contract['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        assert sent.json()["status"] == "sent"
+        assert sent.json()["share_url"].startswith("/contract/")
+
+
+def test_guest_link_can_prepare_project_contract_draft_without_duplicates():
+    with TestClient(app) as owner:
+        login(owner, "guest-contract-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Guest Contract"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "name": "Zlecenie z linkiem guest umowy",
+                "client_name": "Klient guest contract",
+                "description": "Zakres przed umowa.",
+                "contract_amount": "14000.00",
+                "template": "custom",
+            },
+        ).json()
+        link = owner.post(
+            f"/api/projects/{project['id']}/guest-links",
+            json={"label": "Ekipa umowy guest", "kind": "worker", "permission": "add"},
+        ).json()
+
+        with SessionLocal() as db:
+            count_before = db.scalar(select(func.count(models.ProjectContract.id)))
+
+        with TestClient(app) as guest:
+            created = guest.post(
+                f"/api/projects/{project['id']}/guest-contract-draft",
+                headers={"x-guest-token": link["token"]},
+                json={
+                    "scope_summary": "Propozycja zakresu umowy z linku.",
+                    "planned_start": "2026-10-01",
+                    "planned_end": "2026-10-20",
+                    "price_amount": "14500.00",
+                    "price_note": "Po ogledzinach.",
+                },
+            )
+            assert created.status_code == 201
+            body = created.json()
+            assert body["created"] is True
+            contract = body["contract"]
+            assert contract["status"] == "pending_approval"
+            assert contract["draft_origin"] == "guest_link"
+            assert contract["draft_origin_label"] == "Ekipa umowy guest"
+            assert contract["price_amount"] == "14500.00"
+            assert "owner_id" not in contract
+            assert "company_id" not in contract
+            assert "created_by_id" not in contract
+
+            duplicate = guest.post(
+                f"/api/projects/{project['id']}/guest-contract-draft",
+                headers={"x-guest-token": link["token"]},
+                json={"scope_summary": "Nie nadpisuj"},
+            )
+            assert duplicate.status_code == 200
+            assert duplicate.json()["created"] is False
+            assert duplicate.json()["contract"] is None
+
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(models.ProjectContract.id))) == count_before + 1
+
+        owner_contracts = owner.get(f"/api/contracts/me?project_id={project['id']}")
+        assert owner_contracts.status_code == 200
+        owner_item = owner_contracts.json()[0]
+        assert owner_item["id"] == contract["id"]
+        assert owner_item["status"] == "pending_approval"
+        assert owner_item["draft_origin"] == "guest_link"
+
+        sent = owner.patch(
+            f"/api/contracts/me/{contract['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        assert sent.json()["share_url"].startswith("/contract/")
+
+
 def test_project_contract_blocks_company_worker_investor_and_other_owner():
     with TestClient(app) as owner:
         login(owner, "project-contract-owner@example.com")
@@ -5223,7 +5455,10 @@ def test_project_contract_blocks_company_worker_investor_and_other_owner():
 
         with TestClient(app) as worker:
             login(worker, "project-contract-worker@example.com")
-            assert worker.post(f"/api/projects/{project['id']}/contract").status_code == 403
+            duplicate = worker.post(f"/api/projects/{project['id']}/contract")
+            assert duplicate.status_code == 200
+            assert duplicate.json()["created"] is False
+            assert duplicate.json()["contract"]["id"] == contract["id"]
             assert worker.patch(f"/api/contracts/me/{contract['id']}/status", json={"status": "sent"}).status_code == 403
 
         with TestClient(app) as investor:

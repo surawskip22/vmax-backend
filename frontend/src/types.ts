@@ -72,7 +72,7 @@ export type EstimateStatus =
   | "rejected"
   | "cancelled";
 
-export type ProjectContractStatus = "draft" | "sent" | "accepted" | "rejected" | "cancelled";
+export type ProjectContractStatus = "draft" | "pending_approval" | "sent" | "accepted" | "rejected" | "cancelled";
 
 export type EstimateRecipientType = "manual" | "investor" | "client";
 
@@ -91,6 +91,8 @@ export type Estimate = {
   source_type: EstimateSourceType;
   source_id?: string | null;
   project_id?: string | null;
+  draft_origin?: string;
+  draft_origin_label?: string;
   title: string;
   scope_summary: string;
   assumptions: string;
@@ -147,6 +149,8 @@ export type ProjectContract = {
   company_id?: string | null;
   created_by_id: string;
   status: ProjectContractStatus;
+  draft_origin?: string;
+  draft_origin_label?: string;
   share_url?: string | null;
   share_active?: boolean;
   contract_number: string;

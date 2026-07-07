@@ -719,6 +719,8 @@ def estimate_payload(item: models.Estimate) -> dict:
         "source_type": item.source_type,
         "source_id": item.source_id,
         "project_id": item.project_id,
+        "draft_origin": item.draft_origin,
+        "draft_origin_label": item.draft_origin_label,
         "title": item.title,
         "scope_summary": item.scope_summary,
         "assumptions": item.assumptions,
@@ -824,6 +826,8 @@ def project_contract_payload(item: models.ProjectContract) -> dict:
         "company_id": item.company_id,
         "created_by_id": item.created_by_id,
         "status": item.status,
+        "draft_origin": item.draft_origin,
+        "draft_origin_label": item.draft_origin_label,
         "share_url": project_contract_share_url(item),
         "share_active": item.share_active,
         "contract_number": project_contract_number(item),
@@ -852,6 +856,43 @@ def project_contract_payload(item: models.ProjectContract) -> dict:
         "cancelled_at": item.cancelled_at.isoformat() if item.cancelled_at else None,
         "created_at": item.created_at.isoformat(),
         "updated_at": item.updated_at.isoformat(),
+    }
+
+
+def guest_estimate_draft_payload(item: models.Estimate) -> dict:
+    return {
+        "id": item.id,
+        "source_type": item.source_type,
+        "source_id": item.source_id,
+        "project_id": item.project_id,
+        "draft_origin": item.draft_origin,
+        "draft_origin_label": item.draft_origin_label,
+        "title": item.title,
+        "scope_summary": item.scope_summary,
+        "estimated_price": money_payload(item.estimated_price),
+        "price_note": item.price_note,
+        "planned_start": item.planned_start,
+        "planned_end": item.planned_end,
+        "status": item.status,
+        "created_at": item.created_at.isoformat(),
+    }
+
+
+def guest_project_contract_draft_payload(item: models.ProjectContract) -> dict:
+    return {
+        "id": item.id,
+        "project_id": item.project_id,
+        "status": item.status,
+        "draft_origin": item.draft_origin,
+        "draft_origin_label": item.draft_origin_label,
+        "project_name": item.project_name,
+        "scope_summary": item.scope_summary,
+        "planned_start": item.planned_start,
+        "planned_end": item.planned_end,
+        "price_amount": money_payload(item.price_amount),
+        "price_currency": item.price_currency,
+        "price_note": item.price_note,
+        "created_at": item.created_at.isoformat(),
     }
 
 
@@ -888,8 +929,14 @@ def public_project_contract_payload(db: Session, item: models.ProjectContract) -
 
 
 def project_contract_actor_for_project(db: Session, access: ProjectAccess, user: models.User) -> str:
-    if is_company_worker(user) or is_investor(user):
+    if is_investor(user):
         raise HTTPException(403, "Tylko wykonawca albo szef firmy moze tworzyc umowy")
+    if is_company_worker(user):
+        if not access.project.workspace_id:
+            raise HTTPException(403, "To nie jest zlecenie firmy")
+        if not project_role(db, access.project.id, user.id):
+            raise HTTPException(403, "Pracownik moze przygotowac szkic umowy tylko do przypisanego zlecenia")
+        return "company_worker"
     if is_independent_contractor(user):
         if access.project.workspace_id:
             raise HTTPException(403, "To zlecenie nalezy do firmy")
@@ -982,6 +1029,11 @@ def build_project_contract_from_project(
     db: Session,
     project: models.Project,
     user: models.User,
+    *,
+    status: str = "draft",
+    created_by_id: str | None = None,
+    draft_origin: str = "manual",
+    draft_origin_label: str = "",
 ) -> models.ProjectContract:
     owner_type, owner_id, company_id = contract_owner_from_project(project, user)
     contractor_name, contractor_email, contractor_phone = project_contract_contractor_defaults(
@@ -992,8 +1044,10 @@ def build_project_contract_from_project(
         owner_type=owner_type,
         owner_id=owner_id,
         company_id=company_id,
-        created_by_id=user.id,
-        status="draft",
+        created_by_id=created_by_id or user.id,
+        status=status,
+        draft_origin=draft_origin,
+        draft_origin_label=draft_origin_label,
         share_active=False,
         contract_number="",
         contractor_name=contractor_name,
@@ -1057,8 +1111,18 @@ def apply_project_contract_changes(
         item.deposit_amount = changes["deposit_amount"]
 
 
-def ensure_project_contract_editable(item: models.ProjectContract) -> None:
-    if item.status != "draft":
+def ensure_project_contract_editable(
+    item: models.ProjectContract,
+    actor: str,
+    user: models.User,
+) -> None:
+    if actor == "company_worker":
+        if item.created_by_id != user.id:
+            raise HTTPException(403, "Pracownik moze edytowac tylko wlasny szkic umowy")
+        if item.status != "pending_approval":
+            raise HTTPException(422, "Pracownik moze edytowac tylko szkic do zatwierdzenia")
+        return
+    if item.status not in {"draft", "pending_approval"}:
         raise HTTPException(422, "Tylko szkic umowy jest edytowalny")
 
 
@@ -1073,22 +1137,42 @@ def change_project_contract_status(
     db: Session,
     item: models.ProjectContract,
     status: ProjectContractStatus,
+    actor: str,
+    user: models.User,
 ) -> None:
     if status == item.status:
-        if status == "sent":
+        if status == "sent" and actor in {"independent_contractor", "company_owner"}:
             ensure_project_contract_share(db, item)
         return
     if item.status in {"accepted", "rejected", "cancelled"}:
         raise HTTPException(422, "Ten status umowy jest finalny")
+    if actor == "company_worker":
+        if (
+            status == "cancelled"
+            and item.status == "pending_approval"
+            and item.created_by_id == user.id
+        ):
+            item.status = "cancelled"
+            item.cancelled_at = item.cancelled_at or now()
+            item.share_active = False
+            return
+        raise HTTPException(403, "Pracownik firmy nie moze wyslac ani zatwierdzic umowy")
     if status == "sent":
-        if item.status != "draft":
+        if actor not in {"independent_contractor", "company_owner"}:
+            raise HTTPException(403, "Brak uprawnien do wyslania umowy")
+        if item.status not in {"draft", "pending_approval"}:
             raise HTTPException(422, "Umowe mozna wyslac tylko ze szkicu")
         ensure_project_contract_ready_to_send(item)
         item.status = "sent"
         item.sent_at = item.sent_at or now()
         ensure_project_contract_share(db, item)
         return
-    if status == "cancelled" and item.status in {"draft", "sent"}:
+    if status == "draft" and actor == "company_owner" and item.status == "pending_approval":
+        item.status = "draft"
+        return
+    if status == "cancelled" and item.status in {"draft", "pending_approval", "sent"}:
+        if actor not in {"independent_contractor", "company_owner"}:
+            raise HTTPException(403, "Brak uprawnien do anulowania umowy")
         item.status = "cancelled"
         item.cancelled_at = item.cancelled_at or now()
         item.share_active = False
@@ -1106,6 +1190,32 @@ def public_project_contract_by_token(db: Session, token: str) -> models.ProjectC
     if not item or item.status not in {"sent", "accepted", "rejected"}:
         raise HTTPException(404, "Umowa nie istnieje albo link wygasl")
     return item
+
+
+def guest_document_draft_access(
+    request: Request,
+    db: Session,
+    project_id: str,
+) -> ProjectAccess:
+    access = get_project_access(request, db, project_id, allow_guest=True)
+    if not access.guest:
+        raise HTTPException(403, "Ten endpoint jest tylko dla linku wykonawcy")
+    access.require_add()
+    if not access.project.workspace_id:
+        raise HTTPException(403, "Szkice z linku wykonawcy sa dostepne tylko dla zlecen firmowych")
+    return access
+
+
+def draft_origin_label_from_guest(guest: models.GuestInvite | None) -> str:
+    label = (guest.label if guest else "").strip()
+    return (label or "Link wykonawcy /g")[:180]
+
+
+def guest_link_creator(db: Session, guest: models.GuestInvite) -> models.User:
+    user = db.get(models.User, guest.created_by_id)
+    if not user:
+        raise HTTPException(404, "Nie znaleziono wlasciciela linku wykonawcy")
+    return user
 
 def company_workspace_ids_for_user(
     db: Session,
@@ -1880,7 +1990,14 @@ class PublicEstimateDecision(BaseModel):
     status: Literal["accepted", "rejected"]
 
 
-ProjectContractStatus = Literal["draft", "sent", "accepted", "rejected", "cancelled"]
+ProjectContractStatus = Literal[
+    "draft",
+    "pending_approval",
+    "sent",
+    "accepted",
+    "rejected",
+    "cancelled",
+]
 
 
 class ProjectContractUpdate(BaseModel):
@@ -1911,6 +2028,17 @@ class ProjectContractStatusUpdate(BaseModel):
 
 class PublicContractDecision(BaseModel):
     status: Literal["accepted", "rejected"]
+
+
+class GuestEstimateDraftCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=220)
+    scope_summary: str = Field(default="", max_length=5000)
+    assumptions: str = Field(default="", max_length=4000)
+    estimated_price: Decimal | None = Field(default=None, ge=0)
+    price_note: str = Field(default="", max_length=1000)
+    planned_start: str = Field(default="", max_length=160)
+    planned_end: str = Field(default="", max_length=160)
+    contact_note: str = Field(default="", max_length=1000)
 
 
 class ProjectClientCoverUpdate(BaseModel):
@@ -3131,6 +3259,8 @@ def create_my_estimate(
         owner_type=owner_type,
         owner_id=owner_id,
         created_by_id=user.id,
+        draft_origin="worker" if actor == "company_worker" else "manual",
+        draft_origin_label="od pracownika" if actor == "company_worker" else "",
     )
     apply_estimate_changes(item, payload, db=db, actor=actor, user=user)
     apply_initial_estimate_status(db, item, payload.status, actor, user)
@@ -3138,6 +3268,55 @@ def create_my_estimate(
     db.commit()
     db.refresh(item)
     return estimate_payload(item)
+
+
+@router.post("/projects/{project_id}/guest-estimate-draft", status_code=201)
+def create_guest_project_estimate_draft(
+    project_id: str,
+    payload: GuestEstimateDraftCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    access = guest_document_draft_access(request, db, project_id)
+    project = access.project
+    item = models.Estimate(
+        owner_type="company",
+        owner_id=project.workspace_id,
+        created_by_id=access.guest.created_by_id,
+        recipient_type="client",
+        recipient_name=project.client_name or "",
+        recipient_email=project.client_email or "",
+        recipient_phone="",
+        source_type="project",
+        source_id=project.id,
+        project_id=None,
+        draft_origin="guest_link",
+        draft_origin_label=draft_origin_label_from_guest(access.guest),
+        title=payload.title.strip(),
+        scope_summary=payload.scope_summary.strip(),
+        assumptions=(
+            payload.assumptions.strip()
+            + (f"\n\nKontakt/notatka ekipy: {payload.contact_note.strip()}" if payload.contact_note.strip() else "")
+        ).strip(),
+        estimated_price=payload.estimated_price,
+        price_note=payload.price_note.strip(),
+        planned_start=payload.planned_start.strip(),
+        planned_end=payload.planned_end.strip(),
+        status="pending_approval",
+    )
+    validate_estimate_source(
+        db,
+        item.owner_type,
+        item.owner_id,
+        item.source_type,
+        item.source_id,
+        actor="guest_link",
+        user=None,
+    )
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return guest_estimate_draft_payload(item)
 
 
 @router.patch("/estimates/me/{estimate_id}")
@@ -3341,11 +3520,12 @@ def create_project_contract(
     project_id: str,
     response: Response,
     request: Request,
+    payload: ProjectContractUpdate | None = None,
     user: models.User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
     access = get_project_access(request, db, project_id, allow_guest=False)
-    project_contract_actor_for_project(db, access, user)
+    actor = project_contract_actor_for_project(db, access, user)
     existing = db.scalar(
         select(models.ProjectContract)
         .where(models.ProjectContract.project_id == access.project.id)
@@ -3355,7 +3535,16 @@ def create_project_contract(
         response.status_code = 200
         return {"created": False, "contract": project_contract_payload(existing)}
 
-    item = build_project_contract_from_project(db, access.project, user)
+    item = build_project_contract_from_project(
+        db,
+        access.project,
+        user,
+        status="pending_approval" if actor == "company_worker" else "draft",
+        draft_origin="worker" if actor == "company_worker" else "manual",
+        draft_origin_label="od pracownika" if actor == "company_worker" else "",
+    )
+    if payload is not None:
+        apply_project_contract_changes(item, payload, partial=True)
     db.add(item)
     try:
         db.commit()
@@ -3372,6 +3561,55 @@ def create_project_contract(
     return {"created": True, "contract": project_contract_payload(item)}
 
 
+@router.post("/projects/{project_id}/guest-contract-draft", status_code=201)
+def create_guest_project_contract_draft(
+    project_id: str,
+    response: Response,
+    request: Request,
+    payload: ProjectContractUpdate | None = None,
+    db: Session = Depends(get_db),
+):
+    access = guest_document_draft_access(request, db, project_id)
+    existing = db.scalar(
+        select(models.ProjectContract)
+        .where(models.ProjectContract.project_id == access.project.id)
+        .with_for_update()
+    )
+    if existing:
+        response.status_code = 200
+        return {
+            "created": False,
+            "message": "Umowa dla tego zlecenia juz istnieje. Skontaktuj sie z szefem albo zglos uwagi.",
+            "contract": None,
+        }
+
+    creator = guest_link_creator(db, access.guest)
+    item = build_project_contract_from_project(
+        db,
+        access.project,
+        creator,
+        status="pending_approval",
+        created_by_id=access.guest.created_by_id,
+        draft_origin="guest_link",
+        draft_origin_label=draft_origin_label_from_guest(access.guest),
+    )
+    if payload is not None:
+        apply_project_contract_changes(item, payload, partial=True)
+    db.add(item)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        response.status_code = 200
+        return {
+            "created": False,
+            "message": "Umowa dla tego zlecenia juz istnieje. Skontaktuj sie z szefem albo zglos uwagi.",
+            "contract": None,
+        }
+    db.refresh(item)
+    return {"created": True, "contract": guest_project_contract_draft_payload(item)}
+
+
 @router.patch("/contracts/me/{contract_id}")
 def update_my_project_contract(
     contract_id: str,
@@ -3382,8 +3620,8 @@ def update_my_project_contract(
     item = db.get(models.ProjectContract, contract_id)
     if not item:
         raise HTTPException(404, "Umowa nie istnieje")
-    project_contract_actor_for_item(db, user, item)
-    ensure_project_contract_editable(item)
+    actor = project_contract_actor_for_item(db, user, item)
+    ensure_project_contract_editable(item, actor, user)
     apply_project_contract_changes(item, payload, partial=True)
     db.commit()
     db.refresh(item)
@@ -3400,8 +3638,8 @@ def update_my_project_contract_status(
     item = db.get(models.ProjectContract, contract_id)
     if not item:
         raise HTTPException(404, "Umowa nie istnieje")
-    project_contract_actor_for_item(db, user, item)
-    change_project_contract_status(db, item, payload.status)
+    actor = project_contract_actor_for_item(db, user, item)
+    change_project_contract_status(db, item, payload.status, actor, user)
     db.commit()
     db.refresh(item)
     return project_contract_payload(item)

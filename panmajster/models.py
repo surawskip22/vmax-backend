@@ -246,6 +246,8 @@ class Estimate(Base, TimestampMixin):
     project_id: Mapped[str | None] = mapped_column(
         ForeignKey("projects.id", ondelete="SET NULL"), unique=True, index=True
     )
+    draft_origin: Mapped[str] = mapped_column(String(40), default="manual")
+    draft_origin_label: Mapped[str] = mapped_column(String(180), default="")
     title: Mapped[str] = mapped_column(String(220), default="")
     scope_summary: Mapped[str] = mapped_column(Text, default="")
     assumptions: Mapped[str] = mapped_column(Text, default="")
@@ -354,6 +356,8 @@ class ProjectContract(Base, TimestampMixin):
     company_id: Mapped[str | None] = mapped_column(String(36), index=True)
     created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     status: Mapped[str] = mapped_column(String(30), default="draft", index=True)
+    draft_origin: Mapped[str] = mapped_column(String(40), default="manual")
+    draft_origin_label: Mapped[str] = mapped_column(String(180), default="")
     share_token: Mapped[str | None] = mapped_column(String(120), unique=True, index=True)
     share_active: Mapped[bool] = mapped_column(Boolean, default=False)
     contract_number: Mapped[str] = mapped_column(String(60), default="")

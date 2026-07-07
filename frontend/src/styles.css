@@ -236,6 +236,7 @@ h1, h2, h3, p { margin-top: 0; }
 .job-form-actions { position: sticky; bottom: -24px; z-index: 1; margin: 4px -24px -24px; padding: 16px 24px; border-top: 1px solid #dbe6f2; background: rgba(255,255,255,.94); backdrop-filter: blur(8px); }
 .form-intro { color: var(--muted); line-height: 1.6; }
 .form-error { color: var(--red); font-size: 13px; }
+.form-success { color: #087443; font-size: 13px; font-weight: 850; }
 .otp-input { font-size: 32px !important; letter-spacing: 0.35em; text-align: center; font-weight: 800; }
 .dev-code { padding: 12px 14px; border-radius: 8px; background: #fff4df; color: #955400; text-align: center; }
 .test-login-panel { padding: 14px; display: grid; gap: 8px; border: 1px solid #dbe2ea; border-radius: 12px; background: #f8fafc; }
@@ -2042,6 +2043,17 @@ audio { width: 100%; margin-top: 13px; }
 .worker-contract-card__actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .worker-contract-card__actions .button { min-height: 36px; padding: 0 11px; }
 .worker-contract-card__empty p { margin: 0; color: var(--muted); line-height: 1.5; }
+.guest-document-drafts { display: grid; gap: 12px; min-width: 0; }
+.guest-document-card { display: grid; gap: 12px; }
+.guest-document-card .worker-section-heading { align-items: start; }
+.guest-document-card .button { width: fit-content; max-width: 100%; }
+.guest-document-form { display: grid; gap: 11px; min-width: 0; }
+.guest-document-form label { min-width: 0; display: grid; gap: 6px; color: var(--navy); font-size: 12px; font-weight: 850; }
+.guest-document-form input,
+.guest-document-form textarea { width: 100%; min-width: 0; }
+.guest-document-form textarea { min-height: 88px; resize: vertical; }
+.guest-document-form__actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.guest-document-form__actions .button { min-height: 38px; }
 .public-estimate-page { min-height: 100vh; padding: 30px 18px 72px; background: linear-gradient(180deg, #f2f6fb 0%, #f8fafc 100%); }
 .public-estimate-document { width: min(1040px, 100%); max-width: 100%; min-width: 0; margin: 0 auto; display: grid; gap: 16px; }
 .public-estimate-document > * { min-width: 0; max-width: 100%; }
@@ -2564,6 +2576,7 @@ audio { width: 100%; margin-top: 13px; }
   .estimate-card header > strong { width: 100%; text-align: center; }
   .estimate-card footer,
   .worker-contract-card__actions,
+  .guest-document-form__actions,
   .estimate-share-actions,
   .estimate-form-modal footer,
   .estimate-preview-modal footer,
@@ -2571,6 +2584,8 @@ audio { width: 100%; margin-top: 13px; }
   .public-estimate-actions { display: grid; grid-template-columns: 1fr; }
   .estimate-card footer .button,
   .worker-contract-card__actions .button,
+  .guest-document-form__actions .button,
+  .guest-document-card > .button,
   .worker-contract-card__empty .button,
   .estimate-project-panel .button,
   .estimate-share-actions .button,
