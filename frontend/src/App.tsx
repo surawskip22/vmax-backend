@@ -53,6 +53,9 @@ import type {
   JobPostingTargetType,
   MediaAsset,
   Project,
+  ProjectContract,
+  ProjectContractStatus,
+  PublicProjectContract,
   PublicProfile,
   PublicProfileOwnerType,
   PublicEstimate,
@@ -489,6 +492,7 @@ type Route =
   | { kind: "invite"; token: string }
   | { kind: "report"; token: string }
   | { kind: "estimate"; token: string }
+  | { kind: "contract"; token: string }
   | { kind: "publicProfile"; slug: string }
   | { kind: "portfolio"; slug: string };
 
@@ -526,6 +530,8 @@ function route(): Route {
   if (matchReport) return { kind: "report", token: matchReport[1] };
   const matchEstimate = location.pathname.match(/^\/estimate\/([^/]+)/);
   if (matchEstimate) return { kind: "estimate", token: matchEstimate[1] };
+  const matchContract = location.pathname.match(/^\/contract\/([^/]+)/);
+  if (matchContract) return { kind: "contract", token: matchContract[1] };
   const matchPublicProfile = location.pathname.match(/^\/public-profiles\/([^/]+)/);
   if (matchPublicProfile) return { kind: "publicProfile", slug: matchPublicProfile[1] };
   const matchPortfolio = location.pathname.match(/^\/portfolio\/([^/]+)/);
@@ -3615,6 +3621,139 @@ function ProjectPortfolioModal({
   );
 }
 
+function ProjectContractFormModal({
+  contract,
+  busy,
+  onClose,
+  onSave,
+}: {
+  contract: ProjectContract;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (draft: ContractDraft) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<ContractDraft>(() => contractDraftFromContract(contract));
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      await onSave(draft);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zapisać umowy.");
+    }
+  }
+
+  return (
+    <Modal title="Szkic umowy" onClose={onClose} wide>
+      <form className="estimate-form-modal contract-form-modal" onSubmit={(event) => void submit(event)}>
+        <header>
+          <span className={`status ${contractStatusClass(contract.status)}`}>{contractStatusLabel(contract.status)}</span>
+          <h3>{contract.project_name || "Umowa wykonania prac"}</h3>
+          <p>To szkic umowy do sprawdzenia przed wysłaniem klientowi. Nie generuje PDF, płatności ani faktury.</p>
+        </header>
+
+        <div className="estimate-form-grid">
+          <label>
+            Nazwa wykonawcy
+            <input value={draft.contractorName} onChange={(event) => setDraft({ ...draft, contractorName: event.target.value })} />
+          </label>
+          <label>
+            E-mail wykonawcy
+            <input type="email" value={draft.contractorEmail} onChange={(event) => setDraft({ ...draft, contractorEmail: event.target.value })} />
+          </label>
+          <label>
+            Telefon wykonawcy
+            <input value={draft.contractorPhone} onChange={(event) => setDraft({ ...draft, contractorPhone: event.target.value })} />
+          </label>
+        </div>
+
+        <div className="estimate-form-grid">
+          <label>
+            Klient
+            <input value={draft.clientName} onChange={(event) => setDraft({ ...draft, clientName: event.target.value })} />
+          </label>
+          <label>
+            E-mail klienta
+            <input type="email" value={draft.clientEmail} onChange={(event) => setDraft({ ...draft, clientEmail: event.target.value })} />
+          </label>
+          <label>
+            Telefon klienta
+            <input value={draft.clientPhone} onChange={(event) => setDraft({ ...draft, clientPhone: event.target.value })} />
+          </label>
+        </div>
+
+        <label>
+          Tytuł / nazwa umowy
+          <input value={draft.projectName} onChange={(event) => setDraft({ ...draft, projectName: event.target.value })} />
+        </label>
+        <label>
+          Miejsce wykonania
+          <input value={draft.workAddress} onChange={(event) => setDraft({ ...draft, workAddress: event.target.value })} />
+        </label>
+        <label>
+          Zakres prac
+          <textarea value={draft.scopeSummary} onChange={(event) => setDraft({ ...draft, scopeSummary: event.target.value })} />
+        </label>
+        <label>
+          Warunki i ustalenia
+          <textarea value={draft.termsSummary} onChange={(event) => setDraft({ ...draft, termsSummary: event.target.value })} />
+        </label>
+
+        <div className="estimate-form-grid">
+          <label>
+            Planowany start
+            <input type="date" value={draft.plannedStart} onChange={(event) => setDraft({ ...draft, plannedStart: event.target.value })} />
+          </label>
+          <label>
+            Planowany koniec
+            <input type="date" value={draft.plannedEnd} onChange={(event) => setDraft({ ...draft, plannedEnd: event.target.value })} />
+          </label>
+          <label>
+            Waluta
+            <input value={draft.priceCurrency} onChange={(event) => setDraft({ ...draft, priceCurrency: event.target.value })} maxLength={3} />
+          </label>
+        </div>
+
+        <div className="estimate-form-grid">
+          <label>
+            Wynagrodzenie
+            <input inputMode="decimal" value={draft.priceAmount} onChange={(event) => setDraft({ ...draft, priceAmount: cleanEstimateAmountInput(event.target.value) })} placeholder="np. 12000" />
+          </label>
+          <label>
+            Zaliczka
+            <input inputMode="decimal" value={draft.depositAmount} onChange={(event) => setDraft({ ...draft, depositAmount: cleanEstimateAmountInput(event.target.value) })} placeholder="np. 2000" />
+          </label>
+          <label>
+            Notatka do ceny
+            <input value={draft.priceNote} onChange={(event) => setDraft({ ...draft, priceNote: event.target.value })} />
+          </label>
+        </div>
+
+        <label>
+          Zasady zmian zakresu
+          <textarea value={draft.changeTerms} onChange={(event) => setDraft({ ...draft, changeTerms: event.target.value })} />
+        </label>
+        <label>
+          Załączniki / uwagi do dokumentów
+          <textarea value={draft.attachmentsNote} onChange={(event) => setDraft({ ...draft, attachmentsNote: event.target.value })} />
+        </label>
+        <label>
+          Notka prawna
+          <textarea value={draft.legalNote} onChange={(event) => setDraft({ ...draft, legalNote: event.target.value })} />
+        </label>
+
+        {error && <p className="form-error">{error}</p>}
+        <footer>
+          <Button type="button" variant="secondary" disabled={busy} onClick={onClose}>Zamknij</Button>
+          <Button type="submit" icon="check" busy={busy} disabled={busy}>Zapisz szkic</Button>
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
 function ProjectView({
   projectId,
   guestToken,
@@ -3660,6 +3799,11 @@ function ProjectView({
   const [portfolioRealizations, setPortfolioRealizations] = useState<PublicProfileRealization[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [portfolioError, setPortfolioError] = useState("");
+  const [projectContract, setProjectContract] = useState<ProjectContract | null>(null);
+  const [contractLoading, setContractLoading] = useState(false);
+  const [contractError, setContractError] = useState("");
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [contractBusy, setContractBusy] = useState<string | null>(null);
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const [coverBusy, setCoverBusy] = useState(false);
   const workerReportsRef = useRef<HTMLDivElement | null>(null);
@@ -3780,6 +3924,11 @@ function ProjectView({
     setPortfolioRealizations([]);
     setPortfolioLoading(false);
     setPortfolioError("");
+    setProjectContract(null);
+    setContractLoading(false);
+    setContractError("");
+    setShowContractModal(false);
+    setContractBusy(null);
     setLoading(true);
   }, [guestToken, projectId]);
 
@@ -3811,6 +3960,39 @@ function ProjectView({
       cancelled = true;
     };
   }, [project, projectPortfolioOwnerType]);
+  useEffect(() => {
+    const canLoadContract = Boolean(
+      project
+      && user
+      && !guestToken
+      && (isIndependentContractor(user) || isCompanyOwner(user) || isCompanyWorker(user)),
+    );
+    if (!project || !canLoadContract) {
+      setProjectContract(null);
+      setContractLoading(false);
+      setContractError("");
+      return;
+    }
+    let cancelled = false;
+    setContractLoading(true);
+    setContractError("");
+    api<ProjectContract[]>(`/contracts/me?project_id=${encodeURIComponent(project.id)}`)
+      .then((items) => {
+        if (!cancelled) setProjectContract(items[0] || null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProjectContract(null);
+          setContractError("Nie udało się sprawdzić umowy.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setContractLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [guestToken, project, user]);
   useEffect(() => {
     if (!reports.some((report) => report.status === "generating")) return;
     const timer = setInterval(() => {
@@ -3981,6 +4163,8 @@ function ProjectView({
     && (isIndependentFieldUser || isCompanyOwnerDetailUser),
   );
   const canEditProjectPortfolio = Boolean(projectPortfolioRealization || projectCompleted);
+  const canManageProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser) && ["owner", "manager"].includes(project.role || ""));
+  const canShowProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || (isCompanyWorkerFieldUser && projectContract)));
 
   function handlePortfolioSaved(item: PublicProfileRealization) {
     setPortfolioRealizations((current) => {
@@ -3994,6 +4178,80 @@ function ProjectView({
       kind: "success",
       message: item.status === "published" ? "Realizacja została opublikowana w wizytówce." : "Realizacja została zapisana jako szkic.",
     });
+  }
+
+  async function createProjectContract() {
+    setContractBusy("create");
+    try {
+      const result = await api<{ created: boolean; contract: ProjectContract }>(`/projects/${projectIdForStatusActions}/contract`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setProjectContract(result.contract);
+      setShowContractModal(true);
+      notify({ kind: "success", message: result.created ? "Szkic umowy utworzony." : "Umowa dla tego zlecenia już istnieje." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się utworzyć umowy" });
+    } finally {
+      setContractBusy(null);
+    }
+  }
+
+  async function saveProjectContract(contract: ProjectContract, draft: ContractDraft) {
+    setContractBusy("save");
+    try {
+      const saved = await api<ProjectContract>(`/contracts/me/${contract.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(projectContractPayloadFromDraft(draft)),
+      });
+      setProjectContract(saved);
+      setShowContractModal(false);
+      notify({ kind: "success", message: "Szkic umowy zapisany." });
+    } catch (reason) {
+      throw new Error(friendlyEstimateError(reason));
+    } finally {
+      setContractBusy(null);
+    }
+  }
+
+  async function sendProjectContract(contract: ProjectContract) {
+    setContractBusy("send");
+    try {
+      const saved = await api<ProjectContract>(`/contracts/me/${contract.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "sent" }),
+      });
+      setProjectContract(saved);
+      notify({ kind: "success", message: "Umowa wysłana do akceptacji. Link jest widoczny w karcie." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się wysłać umowy" });
+    } finally {
+      setContractBusy(null);
+    }
+  }
+
+  async function cancelProjectContract(contract: ProjectContract) {
+    if (!window.confirm("Czy anulować tę umowę? Link publiczny przestanie działać.")) return;
+    setContractBusy("cancel");
+    try {
+      const saved = await api<ProjectContract>(`/contracts/me/${contract.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      setProjectContract(saved);
+      notify({ kind: "success", message: "Umowa została anulowana." });
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się anulować umowy" });
+    } finally {
+      setContractBusy(null);
+    }
+  }
+
+  async function copyProjectContractLink(contract: ProjectContract) {
+    const link = absoluteContractShareUrl(contract.share_url);
+    if (!link) return;
+    const copied = await copyToClipboard(link);
+    notify({ kind: copied ? "success" : "info", message: copied ? "Link umowy został skopiowany." : "Link umowy jest widoczny w karcie. Skopiuj go ręcznie." });
   }
 
   async function updateClientCover(mediaId: string | null) {
@@ -4081,6 +4339,68 @@ function ProjectView({
               ? "Dodaj do wizytówki"
               : "Dostępne po zamknięciu"}
       </Button>
+    </section>
+  ) : null;
+  const projectContractCard = canShowProjectContract ? (
+    <section className="worker-detail-card worker-contract-card">
+      <div className="worker-section-heading">
+        <div>
+          <h2>Umowa</h2>
+          <p>
+            {projectContract
+              ? "Umowa dla tego zlecenia jest powiązana z projektem i publicznym linkiem akceptacji."
+              : "Utwórz szkic umowy z danych zlecenia, popraw zakres i wyślij klientowi link do akceptacji."}
+          </p>
+        </div>
+        <span className={`status ${projectContract ? contractStatusClass(projectContract.status) : "status--assigned"}`}>
+          {contractLoading ? "Sprawdzam..." : projectContract ? contractStatusLabel(projectContract.status) : "Brak umowy"}
+        </span>
+      </div>
+      {contractError && <p className="form-error">{contractError}</p>}
+      {projectContract ? (
+        <div className="worker-contract-card__body">
+          <dl>
+            <div><dt>Numer</dt><dd>{projectContract.contract_number}</dd></div>
+            <div><dt>Klient</dt><dd>{projectContract.client_name || "Nie podano"}</dd></div>
+            <div><dt>Kwota</dt><dd>{projectContractAmountLabel(projectContract.price_amount, projectContract.price_currency)}</dd></div>
+            <div><dt>Termin</dt><dd>{projectContract.planned_start || "?"} - {projectContract.planned_end || "?"}</dd></div>
+          </dl>
+          {projectContract.share_url && (
+            <section className="worker-contract-share">
+              <strong>Link umowy</strong>
+              <code>{absoluteContractShareUrl(projectContract.share_url)}</code>
+            </section>
+          )}
+          <div className="worker-contract-card__actions">
+            {projectContract.status === "draft" && canManageProjectContract && (
+              <>
+                <Button type="button" variant="secondary" icon="settings" onClick={() => setShowContractModal(true)}>Edytuj</Button>
+                <Button type="button" icon="send" busy={contractBusy === "send"} disabled={Boolean(contractBusy)} onClick={() => void sendProjectContract(projectContract)}>Wyślij / wygeneruj link</Button>
+                <Button type="button" variant="secondary" icon="close" busy={contractBusy === "cancel"} disabled={Boolean(contractBusy)} onClick={() => void cancelProjectContract(projectContract)}>Anuluj</Button>
+              </>
+            )}
+            {projectContract.status === "sent" && (
+              <>
+                {projectContract.share_url && <Button type="button" variant="secondary" icon="clipboard" onClick={() => void copyProjectContractLink(projectContract)}>Kopiuj link</Button>}
+                {projectContract.share_url && <a className="button button--secondary" href={projectContract.share_url} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Otwórz podgląd</a>}
+                {canManageProjectContract && <Button type="button" variant="secondary" icon="close" busy={contractBusy === "cancel"} disabled={Boolean(contractBusy)} onClick={() => void cancelProjectContract(projectContract)}>Anuluj</Button>}
+              </>
+            )}
+            {["accepted", "rejected"].includes(projectContract.status) && projectContract.share_url && (
+              <a className="button button--secondary" href={projectContract.share_url} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Otwórz podgląd</a>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="worker-contract-card__empty">
+          <p>Umowa nie powstaje automatycznie z oferty ani ze zlecenia. Najpierw utwórz szkic i sprawdź dane.</p>
+          {canManageProjectContract && (
+            <Button type="button" icon="plus" busy={contractBusy === "create"} disabled={contractLoading || Boolean(contractBusy)} onClick={() => void createProjectContract()}>
+              Utwórz umowę
+            </Button>
+          )}
+        </div>
+      )}
     </section>
   ) : null;
 
@@ -4435,6 +4755,7 @@ function ProjectView({
             )}
           </section>
           {portfolioDetailCard}
+          {projectContractCard}
 
           {(canStartWorkerProject || canAddWorkerProgress || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
             <section className="worker-action-panel">
@@ -4633,6 +4954,14 @@ function ProjectView({
             realization={projectPortfolioRealization}
             onClose={() => setShowPortfolioModal(false)}
             onSaved={handlePortfolioSaved}
+          />
+        )}
+        {projectContract && showContractModal && (
+          <ProjectContractFormModal
+            contract={projectContract}
+            busy={contractBusy === "save"}
+            onClose={() => setShowContractModal(false)}
+            onSave={(draft) => saveProjectContract(projectContract, draft)}
           />
         )}
         {showClientCoverPicker && (
@@ -7707,6 +8036,20 @@ function estimateStatusClass(status: EstimateStatus): string {
   return "status--assigned";
 }
 
+function contractStatusLabel(status: ProjectContractStatus): string {
+  if (status === "sent") return "Wysłana do akceptacji";
+  if (status === "accepted") return "Zaakceptowana";
+  if (status === "rejected") return "Odrzucona";
+  if (status === "cancelled") return "Anulowana";
+  return "Szkic";
+}
+
+function contractStatusClass(status: ProjectContractStatus): string {
+  if (status === "sent" || status === "accepted") return "status--completed";
+  if (status === "rejected" || status === "cancelled") return "status--paused";
+  return "status--assigned";
+}
+
 function estimateAmountValueLabel(value?: string | null): string {
   if (!value) return "Do ustalenia";
   const parsed = Number(value);
@@ -7729,6 +8072,15 @@ function estimateSourceLabel(estimate: Estimate): string {
 }
 
 function absoluteEstimateShareUrl(shareUrl?: string | null): string {
+  if (!shareUrl) return "";
+  try {
+    return new URL(shareUrl, location.origin).toString();
+  } catch {
+    return shareUrl;
+  }
+}
+
+function absoluteContractShareUrl(shareUrl?: string | null): string {
   if (!shareUrl) return "";
   try {
     return new URL(shareUrl, location.origin).toString();
@@ -7895,6 +8247,93 @@ function publicEstimateAmountLabel(value?: string | null): string {
 
 function publicEstimateContactValue(value?: string | null): string {
   return value?.trim() || "Nie podano";
+}
+
+function projectContractAmountLabel(value?: string | null, currency = "PLN"): string {
+  if (!value) return "Do ustalenia";
+  const parsed = Number(value);
+  if (Number.isNaN(parsed)) return `${value} ${currency}`;
+  const hasCents = Math.abs(parsed % 1) > 0;
+  return new Intl.NumberFormat("pl-PL", {
+    style: "currency",
+    currency: currency || "PLN",
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(parsed);
+}
+
+type ContractDraft = {
+  contractorName: string;
+  contractorEmail: string;
+  contractorPhone: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  workAddress: string;
+  projectName: string;
+  scopeSummary: string;
+  termsSummary: string;
+  plannedStart: string;
+  plannedEnd: string;
+  priceAmount: string;
+  priceCurrency: string;
+  priceNote: string;
+  depositAmount: string;
+  changeTerms: string;
+  attachmentsNote: string;
+  legalNote: string;
+};
+
+function contractDraftFromContract(contract?: ProjectContract | null): ContractDraft {
+  return {
+    contractorName: contract?.contractor_name || "",
+    contractorEmail: contract?.contractor_email || "",
+    contractorPhone: contract?.contractor_phone || "",
+    clientName: contract?.client_name || "",
+    clientEmail: contract?.client_email || "",
+    clientPhone: contract?.client_phone || "",
+    workAddress: contract?.work_address || "",
+    projectName: contract?.project_name || "",
+    scopeSummary: contract?.scope_summary || "",
+    termsSummary: contract?.terms_summary || "",
+    plannedStart: estimateDateInputValue(contract?.planned_start),
+    plannedEnd: estimateDateInputValue(contract?.planned_end),
+    priceAmount: contract?.price_amount || "",
+    priceCurrency: contract?.price_currency || "PLN",
+    priceNote: contract?.price_note || "",
+    depositAmount: contract?.deposit_amount || "",
+    changeTerms: contract?.change_terms || "",
+    attachmentsNote: contract?.attachments_note || "",
+    legalNote: contract?.legal_note || "",
+  };
+}
+
+function projectContractPayloadFromDraft(draft: ContractDraft) {
+  if (!isValidEstimateEmail(draft.contractorEmail) || !isValidEstimateEmail(draft.clientEmail)) {
+    throw new Error("Wpisz poprawny e-mail albo zostaw pole puste.");
+  }
+  validateEstimateDates(draft.plannedStart, draft.plannedEnd);
+  return {
+    contractor_name: draft.contractorName.trim(),
+    contractor_email: draft.contractorEmail.trim(),
+    contractor_phone: draft.contractorPhone.trim(),
+    client_name: draft.clientName.trim(),
+    client_email: draft.clientEmail.trim(),
+    client_phone: draft.clientPhone.trim(),
+    work_address: draft.workAddress.trim(),
+    project_name: draft.projectName.trim(),
+    scope_summary: draft.scopeSummary.trim(),
+    terms_summary: draft.termsSummary.trim(),
+    planned_start: draft.plannedStart,
+    planned_end: draft.plannedEnd,
+    price_amount: normalizeEstimateAmount(draft.priceAmount),
+    price_currency: (draft.priceCurrency || "PLN").trim().toUpperCase(),
+    price_note: draft.priceNote.trim(),
+    deposit_amount: normalizeEstimateAmount(draft.depositAmount),
+    change_terms: draft.changeTerms.trim(),
+    attachments_note: draft.attachmentsNote.trim(),
+    legal_note: draft.legalNote.trim(),
+  };
 }
 
 function publicEstimateDecisionError(reason: unknown, status: "accepted" | "rejected"): string {
@@ -8080,6 +8519,192 @@ function PublicEstimatePage({ token }: { token: string }) {
             ) : (
               <p className={`public-estimate-final-state ${estimate.status === "accepted" ? "public-estimate-final-state--accepted" : estimate.status === "rejected" ? "public-estimate-final-state--rejected" : ""}`}>
                 {estimate.status === "accepted" ? "Oferta zaakceptowana." : estimate.status === "rejected" ? "Oferta odrzucona." : `Status oferty: ${publicEstimateStatusLabel(estimate.status)}.`}
+              </p>
+            )}
+          </footer>
+        </main>
+      ) : null}
+    </div>
+  );
+}
+
+function PublicContractPage({ token }: { token: string }) {
+  const [contract, setContract] = useState<PublicProjectContract | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState<"accepted" | "rejected" | null>(null);
+  const [message, setMessage] = useState("");
+
+  const loadContract = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setContract(await api<PublicProjectContract>(`/contracts/public/${encodeURIComponent(token)}`));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się pobrać umowy.");
+      setContract(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadContract();
+  }, [loadContract]);
+
+  async function decide(status: "accepted" | "rejected") {
+    setBusy(status);
+    setMessage("");
+    setError("");
+    try {
+      const saved = await api<PublicProjectContract>(`/contracts/public/${encodeURIComponent(token)}/${status === "accepted" ? "accept" : "reject"}`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setContract(saved);
+      setMessage(status === "accepted" ? "Umowa zaakceptowana. Wykonawca skontaktuje się w sprawie dalszych kroków." : "Umowa została odrzucona.");
+    } catch (reason) {
+      setError(reason instanceof ApiError && reason.status === 422 ? "Ta umowa ma już finalną decyzję." : "Nie udało się zapisać decyzji. Spróbuj ponownie.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const documentDate = contract?.sent_at || contract?.created_at;
+  const ownerProfileUrl = contract?.owner.profile_url || (contract?.owner.slug ? publicProfilePath(contract.owner.slug) : "");
+
+  return (
+    <div className="public-estimate-page public-contract-page">
+      {loading ? (
+        <div className="loading-screen"><span className="spinner" /> Ładowanie umowy...</div>
+      ) : error && !contract ? (
+        <main className="public-estimate-card public-estimate-card--message">
+          <span><Icon name="alert" /></span>
+          <h2>Nie udało się otworzyć umowy</h2>
+          <p>{error}</p>
+        </main>
+      ) : contract ? (
+        <main className="public-estimate-document public-contract-document">
+          <header className="public-estimate-document__header">
+            <Logo compact />
+            <div>
+              <span className="eyebrow">Umowa wykonania prac</span>
+              <h1>{contract.project_name}</h1>
+              <p>Dokument do akceptacji klienta, przygotowany na podstawie ustalonego zakresu zlecenia.</p>
+            </div>
+            <aside>
+              <span className={`status ${contractStatusClass(contract.status)}`}>{contractStatusLabel(contract.status)}</span>
+              <small>Umowa #{contract.number}</small>
+              <small>{publicEstimateDateLabel(documentDate)}</small>
+            </aside>
+          </header>
+
+          <section className="public-estimate-hero public-contract-hero">
+            <div>
+              <span>Dokument dla klienta</span>
+              <h2>{contractStatusLabel(contract.status)}</h2>
+              <p>Akceptacja potwierdza ustalony zakres umowy. Ten widok nie tworzy PDF, płatności ani faktury.</p>
+            </div>
+            <div className="public-estimate-amount-card">
+              <small>Wynagrodzenie</small>
+              <strong>{projectContractAmountLabel(contract.price_amount, contract.price_currency)}</strong>
+              <p>{contract.price_note || "Kwota zgodnie z ustaleniami stron."}</p>
+            </div>
+          </section>
+
+          {message && (
+            <p className={`public-estimate-message ${contract.status === "rejected" ? "public-estimate-message--rejected" : ""}`}>
+              {message}
+            </p>
+          )}
+          {error && <p className="form-error">{error}</p>}
+
+          <section className="public-estimate-party-grid" aria-label="Strony umowy">
+            <article className="public-estimate-section-card">
+              <span><Icon name={contract.owner.owner_type === "company" ? "building" : "tools"} /></span>
+              <div>
+                <h3>Wykonawca</h3>
+                <p className="public-estimate-party-name">{contract.contractor_name || contract.owner.display_name || "Nie podano"}</p>
+                <p>{contract.owner.owner_type === "company" ? "Firma wykonawcza" : "Samodzielny majster"}</p>
+                <ul>
+                  <li><Icon name="phone" size={16} /> {contract.contractor_phone ? <a href={`tel:${contract.contractor_phone.replace(/\s+/g, "")}`}>{contract.contractor_phone}</a> : "Telefon: Nie podano"}</li>
+                  <li><Icon name="send" size={16} /> {contract.contractor_email ? <a href={`mailto:${contract.contractor_email}`}>{contract.contractor_email}</a> : "E-mail: Nie podano"}</li>
+                  {ownerProfileUrl && <li><Icon name="link" size={16} /> <a href={ownerProfileUrl} target="_blank" rel="noreferrer">Zobacz wizytówkę</a></li>}
+                </ul>
+              </div>
+            </article>
+            <article className="public-estimate-section-card">
+              <span><Icon name="users" /></span>
+              <div>
+                <h3>Klient</h3>
+                <p className="public-estimate-party-name">{publicEstimateContactValue(contract.client_name)}</p>
+                <ul>
+                  <li><Icon name="send" size={16} /> {contract.client_email ? <a href={`mailto:${contract.client_email}`}>{contract.client_email}</a> : "E-mail: Nie podano"}</li>
+                  <li><Icon name="phone" size={16} /> {contract.client_phone ? <a href={`tel:${contract.client_phone.replace(/\s+/g, "")}`}>{contract.client_phone}</a> : "Telefon: Nie podano"}</li>
+                </ul>
+              </div>
+            </article>
+          </section>
+
+          <section className="public-estimate-section-card public-estimate-section-card--wide">
+            <span><Icon name="clipboard" /></span>
+            <div>
+              <h3>Zakres prac</h3>
+              <p>{contract.scope_summary || "Zakres nie został opisany."}</p>
+            </div>
+          </section>
+
+          <section className="public-estimate-detail-grid" aria-label="Terminy i wynagrodzenie">
+            <article className="public-estimate-section-card">
+              <span><Icon name="sync" /></span>
+              <div>
+                <h3>Terminy i miejsce</h3>
+                <dl>
+                  <div><dt>Adres prac</dt><dd>{contract.work_address || "Do ustalenia"}</dd></div>
+                  <div><dt>Planowany start</dt><dd>{contract.planned_start ? publicEstimateDateLabel(contract.planned_start) : "Do ustalenia"}</dd></div>
+                  <div><dt>Planowany koniec</dt><dd>{contract.planned_end ? publicEstimateDateLabel(contract.planned_end) : "Do ustalenia"}</dd></div>
+                </dl>
+              </div>
+            </article>
+            <article className="public-estimate-section-card public-estimate-section-card--amount">
+              <span><Icon name="report" /></span>
+              <div>
+                <h3>Wynagrodzenie</h3>
+                <strong>{projectContractAmountLabel(contract.price_amount, contract.price_currency)}</strong>
+                <p>{contract.deposit_amount ? `Zaliczka: ${projectContractAmountLabel(contract.deposit_amount, contract.price_currency)}.` : "Zaliczka nie została wpisana."}</p>
+                <p>{contract.price_note || "Brak dodatkowej notatki do ceny."}</p>
+              </div>
+            </article>
+          </section>
+
+          <section className="public-estimate-section-card public-estimate-section-card--wide">
+            <span><Icon name="bookmark" /></span>
+            <div>
+              <h3>Ustalenia i zmiany</h3>
+              <p>{contract.terms_summary || "Brak dodatkowych ustaleń."}</p>
+              <p>{contract.change_terms || "Zmiany zakresu wymagają potwierdzenia obu stron."}</p>
+              {contract.attachments_note && <p>{contract.attachments_note}</p>}
+            </div>
+          </section>
+
+          <section className="public-estimate-notice">
+            <Icon name="alert" />
+            <p>{contract.legal_note || "To jest umowa wykonania prac. Ten widok nie jest fakturą, PDF-em ani wezwaniem do zapłaty."}</p>
+          </section>
+
+          <footer className="public-estimate-actions">
+            {contract.status === "sent" ? (
+              <>
+                <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>
+                  Akceptuję umowę
+                </Button>
+                <Button type="button" variant="secondary" icon="close" busy={busy === "rejected"} disabled={Boolean(busy)} onClick={() => void decide("rejected")}>
+                  Odrzucam umowę
+                </Button>
+              </>
+            ) : (
+              <p className={`public-estimate-final-state ${contract.status === "accepted" ? "public-estimate-final-state--accepted" : contract.status === "rejected" ? "public-estimate-final-state--rejected" : ""}`}>
+                {contract.status === "accepted" ? "Umowa zaakceptowana." : contract.status === "rejected" ? "Umowa odrzucona." : `Status umowy: ${contractStatusLabel(contract.status)}.`}
               </p>
             )}
           </footer>
@@ -10679,6 +11304,7 @@ export default function App() {
   if (currentRoute.kind === "client") return <PublicProject token={currentRoute.token} />;
   if (currentRoute.kind === "report") return <PublicReport token={currentRoute.token} />;
   if (currentRoute.kind === "estimate") return <PublicEstimatePage token={currentRoute.token} />;
+  if (currentRoute.kind === "contract") return <PublicContractPage token={currentRoute.token} />;
   if (currentRoute.kind === "publicProfile") return <PublicProfilePage slug={currentRoute.slug} />;
   if (currentRoute.kind === "portfolio") return <PublicPortfolio slug={currentRoute.slug} />;
   if (currentRoute.kind === "guest") {

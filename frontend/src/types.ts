@@ -72,6 +72,8 @@ export type EstimateStatus =
   | "rejected"
   | "cancelled";
 
+export type ProjectContractStatus = "draft" | "sent" | "accepted" | "rejected" | "cancelled";
+
 export type EstimateRecipientType = "manual" | "investor" | "client";
 
 export type EstimateSourceType = "manual" | "project" | "job_posting";
@@ -135,6 +137,81 @@ export type PublicEstimate = {
   accepted_at?: string | null;
   rejected_at?: string | null;
   shared_at?: string | null;
+};
+
+export type ProjectContract = {
+  id: string;
+  project_id: string;
+  owner_type: PublicProfileOwnerType;
+  owner_id: string;
+  company_id?: string | null;
+  created_by_id: string;
+  status: ProjectContractStatus;
+  share_url?: string | null;
+  share_active?: boolean;
+  contract_number: string;
+  contractor_name: string;
+  contractor_email: string;
+  contractor_phone: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  work_address: string;
+  project_name: string;
+  scope_summary: string;
+  terms_summary: string;
+  planned_start: string;
+  planned_end: string;
+  price_amount?: string | null;
+  price_currency: string;
+  price_note: string;
+  deposit_amount?: string | null;
+  change_terms: string;
+  attachments_note: string;
+  legal_note: string;
+  sent_at?: string | null;
+  accepted_at?: string | null;
+  rejected_at?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PublicProjectContract = {
+  number: string;
+  owner: {
+    owner_type: PublicProfileOwnerType;
+    display_name: string;
+    contact_phone: string;
+    contact_email: string;
+    slug: string;
+    profile_url: string;
+  };
+  contractor_name: string;
+  contractor_email: string;
+  contractor_phone: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  work_address: string;
+  project_name: string;
+  scope_summary: string;
+  terms_summary: string;
+  planned_start: string;
+  planned_end: string;
+  price_amount?: string | null;
+  price_currency: string;
+  price_note: string;
+  deposit_amount?: string | null;
+  change_terms: string;
+  attachments_note: string;
+  legal_note: string;
+  status: ProjectContractStatus;
+  created_at: string;
+  sent_at?: string | null;
+  accepted_at?: string | null;
+  rejected_at?: string | null;
+  cancelled_at?: string | null;
 };
 
 export type JobPostingContractorContact = {

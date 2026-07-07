@@ -739,6 +739,374 @@ def estimate_payload(item: models.Estimate) -> dict:
     }
 
 
+DEFAULT_PROJECT_CONTRACT_LEGAL_NOTE = (
+    "To jest umowa wykonania prac przygotowana na podstawie ustalonego zakresu zlecenia. "
+    "Przed akceptacja sprawdz dane stron, zakres, terminy i wynagrodzenie."
+)
+DEFAULT_PROJECT_CONTRACT_CHANGE_TERMS = "Zmiany zakresu prac wymagaja potwierdzenia przez obie strony."
+DEFAULT_PROJECT_CONTRACT_TERMS = "Zakres, terminy i wynagrodzenie zgodnie z ustaleniami zlecenia."
+
+
+def project_contract_share_url(item: models.ProjectContract) -> str | None:
+    if not item.share_token:
+        return None
+    return f"/contract/{item.share_token}"
+
+
+def ensure_project_contract_share(db: Session, item: models.ProjectContract) -> str:
+    if not item.share_token:
+        token = random_token(30)
+        while db.scalar(select(models.ProjectContract.id).where(models.ProjectContract.share_token == token)):
+            token = random_token(30)
+        item.share_token = token
+    item.share_active = True
+    return item.share_token
+
+
+def project_contract_number(item: models.ProjectContract) -> str:
+    return item.contract_number or f"UM-{item.id[:8].upper()}"
+
+
+def public_profile_for_contract_owner(
+    db: Session,
+    owner_type: str,
+    owner_id: str,
+) -> models.PublicProfile | None:
+    return db.scalar(
+        select(models.PublicProfile).where(
+            models.PublicProfile.owner_type == owner_type,
+            models.PublicProfile.owner_id == owner_id,
+        )
+    )
+
+
+def project_contract_public_owner_payload(db: Session, item: models.ProjectContract) -> dict:
+    profile = public_profile_for_contract_owner(db, item.owner_type, item.owner_id)
+    public_profile = profile if profile and profile.is_public else None
+    if item.owner_type == "company":
+        workspace = db.get(models.Workspace, item.owner_id)
+        display_name = (
+            item.contractor_name
+            or (public_profile.display_name if public_profile and public_profile.display_name else "")
+            or (workspace.name if workspace else "")
+            or "Firma wykonawcza"
+        )
+        return {
+            "owner_type": "company",
+            "display_name": display_name,
+            "contact_phone": item.contractor_phone or (public_profile.contact_phone if public_profile else ""),
+            "contact_email": item.contractor_email or (public_profile.contact_email if public_profile else ""),
+            "slug": public_profile.slug if public_profile else "",
+            "profile_url": f"/public-profiles/{public_profile.slug}" if public_profile and public_profile.slug else "",
+        }
+    user = db.get(models.User, item.owner_id)
+    display_name = item.contractor_name
+    if not display_name and user:
+        display_name = user.public_profile_name or user.name
+    if public_profile and public_profile.display_name and not item.contractor_name:
+        display_name = public_profile.display_name
+    return {
+        "owner_type": "independent_contractor",
+        "display_name": display_name or "Samodzielny majster",
+        "contact_phone": item.contractor_phone or (public_profile.contact_phone if public_profile else ""),
+        "contact_email": item.contractor_email or (public_profile.contact_email if public_profile else ""),
+        "slug": public_profile.slug if public_profile else "",
+        "profile_url": f"/public-profiles/{public_profile.slug}" if public_profile and public_profile.slug else "",
+    }
+
+
+def project_contract_payload(item: models.ProjectContract) -> dict:
+    return {
+        "id": item.id,
+        "project_id": item.project_id,
+        "owner_type": item.owner_type,
+        "owner_id": item.owner_id,
+        "company_id": item.company_id,
+        "created_by_id": item.created_by_id,
+        "status": item.status,
+        "share_url": project_contract_share_url(item),
+        "share_active": item.share_active,
+        "contract_number": project_contract_number(item),
+        "contractor_name": item.contractor_name,
+        "contractor_email": item.contractor_email,
+        "contractor_phone": item.contractor_phone,
+        "client_name": item.client_name,
+        "client_email": item.client_email,
+        "client_phone": item.client_phone,
+        "work_address": item.work_address,
+        "project_name": item.project_name,
+        "scope_summary": item.scope_summary,
+        "terms_summary": item.terms_summary,
+        "planned_start": item.planned_start,
+        "planned_end": item.planned_end,
+        "price_amount": money_payload(item.price_amount),
+        "price_currency": item.price_currency,
+        "price_note": item.price_note,
+        "deposit_amount": money_payload(item.deposit_amount),
+        "change_terms": item.change_terms,
+        "attachments_note": item.attachments_note,
+        "legal_note": item.legal_note,
+        "sent_at": item.sent_at.isoformat() if item.sent_at else None,
+        "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
+        "rejected_at": item.rejected_at.isoformat() if item.rejected_at else None,
+        "cancelled_at": item.cancelled_at.isoformat() if item.cancelled_at else None,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }
+
+
+def public_project_contract_payload(db: Session, item: models.ProjectContract) -> dict:
+    return {
+        "number": project_contract_number(item),
+        "owner": project_contract_public_owner_payload(db, item),
+        "contractor_name": item.contractor_name,
+        "contractor_email": item.contractor_email,
+        "contractor_phone": item.contractor_phone,
+        "client_name": item.client_name,
+        "client_email": item.client_email,
+        "client_phone": item.client_phone,
+        "work_address": item.work_address,
+        "project_name": item.project_name,
+        "scope_summary": item.scope_summary,
+        "terms_summary": item.terms_summary,
+        "planned_start": item.planned_start,
+        "planned_end": item.planned_end,
+        "price_amount": money_payload(item.price_amount),
+        "price_currency": item.price_currency,
+        "price_note": item.price_note,
+        "deposit_amount": money_payload(item.deposit_amount),
+        "change_terms": item.change_terms,
+        "attachments_note": item.attachments_note,
+        "legal_note": item.legal_note,
+        "status": item.status,
+        "created_at": item.created_at.isoformat(),
+        "sent_at": item.sent_at.isoformat() if item.sent_at else None,
+        "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
+        "rejected_at": item.rejected_at.isoformat() if item.rejected_at else None,
+        "cancelled_at": item.cancelled_at.isoformat() if item.cancelled_at else None,
+    }
+
+
+def project_contract_actor_for_project(db: Session, access: ProjectAccess, user: models.User) -> str:
+    if is_company_worker(user) or is_investor(user):
+        raise HTTPException(403, "Tylko wykonawca albo szef firmy moze tworzyc umowy")
+    if is_independent_contractor(user):
+        if access.project.workspace_id:
+            raise HTTPException(403, "To zlecenie nalezy do firmy")
+        if not access.can_manage():
+            raise HTTPException(403, "Brak uprawnien do umowy dla tego zlecenia")
+        return "independent_contractor"
+    if is_company_owner(user):
+        if not access.project.workspace_id:
+            raise HTTPException(403, "To nie jest zlecenie firmy")
+        if not can_manage_workspace(db, access.project.workspace_id, user.id):
+            raise HTTPException(403, "Brak dostepu do umowy firmy")
+        if not access.can_manage():
+            raise HTTPException(403, "Brak uprawnien do umowy dla tego zlecenia")
+        return "company_owner"
+    raise HTTPException(403, "Brak dostepu do umow")
+
+
+def project_contract_actor_for_item(
+    db: Session,
+    user: models.User,
+    item: models.ProjectContract,
+) -> str:
+    project = db.get(models.Project, item.project_id)
+    if not project:
+        raise HTTPException(404, "Umowa nie istnieje")
+    role = project_role(db, project.id, user.id)
+    if not role:
+        raise HTTPException(404, "Umowa nie istnieje")
+    access = ProjectAccess(project=project, user=user, role=role)
+    return project_contract_actor_for_project(db, access, user)
+
+
+def visible_project_contracts_for_user(
+    db: Session,
+    user: models.User,
+    project_id: str | None = None,
+) -> list[models.ProjectContract]:
+    if is_investor(user):
+        raise HTTPException(403, "Inwestor nie ma dostepu do umow wykonawcy")
+    if not (is_independent_contractor(user) or is_company_owner(user) or is_company_worker(user)):
+        raise HTTPException(403, "Brak dostepu do umow")
+    project_ids = [
+        row[0].id
+        for row in db.execute(user_projects_query(user.id)).all()
+        if not project_id or row[0].id == project_id
+    ]
+    if not project_ids:
+        return []
+    query = select(models.ProjectContract).where(models.ProjectContract.project_id.in_(project_ids))
+    return list(
+        db.scalars(
+            query.order_by(
+                models.ProjectContract.updated_at.desc(),
+                models.ProjectContract.created_at.desc(),
+            )
+        ).all()
+    )
+
+
+def contract_owner_from_project(project: models.Project, user: models.User) -> tuple[str, str, str | None]:
+    if project.workspace_id:
+        return "company", project.workspace_id, project.workspace_id
+    return "independent_contractor", user.id, None
+
+
+def date_payload(value: date | None) -> str:
+    return value.isoformat() if value else ""
+
+
+def project_contract_contractor_defaults(
+    db: Session,
+    owner_type: str,
+    owner_id: str,
+    user: models.User,
+) -> tuple[str, str, str]:
+    profile = public_profile_for_contract_owner(db, owner_type, owner_id)
+    if profile:
+        name = profile.display_name.strip()
+        phone = profile.contact_phone.strip()
+        email = profile.contact_email.strip()
+        if name or phone or email:
+            return name, email, phone
+    if owner_type == "company":
+        workspace = db.get(models.Workspace, owner_id)
+        return (workspace.name if workspace else "Firma wykonawcza", "", workspace.phone if workspace else "")
+    return user.public_profile_name or user.name or "Samodzielny majster", "", user.phone or ""
+
+
+def build_project_contract_from_project(
+    db: Session,
+    project: models.Project,
+    user: models.User,
+) -> models.ProjectContract:
+    owner_type, owner_id, company_id = contract_owner_from_project(project, user)
+    contractor_name, contractor_email, contractor_phone = project_contract_contractor_defaults(
+        db, owner_type, owner_id, user
+    )
+    item = models.ProjectContract(
+        project_id=project.id,
+        owner_type=owner_type,
+        owner_id=owner_id,
+        company_id=company_id,
+        created_by_id=user.id,
+        status="draft",
+        share_active=False,
+        contract_number="",
+        contractor_name=contractor_name,
+        contractor_email=contractor_email,
+        contractor_phone=contractor_phone,
+        client_name=project.client_name or "",
+        client_email=project.client_email or "",
+        client_phone="",
+        work_address=project.address or "",
+        project_name=project.name or "Umowa wykonania prac",
+        scope_summary=project.description or "",
+        terms_summary=DEFAULT_PROJECT_CONTRACT_TERMS,
+        planned_start=date_payload(project.planned_start_date),
+        planned_end=date_payload(project.planned_end_date),
+        price_amount=project.contract_amount,
+        price_currency=project.contract_currency or DEFAULT_CONTRACT_CURRENCY,
+        price_note="",
+        deposit_amount=None,
+        change_terms=DEFAULT_PROJECT_CONTRACT_CHANGE_TERMS,
+        attachments_note="",
+        legal_note=DEFAULT_PROJECT_CONTRACT_LEGAL_NOTE,
+    )
+    return item
+
+
+def apply_project_contract_changes(
+    item: models.ProjectContract,
+    payload: ProjectContractUpdate,
+    *,
+    partial: bool = True,
+) -> None:
+    changes = payload.model_dump(exclude_unset=partial)
+    for key in [
+        "contractor_name",
+        "contractor_phone",
+        "client_name",
+        "client_phone",
+        "work_address",
+        "project_name",
+        "scope_summary",
+        "terms_summary",
+        "planned_start",
+        "planned_end",
+        "price_note",
+        "change_terms",
+        "attachments_note",
+        "legal_note",
+    ]:
+        if key in changes:
+            setattr(item, key, (changes[key] or "").strip())
+    if "contractor_email" in changes:
+        item.contractor_email = optional_email(changes["contractor_email"] or "")
+    if "client_email" in changes:
+        item.client_email = optional_email(changes["client_email"] or "")
+    if "price_currency" in changes:
+        currency = (changes["price_currency"] or DEFAULT_CONTRACT_CURRENCY).strip().upper()[:3]
+        item.price_currency = currency or DEFAULT_CONTRACT_CURRENCY
+    if "price_amount" in changes:
+        item.price_amount = changes["price_amount"]
+    if "deposit_amount" in changes:
+        item.deposit_amount = changes["deposit_amount"]
+
+
+def ensure_project_contract_editable(item: models.ProjectContract) -> None:
+    if item.status != "draft":
+        raise HTTPException(422, "Tylko szkic umowy jest edytowalny")
+
+
+def ensure_project_contract_ready_to_send(item: models.ProjectContract) -> None:
+    if not item.project_name.strip() or not item.scope_summary.strip():
+        raise HTTPException(422, "Do wyslania umowy potrzebny jest tytul i zakres prac")
+    if not item.client_name.strip():
+        raise HTTPException(422, "Do wyslania umowy potrzebne sa dane klienta")
+
+
+def change_project_contract_status(
+    db: Session,
+    item: models.ProjectContract,
+    status: ProjectContractStatus,
+) -> None:
+    if status == item.status:
+        if status == "sent":
+            ensure_project_contract_share(db, item)
+        return
+    if item.status in {"accepted", "rejected", "cancelled"}:
+        raise HTTPException(422, "Ten status umowy jest finalny")
+    if status == "sent":
+        if item.status != "draft":
+            raise HTTPException(422, "Umowe mozna wyslac tylko ze szkicu")
+        ensure_project_contract_ready_to_send(item)
+        item.status = "sent"
+        item.sent_at = item.sent_at or now()
+        ensure_project_contract_share(db, item)
+        return
+    if status == "cancelled" and item.status in {"draft", "sent"}:
+        item.status = "cancelled"
+        item.cancelled_at = item.cancelled_at or now()
+        item.share_active = False
+        return
+    raise HTTPException(422, "Nielegalna zmiana statusu umowy")
+
+
+def public_project_contract_by_token(db: Session, token: str) -> models.ProjectContract:
+    item = db.scalar(
+        select(models.ProjectContract).where(
+            models.ProjectContract.share_token == token,
+            models.ProjectContract.share_active.is_(True),
+        )
+    )
+    if not item or item.status not in {"sent", "accepted", "rejected"}:
+        raise HTTPException(404, "Umowa nie istnieje albo link wygasl")
+    return item
+
 def company_workspace_ids_for_user(
     db: Session,
     user: models.User,
@@ -1492,6 +1860,39 @@ class EstimateStatusUpdate(BaseModel):
 
 
 class PublicEstimateDecision(BaseModel):
+    status: Literal["accepted", "rejected"]
+
+
+ProjectContractStatus = Literal["draft", "sent", "accepted", "rejected", "cancelled"]
+
+
+class ProjectContractUpdate(BaseModel):
+    contractor_name: str | None = Field(default=None, max_length=180)
+    contractor_email: str | None = Field(default=None, max_length=320)
+    contractor_phone: str | None = Field(default=None, max_length=40)
+    client_name: str | None = Field(default=None, max_length=180)
+    client_email: str | None = Field(default=None, max_length=320)
+    client_phone: str | None = Field(default=None, max_length=40)
+    work_address: str | None = Field(default=None, max_length=300)
+    project_name: str | None = Field(default=None, min_length=1, max_length=220)
+    scope_summary: str | None = Field(default=None, max_length=7000)
+    terms_summary: str | None = Field(default=None, max_length=5000)
+    planned_start: str | None = Field(default=None, max_length=160)
+    planned_end: str | None = Field(default=None, max_length=160)
+    price_amount: Decimal | None = Field(default=None, ge=0)
+    price_currency: str | None = Field(default=None, max_length=3)
+    price_note: str | None = Field(default=None, max_length=2000)
+    deposit_amount: Decimal | None = Field(default=None, ge=0)
+    change_terms: str | None = Field(default=None, max_length=3000)
+    attachments_note: str | None = Field(default=None, max_length=3000)
+    legal_note: str | None = Field(default=None, max_length=3000)
+
+
+class ProjectContractStatusUpdate(BaseModel):
+    status: ProjectContractStatus
+
+
+class PublicContractDecision(BaseModel):
     status: Literal["accepted", "rejected"]
 
 
@@ -2888,6 +3289,166 @@ def decide_public_estimate(
     db.commit()
     db.refresh(item)
     return public_estimate_payload(db, item)
+
+
+@router.get("/contracts/me")
+def list_my_project_contracts(
+    project_id: str | None = Query(default=None),
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    return [
+        project_contract_payload(item)
+        for item in visible_project_contracts_for_user(db, user, project_id=project_id)
+    ]
+
+
+@router.get("/contracts/me/{contract_id}")
+def get_my_project_contract(
+    contract_id: str,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.ProjectContract, contract_id)
+    if not item:
+        raise HTTPException(404, "Umowa nie istnieje")
+    if is_investor(user):
+        raise HTTPException(403, "Inwestor nie ma dostepu do umow wykonawcy")
+    if not project_role(db, item.project_id, user.id):
+        raise HTTPException(404, "Umowa nie istnieje")
+    return project_contract_payload(item)
+
+
+@router.post("/projects/{project_id}/contract", status_code=201)
+def create_project_contract(
+    project_id: str,
+    response: Response,
+    request: Request,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    project_contract_actor_for_project(db, access, user)
+    existing = db.scalar(
+        select(models.ProjectContract)
+        .where(models.ProjectContract.project_id == access.project.id)
+        .with_for_update()
+    )
+    if existing:
+        response.status_code = 200
+        return {"created": False, "contract": project_contract_payload(existing)}
+
+    item = build_project_contract_from_project(db, access.project, user)
+    db.add(item)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(
+            select(models.ProjectContract).where(models.ProjectContract.project_id == access.project.id)
+        )
+        if existing:
+            response.status_code = 200
+            return {"created": False, "contract": project_contract_payload(existing)}
+        raise HTTPException(409, "Umowa dla tego zlecenia juz istnieje")
+    db.refresh(item)
+    return {"created": True, "contract": project_contract_payload(item)}
+
+
+@router.patch("/contracts/me/{contract_id}")
+def update_my_project_contract(
+    contract_id: str,
+    payload: ProjectContractUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.ProjectContract, contract_id)
+    if not item:
+        raise HTTPException(404, "Umowa nie istnieje")
+    project_contract_actor_for_item(db, user, item)
+    ensure_project_contract_editable(item)
+    apply_project_contract_changes(item, payload, partial=True)
+    db.commit()
+    db.refresh(item)
+    return project_contract_payload(item)
+
+
+@router.patch("/contracts/me/{contract_id}/status")
+def update_my_project_contract_status(
+    contract_id: str,
+    payload: ProjectContractStatusUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.ProjectContract, contract_id)
+    if not item:
+        raise HTTPException(404, "Umowa nie istnieje")
+    project_contract_actor_for_item(db, user, item)
+    change_project_contract_status(db, item, payload.status)
+    db.commit()
+    db.refresh(item)
+    return project_contract_payload(item)
+
+
+@router.get("/contracts/public/{token}")
+def get_public_project_contract(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return public_project_contract_payload(db, public_project_contract_by_token(db, token))
+
+
+@router.post("/contracts/public/{token}/decision")
+def decide_public_project_contract(
+    token: str,
+    payload: PublicContractDecision,
+    db: Session = Depends(get_db),
+):
+    item = public_project_contract_by_token(db, token)
+    if item.status != "sent":
+        raise HTTPException(422, "Ta umowa ma juz finalna decyzje")
+    item.status = payload.status
+    if payload.status == "accepted":
+        item.accepted_at = item.accepted_at or now()
+        item.rejected_at = None
+    else:
+        item.rejected_at = item.rejected_at or now()
+        item.accepted_at = None
+    db.commit()
+    db.refresh(item)
+    return public_project_contract_payload(db, item)
+
+
+@router.post("/contracts/public/{token}/accept")
+def accept_public_project_contract(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return decide_public_project_contract(token, PublicContractDecision(status="accepted"), db)
+
+
+@router.patch("/contracts/public/{token}/accept")
+def patch_accept_public_project_contract(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return decide_public_project_contract(token, PublicContractDecision(status="accepted"), db)
+
+
+@router.post("/contracts/public/{token}/reject")
+def reject_public_project_contract(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return decide_public_project_contract(token, PublicContractDecision(status="rejected"), db)
+
+
+@router.patch("/contracts/public/{token}/reject")
+def patch_reject_public_project_contract(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return decide_public_project_contract(token, PublicContractDecision(status="rejected"), db)
 
 
 @router.get("/public-profile/me")

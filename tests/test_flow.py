@@ -4937,6 +4937,210 @@ def test_estimate_project_creation_blocks_status_worker_and_investor():
         assert investor.post(f"/api/estimates/me/{draft['id']}/project").status_code == 403
 
 
+def test_independent_project_contract_flow_is_idempotent_and_public():
+    with TestClient(app) as client:
+        login(client, "contract-independent@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": True,
+                "slug": "contract-independent-profile",
+                "display_name": "Majster Umow",
+                "contact_phone": "600 100 200",
+                "contact_email": "public-contract@example.com",
+            },
+        )
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Lazienka z umowa",
+                "client_name": "Klient umowy",
+                "client_email": "client-contract@example.com",
+                "address": "Warszawa, Testowa 1",
+                "description": "Remont lazienki bez danych prywatnych.",
+                "planned_start_date": "2026-09-01",
+                "planned_end_date": "2026-09-20",
+                "contract_amount": "22000.00",
+                "template": "custom",
+            },
+        ).json()
+
+        with SessionLocal() as db:
+            count_before = db.scalar(select(func.count(models.ProjectContract.id)))
+            project_count_before = db.scalar(select(func.count(models.Project.id)))
+
+        created = client.post(f"/api/projects/{project['id']}/contract")
+        assert created.status_code == 201
+        body = created.json()
+        assert body["created"] is True
+        contract = body["contract"]
+        assert contract["project_id"] == project["id"]
+        assert contract["owner_type"] == "independent_contractor"
+        assert contract["status"] == "draft"
+        assert contract["client_name"] == "Klient umowy"
+        assert contract["client_email"] == "client-contract@example.com"
+        assert contract["work_address"] == "Warszawa, Testowa 1"
+        assert contract["price_amount"] == "22000.00"
+        assert contract["share_url"] is None
+
+        duplicate = client.post(f"/api/projects/{project['id']}/contract")
+        assert duplicate.status_code == 200
+        assert duplicate.json()["created"] is False
+        assert duplicate.json()["contract"]["id"] == contract["id"]
+
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(models.ProjectContract.id))) == count_before + 1
+            assert db.scalar(select(func.count(models.Project.id))) == project_count_before
+
+        patched = client.patch(
+            f"/api/contracts/me/{contract['id']}",
+            json={
+                "client_phone": "500 111 222",
+                "scope_summary": "Zakres umowy po edycji.",
+                "terms_summary": "Platnosc po odbiorze etapu.",
+                "price_amount": "23000.00",
+                "deposit_amount": "3000.00",
+                "price_note": "Kwota brutto.",
+                "attachments_note": "Brak zalacznikow.",
+            },
+        )
+        assert patched.status_code == 200
+        assert patched.json()["scope_summary"] == "Zakres umowy po edycji."
+        assert patched.json()["deposit_amount"] == "3000.00"
+
+        sent = client.patch(
+            f"/api/contracts/me/{contract['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        sent_body = sent.json()
+        assert sent_body["status"] == "sent"
+        assert sent_body["share_url"].startswith("/contract/")
+        token = sent_body["share_url"].rsplit("/", maxsplit=1)[1]
+
+        assert client.get(f"/api/contracts/me/{contract['id']}").json()["status"] == "sent"
+
+        with TestClient(app) as public_client:
+            public = public_client.get(f"/api/contracts/public/{token}")
+            assert public.status_code == 200
+            public_body = public.json()
+            assert public_body["project_name"] == "Lazienka z umowa"
+            assert public_body["number"]
+            assert public_body["owner"]["display_name"] == "Majster Umow"
+            assert public_body["owner"]["contact_email"] == "public-contract@example.com"
+            assert public_body["client_name"] == "Klient umowy"
+            assert public_body["client_email"] == "client-contract@example.com"
+            assert public_body["client_phone"] == "500 111 222"
+            assert public_body["scope_summary"] == "Zakres umowy po edycji."
+            assert public_body["price_amount"] == "23000.00"
+            assert "project_id" not in public_body
+            assert "owner_id" not in public_body
+            assert "created_by_id" not in public_body
+            assert "share_token" not in public_body
+            assert "contract-independent@example.com" not in repr(public_body)
+
+            accepted = public_client.post(f"/api/contracts/public/{token}/accept")
+            assert accepted.status_code == 200
+            assert accepted.json()["status"] == "accepted"
+            assert accepted.json()["accepted_at"]
+            assert public_client.post(f"/api/contracts/public/{token}/reject").status_code == 422
+
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(models.Project.id))) == project_count_before
+            stored = db.get(models.ProjectContract, contract["id"])
+            assert stored
+            assert stored.status == "accepted"
+
+
+def test_project_contract_public_reject_and_cancel_blocks_link():
+    with TestClient(app) as client:
+        login(client, "contract-reject@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        project = client.post(
+            "/api/projects",
+            json={"name": "Umowa do odrzucenia", "client_name": "Klient reject", "description": "Zakres.", "template": "custom"},
+        ).json()
+        contract = client.post(f"/api/projects/{project['id']}/contract").json()["contract"]
+        sent = client.patch(f"/api/contracts/me/{contract['id']}/status", json={"status": "sent"}).json()
+        token = sent["share_url"].rsplit("/", maxsplit=1)[1]
+
+        with TestClient(app) as public_client:
+            rejected = public_client.post(f"/api/contracts/public/{token}/reject")
+            assert rejected.status_code == 200
+            assert rejected.json()["status"] == "rejected"
+            assert public_client.post(f"/api/contracts/public/{token}/accept").status_code == 422
+
+        second_project = client.post(
+            "/api/projects",
+            json={"name": "Umowa anulowana", "client_name": "Klient cancel", "description": "Zakres.", "template": "custom"},
+        ).json()
+        second = client.post(f"/api/projects/{second_project['id']}/contract").json()["contract"]
+        second_sent = client.patch(f"/api/contracts/me/{second['id']}/status", json={"status": "sent"}).json()
+        second_token = second_sent["share_url"].rsplit("/", maxsplit=1)[1]
+        cancelled = client.patch(f"/api/contracts/me/{second['id']}/status", json={"status": "cancelled"})
+        assert cancelled.status_code == 200
+        with TestClient(app) as public_client:
+            assert public_client.get(f"/api/contracts/public/{second_token}").status_code == 404
+
+
+def test_project_contract_blocks_company_worker_investor_and_other_owner():
+    with TestClient(app) as owner:
+        login(owner, "project-contract-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Umow"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        with TestClient(app) as worker:
+            login(worker, "project-contract-worker@example.com")
+            worker.post("/api/onboarding", json={"profile_type": "company_worker"})
+        worker_profile = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik umow",
+                "profile_kind": "craftsman",
+                "email": "project-contract-worker@example.com",
+            },
+        ).json()
+        project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker_profile["id"],
+                "name": "Projekt firmowej umowy",
+                "client_name": "Klient firmy",
+                "description": "Zakres firmy.",
+                "template": "custom",
+            },
+        ).json()
+        created = owner.post(f"/api/projects/{project['id']}/contract")
+        assert created.status_code == 201
+        contract = created.json()["contract"]
+        assert contract["owner_type"] == "company"
+        assert contract["company_id"] == workspace_id
+
+        with TestClient(app) as worker:
+            login(worker, "project-contract-worker@example.com")
+            assert worker.post(f"/api/projects/{project['id']}/contract").status_code == 403
+            assert worker.patch(f"/api/contracts/me/{contract['id']}/status", json={"status": "sent"}).status_code == 403
+
+        with TestClient(app) as investor:
+            login(investor, "contract-investor@example.com")
+            investor.post("/api/onboarding", json={"profile_type": "investor"})
+            assert investor.get("/api/contracts/me").status_code == 403
+            assert investor.post(f"/api/projects/{project['id']}/contract").status_code in {403, 404}
+
+        with TestClient(app) as other_owner:
+            login(other_owner, "contract-other-owner@example.com")
+            other_owner.post(
+                "/api/onboarding",
+                json={"profile_type": "company_owner", "company_name": "Inna Firma Umow"},
+            )
+            assert other_owner.patch(f"/api/contracts/me/{contract['id']}", json={"scope_summary": "Cudza zmiana"}).status_code == 404
+
+
 def test_estimate_delete_and_cancel_are_owner_scoped():
     with TestClient(app) as client:
         user = login(client, "estimate-delete-owner@example.com")

@@ -2029,6 +2029,19 @@ audio { width: 100%; margin-top: 13px; }
 .estimate-project-result svg { width: 42px; height: 42px; padding: 10px; border-radius: 12px; color: #087443; background: #dcfce7; }
 .estimate-project-result strong { color: var(--navy); }
 .estimate-project-result p { margin: 3px 0 0; color: var(--muted); line-height: 1.4; }
+.worker-contract-card { gap: 14px; }
+.worker-contract-card__body,
+.worker-contract-card__empty { display: grid; gap: 12px; }
+.worker-contract-card__body dl { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.worker-contract-card__body dl div { min-width: 0; padding: 10px; border: 1px solid #e1e9f3; border-radius: 10px; background: #f8fafc; }
+.worker-contract-card__body dt { color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.worker-contract-card__body dd { margin: 3px 0 0; color: var(--navy); font-weight: 850; overflow-wrap: anywhere; }
+.worker-contract-share { padding: 12px; display: grid; gap: 8px; border: 1px solid #cfe1f6; border-radius: 12px; background: #f7fbff; }
+.worker-contract-share strong { color: var(--navy); }
+.worker-contract-share code { padding: 9px 10px; display: block; border: 1px solid #dbe7f5; border-radius: 9px; color: #28415f; background: #fff; font-size: 12px; overflow-wrap: anywhere; white-space: normal; }
+.worker-contract-card__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.worker-contract-card__actions .button { min-height: 36px; padding: 0 11px; }
+.worker-contract-card__empty p { margin: 0; color: var(--muted); line-height: 1.5; }
 .public-estimate-page { min-height: 100vh; padding: 30px 18px 72px; background: linear-gradient(180deg, #f2f6fb 0%, #f8fafc 100%); }
 .public-estimate-document { width: min(1040px, 100%); max-width: 100%; min-width: 0; margin: 0 auto; display: grid; gap: 16px; }
 .public-estimate-document > * { min-width: 0; max-width: 100%; }
@@ -2535,18 +2548,22 @@ audio { width: 100%; margin-top: 13px; }
   .estimates-toolbar .button { width: 100%; justify-content: center; }
   .estimate-card header,
   .estimate-project-panel,
+  .worker-contract-card__body dl,
   .estimate-form-grid,
   .estimate-card dl,
   .estimate-preview-modal dl,
   .estimate-project-modal dl { grid-template-columns: 1fr; }
   .estimate-card header > strong { width: 100%; text-align: center; }
   .estimate-card footer,
+  .worker-contract-card__actions,
   .estimate-share-actions,
   .estimate-form-modal footer,
   .estimate-preview-modal footer,
   .estimate-project-modal footer,
   .public-estimate-actions { display: grid; grid-template-columns: 1fr; }
   .estimate-card footer .button,
+  .worker-contract-card__actions .button,
+  .worker-contract-card__empty .button,
   .estimate-project-panel .button,
   .estimate-share-actions .button,
   .estimate-form-modal footer .button,

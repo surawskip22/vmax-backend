@@ -338,6 +338,50 @@ class Project(Base, TimestampMixin):
     )
 
 
+class ProjectContract(Base, TimestampMixin):
+    __tablename__ = "project_contracts"
+    __table_args__ = (
+        UniqueConstraint("project_id", name="uq_project_contracts_project_id"),
+        Index("ix_project_contracts_owner", "owner_type", "owner_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uuid4)
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), index=True
+    )
+    owner_type: Mapped[str] = mapped_column(String(40), index=True)
+    owner_id: Mapped[str] = mapped_column(String(36), index=True)
+    company_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    created_by_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    status: Mapped[str] = mapped_column(String(30), default="draft", index=True)
+    share_token: Mapped[str | None] = mapped_column(String(120), unique=True, index=True)
+    share_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    contract_number: Mapped[str] = mapped_column(String(60), default="")
+    contractor_name: Mapped[str] = mapped_column(String(180), default="")
+    contractor_email: Mapped[str] = mapped_column(String(320), default="")
+    contractor_phone: Mapped[str] = mapped_column(String(40), default="")
+    client_name: Mapped[str] = mapped_column(String(180), default="")
+    client_email: Mapped[str] = mapped_column(String(320), default="")
+    client_phone: Mapped[str] = mapped_column(String(40), default="")
+    work_address: Mapped[str] = mapped_column(String(300), default="")
+    project_name: Mapped[str] = mapped_column(String(220), default="")
+    scope_summary: Mapped[str] = mapped_column(Text, default="")
+    terms_summary: Mapped[str] = mapped_column(Text, default="")
+    planned_start: Mapped[str] = mapped_column(String(160), default="")
+    planned_end: Mapped[str] = mapped_column(String(160), default="")
+    price_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    price_currency: Mapped[str] = mapped_column(String(3), default="PLN")
+    price_note: Mapped[str] = mapped_column(Text, default="")
+    deposit_amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    change_terms: Mapped[str] = mapped_column(Text, default="")
+    attachments_note: Mapped[str] = mapped_column(Text, default="")
+    legal_note: Mapped[str] = mapped_column(Text, default="")
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ProjectMember(Base):
     __tablename__ = "project_members"
     __table_args__ = (UniqueConstraint("project_id", "user_id"),)
