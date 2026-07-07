@@ -4737,7 +4737,9 @@ def test_sent_estimate_has_public_link_and_public_decision_without_project():
         with SessionLocal() as db:
             project_count_after = db.scalar(select(func.count(models.Project.id)))
         assert project_count_after == project_count_before
-        assert client.get("/api/estimates/me").json()[0]["status"] == "accepted"
+        accepted_estimate = client.get("/api/estimates/me").json()[0]
+        assert accepted_estimate["status"] == "accepted"
+        assert accepted_estimate["project_id"] is None
 
         second = client.post(
             "/api/estimates/me",
@@ -4764,6 +4766,175 @@ def test_sent_estimate_has_public_link_and_public_decision_without_project():
 
         with SessionLocal() as db:
             assert db.scalar(select(func.count(models.Project.id))) == project_count_before
+
+
+def test_accepted_independent_estimate_can_create_project_once():
+    with TestClient(app) as client:
+        user = login(client, "estimate-project-independent@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+
+        created = client.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "independent_contractor",
+                "owner_id": user["id"],
+                "recipient_type": "client",
+                "recipient_name": "Klient projektu",
+                "recipient_email": "estimate-project-client@example.com",
+                "recipient_phone": "500 101 202",
+                "title": "Remont z zaakceptowanej oferty",
+                "scope_summary": "Demontaz, hydraulika i montaz plytek.",
+                "assumptions": "Material po stronie klienta.",
+                "estimated_price": "15400.00",
+                "price_note": "Cena orientacyjna netto.",
+                "planned_start": "2026-08-10",
+                "planned_end": "2026-08-31",
+                "status": "sent",
+            },
+        )
+        assert created.status_code == 201
+        estimate_id = created.json()["id"]
+        accepted = client.patch(
+            f"/api/estimates/me/{estimate_id}/status",
+            json={"status": "accepted"},
+        )
+        assert accepted.status_code == 200
+        assert accepted.json()["status"] == "accepted"
+        assert accepted.json()["project_id"] is None
+
+        with SessionLocal() as db:
+            project_count_before = db.scalar(select(func.count(models.Project.id)))
+
+        response = client.post(f"/api/estimates/me/{estimate_id}/project")
+        assert response.status_code == 201
+        body = response.json()
+        assert body["created"] is True
+        assert body["estimate"]["project_id"] == body["project"]["id"]
+        project = body["project"]
+        assert project["name"] == "Remont z zaakceptowanej oferty"
+        assert project["client_name"] == "Klient projektu"
+        assert project["client_email"] == "estimate-project-client@example.com"
+        assert project["status"] == "assigned"
+        assert project["planned_start_date"] == "2026-08-10"
+        assert project["planned_end_date"] == "2026-08-31"
+        assert project["contract_amount"] == "15400.00"
+        assert project["contract_currency"] == "PLN"
+        assert "Utworzono z zaakceptowanej oferty/wyceny." in project["description"]
+        assert "Telefon odbiorcy: 500 101 202" in project["description"]
+        assert project["stages"]
+
+        with SessionLocal() as db:
+            project_count_after = db.scalar(select(func.count(models.Project.id)))
+        assert project_count_after == project_count_before + 1
+
+        second = client.post(f"/api/estimates/me/{estimate_id}/project")
+        assert second.status_code == 200
+        second_body = second.json()
+        assert second_body["created"] is False
+        assert second_body["project"]["id"] == project["id"]
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(models.Project.id))) == project_count_after
+            stored = db.get(models.Estimate, estimate_id)
+            assert stored
+            assert stored.project_id == project["id"]
+
+        listed_projects = client.get("/api/projects")
+        assert listed_projects.status_code == 200
+        assert project["id"] in {item["id"] for item in listed_projects.json()}
+        detail = client.get(f"/api/projects/{project['id']}")
+        assert detail.status_code == 200
+        assert detail.json()["id"] == project["id"]
+
+
+def test_company_owner_can_create_company_project_from_accepted_estimate():
+    with TestClient(app) as owner:
+        login(owner, "estimate-project-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Projektow"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+
+        created = owner.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "company",
+                "owner_id": workspace_id,
+                "recipient_type": "client",
+                "recipient_name": "Klient firmy",
+                "title": "Oferta firmy do zlecenia",
+                "scope_summary": "Zakres firmowy.",
+                "status": "sent",
+            },
+        )
+        assert created.status_code == 201
+        estimate_id = created.json()["id"]
+        accepted = owner.patch(
+            f"/api/estimates/me/{estimate_id}/status",
+            json={"status": "accepted"},
+        )
+        assert accepted.status_code == 200
+
+        response = owner.post(f"/api/estimates/me/{estimate_id}/project")
+        assert response.status_code == 201
+        body = response.json()
+        assert body["created"] is True
+        assert body["project"]["workspace_id"] == workspace_id
+        assert body["estimate"]["project_id"] == body["project"]["id"]
+
+
+def test_estimate_project_creation_blocks_status_worker_and_investor():
+    with TestClient(app) as independent:
+        user = login(independent, "estimate-project-blocked-independent@example.com")
+        independent.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        draft = independent.post(
+            "/api/estimates/me",
+            json={
+                "owner_type": "independent_contractor",
+                "owner_id": user["id"],
+                "title": "Niezaakceptowana oferta",
+                "scope_summary": "Zakres.",
+                "status": "draft",
+            },
+        ).json()
+        assert independent.post(f"/api/estimates/me/{draft['id']}/project").status_code == 422
+
+    with TestClient(app) as owner:
+        login(owner, "estimate-project-blocked-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Blokad"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+
+        with TestClient(app) as worker:
+            login(worker, "estimate-project-blocked-worker@example.com")
+            worker.post("/api/onboarding", json={"profile_type": "company_worker"})
+            owner.post(
+                "/api/workers",
+                json={
+                    "workspace_id": workspace_id,
+                    "label": "Pracownik blokowany",
+                    "profile_kind": "craftsman",
+                    "email": "estimate-project-blocked-worker@example.com",
+                },
+            )
+            created = worker.post(
+                "/api/estimates/me",
+                json={
+                    "owner_type": "company",
+                    "owner_id": workspace_id,
+                    "title": "Szkic pracownika bez tworzenia",
+                    "scope_summary": "Zakres.",
+                    "status": "pending_approval",
+                },
+            ).json()
+            assert worker.post(f"/api/estimates/me/{created['id']}/project").status_code == 403
+
+    with TestClient(app) as investor:
+        login(investor, "estimate-project-blocked-investor@example.com")
+        investor.post("/api/onboarding", json={"profile_type": "investor"})
+        assert investor.post(f"/api/estimates/me/{draft['id']}/project").status_code == 403
 
 
 def test_estimate_delete_and_cancel_are_owner_scoped():

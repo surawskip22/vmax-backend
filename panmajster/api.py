@@ -718,6 +718,7 @@ def estimate_payload(item: models.Estimate) -> dict:
         "recipient_phone": item.recipient_phone,
         "source_type": item.source_type,
         "source_id": item.source_id,
+        "project_id": item.project_id,
         "title": item.title,
         "scope_summary": item.scope_summary,
         "assumptions": item.assumptions,
@@ -1041,6 +1042,86 @@ def ensure_estimate_editable(item: models.Estimate, actor: str) -> None:
         return
     if item.status not in {"draft", "pending_approval", "approved_by_owner"}:
         raise HTTPException(422, "Wyslana lub finalna oferta nie jest edytowalna")
+
+
+def parse_estimate_project_date(value: str | None) -> date | None:
+    text = (value or "").strip()
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return None
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def estimate_project_name(item: models.Estimate) -> str:
+    title = item.title.strip()
+    if len(title) < 2:
+        title = "Zlecenie z oferty"
+    return title[:200].strip() or "Zlecenie z oferty"
+
+
+def estimate_project_description(item: models.Estimate) -> str:
+    sections = ["Utworzono z zaakceptowanej oferty/wyceny."]
+    if item.scope_summary.strip():
+        sections.append(f"Zakres prac:\n{item.scope_summary.strip()}")
+    if item.assumptions.strip():
+        sections.append(f"Zalozenia i uwagi:\n{item.assumptions.strip()}")
+    if item.price_note.strip():
+        sections.append(f"Notatka do ceny:\n{item.price_note.strip()}")
+    if item.recipient_phone.strip():
+        sections.append(f"Telefon odbiorcy: {item.recipient_phone.strip()}")
+    return "\n\n".join(sections)
+
+
+def build_project_from_estimate(
+    db: Session,
+    item: models.Estimate,
+    user: models.User,
+) -> models.Project:
+    workspace_id = item.owner_id if item.owner_type == "company" else None
+    contract_changes = {
+        "planned_start_date": parse_estimate_project_date(item.planned_start),
+        "planned_end_date": parse_estimate_project_date(item.planned_end),
+        "schedule_uncertainty_days": None,
+        "contract_amount": item.estimated_price,
+        "contract_currency": DEFAULT_CONTRACT_CURRENCY if item.estimated_price is not None else None,
+    }
+    normalize_project_contract_changes(contract_changes)
+
+    project = models.Project(
+        workspace_id=workspace_id,
+        worker_profile_id=None,
+        created_by_id=user.id,
+        name=estimate_project_name(item),
+        client_name=item.recipient_name.strip(),
+        client_email=item.recipient_email.strip(),
+        address="",
+        description=estimate_project_description(item),
+        status=PROJECT_STATUS_ASSIGNED,
+        template="custom",
+        planned_start_date=contract_changes["planned_start_date"],
+        planned_end_date=contract_changes["planned_end_date"],
+        schedule_uncertainty_days=contract_changes["schedule_uncertainty_days"],
+        contract_amount=contract_changes["contract_amount"],
+        contract_currency=contract_changes["contract_currency"],
+        started_at=now(),
+        client_share_token=random_token(30),
+    )
+    db.add(project)
+    db.flush()
+    db.add(models.ProjectMember(project_id=project.id, user_id=user.id, role="owner"))
+    for position, title in enumerate(STAGE_TEMPLATES["custom"]):
+        if title.strip():
+            db.add(
+                models.ProjectStage(
+                    project_id=project.id,
+                    title=title.strip(),
+                    position=position,
+                    status="active" if position == 0 else "planned",
+                )
+            )
+    return project
 
 
 def get_or_create_public_profile(
@@ -2674,6 +2755,66 @@ def update_my_estimate_status(
     db.commit()
     db.refresh(item)
     return estimate_payload(item)
+
+
+@router.post("/estimates/me/{estimate_id}/project", status_code=201)
+def create_project_from_estimate(
+    estimate_id: str,
+    response: Response,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.scalar(
+        select(models.Estimate)
+        .where(models.Estimate.id == estimate_id)
+        .with_for_update()
+    )
+    if not item:
+        raise HTTPException(404, "Oferta nie istnieje")
+
+    actor = estimate_actor_for_item(db, user, item)
+    if actor not in {"independent_contractor", "company_owner"}:
+        raise HTTPException(403, "Tylko wykonawca albo szef firmy moze utworzyc zlecenie z oferty")
+    if item.status != "accepted":
+        raise HTTPException(422, "Zlecenie mozna utworzyc tylko z zaakceptowanej oferty")
+
+    if item.project_id:
+        project = db.get(models.Project, item.project_id)
+        if project:
+            response.status_code = 200
+            return {
+                "created": False,
+                "project": project_payload(db, project, role="owner", details=True),
+                "estimate": estimate_payload(item),
+            }
+        item.project_id = None
+        db.flush()
+
+    project = build_project_from_estimate(db, item, user)
+    item.project_id = project.id
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        db.refresh(item)
+        if item.project_id:
+            project = db.get(models.Project, item.project_id)
+            if project:
+                response.status_code = 200
+                return {
+                    "created": False,
+                    "project": project_payload(db, project, role="owner", details=True),
+                    "estimate": estimate_payload(item),
+                }
+        raise HTTPException(409, "Zlecenie dla tej oferty juz istnieje")
+
+    db.refresh(project)
+    db.refresh(item)
+    return {
+        "created": True,
+        "project": project_payload(db, project, role="owner", details=True),
+        "estimate": estimate_payload(item),
+    }
 
 
 @router.delete("/estimates/me/{estimate_id}")

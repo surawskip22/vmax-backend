@@ -243,6 +243,9 @@ class Estimate(Base, TimestampMixin):
     recipient_phone: Mapped[str] = mapped_column(String(40), default="")
     source_type: Mapped[str] = mapped_column(String(40), default="manual")
     source_id: Mapped[str | None] = mapped_column(String(36), index=True)
+    project_id: Mapped[str | None] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), unique=True, index=True
+    )
     title: Mapped[str] = mapped_column(String(220), default="")
     scope_summary: Mapped[str] = mapped_column(Text, default="")
     assumptions: Mapped[str] = mapped_column(Text, default="")

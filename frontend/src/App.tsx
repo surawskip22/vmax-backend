@@ -7821,6 +7821,12 @@ type EstimateDraft = {
   plannedEnd: string;
 };
 
+type EstimateProjectResult = {
+  created: boolean;
+  project: Project;
+  estimate: Estimate;
+};
+
 function estimateDraftFromEstimate(user: User, estimate?: Estimate | null): EstimateDraft {
   return {
     ownerId: estimate?.owner_id || user.workspaces[0]?.id || "",
@@ -8130,6 +8136,70 @@ function EstimatePreviewModal({ estimate, onClose }: { estimate: Estimate; onClo
   );
 }
 
+function EstimateProjectModal({
+  estimate,
+  result,
+  busy,
+  error,
+  onClose,
+  onConfirm,
+  onOpenProject,
+}: {
+  estimate: Estimate;
+  result: EstimateProjectResult | null;
+  busy: boolean;
+  error: string;
+  onClose: () => void;
+  onConfirm: () => void;
+  onOpenProject: (project: Project) => void;
+}) {
+  const project = result?.project || null;
+  const title = project
+    ? result?.created ? "Zlecenie utworzone." : "Zlecenie już istnieje."
+    : "Utworzyć zlecenie na podstawie tej zaakceptowanej oferty?";
+  return (
+    <Modal title="Zlecenie z oferty" onClose={onClose} wide>
+      <div className="estimate-project-modal">
+        <header>
+          <span className="status status--completed">Zaakceptowana oferta</span>
+          <h3>{title}</h3>
+          <p>
+            Zlecenie powstanie dopiero po potwierdzeniu. Akcja nie tworzy PDF, umowy ani płatności.
+          </p>
+        </header>
+        <dl>
+          <div><dt>Tytuł</dt><dd>{estimate.title || "Zlecenie z oferty"}</dd></div>
+          <div><dt>Zakres</dt><dd>{estimate.scope_summary || "Brak opisu zakresu."}</dd></div>
+          <div><dt>Planowany start</dt><dd>{estimate.planned_start || "Do ustalenia"}</dd></div>
+          <div><dt>Planowany koniec</dt><dd>{estimate.planned_end || "Do ustalenia"}</dd></div>
+          <div><dt>Kwota orientacyjna</dt><dd>{estimateAmountLabel(estimate)}</dd></div>
+          <div><dt>Klient</dt><dd>{estimate.recipient_name || "Nie podano"}</dd></div>
+          <div><dt>E-mail klienta</dt><dd>{estimate.recipient_email || "Nie podano"}</dd></div>
+          <div><dt>Telefon klienta</dt><dd>{estimate.recipient_phone || "Nie podano"}</dd></div>
+        </dl>
+        {project && (
+          <section className="estimate-project-result">
+            <Icon name="check" />
+            <div>
+              <strong>{result?.created ? "Zlecenie utworzone." : "Zlecenie już istnieje."}</strong>
+              <p>{project.name}</p>
+            </div>
+          </section>
+        )}
+        {error && <p className="form-error">{error}</p>}
+        <footer>
+          <Button type="button" variant="secondary" onClick={onClose}>Zamknij</Button>
+          {project ? (
+            <Button type="button" icon="clipboard" onClick={() => onOpenProject(project)}>Przejdź do zlecenia</Button>
+          ) : (
+            <Button type="button" icon="plus" busy={busy} disabled={busy} onClick={onConfirm}>Tak, utwórz zlecenie</Button>
+          )}
+        </footer>
+      </div>
+    </Modal>
+  );
+}
+
 function EstimateFormModal({
   user,
   estimate,
@@ -8246,11 +8316,24 @@ function EstimateFormModal({
   );
 }
 
-function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) => void }) {
+function EstimatesPage({
+  user,
+  notify,
+  onOpenProject,
+  onProjectsChanged,
+}: {
+  user: User;
+  notify: (toast: Toast) => void;
+  onOpenProject: (project: Project) => void;
+  onProjectsChanged: () => void;
+}) {
   const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [previewEstimate, setPreviewEstimate] = useState<Estimate | null>(null);
+  const [projectEstimate, setProjectEstimate] = useState<Estimate | null>(null);
+  const [projectResult, setProjectResult] = useState<EstimateProjectResult | null>(null);
+  const [projectError, setProjectError] = useState("");
   const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [draft, setDraft] = useState<EstimateDraft>(() => estimateDraftFromEstimate(user));
@@ -8309,6 +8392,54 @@ function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) =>
     if (["accepted", "rejected"].includes(estimate.status)) return false;
     if (worker) return ["draft", "pending_approval"].includes(estimate.status);
     return ["draft", "pending_approval", "approved_by_owner", "sent"].includes(estimate.status);
+  }
+
+  function canUseEstimateProjectFlow(estimate: Estimate): boolean {
+    return (independent || owner) && estimate.status === "accepted";
+  }
+
+  function openEstimateProjectModal(estimate: Estimate) {
+    setProjectEstimate(estimate);
+    setProjectResult(null);
+    setProjectError("");
+  }
+
+  async function openEstimateProject(estimate: Estimate) {
+    if (!estimate.project_id) return;
+    setBusy(`${estimate.id}:open-project`);
+    try {
+      const project = await api<Project>(`/projects/${estimate.project_id}`);
+      onOpenProject(project);
+    } catch (reason) {
+      notify({ kind: "error", message: reason instanceof Error ? reason.message : "Nie udało się otworzyć zlecenia." });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function createProjectFromEstimate() {
+    if (!projectEstimate) return;
+    setBusy(`${projectEstimate.id}:project`);
+    setProjectError("");
+    try {
+      const result = await api<EstimateProjectResult>(`/estimates/me/${projectEstimate.id}/project`, {
+        method: "POST",
+      });
+      setProjectResult(result);
+      setProjectEstimate(result.estimate);
+      setEstimates((current) => current.map((item) => (item.id === result.estimate.id ? result.estimate : item)));
+      onProjectsChanged();
+      notify({
+        kind: "success",
+        message: result.created ? "Zlecenie utworzone." : "Zlecenie już istnieje.",
+      });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udało się utworzyć zlecenia z oferty.";
+      setProjectError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function copyEstimateLink(estimate: Estimate) {
@@ -8499,6 +8630,39 @@ function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) =>
                 </Button>
               </section>
             ) : null}
+            {canUseEstimateProjectFlow(estimate) && (
+              <section className={`estimate-project-panel ${estimate.project_id ? "estimate-project-panel--done" : ""}`}>
+                <div>
+                  <strong>{estimate.project_id ? "Zlecenie utworzone" : "Zaakceptowana oferta"}</strong>
+                  <span>
+                    {estimate.project_id
+                      ? "Ta oferta jest już powiązana ze zleceniem. Nie utworzymy duplikatu."
+                      : "Utwórz normalne zlecenie w aplikacji na podstawie tej zaakceptowanej oferty."}
+                  </span>
+                </div>
+                {estimate.project_id ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    icon="clipboard"
+                    busy={busy === `${estimate.id}:open-project`}
+                    disabled={Boolean(busy)}
+                    onClick={() => void openEstimateProject(estimate)}
+                  >
+                    Przejdź do zlecenia
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    icon="plus"
+                    disabled={Boolean(busy)}
+                    onClick={() => openEstimateProjectModal(estimate)}
+                  >
+                    Utwórz zlecenie z oferty
+                  </Button>
+                )}
+              </section>
+            )}
             <footer>
               <Button type="button" variant="secondary" onClick={() => setPreviewEstimate(estimate)}>Podgląd</Button>
               {canEdit(estimate) && <Button type="button" variant="secondary" onClick={() => openEdit(estimate)}>Edytuj</Button>}
@@ -8557,6 +8721,26 @@ function EstimatesPage({ user, notify }: { user: User; notify: (toast: Toast) =>
         <EstimatePreviewModal
           estimate={previewEstimate}
           onClose={() => setPreviewEstimate(null)}
+        />
+      )}
+      {projectEstimate && (
+        <EstimateProjectModal
+          estimate={projectEstimate}
+          result={projectResult}
+          busy={busy === `${projectEstimate.id}:project`}
+          error={projectError}
+          onClose={() => {
+            setProjectEstimate(null);
+            setProjectResult(null);
+            setProjectError("");
+          }}
+          onConfirm={() => void createProjectFromEstimate()}
+          onOpenProject={(project) => {
+            setProjectEstimate(null);
+            setProjectResult(null);
+            setProjectError("");
+            onOpenProject(project);
+          }}
         />
       )}
       {formOpen && (
@@ -10546,7 +10730,12 @@ export default function App() {
   ) : visibleSection === "reports" ? (
     <ReportsPage user={user} projects={projects} onOpen={setSelectedProject} />
   ) : visibleSection === "estimates" && (isIndependentContractor(user) || isCompanyOwner(user) || isCompanyWorker(user)) ? (
-    <EstimatesPage user={user} notify={notify} />
+    <EstimatesPage
+      user={user}
+      notify={notify}
+      onOpenProject={setSelectedProject}
+      onProjectsChanged={markProjectsDirty}
+    />
   ) : visibleSection === "portfolio" ? (
     <IndependentPortfolioPage
       user={user}

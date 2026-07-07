@@ -88,6 +88,7 @@ export type Estimate = {
   recipient_phone: string;
   source_type: EstimateSourceType;
   source_id?: string | null;
+  project_id?: string | null;
   title: string;
   scope_summary: string;
   assumptions: string;

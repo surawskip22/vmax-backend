@@ -1993,12 +1993,19 @@ audio { width: 100%; margin-top: 13px; }
 .estimate-share-panel code { padding: 9px 10px; display: block; border: 1px solid #dbe7f5; border-radius: 9px; color: #28415f; background: #fff; font-size: 12px; overflow-wrap: anywhere; white-space: normal; }
 .estimate-share-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .estimate-share-actions .button { min-height: 36px; padding: 0 11px; }
+.estimate-project-panel { padding: 13px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; border: 1px solid #b9d9c7; border-radius: 12px; background: #f3fbf6; }
+.estimate-project-panel--done { border-color: #cfe1f6; background: #f7fbff; }
+.estimate-project-panel strong { display: block; color: var(--navy); }
+.estimate-project-panel span { display: block; margin-top: 3px; color: var(--muted); line-height: 1.4; }
 .estimate-form-modal,
-.estimate-preview-modal { padding: 22px; display: grid; gap: 16px; }
+.estimate-preview-modal,
+.estimate-project-modal { padding: 22px; display: grid; gap: 16px; }
 .estimate-form-modal > header h3,
-.estimate-preview-modal > header h3 { margin: 8px 0; color: var(--navy); font-size: 25px; line-height: 1.14; }
+.estimate-preview-modal > header h3,
+.estimate-project-modal > header h3 { margin: 8px 0; color: var(--navy); font-size: 25px; line-height: 1.14; }
 .estimate-form-modal > header p,
 .estimate-preview-modal > header p,
+.estimate-project-modal > header p,
 .estimate-preview-modal section p { margin: 0; color: var(--muted); line-height: 1.5; }
 .estimate-form-modal label { min-width: 0; display: grid; gap: 7px; color: var(--navy); font-size: 13px; font-weight: 800; }
 .estimate-form-modal input,
@@ -2010,9 +2017,18 @@ audio { width: 100%; margin-top: 13px; }
 .estimate-form-modal textarea:focus { outline: 0; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(43,127,255,.12); }
 .estimate-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .estimate-form-modal footer,
-.estimate-preview-modal footer { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.estimate-preview-modal footer,
+.estimate-project-modal footer { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .estimate-preview-modal section { padding: 12px; display: grid; gap: 6px; border: 1px solid #e1e9f3; border-radius: 12px; background: #fff; }
 .estimate-preview-modal h4 { margin: 0; color: var(--navy); font-size: 15px; }
+.estimate-project-modal dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.estimate-project-modal dl div { min-width: 0; padding: 10px; border: 1px solid #e1e9f3; border-radius: 10px; background: #f8fafc; }
+.estimate-project-modal dt { color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.estimate-project-modal dd { margin: 3px 0 0; color: var(--navy); font-weight: 800; overflow-wrap: anywhere; }
+.estimate-project-result { padding: 13px; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 12px; align-items: center; border: 1px solid #b9d9c7; border-radius: 12px; background: #f3fbf6; }
+.estimate-project-result svg { width: 42px; height: 42px; padding: 10px; border-radius: 12px; color: #087443; background: #dcfce7; }
+.estimate-project-result strong { color: var(--navy); }
+.estimate-project-result p { margin: 3px 0 0; color: var(--muted); line-height: 1.4; }
 .public-estimate-page { min-height: 100vh; padding: 30px 18px 72px; background: linear-gradient(180deg, #f2f6fb 0%, #f8fafc 100%); }
 .public-estimate-document { width: min(1040px, 100%); max-width: 100%; min-width: 0; margin: 0 auto; display: grid; gap: 16px; }
 .public-estimate-document > * { min-width: 0; max-width: 100%; }
@@ -2400,7 +2416,8 @@ audio { width: 100%; margin-top: 13px; }
   .project-layout { grid-template-columns: 270px 1fr; }
   .media-grid { grid-template-columns: repeat(3, 1fr); }
   .estimate-card dl,
-  .estimate-preview-modal dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .estimate-preview-modal dl,
+  .estimate-project-modal dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .public-estimate-document__header { grid-template-columns: auto minmax(0, 1fr); }
   .public-estimate-document__header aside { grid-column: 1 / -1; justify-self: start; justify-items: start; }
   .public-estimate-hero { grid-template-columns: 1fr; }
@@ -2517,19 +2534,24 @@ audio { width: 100%; margin-top: 13px; }
   .estimates-toolbar { grid-template-columns: 1fr; align-items: stretch; }
   .estimates-toolbar .button { width: 100%; justify-content: center; }
   .estimate-card header,
+  .estimate-project-panel,
   .estimate-form-grid,
   .estimate-card dl,
-  .estimate-preview-modal dl { grid-template-columns: 1fr; }
+  .estimate-preview-modal dl,
+  .estimate-project-modal dl { grid-template-columns: 1fr; }
   .estimate-card header > strong { width: 100%; text-align: center; }
   .estimate-card footer,
   .estimate-share-actions,
   .estimate-form-modal footer,
   .estimate-preview-modal footer,
+  .estimate-project-modal footer,
   .public-estimate-actions { display: grid; grid-template-columns: 1fr; }
   .estimate-card footer .button,
+  .estimate-project-panel .button,
   .estimate-share-actions .button,
   .estimate-form-modal footer .button,
   .estimate-preview-modal footer .button,
+  .estimate-project-modal footer .button,
   .public-estimate-actions .button { width: 100%; justify-content: center; }
   .public-estimate-page { padding: 18px 14px 70px; }
   .public-estimate-document__header { padding: 18px; grid-template-columns: 1fr; justify-items: start; }
