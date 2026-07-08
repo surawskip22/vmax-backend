@@ -3235,6 +3235,7 @@ function GeneratedReportsPanel({
   guestToken,
   onRefresh,
   notify,
+  canGenerate = true,
   generatedReportLimit,
   copy,
   loading = false,
@@ -3245,6 +3246,7 @@ function GeneratedReportsPanel({
   guestToken?: string;
   onRefresh: () => Promise<void> | void;
   notify: (toast: Toast) => void;
+  canGenerate?: boolean;
   generatedReportLimit?: number;
   copy?: {
     title?: string;
@@ -3340,52 +3342,56 @@ function GeneratedReportsPanel({
         </div>
       </div>
       <div className="project-pdf-panel__body">
-        <div className="pdf-generate-grid">
-          <article>
-            <div>
-              <h3>Raport dzienny</h3>
-              <p>Wpisy i zdjęcia z wybranego dnia.</p>
-            </div>
-            <label>
-              Data raportu
-              <input
-                type="date"
-                value={dailyDate}
+        {canGenerate ? (
+          <div className="pdf-generate-grid">
+            <article>
+              <div>
+                <h3>Raport dzienny</h3>
+                <p>Wpisy i zdjęcia z wybranego dnia.</p>
+              </div>
+              <label>
+                Data raportu
+                <input
+                  type="date"
+                  value={dailyDate}
+                  disabled={isGeneratingReport || loading}
+                  onChange={(event) => setDailyDate(event.target.value)}
+                />
+              </label>
+              <Button
+                variant="secondary"
+                icon="report"
+                busy={busyType === "daily"}
                 disabled={isGeneratingReport || loading}
-                onChange={(event) => setDailyDate(event.target.value)}
-              />
-            </label>
-            <Button
-              variant="secondary"
-              icon="report"
-              busy={busyType === "daily"}
-              disabled={isGeneratingReport || loading}
-              onClick={() => void generateReport("daily")}
-            >
-              Wygeneruj dzienny raport PDF
-            </Button>
-          </article>
-          <article>
-            <div>
-              <h3>Raport końcowy</h3>
-              <p>{copy?.finalDescription || "Pełne podsumowanie zlecenia i historii prac."}</p>
-            </div>
-            <Button
-              icon="report"
-              busy={busyType === "final"}
-              disabled={isGeneratingReport || loading}
-              onClick={() => void generateReport("final")}
-            >
-              Wygeneruj końcowy raport PDF
-            </Button>
-          </article>
-        </div>
+                onClick={() => void generateReport("daily")}
+              >
+                Wygeneruj dzienny raport PDF
+              </Button>
+            </article>
+            <article>
+              <div>
+                <h3>Raport końcowy</h3>
+                <p>{copy?.finalDescription || "Pełne podsumowanie zlecenia i historii prac."}</p>
+              </div>
+              <Button
+                icon="report"
+                busy={busyType === "final"}
+                disabled={isGeneratingReport || loading}
+                onClick={() => void generateReport("final")}
+              >
+                Wygeneruj końcowy raport PDF
+              </Button>
+            </article>
+          </div>
+        ) : (
+          <p className="empty-note">Ten link pokazuje tylko gotowe raporty udostępnione przez osobę prowadzącą zlecenie.</p>
+        )}
 
         <div className="generated-report-list">
           <h3>Wygenerowane raporty</h3>
           {error && <p className="form-error">{error}</p>}
           {generatedReports.length === 0 ? (
-            <p className="empty-note">Brak wygenerowanych raportów. Wygeneruj raport dzienny albo końcowy.</p>
+            <p className="empty-note">{canGenerate ? "Brak wygenerowanych raportów. Wygeneruj raport dzienny albo końcowy." : "Brak gotowych raportów PDF."}</p>
           ) : (
             <>
             {visibleGeneratedReports.map((report) => {
@@ -4226,11 +4232,12 @@ function ProjectView({
 
   const canAdd = !project.guest || ["add", "history"].includes(project.guest.permission);
   const { completedCount, progress } = projectStageProgress(project);
-  const canGeneratePdfReports = Boolean(
+  const canViewPdfReports = Boolean(
     guestToken
       ? project.guest && ["history", "view"].includes(project.guest.permission)
       : user,
   );
+  const canGeneratePdfReports = Boolean(user && !guestToken);
   const canReopenProject = Boolean(user && !guestToken && ["owner", "manager"].includes(project.role || "") && !isCompanyWorker(user));
   const canCloseProject = Boolean(
     user
@@ -4570,6 +4577,7 @@ function ProjectView({
   const isIndependentFieldUser = Boolean(user && isIndependentContractor(user) && !guestToken);
   const isCompanyOwnerDetailUser = Boolean(user && isCompanyOwner(user) && !guestToken);
   const isRoleDetailUser = isCompanyWorkerFieldUser || isIndependentFieldUser || isCompanyOwnerDetailUser;
+  const documentAdvancedMode = uiMode === "advanced";
   const fieldRoleTitle = isCompanyOwnerDetailUser ? "Szef firmy" : isIndependentFieldUser ? "Samodzielny majster" : "Majster firmy";
   const recentEntries = entries.slice(0, 3);
   const workerHistoryEntries = uiMode === "advanced" ? entries.slice(0, 8) : recentEntries;
@@ -4599,11 +4607,11 @@ function ProjectView({
   );
   const canEditProjectPortfolio = Boolean(projectPortfolioRealization || projectCompleted);
   const canManageProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser) && ["owner", "manager"].includes(project.role || ""));
-  const canCreateWorkerContractDraft = Boolean(!guestToken && isCompanyWorkerFieldUser && project.role);
-  const canShowProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || isCompanyWorkerFieldUser));
+  const canCreateWorkerContractDraft = Boolean(documentAdvancedMode && !guestToken && isCompanyWorkerFieldUser && project.role);
+  const canShowProjectContract = Boolean(documentAdvancedMode && !guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || isCompanyWorkerFieldUser));
   const canManageProjectFinalReport = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser) && ["owner", "manager"].includes(project.role || ""));
-  const canCreateWorkerFinalReportDraft = Boolean(!guestToken && isCompanyWorkerFieldUser && project.role);
-  const canShowProjectFinalReport = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || isCompanyWorkerFieldUser));
+  const canCreateWorkerFinalReportDraft = Boolean(documentAdvancedMode && !guestToken && isCompanyWorkerFieldUser && project.role);
+  const canShowProjectFinalReport = Boolean(documentAdvancedMode && !guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || isCompanyWorkerFieldUser));
   const canSubmitGuestDocumentDrafts = Boolean(guestToken && (!project.guest || ["add", "history"].includes(project.guest.permission)));
 
   function handlePortfolioSaved(item: PublicProfileRealization) {
@@ -4934,7 +4942,7 @@ function ProjectView({
     const investorActions = (
       <section className="investor-detail-actions" aria-label="Akcje inwestycji">
         {canAdd && <Button type="button" variant="secondary" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj wpis</Button>}
-        {canGeneratePdfReports && <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>Raport PDF</Button>}
+        {canGeneratePdfReports && <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>Raport dzienny PDF</Button>}
         <Button
           type="button"
           variant="secondary"
@@ -5162,13 +5170,14 @@ function ProjectView({
             </>
           )}
 
-          {canGeneratePdfReports && (
+          {canViewPdfReports && (
             <div className="worker-generated-reports investor-detail-reports" ref={workerReportsRef}>
               <GeneratedReportsPanel
                 projectId={projectIdForStatusActions}
                 reports={reports}
                 onRefresh={() => loadReports(project)}
                 notify={notify}
+                canGenerate={canGeneratePdfReports}
                 generatedReportLimit={3}
                 loading={reportsLoading}
                 error={reportError}
@@ -5313,7 +5322,7 @@ function ProjectView({
                 </>
               ) : null}
               {uiMode === "advanced" && canGeneratePdfReports && (
-                <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>{isCompanyOwnerDetailUser ? "Raporty" : "Raport PDF"}</Button>
+                <Button type="button" variant="secondary" icon="report" onClick={showAndScrollWorkerReports}>Raport dzienny PDF</Button>
               )}
               {uiMode === "advanced" && (isIndependentFieldUser || isCompanyOwnerDetailUser) && project.can_edit_details && (
                 <Button type="button" variant="secondary" icon="settings" onClick={() => setShowManage(true)}>Edytuj zlecenie</Button>
@@ -5435,13 +5444,14 @@ function ProjectView({
                 </section>
               )}
               {clientCoverCard}
-              {showReports && canGeneratePdfReports && (
+              {showReports && canViewPdfReports && (
                 <div className="worker-generated-reports" ref={workerReportsRef}>
                   <GeneratedReportsPanel
                     projectId={project.id}
                     reports={reports}
                     onRefresh={() => loadReports(project)}
                     notify={notify}
+                    canGenerate={canGeneratePdfReports}
                     generatedReportLimit={3}
                     loading={reportsLoading}
                     error={reportError}
@@ -5568,13 +5578,14 @@ function ProjectView({
             <FieldAction icon="send" title="Opis" subtitle="Krótka notatka tekstowa" tone="navy" onClick={() => setEntryModal({ kind: "update", mode: "text" })} />
             <FieldAction icon="alert" title="Problem" subtitle="Usterka lub decyzja" tone="red" onClick={() => setEntryModal({ kind: "problem", mode: "text" })} />
           </div>}
-          {canGeneratePdfReports && (
+          {canViewPdfReports && (
             <GeneratedReportsPanel
               projectId={projectIdForStatusActions}
               reports={reports}
               guestToken={guestToken}
               onRefresh={() => loadReports(project)}
               notify={notify}
+              canGenerate={canGeneratePdfReports}
               loading={reportsLoading}
               error={reportError}
             />
@@ -5752,7 +5763,7 @@ function ProjectView({
           <div><span className={`status status--${project.status}`}>{statusLabels[project.status]}</span><h1>{project.name}</h1><p>{project.client_name} · {project.address}</p></div>
           <div className="project-header__actions">
             {isInvestorPanelUser && canAdd && <Button variant="secondary" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj wpis</Button>}
-            {isInvestorPanelUser && canGeneratePdfReports && <Button variant="secondary" icon="report" onClick={() => setShowReports(true)}>Raport PDF</Button>}
+            {isInvestorPanelUser && canGeneratePdfReports && <Button variant="secondary" icon="report" onClick={() => setShowReports(true)}>Raport dzienny PDF</Button>}
             {!guestToken && user?.profile_type !== "investor" && !isCompanyWorker(user) && clientLink && <Button variant="secondary" icon="link" onClick={copyClientLink}>Link klienta</Button>}
             {canCloseProject && <Button variant="danger" onClick={closeProject}>Zamknij zlecenie</Button>}
             {canReopenProject && project.status === "completed" && <Button variant="success" onClick={reopenProject}>Otwórz ponownie</Button>}
@@ -5799,13 +5810,14 @@ function ProjectView({
           {entries.length === 0 ? <EmptyState icon="camera" title="Tu powstanie historia pracy" text="Dodaj pierwszy postęp: zdjęcia oraz opis głosowy lub tekstowy." /> : <div className="timeline">{entries.map((entry) => <TimelineEntry item={entry} guestToken={guestToken} onRefresh={refreshAfterProjectMutation} canDelete={canDeleteEntry(entry)} onDelete={setDeleteEntryTarget} key={entry.id} />)}</div>}
         </main>
       </div>
-      {canGeneratePdfReports && (
+      {canViewPdfReports && (
         <GeneratedReportsPanel
           projectId={projectIdForStatusActions}
           reports={reports}
           guestToken={guestToken}
           onRefresh={() => loadReports(project)}
           notify={notify}
+          canGenerate={canGeneratePdfReports}
           loading={reportsLoading}
           error={reportError}
         />

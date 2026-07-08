@@ -41,6 +41,13 @@ PDF_THUMBNAIL_MAX_SIZE = (900, 700)
 PDF_IMAGE_JPEG_QUALITY = 72
 PDF_MAX_IMAGES_PER_ENTRY = 4
 PDF_MAX_IMAGES_PER_REPORT = 24
+PM_NAVY = colors.HexColor("#062557")
+PM_BLUE = colors.HexColor("#0b376d")
+PM_ORANGE = colors.HexColor("#ff6b00")
+PM_BORDER = colors.HexColor("#dbe4ef")
+PM_SOFT = colors.HexColor("#f6f8fb")
+PM_ORANGE_SOFT = colors.HexColor("#fff5ec")
+PM_MUTED = colors.HexColor("#607089")
 
 PILImage.MAX_IMAGE_PIXELS = PDF_MAX_IMAGE_PIXELS
 
@@ -370,13 +377,16 @@ def _report_styles(font: str):
     styles = getSampleStyleSheet()
     for style_name in ("Title", "Heading1", "Heading2", "BodyText", "Normal"):
         styles[style_name].fontName = font
-    styles["Title"].textColor = colors.HexColor("#062557")
-    styles["Title"].fontSize = 24
-    styles["Title"].leading = 28
-    styles["Heading1"].textColor = colors.HexColor("#062557")
-    styles["Heading1"].fontSize = 15
-    styles["Heading1"].leading = 18
-    styles["Heading2"].textColor = colors.HexColor("#0b376d")
+    styles["Title"].textColor = PM_NAVY
+    styles["Title"].fontSize = 25
+    styles["Title"].leading = 29
+    styles["Title"].spaceAfter = 1 * mm
+    styles["Heading1"].textColor = PM_NAVY
+    styles["Heading1"].fontSize = 14
+    styles["Heading1"].leading = 17
+    styles["Heading1"].spaceBefore = 2 * mm
+    styles["Heading1"].spaceAfter = 2 * mm
+    styles["Heading2"].textColor = PM_BLUE
     styles["Heading2"].fontSize = 12
     styles["Heading2"].leading = 15
     styles["BodyText"].fontSize = 9.5
@@ -387,7 +397,7 @@ def _report_styles(font: str):
             parent=styles["BodyText"],
             fontSize=8,
             leading=11,
-            textColor=colors.HexColor("#607089"),
+            textColor=PM_MUTED,
         )
     )
     styles.add(
@@ -396,7 +406,25 @@ def _report_styles(font: str):
             parent=styles["BodyText"],
             fontSize=8,
             leading=10,
-            textColor=colors.HexColor("#062557"),
+            textColor=PM_NAVY,
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            "Brand",
+            parent=styles["Heading1"],
+            fontSize=16,
+            leading=18,
+            textColor=PM_NAVY,
+        )
+    )
+    styles.add(
+        ParagraphStyle(
+            "OrangeLabel",
+            parent=styles["SmallMuted"],
+            textColor=PM_ORANGE,
+            fontSize=8.5,
+            leading=11,
         )
     )
     styles.add(
@@ -404,6 +432,8 @@ def _report_styles(font: str):
             "FooterNote",
             parent=styles["SmallMuted"],
             alignment=TA_CENTER,
+            textColor=colors.white,
+            leading=12,
         )
     )
     return styles
@@ -417,13 +447,35 @@ def _card_table(rows: list[list], font: str, col_widths: list[float]):
                 ("FONTNAME", (0, 0), (-1, -1), font),
                 ("FONTSIZE", (0, 0), (-1, -1), 8.5),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f6f8fb")),
-                ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#dbe4ef")),
-                ("INNERGRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#dbe4ef")),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+                ("BOX", (0, 0), (-1, -1), 0.75, PM_BORDER),
+                ("INNERGRID", (0, 0), (-1, -1), 0.25, PM_BORDER),
                 ("LEFTPADDING", (0, 0), (-1, -1), 7),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 7),
                 ("TOPPADDING", (0, 0), (-1, -1), 6),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    return table
+
+
+def _footer_table(text: str, styles, font: str):
+    table = Table(
+        [[Paragraph(escape(text), styles["FooterNote"])]],
+        colWidths=[158 * mm],
+        hAlign="LEFT",
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), font),
+                ("BACKGROUND", (0, 0), (-1, -1), PM_NAVY),
+                ("BOX", (0, 0), (-1, -1), 0.75, PM_NAVY),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
             ]
         )
     )
@@ -586,26 +638,43 @@ def render_project_report_pdf(
     status_label = STATUS_LABELS.get(project.status, project.status or "Brak statusu")
     story = []
     logo = _logo_flowable(width=38 * mm)
+    generated_date = _format_date(selected_date if is_daily else datetime.now())
     header_cells = [
-        logo or Paragraph("Pan Majster", styles["Heading1"]),
-        Paragraph("Raport wygenerowany w aplikacji Pan Majster", styles["SmallMuted"]),
+        logo or Paragraph("PAN MAJSTER", styles["Brand"]),
+        Paragraph(
+            "<b>" + escape(title) + "</b><br/>"
+            + "Dokument wygenerowany w aplikacji Pan Majster",
+            styles["BodyText"],
+        ),
+        Paragraph(
+            "<b>Data</b><br/>" + escape(generated_date) + "<br/><br/>"
+            + "<b>Status</b><br/>" + escape(status_label),
+            styles["BodyText"],
+        ),
     ]
-    header = Table([header_cells], colWidths=[60 * mm, 100 * mm], hAlign="LEFT")
+    header = Table([header_cells], colWidths=[48 * mm, 78 * mm, 32 * mm], hAlign="LEFT")
     header.setStyle(
         TableStyle(
             [
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("LINEBELOW", (0, 0), (-1, -1), 1.2, PM_NAVY),
             ]
         )
     )
-    story.extend([header, Spacer(1, 4 * mm), Paragraph(escape(title), styles["Title"])])
     story.extend(
         [
-            Paragraph(escape(project.name), styles["Heading1"]),
+            header,
+            Spacer(1, 4 * mm),
+            Paragraph(escape(project.name), styles["Title"]),
+            Paragraph("Podsumowanie postępu i historii prac", styles["OrangeLabel"]),
             Spacer(1, 3 * mm),
+        ]
+    )
+    story.extend(
+        [
             _card_table(
                 [
                     [
@@ -633,7 +702,7 @@ def render_project_report_pdf(
                         ),
                         Paragraph(
                             "<b>Data raportu</b><br/>"
-                            + escape(_format_date(selected_date if is_daily else datetime.now())),
+                            + escape(generated_date),
                             styles["BodyText"],
                         ),
                     ],
@@ -722,11 +791,7 @@ def render_project_report_pdf(
     story.extend(
         [
             Spacer(1, 5 * mm),
-            _card_table(
-                [[Paragraph(escape(disclaimer), styles["FooterNote"])]],
-                font,
-                [158 * mm],
-            ),
+            _footer_table(disclaimer, styles, font),
         ]
     )
     document.build(story)
@@ -749,11 +814,14 @@ def render_pdf(db: Session, report: models.Report, share_url: str) -> bytes:
     styles = getSampleStyleSheet()
     for style_name in ("Title", "Heading1", "Heading2", "BodyText"):
         styles[style_name].fontName = font
+    styles["Title"].textColor = PM_NAVY
+    styles["Heading1"].textColor = PM_NAVY
+    styles["Heading2"].textColor = PM_BLUE
     styles.add(
         ParagraphStyle(
             "Meta",
             parent=styles["BodyText"],
-            textColor=colors.HexColor("#5d675f"),
+            textColor=PM_MUTED,
             fontSize=9,
             leading=13,
         )
@@ -771,7 +839,7 @@ def render_pdf(db: Session, report: models.Report, share_url: str) -> bytes:
             parent=styles["Heading2"],
             fontSize=12,
             leading=15,
-            textColor=colors.HexColor("#062557"),
+            textColor=PM_NAVY,
             spaceAfter=2 * mm,
         )
     )
@@ -805,8 +873,14 @@ def render_pdf(db: Session, report: models.Report, share_url: str) -> bytes:
             [
                 ("FONTNAME", (0, 0), (-1, -1), font),
                 ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#687169")),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("TEXTCOLOR", (0, 0), (0, -1), PM_NAVY),
+                ("BACKGROUND", (0, 0), (-1, -1), PM_SOFT),
+                ("BOX", (0, 0), (-1, -1), 0.75, PM_BORDER),
+                ("INNERGRID", (0, 0), (-1, -1), 0.25, PM_BORDER),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
