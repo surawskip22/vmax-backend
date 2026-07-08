@@ -9274,9 +9274,89 @@ function PublicDocumentPrintToolbar() {
 function PublicDocumentFooter() {
   return (
     <footer className="public-document-footer">
-      <strong>Pan Majster</strong>
+      <div>
+        <strong>Pan Majster</strong>
+        <span>Zaufanie. Jakość. Terminowość.</span>
+      </div>
       <span>Dokument udostępniony publicznym linkiem. Zachowaj kopię po wydruku albo zapisie jako PDF.</span>
     </footer>
+  );
+}
+
+type DocumentIconName = Parameters<typeof Icon>[0]["name"];
+
+function PublicDocumentLogo() {
+  return (
+    <div className="public-document-logo" aria-label="Pan Majster">
+      <img src="/brand/logo.png" alt="Pan Majster" />
+    </div>
+  );
+}
+
+function PublicDocumentMeta({ items }: { items: Array<{ icon: DocumentIconName; label: string; value: ReactNode }> }) {
+  return (
+    <div className="public-document-meta">
+      {items.map((item) => (
+        <div key={item.label}>
+          <Icon name={item.icon} />
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PublicDocumentFlow({ active }: { active: "estimate" | "contract" | "final" }) {
+  const steps: Array<{ key: "estimate" | "contract" | "final"; icon: DocumentIconName; label: string }> = [
+    { key: "estimate", icon: "report", label: "Oferta wstępna" },
+    { key: "contract", icon: "check", label: "Akceptacja / umowa" },
+    { key: "final", icon: "clipboard", label: "Raport końcowy" },
+  ];
+  return (
+    <div className="public-document-flow" aria-label="Etapy dokumentów">
+      {steps.map((step, index) => (
+        <div className={step.key === active ? "active" : ""} key={step.key}>
+          <span><Icon name={step.icon} /></span>
+          <strong>{step.label}</strong>
+          {index < steps.length - 1 && <i aria-hidden="true" />}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PublicDocumentSignature({ leftLabel, rightLabel }: { leftLabel: string; rightLabel: string }) {
+  return (
+    <section className="public-document-signatures">
+      {[leftLabel, rightLabel].map((label) => (
+        <div key={label}>
+          <strong>{label}</strong>
+          <span>Podpis na ekranie / po wydruku</span>
+          <em>Tutaj podpis</em>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function PublicDocumentAttachmentNote({ title, note }: { title: string; note?: string | null }) {
+  return (
+    <section className="public-document-gallery">
+      <div className="document-section-title">
+        <span><Icon name="image" /></span>
+        <h3>{title}</h3>
+      </div>
+      {note?.trim() ? (
+        <p>{note}</p>
+      ) : (
+        <div className="public-document-gallery__empty">
+          <Icon name="image" />
+          <strong>Brak załączników w tym dokumencie</strong>
+          <span>Jeśli zdjęcia lub pliki są dostępne w historii zlecenia, pozostają w aplikacji. Ten publiczny dokument pokazuje tylko dane zapisane w dokumencie.</span>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -9338,17 +9418,19 @@ function PublicEstimatePage({ token }: { token: string }) {
       ) : estimate ? (
         <main className="public-estimate-document">
           <header className="public-estimate-document__header">
-            <Logo compact />
+            <PublicDocumentLogo />
             <div>
               <span className="eyebrow">Oferta wstępna / wycena orientacyjna</span>
               <h1>{estimate.title}</h1>
               <p>Wstępna propozycja zakresu prac i kosztów do weryfikacji i akceptacji.</p>
             </div>
-            <aside>
-              <span className={`status ${estimateStatusClass(estimate.status)}`}>{publicEstimateStatusLabel(estimate.status)}</span>
-              <small>Oferta #{estimate.number || estimate.id.slice(0, 8).toUpperCase()}</small>
-              <small>{publicEstimateDateLabel(documentDate)}</small>
-            </aside>
+            <PublicDocumentMeta
+              items={[
+                { icon: "report", label: "Nr oferty", value: `#${estimate.number || estimate.id.slice(0, 8).toUpperCase()}` },
+                { icon: "sync", label: "Data", value: publicEstimateDateLabel(documentDate) },
+                { icon: "check", label: "Status", value: <span className={`status ${estimateStatusClass(estimate.status)}`}>{publicEstimateStatusLabel(estimate.status)}</span> },
+              ]}
+            />
           </header>
 
           <PublicDocumentPrintToolbar />
@@ -9356,7 +9438,7 @@ function PublicEstimatePage({ token }: { token: string }) {
           <section className="public-estimate-hero">
             <div>
               <span>Dokument dla klienta</span>
-              <h2>{publicEstimateStatusLabel(estimate.status)}</h2>
+              <h2>Oferta wstępna</h2>
               <p>Oferta pokazuje orientacyjny zakres, terminy i koszt. Akceptacja nie tworzy automatycznie zlecenia, umowy ani płatności.</p>
             </div>
             <div className="public-estimate-amount-card">
@@ -9442,16 +9524,25 @@ function PublicEstimatePage({ token }: { token: string }) {
             <p>To jest oferta wstępna / wycena orientacyjna. Nie jest fakturą, umową ani wezwaniem do zapłaty. Kwota i zakres mogą ulec zmianie po doprecyzowaniu prac.</p>
           </section>
 
+          <PublicDocumentAttachmentNote title="Zdjęcia przed rozpoczęciem / załączniki" />
+          <PublicDocumentSignature leftLabel="Podpis wykonawcy" rightLabel="Podpis klienta" />
           <PublicDocumentFooter />
 
           <footer className="public-estimate-actions no-print">
+            <div className="public-document-action-copy">
+              <strong>Co możesz teraz zrobić?</strong>
+              <span>Wybierz akcję i odpowiedz wygodnie w aplikacji Pan Majster.</span>
+            </div>
             {estimate.status === "sent" ? (
               <>
                 <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>
                   Akceptuję ofertę
                 </Button>
                 <Button type="button" variant="secondary" icon="close" busy={busy === "rejected"} disabled={Boolean(busy)} onClick={() => void decide("rejected")}>
-                  Odrzucam ofertę
+                  Odrzucam / proszę o zmianę
+                </Button>
+                <Button type="button" variant="secondary" icon="report" disabled={Boolean(busy)} onClick={() => window.print()}>
+                  Drukuj / zapisz PDF
                 </Button>
               </>
             ) : (
@@ -9524,25 +9615,28 @@ function PublicContractPage({ token }: { token: string }) {
       ) : contract ? (
         <main className="public-estimate-document public-contract-document">
           <header className="public-estimate-document__header">
-            <Logo compact />
+            <PublicDocumentLogo />
             <div>
               <span className="eyebrow">Umowa wykonania prac</span>
               <h1>{contract.project_name}</h1>
               <p>Dokument do akceptacji klienta, przygotowany na podstawie ustalonego zakresu zlecenia.</p>
             </div>
-            <aside>
-              <span className={`status ${contractStatusClass(contract.status)}`}>{contractStatusLabel(contract.status)}</span>
-              <small>Umowa #{contract.number}</small>
-              <small>{publicEstimateDateLabel(documentDate)}</small>
-            </aside>
+            <PublicDocumentMeta
+              items={[
+                { icon: "clipboard", label: "Nr umowy", value: `#${contract.number}` },
+                { icon: "sync", label: "Data", value: publicEstimateDateLabel(documentDate) },
+                { icon: "check", label: "Status", value: <span className={`status ${contractStatusClass(contract.status)}`}>{contractStatusLabel(contract.status)}</span> },
+              ]}
+            />
           </header>
 
           <PublicDocumentPrintToolbar />
+          <PublicDocumentFlow active="contract" />
 
           <section className="public-estimate-hero public-contract-hero">
             <div>
               <span>Dokument dla klienta</span>
-              <h2>{contractStatusLabel(contract.status)}</h2>
+              <h2>Umowa wykonania prac</h2>
               <p>Akceptacja potwierdza ustalony zakres umowy. Ten widok nie tworzy PDF, płatności ani faktury.</p>
             </div>
             <div className="public-estimate-amount-card">
@@ -9563,7 +9657,8 @@ function PublicContractPage({ token }: { token: string }) {
             <article className="public-estimate-section-card">
               <span><Icon name={contract.owner.owner_type === "company" ? "building" : "tools"} /></span>
               <div>
-                <h3>Wykonawca</h3>
+                <h3>1. Strony umowy</h3>
+                <h4>Wykonawca</h4>
                 <p className="public-estimate-party-name">{contract.contractor_name || contract.owner.display_name || "Nie podano"}</p>
                 <p>{contract.owner.owner_type === "company" ? "Firma wykonawcza" : "Samodzielny majster"}</p>
                 <ul>
@@ -9576,7 +9671,7 @@ function PublicContractPage({ token }: { token: string }) {
             <article className="public-estimate-section-card">
               <span><Icon name="users" /></span>
               <div>
-                <h3>Klient</h3>
+                <h3>Zleceniodawca / klient</h3>
                 <p className="public-estimate-party-name">{publicEstimateContactValue(contract.client_name)}</p>
                 <ul>
                   <li><Icon name="send" size={16} /> {contract.client_email ? <a href={`mailto:${contract.client_email}`}>{contract.client_email}</a> : "E-mail: Nie podano"}</li>
@@ -9589,16 +9684,26 @@ function PublicContractPage({ token }: { token: string }) {
           <section className="public-estimate-section-card public-estimate-section-card--wide">
             <span><Icon name="clipboard" /></span>
             <div>
-              <h3>Zakres prac</h3>
+              <h3>2. Przedmiot umowy</h3>
+              <p>{contract.terms_summary || "Przedmiot umowy wynika z ustalonego zakresu prac."}</p>
+            </div>
+          </section>
+
+          <section className="public-estimate-section-card public-estimate-section-card--wide">
+            <span><Icon name="wrench" /></span>
+            <div>
+              <h3>3. Zakres prac</h3>
               <p>{contract.scope_summary || "Zakres nie został opisany."}</p>
             </div>
           </section>
+
+          <PublicDocumentAttachmentNote title="5. Zdjęcia stanu początkowego / załączniki" note={contract.attachments_note} />
 
           <section className="public-estimate-detail-grid" aria-label="Terminy i wynagrodzenie">
             <article className="public-estimate-section-card">
               <span><Icon name="sync" /></span>
               <div>
-                <h3>Terminy i miejsce</h3>
+                <h3>4. Terminy realizacji</h3>
                 <dl>
                   <div><dt>Adres prac</dt><dd>{contract.work_address || "Do ustalenia"}</dd></div>
                   <div><dt>Planowany start</dt><dd>{contract.planned_start ? publicEstimateDateLabel(contract.planned_start) : "Do ustalenia"}</dd></div>
@@ -9609,7 +9714,7 @@ function PublicContractPage({ token }: { token: string }) {
             <article className="public-estimate-section-card public-estimate-section-card--amount">
               <span><Icon name="report" /></span>
               <div>
-                <h3>Wynagrodzenie</h3>
+                <h3>6. Wynagrodzenie</h3>
                 <strong>{projectContractAmountLabel(contract.price_amount, contract.price_currency)}</strong>
                 <p>{contract.deposit_amount ? `Zaliczka: ${projectContractAmountLabel(contract.deposit_amount, contract.price_currency)}.` : "Zaliczka nie została wpisana."}</p>
                 <p>{contract.price_note || "Brak dodatkowej notatki do ceny."}</p>
@@ -9620,10 +9725,16 @@ function PublicContractPage({ token }: { token: string }) {
           <section className="public-estimate-section-card public-estimate-section-card--wide">
             <span><Icon name="bookmark" /></span>
             <div>
-              <h3>Ustalenia i zmiany</h3>
-              <p>{contract.terms_summary || "Brak dodatkowych ustaleń."}</p>
+              <h3>7. Zmiany zakresu i prace dodatkowe</h3>
               <p>{contract.change_terms || "Zmiany zakresu wymagają potwierdzenia obu stron."}</p>
-              {contract.attachments_note && <p>{contract.attachments_note}</p>}
+            </div>
+          </section>
+
+          <section className="public-estimate-section-card public-estimate-section-card--wide">
+            <span><Icon name="link" /></span>
+            <div>
+              <h3>8. Załączniki</h3>
+              <p>{contract.attachments_note || "Brak dodatkowych załączników zapisanych w dokumencie."}</p>
             </div>
           </section>
 
@@ -9632,9 +9743,21 @@ function PublicContractPage({ token }: { token: string }) {
             <p>{contract.legal_note || "To jest umowa wykonania prac. Ten widok nie jest fakturą, PDF-em ani wezwaniem do zapłaty."}</p>
           </section>
 
+          <section className="public-estimate-section-card public-estimate-section-card--wide public-document-acceptance">
+            <span><Icon name="check" /></span>
+            <div>
+              <h3>9. Akceptacja i podpisy</h3>
+              <p>Potwierdzenie akceptacji w tym widoku zapisuje decyzję klienta w aplikacji. Prawdziwy e-podpis nie jest częścią MVP.</p>
+            </div>
+          </section>
+          <PublicDocumentSignature leftLabel="Podpis wykonawcy" rightLabel="Podpis klienta" />
           <PublicDocumentFooter />
 
           <footer className="public-estimate-actions no-print">
+            <div className="public-document-action-copy">
+              <strong>Co możesz teraz zrobić?</strong>
+              <span>Zaakceptuj, odrzuć albo wydrukuj dokument do archiwum.</span>
+            </div>
             {contract.status === "sent" ? (
               <>
                 <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>
@@ -9642,6 +9765,9 @@ function PublicContractPage({ token }: { token: string }) {
                 </Button>
                 <Button type="button" variant="secondary" icon="close" busy={busy === "rejected"} disabled={Boolean(busy)} onClick={() => void decide("rejected")}>
                   Odrzucam umowę
+                </Button>
+                <Button type="button" variant="secondary" icon="report" disabled={Boolean(busy)} onClick={() => window.print()}>
+                  Drukuj / zapisz PDF
                 </Button>
               </>
             ) : (
@@ -9714,17 +9840,19 @@ function PublicFinalReportPage({ token }: { token: string }) {
       ) : report ? (
         <main className="public-estimate-document public-final-report-document">
           <header className="public-estimate-document__header">
-            <Logo compact />
+            <PublicDocumentLogo />
             <div>
               <span className="eyebrow">Raport końcowy</span>
               <h1>{report.project_name}</h1>
               <p>Podsumowanie wykonanych prac, zakresu, kosztu i uwag odbiorowych.</p>
             </div>
-            <aside>
-              <span className={`status ${finalReportStatusClass(report.status)}`}>{report.status === "sent" ? "Do akceptacji" : finalReportStatusLabel(report.status)}</span>
-              <small>Raport #{report.number}</small>
-              <small>{publicEstimateDateLabel(documentDate)}</small>
-            </aside>
+            <PublicDocumentMeta
+              items={[
+                { icon: "clipboard", label: "Nr raportu", value: `#${report.number}` },
+                { icon: "sync", label: "Data zakończenia", value: publicEstimateDateLabel(report.completed_at || documentDate) },
+                { icon: "check", label: "Status", value: <span className={`status ${finalReportStatusClass(report.status)}`}>{report.status === "sent" ? "Do akceptacji" : finalReportStatusLabel(report.status)}</span> },
+              ]}
+            />
           </header>
 
           <PublicDocumentPrintToolbar />
@@ -9732,7 +9860,7 @@ function PublicFinalReportPage({ token }: { token: string }) {
           <section className="public-estimate-hero public-final-report-hero">
             <div>
               <span>Dokument dla klienta</span>
-              <h2>{report.status === "sent" ? "Do akceptacji" : finalReportStatusLabel(report.status)}</h2>
+              <h2>Końcowe podsumowanie zlecenia</h2>
               <p>Akceptacja raportu potwierdza odbiór podsumowania prac. Ten widok nie tworzy PDF, umowy, faktury ani płatności.</p>
             </div>
             <div className="public-estimate-amount-card">
@@ -9785,6 +9913,7 @@ function PublicFinalReportPage({ token }: { token: string }) {
                   <div><dt>Adres prac</dt><dd>{report.work_address || "Do ustalenia"}</dd></div>
                   <div><dt>Start</dt><dd>{report.started_at ? publicEstimateDateLabel(report.started_at) : "Do ustalenia"}</dd></div>
                   <div><dt>Zakończenie</dt><dd>{report.completed_at ? publicEstimateDateLabel(report.completed_at) : "Do ustalenia"}</dd></div>
+                  <div><dt>Etap końcowy</dt><dd>Odbiór i zakończenie prac</dd></div>
                 </dl>
               </div>
             </article>
@@ -9804,7 +9933,6 @@ function PublicFinalReportPage({ token }: { token: string }) {
             ["Problemy i rozwiązania", report.issues_and_solutions || "Brak zgłoszonych problemów albo dodatkowych rozwiązań."],
             ["Materiały / uwagi", report.materials_note || "Brak dodatkowych uwag materiałowych."],
             ["Gwarancja / uwagi", report.warranty_note || "Brak dodatkowych uwag gwarancyjnych."],
-            ["Zdjęcia i załączniki / notatka", report.attachments_note || "Brak notatki o załącznikach."],
             ["Komentarz klienta", report.client_comment || "Brak komentarza klienta."],
           ].map(([title, body]) => (
             <section className="public-estimate-section-card public-estimate-section-card--wide" key={title}>
@@ -9816,14 +9944,28 @@ function PublicFinalReportPage({ token }: { token: string }) {
             </section>
           ))}
 
+          <PublicDocumentAttachmentNote title="Zdjęcia i załączniki" note={report.attachments_note} />
+
           <section className="public-estimate-notice">
             <Icon name="alert" />
             <p>{report.legal_note || "To jest raport końcowy z wykonanych prac. Nie jest fakturą, umową ani wezwaniem do zapłaty."}</p>
           </section>
 
+          <section className="public-estimate-section-card public-estimate-section-card--wide public-document-acceptance">
+            <span><Icon name="check" /></span>
+            <div>
+              <h3>Akceptacja raportu</h3>
+              <p>Akceptacja raportu potwierdza, że klient zapoznał się z końcowym podsumowaniem prac. Nie tworzy umowy, faktury ani płatności.</p>
+            </div>
+          </section>
+          <PublicDocumentSignature leftLabel="Podpis wykonawcy" rightLabel="Podpis klienta" />
           <PublicDocumentFooter />
 
           <footer className="public-estimate-actions no-print">
+            <div className="public-document-action-copy">
+              <strong>Co możesz teraz zrobić?</strong>
+              <span>Zaakceptuj raport, odrzuć go albo wydrukuj dokument.</span>
+            </div>
             {report.status === "sent" ? (
               <>
                 <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>
@@ -9831,6 +9973,9 @@ function PublicFinalReportPage({ token }: { token: string }) {
                 </Button>
                 <Button type="button" variant="secondary" icon="close" busy={busy === "rejected"} disabled={Boolean(busy)} onClick={() => void decide("rejected")}>
                   Odrzucam raport
+                </Button>
+                <Button type="button" variant="secondary" icon="report" disabled={Boolean(busy)} onClick={() => window.print()}>
+                  Drukuj / zapisz PDF
                 </Button>
               </>
             ) : (
