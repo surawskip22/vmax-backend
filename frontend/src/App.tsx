@@ -4604,7 +4604,7 @@ function ProjectView({
   const canManageProjectFinalReport = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser) && ["owner", "manager"].includes(project.role || ""));
   const canCreateWorkerFinalReportDraft = Boolean(!guestToken && isCompanyWorkerFieldUser && project.role);
   const canShowProjectFinalReport = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || isCompanyWorkerFieldUser));
-  const canSubmitGuestDocumentDrafts = Boolean(guestToken && project.workspace_id && project.guest && ["add", "history"].includes(project.guest.permission));
+  const canSubmitGuestDocumentDrafts = Boolean(guestToken && (!project.guest || ["add", "history"].includes(project.guest.permission)));
 
   function handlePortfolioSaved(item: PublicProfileRealization) {
     setPortfolioRealizations((current) => {

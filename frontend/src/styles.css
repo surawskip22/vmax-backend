@@ -2045,8 +2045,9 @@ audio { width: 100%; margin-top: 13px; }
 .worker-contract-card__empty p { margin: 0; color: var(--muted); line-height: 1.5; }
 .guest-document-drafts { display: grid; gap: 12px; min-width: 0; }
 .guest-document-card { display: grid; gap: 12px; }
-.guest-document-card .worker-section-heading { align-items: start; }
-.guest-document-card .button { width: fit-content; max-width: 100%; }
+.guest-document-card .worker-section-heading { min-width: 0; align-items: start; flex-wrap: wrap; }
+.guest-document-card .worker-section-heading > div { min-width: 0; }
+.guest-document-card .button { width: fit-content; max-width: 100%; min-width: 0; white-space: normal; }
 .guest-document-form { display: grid; gap: 11px; min-width: 0; }
 .guest-document-form label { min-width: 0; display: grid; gap: 6px; color: var(--navy); font-size: 12px; font-weight: 850; }
 .guest-document-form input,
