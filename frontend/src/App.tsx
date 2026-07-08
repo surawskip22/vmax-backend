@@ -55,7 +55,10 @@ import type {
   Project,
   ProjectContract,
   ProjectContractStatus,
+  ProjectFinalReport,
+  ProjectFinalReportStatus,
   PublicProjectContract,
+  PublicProjectFinalReport,
   PublicProfile,
   PublicProfileOwnerType,
   PublicEstimate,
@@ -493,6 +496,7 @@ type Route =
   | { kind: "report"; token: string }
   | { kind: "estimate"; token: string }
   | { kind: "contract"; token: string }
+  | { kind: "finalReport"; token: string }
   | { kind: "publicProfile"; slug: string }
   | { kind: "portfolio"; slug: string };
 
@@ -532,6 +536,8 @@ function route(): Route {
   if (matchEstimate) return { kind: "estimate", token: matchEstimate[1] };
   const matchContract = location.pathname.match(/^\/contract\/([^/]+)/);
   if (matchContract) return { kind: "contract", token: matchContract[1] };
+  const matchFinalReport = location.pathname.match(/^\/final-report\/([^/]+)/);
+  if (matchFinalReport) return { kind: "finalReport", token: matchFinalReport[1] };
   const matchPublicProfile = location.pathname.match(/^\/public-profiles\/([^/]+)/);
   if (matchPublicProfile) return { kind: "publicProfile", slug: matchPublicProfile[1] };
   const matchPortfolio = location.pathname.match(/^\/portfolio\/([^/]+)/);
@@ -3754,6 +3760,147 @@ function ProjectContractFormModal({
   );
 }
 
+function ProjectFinalReportFormModal({
+  report,
+  busy,
+  onClose,
+  onSave,
+}: {
+  report: ProjectFinalReport;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (draft: FinalReportDraft) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState<FinalReportDraft>(() => finalReportDraftFromReport(report));
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      await onSave(draft);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się zapisać raportu.");
+    }
+  }
+
+  return (
+    <Modal title="Raport końcowy" onClose={onClose} wide>
+      <form className="estimate-form-modal contract-form-modal final-report-form-modal" onSubmit={(event) => void submit(event)}>
+        <header>
+          <span className={`status ${finalReportStatusClass(report.status)}`}>{finalReportStatusLabel(report.status)}</span>
+          <h3>{report.project_name || "Raport końcowy"}</h3>
+          <p>To dokument końcowy z wykonanych prac. Nie generuje backendowego PDF, umowy, faktury ani płatności.</p>
+        </header>
+
+        <div className="estimate-form-grid">
+          <label>
+            Nazwa wykonawcy
+            <input value={draft.contractorName} onChange={(event) => setDraft({ ...draft, contractorName: event.target.value })} />
+          </label>
+          <label>
+            E-mail wykonawcy
+            <input type="email" value={draft.contractorEmail} onChange={(event) => setDraft({ ...draft, contractorEmail: event.target.value })} />
+          </label>
+          <label>
+            Telefon wykonawcy
+            <input value={draft.contractorPhone} onChange={(event) => setDraft({ ...draft, contractorPhone: event.target.value })} />
+          </label>
+        </div>
+
+        <div className="estimate-form-grid">
+          <label>
+            Klient
+            <input value={draft.clientName} onChange={(event) => setDraft({ ...draft, clientName: event.target.value })} />
+          </label>
+          <label>
+            E-mail klienta
+            <input type="email" value={draft.clientEmail} onChange={(event) => setDraft({ ...draft, clientEmail: event.target.value })} />
+          </label>
+          <label>
+            Telefon klienta
+            <input value={draft.clientPhone} onChange={(event) => setDraft({ ...draft, clientPhone: event.target.value })} />
+          </label>
+        </div>
+
+        <label>
+          Tytuł raportu / zlecenia
+          <input value={draft.projectName} onChange={(event) => setDraft({ ...draft, projectName: event.target.value })} required />
+        </label>
+        <label>
+          Miejsce wykonania
+          <input value={draft.workAddress} onChange={(event) => setDraft({ ...draft, workAddress: event.target.value })} />
+        </label>
+        <label>
+          Podsumowanie prac
+          <textarea value={draft.workSummary} onChange={(event) => setDraft({ ...draft, workSummary: event.target.value })} required />
+        </label>
+        <label>
+          Wykonany zakres
+          <textarea value={draft.completedScope} onChange={(event) => setDraft({ ...draft, completedScope: event.target.value })} />
+        </label>
+        <label>
+          Problemy i rozwiązania
+          <textarea value={draft.issuesAndSolutions} onChange={(event) => setDraft({ ...draft, issuesAndSolutions: event.target.value })} />
+        </label>
+        <label>
+          Materiały / uwagi
+          <textarea value={draft.materialsNote} onChange={(event) => setDraft({ ...draft, materialsNote: event.target.value })} />
+        </label>
+
+        <div className="estimate-form-grid">
+          <label>
+            Start prac
+            <input type="date" value={draft.startedAt} onChange={(event) => setDraft({ ...draft, startedAt: event.target.value })} />
+          </label>
+          <label>
+            Zakończenie prac
+            <input type="date" value={draft.completedAt} onChange={(event) => setDraft({ ...draft, completedAt: event.target.value })} />
+          </label>
+          <label>
+            Waluta
+            <input value={draft.finalCostCurrency} onChange={(event) => setDraft({ ...draft, finalCostCurrency: event.target.value.toUpperCase().slice(0, 3) })} maxLength={3} />
+          </label>
+        </div>
+
+        <div className="estimate-form-grid">
+          <label>
+            Koszt końcowy
+            <input inputMode="decimal" value={draft.finalCostAmount} onChange={(event) => setDraft({ ...draft, finalCostAmount: cleanEstimateAmountInput(event.target.value) })} placeholder="np. 12000" />
+          </label>
+          <label>
+            Notatka do kosztu
+            <input value={draft.finalCostNote} onChange={(event) => setDraft({ ...draft, finalCostNote: event.target.value })} />
+          </label>
+        </div>
+
+        <label>
+          Komentarz klienta
+          <textarea value={draft.clientComment} onChange={(event) => setDraft({ ...draft, clientComment: event.target.value })} />
+        </label>
+        <label>
+          Gwarancja / uwagi
+          <textarea value={draft.warrantyNote} onChange={(event) => setDraft({ ...draft, warrantyNote: event.target.value })} />
+        </label>
+        <label>
+          Zdjęcia i załączniki / notatka
+          <textarea value={draft.attachmentsNote} onChange={(event) => setDraft({ ...draft, attachmentsNote: event.target.value })} />
+        </label>
+        <label>
+          Notka prawna
+          <textarea value={draft.legalNote} onChange={(event) => setDraft({ ...draft, legalNote: event.target.value })} />
+        </label>
+
+        {error && <p className="form-error">{error}</p>}
+        <footer>
+          <Button type="button" variant="secondary" disabled={busy} onClick={onClose}>Zamknij</Button>
+          <Button type="submit" icon="check" busy={busy} disabled={busy}>Zapisz szkic</Button>
+        </footer>
+      </form>
+    </Modal>
+  );
+}
+
 function ProjectView({
   projectId,
   guestToken,
@@ -3804,14 +3951,21 @@ function ProjectView({
   const [contractError, setContractError] = useState("");
   const [showContractModal, setShowContractModal] = useState(false);
   const [contractBusy, setContractBusy] = useState<string | null>(null);
+  const [projectFinalReport, setProjectFinalReport] = useState<ProjectFinalReport | null>(null);
+  const [finalReportLoading, setFinalReportLoading] = useState(false);
+  const [finalReportError, setFinalReportError] = useState("");
+  const [showFinalReportModal, setShowFinalReportModal] = useState(false);
+  const [finalReportBusy, setFinalReportBusy] = useState<string | null>(null);
   const [projectEstimateDraft, setProjectEstimateDraft] = useState<EstimateDraft | null>(null);
   const [projectEstimateBusy, setProjectEstimateBusy] = useState<string | null>(null);
   const [projectEstimateError, setProjectEstimateError] = useState("");
   const [guestEstimateDraft, setGuestEstimateDraft] = useState<GuestEstimateDraft | null>(null);
   const [guestContractDraft, setGuestContractDraft] = useState<ContractDraft | null>(null);
+  const [guestFinalReportDraft, setGuestFinalReportDraft] = useState<FinalReportDraft | null>(null);
   const [guestDocumentBusy, setGuestDocumentBusy] = useState<string | null>(null);
   const [guestEstimateMessage, setGuestEstimateMessage] = useState("");
   const [guestContractMessage, setGuestContractMessage] = useState("");
+  const [guestFinalReportMessage, setGuestFinalReportMessage] = useState("");
   const [guestDocumentError, setGuestDocumentError] = useState("");
   const [busyStageId, setBusyStageId] = useState<string | undefined>();
   const [coverBusy, setCoverBusy] = useState(false);
@@ -3938,14 +4092,21 @@ function ProjectView({
     setContractError("");
     setShowContractModal(false);
     setContractBusy(null);
+    setProjectFinalReport(null);
+    setFinalReportLoading(false);
+    setFinalReportError("");
+    setShowFinalReportModal(false);
+    setFinalReportBusy(null);
     setProjectEstimateDraft(null);
     setProjectEstimateBusy(null);
     setProjectEstimateError("");
     setGuestEstimateDraft(null);
     setGuestContractDraft(null);
+    setGuestFinalReportDraft(null);
     setGuestDocumentBusy(null);
     setGuestEstimateMessage("");
     setGuestContractMessage("");
+    setGuestFinalReportMessage("");
     setGuestDocumentError("");
     setLoading(true);
   }, [guestToken, projectId]);
@@ -4006,6 +4167,39 @@ function ProjectView({
       })
       .finally(() => {
         if (!cancelled) setContractLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [guestToken, project, user]);
+  useEffect(() => {
+    const canLoadFinalReport = Boolean(
+      project
+      && user
+      && !guestToken
+      && (isIndependentContractor(user) || isCompanyOwner(user) || isCompanyWorker(user)),
+    );
+    if (!project || !canLoadFinalReport) {
+      setProjectFinalReport(null);
+      setFinalReportLoading(false);
+      setFinalReportError("");
+      return;
+    }
+    let cancelled = false;
+    setFinalReportLoading(true);
+    setFinalReportError("");
+    api<ProjectFinalReport[]>(`/final-reports/me?project_id=${encodeURIComponent(project.id)}`)
+      .then((items) => {
+        if (!cancelled) setProjectFinalReport(items[0] || null);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProjectFinalReport(null);
+          setFinalReportError("Nie udało się sprawdzić raportu końcowego.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setFinalReportLoading(false);
       });
     return () => {
       cancelled = true;
@@ -4219,6 +4413,127 @@ function ProjectView({
     }
   }
 
+  function openGuestFinalReportDraft() {
+    if (!project) return;
+    setGuestFinalReportDraft(finalReportDraftFromProject(project));
+    setGuestFinalReportMessage("");
+    setGuestDocumentError("");
+  }
+
+  async function saveGuestFinalReportDraft() {
+    if (!guestToken || !project || !guestFinalReportDraft) return;
+    setGuestDocumentBusy("guest-final-report");
+    setGuestDocumentError("");
+    try {
+      const result = await api<{ created: boolean; message?: string; report?: { id: string; status: ProjectFinalReportStatus } | null }>(`/projects/${project.id}/guest-final-report-draft`, {
+        method: "POST",
+        body: JSON.stringify(projectFinalReportPayloadFromDraft(guestFinalReportDraft)),
+      }, guestToken);
+      setGuestFinalReportDraft(null);
+      const message = result.created
+        ? "Szkic raportu wysłany do szefa do zatwierdzenia."
+        : result.message || "Raport końcowy dla tego zlecenia już istnieje. Skontaktuj się z szefem, jeśli chcesz coś zmienić.";
+      setGuestFinalReportMessage(message);
+      notify({ kind: result.created ? "success" : "info", message });
+    } catch (reason) {
+      const message = friendlyEstimateError(reason);
+      setGuestDocumentError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setGuestDocumentBusy(null);
+    }
+  }
+
+  async function createProjectFinalReport() {
+    if (!project) return;
+    setFinalReportBusy("create");
+    setFinalReportError("");
+    try {
+      const result = await api<{ created: boolean; report: ProjectFinalReport }>(`/projects/${projectIdForStatusActions}/final-report`, {
+        method: "POST",
+        body: JSON.stringify(projectFinalReportPayloadFromDraft(finalReportDraftFromProject(project))),
+      });
+      setProjectFinalReport(result.report);
+      setShowFinalReportModal(true);
+      notify({
+        kind: result.created ? "success" : "info",
+        message: result.created ? "Szkic raportu końcowego utworzony." : "Raport końcowy dla tego zlecenia już istnieje.",
+      });
+    } catch (reason) {
+      const message = friendlyEstimateError(reason);
+      setFinalReportError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setFinalReportBusy(null);
+    }
+  }
+
+  async function saveProjectFinalReport(report: ProjectFinalReport, draft: FinalReportDraft) {
+    setFinalReportBusy("save");
+    setFinalReportError("");
+    try {
+      const saved = await api<ProjectFinalReport>(`/final-reports/me/${report.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(projectFinalReportPayloadFromDraft(draft)),
+      });
+      setProjectFinalReport(saved);
+      setShowFinalReportModal(false);
+      notify({ kind: "success", message: "Raport końcowy zapisany." });
+    } catch (reason) {
+      const message = friendlyEstimateError(reason);
+      setFinalReportError(message);
+      notify({ kind: "error", message });
+      throw reason;
+    } finally {
+      setFinalReportBusy(null);
+    }
+  }
+
+  async function sendProjectFinalReport(report: ProjectFinalReport) {
+    setFinalReportBusy("send");
+    setFinalReportError("");
+    try {
+      const saved = await api<ProjectFinalReport>(`/final-reports/me/${report.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "sent" }),
+      });
+      setProjectFinalReport(saved);
+      notify({ kind: "success", message: "Raport końcowy wysłany. Skopiuj link i przekaż go klientowi." });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udało się wysłać raportu.";
+      setFinalReportError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setFinalReportBusy(null);
+    }
+  }
+
+  async function cancelProjectFinalReport(report: ProjectFinalReport) {
+    setFinalReportBusy("cancel");
+    setFinalReportError("");
+    try {
+      const saved = await api<ProjectFinalReport>(`/final-reports/me/${report.id}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      setProjectFinalReport(saved);
+      notify({ kind: "success", message: "Raport końcowy anulowany." });
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : "Nie udało się anulować raportu.";
+      setFinalReportError(message);
+      notify({ kind: "error", message });
+    } finally {
+      setFinalReportBusy(null);
+    }
+  }
+
+  async function copyProjectFinalReportLink(report: ProjectFinalReport) {
+    const link = absoluteFinalReportShareUrl(report.share_url);
+    if (!link) return;
+    const copied = await copyToClipboard(link);
+    notify({ kind: copied ? "success" : "info", message: copied ? "Link raportu skopiowany." : "Link raportu jest widoczny w karcie. Skopiuj go ręcznie." });
+  }
+
   async function deleteDocumentationEntry() {
     if (!deleteEntryTarget) return;
     try {
@@ -4286,6 +4601,9 @@ function ProjectView({
   const canManageProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser) && ["owner", "manager"].includes(project.role || ""));
   const canCreateWorkerContractDraft = Boolean(!guestToken && isCompanyWorkerFieldUser && project.role);
   const canShowProjectContract = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || isCompanyWorkerFieldUser));
+  const canManageProjectFinalReport = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser) && ["owner", "manager"].includes(project.role || ""));
+  const canCreateWorkerFinalReportDraft = Boolean(!guestToken && isCompanyWorkerFieldUser && project.role);
+  const canShowProjectFinalReport = Boolean(!guestToken && (isIndependentFieldUser || isCompanyOwnerDetailUser || isCompanyWorkerFieldUser));
   const canSubmitGuestDocumentDrafts = Boolean(guestToken && project.workspace_id && project.guest && ["add", "history"].includes(project.guest.permission));
 
   function handlePortfolioSaved(item: PublicProfileRealization) {
@@ -4527,6 +4845,76 @@ function ProjectView({
           {(canManageProjectContract || canCreateWorkerContractDraft) && (
             <Button type="button" icon="plus" busy={contractBusy === "create"} disabled={contractLoading || Boolean(contractBusy)} onClick={() => void createProjectContract()}>
               {isCompanyWorkerFieldUser ? "Przygotuj szkic umowy" : "Utwórz umowę"}
+            </Button>
+          )}
+        </div>
+      )}
+    </section>
+  ) : null;
+  const projectFinalReportCard = canShowProjectFinalReport ? (
+    <section className="worker-detail-card worker-contract-card worker-final-report-card">
+      <div className="worker-section-heading">
+        <div>
+          <h2>Raport końcowy</h2>
+          <p>
+            {projectFinalReport
+              ? projectFinalReport.status === "pending_approval"
+                ? "Szkic raportu czeka na sprawdzenie i wysłanie przez szefa firmy."
+                : "Raport końcowy jest powiązany z projektem i publicznym linkiem akceptacji."
+              : isCompanyWorkerFieldUser
+                ? "Przygotuj podsumowanie wykonanych prac dla szefa. Szef zdecyduje, czy wysłać je klientowi."
+                : "Utwórz raport końcowy, popraw podsumowanie prac i wyślij klientowi link do akceptacji."}
+          </p>
+        </div>
+        <span className={`status ${projectFinalReport ? finalReportStatusClass(projectFinalReport.status) : "status--assigned"}`}>
+          {finalReportLoading ? "Sprawdzam..." : projectFinalReport ? finalReportStatusLabel(projectFinalReport.status) : "Brak raportu"}
+        </span>
+      </div>
+      {finalReportError && <p className="form-error">{finalReportError}</p>}
+      {projectFinalReport ? (
+        <div className="worker-contract-card__body">
+          <dl>
+            <div><dt>Numer</dt><dd>{projectFinalReport.report_number}</dd></div>
+            <div><dt>Klient</dt><dd>{projectFinalReport.client_name || "Nie podano"}</dd></div>
+            <div><dt>Koszt</dt><dd>{projectContractAmountLabel(projectFinalReport.final_cost_amount, projectFinalReport.final_cost_currency)}</dd></div>
+            <div><dt>Zakończenie</dt><dd>{projectFinalReport.completed_at || "Do ustalenia"}</dd></div>
+            <div><dt>Źródło</dt><dd>{user ? draftOriginLabel(projectFinalReport, user) : "Szkic"}</dd></div>
+          </dl>
+          {projectFinalReport.share_url && (
+            <section className="worker-contract-share">
+              <strong>Link raportu</strong>
+              <code>{absoluteFinalReportShareUrl(projectFinalReport.share_url)}</code>
+            </section>
+          )}
+          <div className="worker-contract-card__actions">
+            {["draft", "pending_approval"].includes(projectFinalReport.status) && canManageProjectFinalReport && (
+              <>
+                <Button type="button" variant="secondary" icon="settings" onClick={() => setShowFinalReportModal(true)}>Edytuj</Button>
+                <Button type="button" icon="send" busy={finalReportBusy === "send"} disabled={Boolean(finalReportBusy)} onClick={() => void sendProjectFinalReport(projectFinalReport)}>Wyślij / wygeneruj link</Button>
+                <Button type="button" variant="secondary" icon="close" busy={finalReportBusy === "cancel"} disabled={Boolean(finalReportBusy)} onClick={() => void cancelProjectFinalReport(projectFinalReport)}>Anuluj</Button>
+              </>
+            )}
+            {projectFinalReport.status === "pending_approval" && isCompanyWorkerFieldUser && projectFinalReport.created_by_id === user?.id && (
+              <Button type="button" variant="secondary" icon="settings" onClick={() => setShowFinalReportModal(true)}>Edytuj szkic</Button>
+            )}
+            {projectFinalReport.status === "sent" && (
+              <>
+                {projectFinalReport.share_url && <Button type="button" variant="secondary" icon="clipboard" onClick={() => void copyProjectFinalReportLink(projectFinalReport)}>Kopiuj link</Button>}
+                {projectFinalReport.share_url && <a className="button button--secondary" href={projectFinalReport.share_url} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Otwórz podgląd</a>}
+                {canManageProjectFinalReport && <Button type="button" variant="secondary" icon="close" busy={finalReportBusy === "cancel"} disabled={Boolean(finalReportBusy)} onClick={() => void cancelProjectFinalReport(projectFinalReport)}>Anuluj</Button>}
+              </>
+            )}
+            {["accepted", "rejected"].includes(projectFinalReport.status) && projectFinalReport.share_url && (
+              <a className="button button--secondary" href={projectFinalReport.share_url} target="_blank" rel="noreferrer"><Icon name="link" size={18} /> Otwórz podgląd</a>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="worker-contract-card__empty">
+          <p>{isCompanyWorkerFieldUser ? "Nie wysyłasz raportu klientowi. Przygotuj szkic, a szef firmy zdecyduje, co dalej." : "Raport nie powstaje automatycznie. Najpierw utwórz szkic i sprawdź dane."}</p>
+          {(canManageProjectFinalReport || canCreateWorkerFinalReportDraft) && (
+            <Button type="button" icon="plus" busy={finalReportBusy === "create"} disabled={finalReportLoading || Boolean(finalReportBusy)} onClick={() => void createProjectFinalReport()}>
+              {isCompanyWorkerFieldUser ? "Przygotuj szkic raportu" : "Utwórz raport końcowy"}
             </Button>
           )}
         </div>
@@ -4886,8 +5274,9 @@ function ProjectView({
           </section>
           {portfolioDetailCard}
           {projectContractCard}
+          {projectFinalReportCard}
 
-          {(canStartWorkerProject || canAddWorkerProgress || canCreateProjectEstimateDraft || canCreateWorkerContractDraft || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
+          {(canStartWorkerProject || canAddWorkerProgress || canCreateProjectEstimateDraft || canCreateWorkerContractDraft || canCreateWorkerFinalReportDraft || canFinishWorkerProject || project.status === "completed" || uiMode === "advanced") && (
             <section className="worker-action-panel">
               {canStartWorkerProject && <Button type="button" icon="plus" onClick={startProject}>{isCompanyOwnerDetailUser ? "Rozpocznij zlecenie" : "Rozpocznij robot&#281;"}</Button>}
               {canAddWorkerProgress && <Button type="button" icon="plus" onClick={() => setShowAddProgressChoice(true)}>Dodaj post&#281;p</Button>}
@@ -4899,6 +5288,11 @@ function ProjectView({
               {canCreateWorkerContractDraft && !projectContract && (
                 <Button type="button" variant="secondary" icon="clipboard" busy={contractBusy === "create"} disabled={contractLoading || Boolean(contractBusy)} onClick={() => void createProjectContract()}>
                   Przygotuj szkic umowy
+                </Button>
+              )}
+              {canCreateWorkerFinalReportDraft && !projectFinalReport && (
+                <Button type="button" variant="secondary" icon="report" busy={finalReportBusy === "create"} disabled={finalReportLoading || Boolean(finalReportBusy)} onClick={() => void createProjectFinalReport()}>
+                  Przygotuj szkic raportu
                 </Button>
               )}
               {isCompanyOwnerDetailUser && canAddWorkerProgress && (
@@ -5118,6 +5512,14 @@ function ProjectView({
             onSave={(draft) => saveProjectContract(projectContract, draft)}
           />
         )}
+        {projectFinalReport && showFinalReportModal && (
+          <ProjectFinalReportFormModal
+            report={projectFinalReport}
+            busy={finalReportBusy === "save"}
+            onClose={() => setShowFinalReportModal(false)}
+            onSave={(draft) => saveProjectFinalReport(projectFinalReport, draft)}
+          />
+        )}
         {showClientCoverPicker && (
           <ClientCoverPicker
             images={projectImages}
@@ -5264,6 +5666,57 @@ function ProjectView({
                     <div className="guest-document-form__actions">
                       <Button type="button" variant="secondary" disabled={guestDocumentBusy === "guest-contract"} onClick={() => setGuestContractDraft(null)}>Anuluj</Button>
                       <Button type="submit" icon="send" busy={guestDocumentBusy === "guest-contract"} disabled={Boolean(guestDocumentBusy)}>Wyślij do szefa</Button>
+                    </div>
+                  </form>
+                )}
+              </article>
+
+              <article className="worker-detail-card guest-document-card">
+                <div className="worker-section-heading">
+                  <div>
+                    <h2>Szkic raportu końcowego</h2>
+                    <p>Możesz przygotować podsumowanie wykonanych prac. Szef sprawdzi je i zdecyduje, czy wysłać raport klientowi.</p>
+                  </div>
+                </div>
+                {guestFinalReportMessage && <p className="form-success">{guestFinalReportMessage}</p>}
+                {!guestFinalReportDraft ? (
+                  <Button type="button" variant="secondary" icon="report" onClick={openGuestFinalReportDraft}>Przygotuj szkic raportu</Button>
+                ) : (
+                  <form className="guest-document-form" onSubmit={(event) => { event.preventDefault(); void saveGuestFinalReportDraft(); }}>
+                    <label>
+                      Podsumowanie prac
+                      <textarea value={guestFinalReportDraft.workSummary} onChange={(event) => setGuestFinalReportDraft({ ...guestFinalReportDraft, workSummary: event.target.value })} required />
+                    </label>
+                    <label>
+                      Wykonany zakres
+                      <textarea value={guestFinalReportDraft.completedScope} onChange={(event) => setGuestFinalReportDraft({ ...guestFinalReportDraft, completedScope: event.target.value })} />
+                    </label>
+                    <label>
+                      Problemy i rozwiązania
+                      <textarea value={guestFinalReportDraft.issuesAndSolutions} onChange={(event) => setGuestFinalReportDraft({ ...guestFinalReportDraft, issuesAndSolutions: event.target.value })} />
+                    </label>
+                    <label>
+                      Materiały / uwagi
+                      <textarea value={guestFinalReportDraft.materialsNote} onChange={(event) => setGuestFinalReportDraft({ ...guestFinalReportDraft, materialsNote: event.target.value })} />
+                    </label>
+                    <div className="estimate-form-grid">
+                      <label>
+                        Koszt końcowy
+                        <input inputMode="decimal" value={guestFinalReportDraft.finalCostAmount} onChange={(event) => setGuestFinalReportDraft({ ...guestFinalReportDraft, finalCostAmount: cleanEstimateAmountInput(event.target.value) })} placeholder="np. 12000" />
+                      </label>
+                      <label>
+                        Termin zakończenia
+                        <input type="date" value={guestFinalReportDraft.completedAt} onChange={(event) => setGuestFinalReportDraft({ ...guestFinalReportDraft, completedAt: event.target.value })} />
+                      </label>
+                    </div>
+                    <label>
+                      Komentarz / uwagi ekipy
+                      <textarea value={guestFinalReportDraft.clientComment} onChange={(event) => setGuestFinalReportDraft({ ...guestFinalReportDraft, clientComment: event.target.value })} />
+                    </label>
+                    {guestDocumentError && <p className="form-error">{guestDocumentError}</p>}
+                    <div className="guest-document-form__actions">
+                      <Button type="button" variant="secondary" disabled={guestDocumentBusy === "guest-final-report"} onClick={() => setGuestFinalReportDraft(null)}>Anuluj</Button>
+                      <Button type="submit" icon="send" busy={guestDocumentBusy === "guest-final-report"} disabled={Boolean(guestDocumentBusy)}>Wyślij do szefa</Button>
                     </div>
                   </form>
                 )}
@@ -8298,6 +8751,21 @@ function contractStatusClass(status: ProjectContractStatus): string {
   return "status--assigned";
 }
 
+function finalReportStatusLabel(status: ProjectFinalReportStatus): string {
+  if (status === "pending_approval") return "Do zatwierdzenia";
+  if (status === "sent") return "Wysłany do akceptacji";
+  if (status === "accepted") return "Zaakceptowany";
+  if (status === "rejected") return "Odrzucony";
+  if (status === "cancelled") return "Anulowany";
+  return "Szkic";
+}
+
+function finalReportStatusClass(status: ProjectFinalReportStatus): string {
+  if (status === "sent" || status === "accepted") return "status--completed";
+  if (status === "rejected" || status === "cancelled") return "status--paused";
+  return "status--assigned";
+}
+
 function estimateAmountValueLabel(value?: string | null): string {
   if (!value) return "Do ustalenia";
   const parsed = Number(value);
@@ -8319,7 +8787,7 @@ function estimateSourceLabel(estimate: Estimate): string {
   return "Ręczna";
 }
 
-function draftOriginLabel(item: Pick<Estimate | ProjectContract, "draft_origin" | "draft_origin_label" | "created_by_id">, user: User): string {
+function draftOriginLabel(item: Pick<Estimate | ProjectContract | ProjectFinalReport, "draft_origin" | "draft_origin_label" | "created_by_id">, user: User): string {
   if (item.draft_origin === "guest_link") return item.draft_origin_label ? `Z linka /g: ${item.draft_origin_label}` : "Z linka /g";
   if (item.draft_origin === "worker") return item.created_by_id === user.id ? "Ty" : "Od pracownika";
   return item.created_by_id === user.id ? "Ty" : "Członek firmy";
@@ -8335,6 +8803,15 @@ function absoluteEstimateShareUrl(shareUrl?: string | null): string {
 }
 
 function absoluteContractShareUrl(shareUrl?: string | null): string {
+  if (!shareUrl) return "";
+  try {
+    return new URL(shareUrl, location.origin).toString();
+  } catch {
+    return shareUrl;
+  }
+}
+
+function absoluteFinalReportShareUrl(shareUrl?: string | null): string {
   if (!shareUrl) return "";
   try {
     return new URL(shareUrl, location.origin).toString();
@@ -8657,6 +9134,114 @@ function projectContractPayloadFromDraft(draft: ContractDraft) {
     price_note: draft.priceNote.trim(),
     deposit_amount: normalizeEstimateAmount(draft.depositAmount),
     change_terms: draft.changeTerms.trim(),
+    attachments_note: draft.attachmentsNote.trim(),
+    legal_note: draft.legalNote.trim(),
+  };
+}
+
+type FinalReportDraft = {
+  contractorName: string;
+  contractorEmail: string;
+  contractorPhone: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone: string;
+  workAddress: string;
+  projectName: string;
+  workSummary: string;
+  completedScope: string;
+  issuesAndSolutions: string;
+  materialsNote: string;
+  finalCostAmount: string;
+  finalCostCurrency: string;
+  finalCostNote: string;
+  startedAt: string;
+  completedAt: string;
+  clientComment: string;
+  warrantyNote: string;
+  attachmentsNote: string;
+  legalNote: string;
+};
+
+function finalReportDraftFromReport(report?: ProjectFinalReport | null): FinalReportDraft {
+  return {
+    contractorName: report?.contractor_name || "",
+    contractorEmail: report?.contractor_email || "",
+    contractorPhone: report?.contractor_phone || "",
+    clientName: report?.client_name || "",
+    clientEmail: report?.client_email || "",
+    clientPhone: report?.client_phone || "",
+    workAddress: report?.work_address || "",
+    projectName: report?.project_name || "",
+    workSummary: report?.work_summary || "",
+    completedScope: report?.completed_scope || "",
+    issuesAndSolutions: report?.issues_and_solutions || "",
+    materialsNote: report?.materials_note || "",
+    finalCostAmount: report?.final_cost_amount || "",
+    finalCostCurrency: report?.final_cost_currency || "PLN",
+    finalCostNote: report?.final_cost_note || "",
+    startedAt: estimateDateInputValue(report?.started_at),
+    completedAt: estimateDateInputValue(report?.completed_at),
+    clientComment: report?.client_comment || "",
+    warrantyNote: report?.warranty_note || "",
+    attachmentsNote: report?.attachments_note || "",
+    legalNote: report?.legal_note || "",
+  };
+}
+
+function finalReportDraftFromProject(project: Project): FinalReportDraft {
+  return {
+    contractorName: "",
+    contractorEmail: "",
+    contractorPhone: "",
+    clientName: project.client_name || "",
+    clientEmail: project.client_email || "",
+    clientPhone: "",
+    workAddress: project.address || "",
+    projectName: project.name || "Raport końcowy",
+    workSummary: project.description || "",
+    completedScope: project.description
+      ? `Wykonano zakres prac opisany w zleceniu: ${project.description}`
+      : `Wykonano prace dla zlecenia: ${project.name}.`,
+    issuesAndSolutions: "",
+    materialsNote: "",
+    finalCostAmount: project.contract_amount || "",
+    finalCostCurrency: project.contract_currency || "PLN",
+    finalCostNote: project.contract_amount ? "Kwota zgodnie z ustaleniami zlecenia." : "",
+    startedAt: estimateDateInputValue(project.planned_start_date),
+    completedAt: estimateDateInputValue(project.planned_end_date),
+    clientComment: "",
+    warrantyNote: "Ewentualne uwagi gwarancyjne i odbiorowe wymagają osobnego potwierdzenia stron.",
+    attachmentsNote: "",
+    legalNote: "To jest raport końcowy z wykonanych prac. Nie jest fakturą, umową ani wezwaniem do zapłaty.",
+  };
+}
+
+function projectFinalReportPayloadFromDraft(draft: FinalReportDraft) {
+  if (!isValidEstimateEmail(draft.contractorEmail) || !isValidEstimateEmail(draft.clientEmail)) {
+    throw new Error("Wpisz poprawny e-mail albo zostaw pole puste.");
+  }
+  validateEstimateDates(draft.startedAt, draft.completedAt);
+  return {
+    contractor_name: draft.contractorName.trim(),
+    contractor_email: draft.contractorEmail.trim(),
+    contractor_phone: draft.contractorPhone.trim(),
+    client_name: draft.clientName.trim(),
+    client_email: draft.clientEmail.trim(),
+    client_phone: draft.clientPhone.trim(),
+    work_address: draft.workAddress.trim(),
+    project_name: draft.projectName.trim(),
+    work_summary: draft.workSummary.trim(),
+    completed_scope: draft.completedScope.trim(),
+    issues_and_solutions: draft.issuesAndSolutions.trim(),
+    materials_note: draft.materialsNote.trim(),
+    final_cost_amount: normalizeEstimateAmount(draft.finalCostAmount),
+    final_cost_currency: (draft.finalCostCurrency || "PLN").trim().toUpperCase(),
+    final_cost_note: draft.finalCostNote.trim(),
+    started_at: draft.startedAt,
+    completed_at: draft.completedAt,
+    client_comment: draft.clientComment.trim(),
+    warranty_note: draft.warrantyNote.trim(),
     attachments_note: draft.attachmentsNote.trim(),
     legal_note: draft.legalNote.trim(),
   };
@@ -9062,6 +9647,195 @@ function PublicContractPage({ token }: { token: string }) {
             ) : (
               <p className={`public-estimate-final-state ${contract.status === "accepted" ? "public-estimate-final-state--accepted" : contract.status === "rejected" ? "public-estimate-final-state--rejected" : ""}`}>
                 {contract.status === "accepted" ? "Umowa zaakceptowana." : contract.status === "rejected" ? "Umowa odrzucona." : `Status umowy: ${contractStatusLabel(contract.status)}.`}
+              </p>
+            )}
+          </footer>
+        </main>
+      ) : null}
+    </div>
+  );
+}
+
+function PublicFinalReportPage({ token }: { token: string }) {
+  const [report, setReport] = useState<PublicProjectFinalReport | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState<"accepted" | "rejected" | null>(null);
+  const [message, setMessage] = useState("");
+
+  const loadReport = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setReport(await api<PublicProjectFinalReport>(`/final-reports/public/${encodeURIComponent(token)}`));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Nie udało się pobrać raportu.");
+      setReport(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    void loadReport();
+  }, [loadReport]);
+
+  async function decide(status: "accepted" | "rejected") {
+    setBusy(status);
+    setMessage("");
+    setError("");
+    try {
+      const saved = await api<PublicProjectFinalReport>(`/final-reports/public/${encodeURIComponent(token)}/${status === "accepted" ? "accept" : "reject"}`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      setReport(saved);
+      setMessage(status === "accepted" ? "Raport zaakceptowany." : "Raport odrzucony.");
+    } catch (reason) {
+      setError(reason instanceof ApiError && reason.status === 422 ? "Ten raport ma już finalną decyzję." : "Nie udało się zapisać decyzji. Spróbuj ponownie.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const documentDate = report?.sent_at || report?.created_at;
+  const ownerProfileUrl = report?.owner.profile_url || (report?.owner.slug ? publicProfilePath(report.owner.slug) : "");
+
+  return (
+    <div className="public-estimate-page public-final-report-page">
+      {loading ? (
+        <div className="loading-screen"><span className="spinner" /> Ładowanie raportu...</div>
+      ) : error && !report ? (
+        <main className="public-estimate-card public-estimate-card--message">
+          <span><Icon name="alert" /></span>
+          <h2>Nie udało się otworzyć raportu</h2>
+          <p>{error}</p>
+        </main>
+      ) : report ? (
+        <main className="public-estimate-document public-final-report-document">
+          <header className="public-estimate-document__header">
+            <Logo compact />
+            <div>
+              <span className="eyebrow">Raport końcowy</span>
+              <h1>{report.project_name}</h1>
+              <p>Podsumowanie wykonanych prac, zakresu, kosztu i uwag odbiorowych.</p>
+            </div>
+            <aside>
+              <span className={`status ${finalReportStatusClass(report.status)}`}>{report.status === "sent" ? "Do akceptacji" : finalReportStatusLabel(report.status)}</span>
+              <small>Raport #{report.number}</small>
+              <small>{publicEstimateDateLabel(documentDate)}</small>
+            </aside>
+          </header>
+
+          <PublicDocumentPrintToolbar />
+
+          <section className="public-estimate-hero public-final-report-hero">
+            <div>
+              <span>Dokument dla klienta</span>
+              <h2>{report.status === "sent" ? "Do akceptacji" : finalReportStatusLabel(report.status)}</h2>
+              <p>Akceptacja raportu potwierdza odbiór podsumowania prac. Ten widok nie tworzy PDF, umowy, faktury ani płatności.</p>
+            </div>
+            <div className="public-estimate-amount-card">
+              <small>Koszt końcowy</small>
+              <strong>{projectContractAmountLabel(report.final_cost_amount, report.final_cost_currency)}</strong>
+              <p>{report.final_cost_note || "Koszt końcowy do potwierdzenia przez strony."}</p>
+            </div>
+          </section>
+
+          {message && (
+            <p className={`public-estimate-message no-print ${report.status === "rejected" ? "public-estimate-message--rejected" : ""}`}>
+              {message}
+            </p>
+          )}
+          {error && <p className="form-error no-print">{error}</p>}
+
+          <section className="public-estimate-party-grid" aria-label="Dane stron">
+            <article className="public-estimate-section-card">
+              <span><Icon name={report.owner.owner_type === "company" ? "building" : "tools"} /></span>
+              <div>
+                <h3>Wykonawca</h3>
+                <p className="public-estimate-party-name">{report.contractor_name || report.owner.display_name || "Nie podano"}</p>
+                <p>{report.owner.owner_type === "company" ? "Firma wykonawcza" : "Samodzielny majster"}</p>
+                <ul>
+                  <li><Icon name="phone" size={16} /> {report.contractor_phone ? <a href={`tel:${report.contractor_phone.replace(/\s+/g, "")}`}>{report.contractor_phone}</a> : "Telefon: Nie podano"}</li>
+                  <li><Icon name="send" size={16} /> {report.contractor_email ? <a href={`mailto:${report.contractor_email}`}>{report.contractor_email}</a> : "E-mail: Nie podano"}</li>
+                  {ownerProfileUrl && <li><Icon name="link" size={16} /> <a href={ownerProfileUrl} target="_blank" rel="noreferrer">Zobacz wizytówkę</a></li>}
+                </ul>
+              </div>
+            </article>
+            <article className="public-estimate-section-card">
+              <span><Icon name="users" /></span>
+              <div>
+                <h3>Odbiorca / klient</h3>
+                <p className="public-estimate-party-name">{publicEstimateContactValue(report.client_name)}</p>
+                <ul>
+                  <li><Icon name="send" size={16} /> {report.client_email ? <a href={`mailto:${report.client_email}`}>{report.client_email}</a> : "E-mail: Nie podano"}</li>
+                  <li><Icon name="phone" size={16} /> {report.client_phone ? <a href={`tel:${report.client_phone.replace(/\s+/g, "")}`}>{report.client_phone}</a> : "Telefon: Nie podano"}</li>
+                </ul>
+              </div>
+            </article>
+          </section>
+
+          <section className="public-estimate-detail-grid" aria-label="Informacje o zleceniu">
+            <article className="public-estimate-section-card">
+              <span><Icon name="sync" /></span>
+              <div>
+                <h3>Informacje o zleceniu</h3>
+                <dl>
+                  <div><dt>Adres prac</dt><dd>{report.work_address || "Do ustalenia"}</dd></div>
+                  <div><dt>Start</dt><dd>{report.started_at ? publicEstimateDateLabel(report.started_at) : "Do ustalenia"}</dd></div>
+                  <div><dt>Zakończenie</dt><dd>{report.completed_at ? publicEstimateDateLabel(report.completed_at) : "Do ustalenia"}</dd></div>
+                </dl>
+              </div>
+            </article>
+            <article className="public-estimate-section-card public-estimate-section-card--amount">
+              <span><Icon name="report" /></span>
+              <div>
+                <h3>Koszt końcowy</h3>
+                <strong>{projectContractAmountLabel(report.final_cost_amount, report.final_cost_currency)}</strong>
+                <p>{report.final_cost_note || "Brak dodatkowej notatki do kosztu."}</p>
+              </div>
+            </article>
+          </section>
+
+          {[
+            ["Podsumowanie wykonanych prac", report.work_summary || "Podsumowanie nie zostało opisane."],
+            ["Zakres wykonany", report.completed_scope || "Zakres wykonany nie został opisany."],
+            ["Problemy i rozwiązania", report.issues_and_solutions || "Brak zgłoszonych problemów albo dodatkowych rozwiązań."],
+            ["Materiały / uwagi", report.materials_note || "Brak dodatkowych uwag materiałowych."],
+            ["Gwarancja / uwagi", report.warranty_note || "Brak dodatkowych uwag gwarancyjnych."],
+            ["Zdjęcia i załączniki / notatka", report.attachments_note || "Brak notatki o załącznikach."],
+            ["Komentarz klienta", report.client_comment || "Brak komentarza klienta."],
+          ].map(([title, body]) => (
+            <section className="public-estimate-section-card public-estimate-section-card--wide" key={title}>
+              <span><Icon name="clipboard" /></span>
+              <div>
+                <h3>{title}</h3>
+                <p>{body}</p>
+              </div>
+            </section>
+          ))}
+
+          <section className="public-estimate-notice">
+            <Icon name="alert" />
+            <p>{report.legal_note || "To jest raport końcowy z wykonanych prac. Nie jest fakturą, umową ani wezwaniem do zapłaty."}</p>
+          </section>
+
+          <PublicDocumentFooter />
+
+          <footer className="public-estimate-actions no-print">
+            {report.status === "sent" ? (
+              <>
+                <Button type="button" icon="check" busy={busy === "accepted"} disabled={Boolean(busy)} onClick={() => void decide("accepted")}>
+                  Akceptuję raport
+                </Button>
+                <Button type="button" variant="secondary" icon="close" busy={busy === "rejected"} disabled={Boolean(busy)} onClick={() => void decide("rejected")}>
+                  Odrzucam raport
+                </Button>
+              </>
+            ) : (
+              <p className={`public-estimate-final-state ${report.status === "accepted" ? "public-estimate-final-state--accepted" : report.status === "rejected" ? "public-estimate-final-state--rejected" : ""}`}>
+                {report.status === "accepted" ? "Raport zaakceptowany." : report.status === "rejected" ? "Raport odrzucony." : `Status raportu: ${finalReportStatusLabel(report.status)}.`}
               </p>
             )}
           </footer>
@@ -11670,6 +12444,7 @@ export default function App() {
   if (currentRoute.kind === "report") return <PublicReport token={currentRoute.token} />;
   if (currentRoute.kind === "estimate") return <PublicEstimatePage token={currentRoute.token} />;
   if (currentRoute.kind === "contract") return <PublicContractPage token={currentRoute.token} />;
+  if (currentRoute.kind === "finalReport") return <PublicFinalReportPage token={currentRoute.token} />;
   if (currentRoute.kind === "publicProfile") return <PublicProfilePage slug={currentRoute.slug} />;
   if (currentRoute.kind === "portfolio") return <PublicPortfolio slug={currentRoute.slug} />;
   if (currentRoute.kind === "guest") {

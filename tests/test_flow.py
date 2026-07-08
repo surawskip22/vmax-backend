@@ -5476,6 +5476,319 @@ def test_project_contract_blocks_company_worker_investor_and_other_owner():
             assert other_owner.patch(f"/api/contracts/me/{contract['id']}", json={"scope_summary": "Cudza zmiana"}).status_code == 404
 
 
+def test_independent_project_final_report_flow_is_idempotent_and_public():
+    with TestClient(app) as client:
+        login(client, "final-report-independent@example.com")
+        client.post("/api/onboarding", json={"profile_type": "independent_contractor"})
+        client.patch(
+            "/api/public-profile/me?owner_type=independent_contractor",
+            json={
+                "is_public": True,
+                "slug": "final-report-independent-profile",
+                "display_name": "Majster Raportow",
+                "contact_phone": "600 222 333",
+                "contact_email": "final-report-public@example.com",
+            },
+        )
+        project = client.post(
+            "/api/projects",
+            json={
+                "name": "Lazienka z raportem koncowym",
+                "client_name": "Klient raportu",
+                "client_email": "client-final-report@example.com",
+                "address": "Warszawa, Raportowa 1",
+                "description": "Wykonano zakres lazienki.",
+                "planned_start_date": "2026-10-01",
+                "planned_end_date": "2026-10-15",
+                "contract_amount": "24000.00",
+                "template": "custom",
+            },
+        ).json()
+
+        with SessionLocal() as db:
+            count_before = db.scalar(select(func.count(models.ProjectFinalReport.id)))
+            project_count_before = db.scalar(select(func.count(models.Project.id)))
+
+        created = client.post(
+            f"/api/projects/{project['id']}/final-report",
+            json={
+                "work_summary": "Raport po odbiorze prac.",
+                "completed_scope": "Hydraulika, plytki, montaz armatury.",
+                "issues_and_solutions": "Bez usterek krytycznych.",
+                "final_cost_amount": "24500.00",
+                "final_cost_note": "Koszt koncowy po domowieniu prac.",
+            },
+        )
+        assert created.status_code == 201
+        body = created.json()
+        assert body["created"] is True
+        report = body["report"]
+        assert report["project_id"] == project["id"]
+        assert report["owner_type"] == "independent_contractor"
+        assert report["status"] == "draft"
+        assert report["client_name"] == "Klient raportu"
+        assert report["client_email"] == "client-final-report@example.com"
+        assert report["work_address"] == "Warszawa, Raportowa 1"
+        assert report["final_cost_amount"] == "24500.00"
+        assert report["share_url"] is None
+
+        duplicate = client.post(f"/api/projects/{project['id']}/final-report")
+        assert duplicate.status_code == 200
+        assert duplicate.json()["created"] is False
+        assert duplicate.json()["report"]["id"] == report["id"]
+
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(models.ProjectFinalReport.id))) == count_before + 1
+            assert db.scalar(select(func.count(models.Project.id))) == project_count_before
+
+        patched = client.patch(
+            f"/api/final-reports/me/{report['id']}",
+            json={
+                "client_phone": "500 333 444",
+                "work_summary": "Raport po poprawkach.",
+                "completed_scope": "Zakres wykonany i odebrany.",
+                "attachments_note": "Zdjecia w historii zlecenia.",
+            },
+        )
+        assert patched.status_code == 200
+        assert patched.json()["work_summary"] == "Raport po poprawkach."
+
+        sent = client.patch(
+            f"/api/final-reports/me/{report['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        sent_body = sent.json()
+        assert sent_body["status"] == "sent"
+        assert sent_body["share_url"].startswith("/final-report/")
+        token = sent_body["share_url"].rsplit("/", maxsplit=1)[1]
+
+        with TestClient(app) as public_client:
+            public = public_client.get(f"/api/final-reports/public/{token}")
+            assert public.status_code == 200
+            public_body = public.json()
+            assert public_body["project_name"] == "Lazienka z raportem koncowym"
+            assert public_body["number"]
+            assert public_body["owner"]["display_name"] == "Majster Raportow"
+            assert public_body["owner"]["contact_email"] == "final-report-public@example.com"
+            assert public_body["client_name"] == "Klient raportu"
+            assert public_body["client_phone"] == "500 333 444"
+            assert public_body["work_summary"] == "Raport po poprawkach."
+            assert public_body["completed_scope"] == "Zakres wykonany i odebrany."
+            assert public_body["final_cost_amount"] == "24500.00"
+            assert "project_id" not in public_body
+            assert "owner_id" not in public_body
+            assert "company_id" not in public_body
+            assert "created_by_id" not in public_body
+            assert "share_token" not in public_body
+            assert "final-report-independent@example.com" not in repr(public_body)
+
+            accepted = public_client.post(f"/api/final-reports/public/{token}/accept")
+            assert accepted.status_code == 200
+            assert accepted.json()["status"] == "accepted"
+            assert accepted.json()["accepted_at"]
+            assert public_client.post(f"/api/final-reports/public/{token}/reject").status_code == 422
+
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(models.Project.id))) == project_count_before
+            stored = db.get(models.ProjectFinalReport, report["id"])
+            assert stored
+            assert stored.status == "accepted"
+
+        second_project = client.post(
+            "/api/projects",
+            json={"name": "Raport do odrzucenia", "client_name": "Klient reject", "description": "Zakres.", "template": "custom"},
+        ).json()
+        second = client.post(
+            f"/api/projects/{second_project['id']}/final-report",
+            json={"work_summary": "Raport do decyzji.", "completed_scope": "Zakres drugi."},
+        ).json()["report"]
+        second_sent = client.patch(f"/api/final-reports/me/{second['id']}/status", json={"status": "sent"}).json()
+        reject_token = second_sent["share_url"].rsplit("/", maxsplit=1)[1]
+        with TestClient(app) as public_client:
+            rejected = public_client.post(f"/api/final-reports/public/{reject_token}/reject")
+            assert rejected.status_code == 200
+            assert rejected.json()["status"] == "rejected"
+
+
+def test_company_worker_can_prepare_project_final_report_draft_for_owner():
+    with TestClient(app) as owner:
+        login(owner, "final-report-worker-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Raportow Workera"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        with TestClient(app) as worker:
+            worker_user = login(worker, "final-report-worker@example.com")
+            worker.post("/api/onboarding", json={"profile_type": "company_worker"})
+        worker_profile = owner.post(
+            "/api/workers",
+            json={
+                "workspace_id": workspace_id,
+                "label": "Pracownik raportow",
+                "profile_kind": "craftsman",
+                "email": "final-report-worker@example.com",
+            },
+        ).json()
+        assigned_project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "worker_profile_id": worker_profile["id"],
+                "name": "Zlecenie z raportem workera",
+                "client_name": "Klient worker report",
+                "client_email": "worker-report-client@example.com",
+                "description": "Zakres firmowy do raportu.",
+                "contract_amount": "18000.00",
+                "template": "custom",
+            },
+        ).json()
+        unassigned_project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "name": "Nieprzypisany raport",
+                "client_name": "Klient bez workera",
+                "template": "custom",
+            },
+        ).json()
+
+        with TestClient(app) as worker:
+            login(worker, "final-report-worker@example.com")
+            created = worker.post(
+                f"/api/projects/{assigned_project['id']}/final-report",
+                json={
+                    "work_summary": "Szkic raportu od pracownika.",
+                    "completed_scope": "Wykonany zakres do sprawdzenia.",
+                    "issues_and_solutions": "Uwagi dla szefa.",
+                    "final_cost_amount": "18100.00",
+                },
+            )
+            assert created.status_code == 201
+            body = created.json()
+            assert body["created"] is True
+            report = body["report"]
+            assert report["status"] == "pending_approval"
+            assert report["project_id"] == assigned_project["id"]
+            assert report["owner_type"] == "company"
+            assert report["company_id"] == workspace_id
+            assert report["created_by_id"] == worker_user["id"]
+            assert report["draft_origin"] == "worker"
+            assert report["final_cost_amount"] == "18100.00"
+            assert report["share_url"] is None
+            assert worker.patch(
+                f"/api/final-reports/me/{report['id']}/status",
+                json={"status": "sent"},
+            ).status_code == 403
+            assert worker.post(f"/api/projects/{unassigned_project['id']}/final-report").status_code in {403, 404}
+
+        owner_reports = owner.get(f"/api/final-reports/me?project_id={assigned_project['id']}")
+        assert owner_reports.status_code == 200
+        owner_item = owner_reports.json()[0]
+        assert owner_item["id"] == report["id"]
+        assert owner_item["status"] == "pending_approval"
+        assert owner_item["draft_origin"] == "worker"
+
+        patched = owner.patch(
+            f"/api/final-reports/me/{report['id']}",
+            json={"work_summary": "Szkic raportu poprawiony przez szefa."},
+        )
+        assert patched.status_code == 200
+        assert patched.json()["work_summary"] == "Szkic raportu poprawiony przez szefa."
+        sent = owner.patch(
+            f"/api/final-reports/me/{report['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        assert sent.json()["status"] == "sent"
+        assert sent.json()["share_url"].startswith("/final-report/")
+
+
+def test_guest_link_can_prepare_project_final_report_draft_without_duplicates():
+    with TestClient(app) as owner:
+        login(owner, "guest-final-report-owner@example.com")
+        onboarded = owner.post(
+            "/api/onboarding",
+            json={"profile_type": "company_owner", "company_name": "Firma Guest Final Report"},
+        ).json()
+        workspace_id = onboarded["workspaces"][0]["id"]
+        project = owner.post(
+            "/api/projects",
+            json={
+                "workspace_id": workspace_id,
+                "name": "Zlecenie z linkiem guest raportu",
+                "client_name": "Klient guest report",
+                "description": "Zakres przed raportem.",
+                "contract_amount": "14000.00",
+                "template": "custom",
+            },
+        ).json()
+        link = owner.post(
+            f"/api/projects/{project['id']}/guest-links",
+            json={"label": "Ekipa raportu guest", "kind": "worker", "permission": "add"},
+        ).json()
+
+        with SessionLocal() as db:
+            count_before = db.scalar(select(func.count(models.ProjectFinalReport.id)))
+
+        with TestClient(app) as guest:
+            created = guest.post(
+                f"/api/projects/{project['id']}/guest-final-report-draft",
+                headers={"x-guest-token": link["token"]},
+                json={
+                    "work_summary": "Szkic raportu z linku.",
+                    "completed_scope": "Wykonany zakres z placu budowy.",
+                    "issues_and_solutions": "Uwagi ekipy.",
+                    "materials_note": "Materialy zgodnie z ustaleniami.",
+                    "final_cost_amount": "14500.00",
+                    "completed_at": "2026-11-20",
+                    "client_comment": "Do sprawdzenia przez szefa.",
+                },
+            )
+            assert created.status_code == 201
+            body = created.json()
+            assert body["created"] is True
+            report = body["report"]
+            assert report["status"] == "pending_approval"
+            assert report["draft_origin"] == "guest_link"
+            assert report["draft_origin_label"] == "Ekipa raportu guest"
+            assert report["final_cost_amount"] == "14500.00"
+            assert "owner_id" not in report
+            assert "company_id" not in report
+            assert "created_by_id" not in report
+            assert "share_url" not in report
+
+            duplicate = guest.post(
+                f"/api/projects/{project['id']}/guest-final-report-draft",
+                headers={"x-guest-token": link["token"]},
+                json={"work_summary": "Nie nadpisuj"},
+            )
+            assert duplicate.status_code == 200
+            assert duplicate.json()["created"] is False
+            assert duplicate.json()["report"] is None
+
+        with SessionLocal() as db:
+            assert db.scalar(select(func.count(models.ProjectFinalReport.id))) == count_before + 1
+
+        owner_reports = owner.get(f"/api/final-reports/me?project_id={project['id']}")
+        assert owner_reports.status_code == 200
+        owner_item = owner_reports.json()[0]
+        assert owner_item["id"] == report["id"]
+        assert owner_item["status"] == "pending_approval"
+        assert owner_item["draft_origin"] == "guest_link"
+
+        sent = owner.patch(
+            f"/api/final-reports/me/{report['id']}/status",
+            json={"status": "sent"},
+        )
+        assert sent.status_code == 200
+        assert sent.json()["share_url"].startswith("/final-report/")
+        token = sent.json()["share_url"].rsplit("/", maxsplit=1)[1]
+        with TestClient(app) as public_client:
+            assert public_client.get(f"/api/final-reports/public/{token}").status_code == 200
+
+
 def test_estimate_delete_and_cancel_are_owner_scoped():
     with TestClient(app) as client:
         user = login(client, "estimate-delete-owner@example.com")

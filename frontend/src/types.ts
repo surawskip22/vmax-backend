@@ -74,6 +74,8 @@ export type EstimateStatus =
 
 export type ProjectContractStatus = "draft" | "pending_approval" | "sent" | "accepted" | "rejected" | "cancelled";
 
+export type ProjectFinalReportStatus = "draft" | "pending_approval" | "sent" | "accepted" | "rejected" | "cancelled";
+
 export type EstimateRecipientType = "manual" | "investor" | "client";
 
 export type EstimateSourceType = "manual" | "project" | "job_posting";
@@ -211,6 +213,87 @@ export type PublicProjectContract = {
   attachments_note: string;
   legal_note: string;
   status: ProjectContractStatus;
+  created_at: string;
+  sent_at?: string | null;
+  accepted_at?: string | null;
+  rejected_at?: string | null;
+  cancelled_at?: string | null;
+};
+
+export type ProjectFinalReport = {
+  id: string;
+  project_id: string;
+  owner_type: PublicProfileOwnerType;
+  owner_id: string;
+  company_id?: string | null;
+  created_by_id: string;
+  status: ProjectFinalReportStatus;
+  draft_origin?: string;
+  draft_origin_label?: string;
+  share_url?: string | null;
+  share_active?: boolean;
+  report_number: string;
+  contractor_name: string;
+  contractor_email: string;
+  contractor_phone: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  work_address: string;
+  project_name: string;
+  work_summary: string;
+  completed_scope: string;
+  issues_and_solutions: string;
+  materials_note: string;
+  final_cost_amount?: string | null;
+  final_cost_currency: string;
+  final_cost_note: string;
+  started_at: string;
+  completed_at: string;
+  client_comment: string;
+  warranty_note: string;
+  attachments_note: string;
+  legal_note: string;
+  sent_at?: string | null;
+  accepted_at?: string | null;
+  rejected_at?: string | null;
+  cancelled_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PublicProjectFinalReport = {
+  number: string;
+  owner: {
+    owner_type: PublicProfileOwnerType;
+    display_name: string;
+    contact_phone: string;
+    contact_email: string;
+    slug: string;
+    profile_url: string;
+  };
+  contractor_name: string;
+  contractor_email: string;
+  contractor_phone: string;
+  client_name: string;
+  client_email: string;
+  client_phone: string;
+  work_address: string;
+  project_name: string;
+  work_summary: string;
+  completed_scope: string;
+  issues_and_solutions: string;
+  materials_note: string;
+  final_cost_amount?: string | null;
+  final_cost_currency: string;
+  final_cost_note: string;
+  started_at: string;
+  completed_at: string;
+  client_comment: string;
+  warranty_note: string;
+  attachments_note: string;
+  legal_note: string;
+  status: ProjectFinalReportStatus;
   created_at: string;
   sent_at?: string | null;
   accepted_at?: string | null;

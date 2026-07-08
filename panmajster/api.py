@@ -928,6 +928,172 @@ def public_project_contract_payload(db: Session, item: models.ProjectContract) -
     }
 
 
+DEFAULT_FINAL_REPORT_LEGAL_NOTE = (
+    "To jest raport koncowy z wykonanych prac. Nie jest faktura, umowa ani wezwaniem do zaplaty."
+)
+DEFAULT_FINAL_REPORT_WARRANTY_NOTE = (
+    "Ewentualne uwagi gwarancyjne i odbiorowe wymagaja osobnego potwierdzenia stron."
+)
+
+
+def project_final_report_share_url(item: models.ProjectFinalReport) -> str | None:
+    if not item.share_token:
+        return None
+    return f"/final-report/{item.share_token}"
+
+
+def ensure_project_final_report_share(db: Session, item: models.ProjectFinalReport) -> str:
+    if not item.share_token:
+        token = random_token(30)
+        while db.scalar(
+            select(models.ProjectFinalReport.id).where(
+                models.ProjectFinalReport.share_token == token
+            )
+        ):
+            token = random_token(30)
+        item.share_token = token
+    item.share_active = True
+    return item.share_token
+
+
+def project_final_report_number(item: models.ProjectFinalReport) -> str:
+    return item.report_number or f"RK-{item.id[:8].upper()}"
+
+
+def project_final_report_public_owner_payload(
+    db: Session, item: models.ProjectFinalReport
+) -> dict:
+    profile = public_profile_for_contract_owner(db, item.owner_type, item.owner_id)
+    public_profile = profile if profile and profile.is_public else None
+    if item.owner_type == "company":
+        workspace = db.get(models.Workspace, item.owner_id)
+        display_name = (
+            item.contractor_name
+            or (public_profile.display_name if public_profile and public_profile.display_name else "")
+            or (workspace.name if workspace else "")
+            or "Firma wykonawcza"
+        )
+        return {
+            "owner_type": "company",
+            "display_name": display_name,
+            "contact_phone": item.contractor_phone or (public_profile.contact_phone if public_profile else ""),
+            "contact_email": item.contractor_email or (public_profile.contact_email if public_profile else ""),
+            "slug": public_profile.slug if public_profile else "",
+            "profile_url": f"/public-profiles/{public_profile.slug}" if public_profile and public_profile.slug else "",
+        }
+    user = db.get(models.User, item.owner_id)
+    display_name = item.contractor_name
+    if not display_name and user:
+        display_name = user.public_profile_name or user.name
+    if public_profile and public_profile.display_name and not item.contractor_name:
+        display_name = public_profile.display_name
+    return {
+        "owner_type": "independent_contractor",
+        "display_name": display_name or "Samodzielny majster",
+        "contact_phone": item.contractor_phone or (public_profile.contact_phone if public_profile else ""),
+        "contact_email": item.contractor_email or (public_profile.contact_email if public_profile else ""),
+        "slug": public_profile.slug if public_profile else "",
+        "profile_url": f"/public-profiles/{public_profile.slug}" if public_profile and public_profile.slug else "",
+    }
+
+
+def project_final_report_payload(item: models.ProjectFinalReport) -> dict:
+    return {
+        "id": item.id,
+        "project_id": item.project_id,
+        "owner_type": item.owner_type,
+        "owner_id": item.owner_id,
+        "company_id": item.company_id,
+        "created_by_id": item.created_by_id,
+        "status": item.status,
+        "draft_origin": item.draft_origin,
+        "draft_origin_label": item.draft_origin_label,
+        "share_url": project_final_report_share_url(item),
+        "share_active": item.share_active,
+        "report_number": project_final_report_number(item),
+        "contractor_name": item.contractor_name,
+        "contractor_email": item.contractor_email,
+        "contractor_phone": item.contractor_phone,
+        "client_name": item.client_name,
+        "client_email": item.client_email,
+        "client_phone": item.client_phone,
+        "work_address": item.work_address,
+        "project_name": item.project_name,
+        "work_summary": item.work_summary,
+        "completed_scope": item.completed_scope,
+        "issues_and_solutions": item.issues_and_solutions,
+        "materials_note": item.materials_note,
+        "final_cost_amount": money_payload(item.final_cost_amount),
+        "final_cost_currency": item.final_cost_currency,
+        "final_cost_note": item.final_cost_note,
+        "started_at": item.started_at,
+        "completed_at": item.completed_at,
+        "client_comment": item.client_comment,
+        "warranty_note": item.warranty_note,
+        "attachments_note": item.attachments_note,
+        "legal_note": item.legal_note,
+        "sent_at": item.sent_at.isoformat() if item.sent_at else None,
+        "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
+        "rejected_at": item.rejected_at.isoformat() if item.rejected_at else None,
+        "cancelled_at": item.cancelled_at.isoformat() if item.cancelled_at else None,
+        "created_at": item.created_at.isoformat(),
+        "updated_at": item.updated_at.isoformat(),
+    }
+
+
+def guest_project_final_report_draft_payload(item: models.ProjectFinalReport) -> dict:
+    return {
+        "id": item.id,
+        "project_id": item.project_id,
+        "status": item.status,
+        "draft_origin": item.draft_origin,
+        "draft_origin_label": item.draft_origin_label,
+        "project_name": item.project_name,
+        "work_summary": item.work_summary,
+        "completed_scope": item.completed_scope,
+        "final_cost_amount": money_payload(item.final_cost_amount),
+        "final_cost_currency": item.final_cost_currency,
+        "completed_at": item.completed_at,
+        "created_at": item.created_at.isoformat(),
+    }
+
+
+def public_project_final_report_payload(
+    db: Session, item: models.ProjectFinalReport
+) -> dict:
+    return {
+        "number": project_final_report_number(item),
+        "owner": project_final_report_public_owner_payload(db, item),
+        "contractor_name": item.contractor_name,
+        "contractor_email": item.contractor_email,
+        "contractor_phone": item.contractor_phone,
+        "client_name": item.client_name,
+        "client_email": item.client_email,
+        "client_phone": item.client_phone,
+        "work_address": item.work_address,
+        "project_name": item.project_name,
+        "work_summary": item.work_summary,
+        "completed_scope": item.completed_scope,
+        "issues_and_solutions": item.issues_and_solutions,
+        "materials_note": item.materials_note,
+        "final_cost_amount": money_payload(item.final_cost_amount),
+        "final_cost_currency": item.final_cost_currency,
+        "final_cost_note": item.final_cost_note,
+        "started_at": item.started_at,
+        "completed_at": item.completed_at,
+        "client_comment": item.client_comment,
+        "warranty_note": item.warranty_note,
+        "attachments_note": item.attachments_note,
+        "legal_note": item.legal_note,
+        "status": item.status,
+        "created_at": item.created_at.isoformat(),
+        "sent_at": item.sent_at.isoformat() if item.sent_at else None,
+        "accepted_at": item.accepted_at.isoformat() if item.accepted_at else None,
+        "rejected_at": item.rejected_at.isoformat() if item.rejected_at else None,
+        "cancelled_at": item.cancelled_at.isoformat() if item.cancelled_at else None,
+    }
+
+
 def project_contract_actor_for_project(db: Session, access: ProjectAccess, user: models.User) -> str:
     if is_investor(user):
         raise HTTPException(403, "Tylko wykonawca albo szef firmy moze tworzyc umowy")
@@ -1178,6 +1344,241 @@ def change_project_contract_status(
         item.share_active = False
         return
     raise HTTPException(422, "Nielegalna zmiana statusu umowy")
+
+
+def project_final_report_actor_for_project(
+    db: Session, access: ProjectAccess, user: models.User
+) -> str:
+    if is_investor(user):
+        raise HTTPException(403, "Inwestor nie tworzy raportow koncowych wykonawcy")
+    if is_company_worker(user):
+        if not access.project.workspace_id:
+            raise HTTPException(403, "To nie jest zlecenie firmy")
+        if not project_role(db, access.project.id, user.id):
+            raise HTTPException(403, "Pracownik moze przygotowac raport tylko do przypisanego zlecenia")
+        return "company_worker"
+    if is_independent_contractor(user):
+        if access.project.workspace_id:
+            raise HTTPException(403, "To zlecenie nalezy do firmy")
+        if not access.can_manage():
+            raise HTTPException(403, "Brak uprawnien do raportu koncowego")
+        return "independent_contractor"
+    if is_company_owner(user):
+        if not access.project.workspace_id:
+            raise HTTPException(403, "To nie jest zlecenie firmy")
+        if not can_manage_workspace(db, access.project.workspace_id, user.id):
+            raise HTTPException(403, "Brak dostepu do raportu firmy")
+        if not access.can_manage():
+            raise HTTPException(403, "Brak uprawnien do raportu koncowego")
+        return "company_owner"
+    raise HTTPException(403, "Brak dostepu do raportow koncowych")
+
+
+def project_final_report_actor_for_item(
+    db: Session,
+    user: models.User,
+    item: models.ProjectFinalReport,
+) -> str:
+    project = db.get(models.Project, item.project_id)
+    if not project:
+        raise HTTPException(404, "Raport koncowy nie istnieje")
+    role = project_role(db, project.id, user.id)
+    if not role:
+        raise HTTPException(404, "Raport koncowy nie istnieje")
+    access = ProjectAccess(project=project, user=user, role=role)
+    return project_final_report_actor_for_project(db, access, user)
+
+
+def visible_project_final_reports_for_user(
+    db: Session,
+    user: models.User,
+    project_id: str | None = None,
+) -> list[models.ProjectFinalReport]:
+    if is_investor(user):
+        raise HTTPException(403, "Inwestor nie ma dostepu do raportow koncowych wykonawcy")
+    if not (is_independent_contractor(user) or is_company_owner(user) or is_company_worker(user)):
+        raise HTTPException(403, "Brak dostepu do raportow koncowych")
+    project_ids = [
+        row[0].id
+        for row in db.execute(user_projects_query(user.id)).all()
+        if not project_id or row[0].id == project_id
+    ]
+    if not project_ids:
+        return []
+    query = select(models.ProjectFinalReport).where(
+        models.ProjectFinalReport.project_id.in_(project_ids)
+    )
+    return list(
+        db.scalars(
+            query.order_by(
+                models.ProjectFinalReport.updated_at.desc(),
+                models.ProjectFinalReport.created_at.desc(),
+            )
+        ).all()
+    )
+
+
+def build_project_final_report_from_project(
+    db: Session,
+    project: models.Project,
+    user: models.User,
+    *,
+    status: str = "draft",
+    created_by_id: str | None = None,
+    draft_origin: str = "manual",
+    draft_origin_label: str = "",
+) -> models.ProjectFinalReport:
+    owner_type, owner_id, company_id = contract_owner_from_project(project, user)
+    contractor_name, contractor_email, contractor_phone = project_contract_contractor_defaults(
+        db, owner_type, owner_id, user
+    )
+    planned_start = date_payload(project.planned_start_date)
+    planned_end = date_payload(project.planned_end_date)
+    completed_date = project.finished_at.date().isoformat() if project.finished_at else planned_end
+    item = models.ProjectFinalReport(
+        project_id=project.id,
+        owner_type=owner_type,
+        owner_id=owner_id,
+        company_id=company_id,
+        created_by_id=created_by_id or user.id,
+        status=status,
+        draft_origin=draft_origin,
+        draft_origin_label=draft_origin_label,
+        contractor_name=contractor_name,
+        contractor_email=contractor_email,
+        contractor_phone=contractor_phone,
+        client_name=project.client_name or "",
+        client_email=project.client_email or "",
+        client_phone="",
+        work_address=project.address or "",
+        project_name=project.name or "Raport koncowy",
+        work_summary=project.description or "",
+        completed_scope=(
+            f"Podsumowanie wykonanych prac dla zlecenia: {project.name}."
+            if project.name
+            else ""
+        ),
+        issues_and_solutions="",
+        materials_note="",
+        final_cost_amount=project.contract_amount,
+        final_cost_currency=project.contract_currency or DEFAULT_CONTRACT_CURRENCY,
+        final_cost_note="Kwota zgodnie z ustaleniami zlecenia." if project.contract_amount else "",
+        started_at=planned_start,
+        completed_at=completed_date,
+        client_comment="",
+        warranty_note=DEFAULT_FINAL_REPORT_WARRANTY_NOTE,
+        attachments_note="",
+        legal_note=DEFAULT_FINAL_REPORT_LEGAL_NOTE,
+    )
+    return item
+
+
+def apply_project_final_report_changes(
+    item: models.ProjectFinalReport,
+    payload: ProjectFinalReportUpdate,
+    *,
+    partial: bool,
+) -> None:
+    changes = payload.model_dump(exclude_unset=partial)
+    for key, value in changes.items():
+        if key in {"contractor_email", "client_email"}:
+            setattr(item, key, optional_email(value or ""))
+        elif key == "final_cost_currency":
+            item.final_cost_currency = normalize_contract_currency(
+                value, item.final_cost_amount
+            ) or DEFAULT_CONTRACT_CURRENCY
+        elif key == "final_cost_amount":
+            item.final_cost_amount = value
+            item.final_cost_currency = normalize_contract_currency(
+                item.final_cost_currency, value
+            ) or DEFAULT_CONTRACT_CURRENCY
+        elif isinstance(value, str):
+            setattr(item, key, value.strip())
+        else:
+            setattr(item, key, value)
+
+
+def ensure_project_final_report_editable(
+    item: models.ProjectFinalReport,
+    actor: str,
+    user: models.User,
+) -> None:
+    if actor == "company_worker":
+        if item.created_by_id != user.id:
+            raise HTTPException(403, "Pracownik moze edytowac tylko wlasny szkic raportu")
+        if item.status != "pending_approval":
+            raise HTTPException(422, "Pracownik moze edytowac tylko szkic do zatwierdzenia")
+        return
+    if item.status not in {"draft", "pending_approval"}:
+        raise HTTPException(422, "Tylko szkic raportu jest edytowalny")
+
+
+def ensure_project_final_report_ready_to_send(item: models.ProjectFinalReport) -> None:
+    if not item.project_name.strip() or not item.work_summary.strip():
+        raise HTTPException(422, "Do wyslania raportu potrzebny jest tytul i podsumowanie prac")
+    if not item.client_name.strip():
+        raise HTTPException(422, "Do wyslania raportu potrzebne sa dane klienta")
+
+
+def change_project_final_report_status(
+    db: Session,
+    item: models.ProjectFinalReport,
+    status: ProjectFinalReportStatus,
+    actor: str,
+    user: models.User,
+) -> None:
+    if status == item.status:
+        if status == "sent" and actor in {"independent_contractor", "company_owner"}:
+            ensure_project_final_report_share(db, item)
+        return
+    if item.status in {"accepted", "rejected", "cancelled"}:
+        raise HTTPException(422, "Ten status raportu jest finalny")
+    if actor == "company_worker":
+        if (
+            status == "cancelled"
+            and item.status == "pending_approval"
+            and item.created_by_id == user.id
+        ):
+            item.status = "cancelled"
+            item.cancelled_at = item.cancelled_at or now()
+            item.share_active = False
+            return
+        raise HTTPException(403, "Pracownik firmy nie moze wyslac raportu klientowi")
+    if status == "sent":
+        if actor not in {"independent_contractor", "company_owner"}:
+            raise HTTPException(403, "Brak uprawnien do wyslania raportu")
+        if item.status not in {"draft", "pending_approval"}:
+            raise HTTPException(422, "Raport mozna wyslac tylko ze szkicu")
+        ensure_project_final_report_ready_to_send(item)
+        item.status = "sent"
+        item.sent_at = item.sent_at or now()
+        ensure_project_final_report_share(db, item)
+        return
+    if status == "draft" and actor == "company_owner" and item.status == "pending_approval":
+        item.status = "draft"
+        return
+    if status == "cancelled" and item.status in {"draft", "pending_approval", "sent"}:
+        if actor not in {"independent_contractor", "company_owner"}:
+            raise HTTPException(403, "Brak uprawnien do anulowania raportu")
+        item.status = "cancelled"
+        item.cancelled_at = item.cancelled_at or now()
+        item.share_active = False
+        return
+    raise HTTPException(422, "Nielegalna zmiana statusu raportu")
+
+
+def public_project_final_report_by_token(
+    db: Session, token: str
+) -> models.ProjectFinalReport:
+    item = db.scalar(
+        select(models.ProjectFinalReport).where(
+            models.ProjectFinalReport.share_token == token,
+            models.ProjectFinalReport.share_active.is_(True),
+        )
+    )
+    if not item or item.status not in {"sent", "accepted", "rejected"}:
+        raise HTTPException(404, "Raport koncowy nie istnieje albo link wygasl")
+    return item
 
 
 def public_project_contract_by_token(db: Session, token: str) -> models.ProjectContract:
@@ -2027,6 +2428,48 @@ class ProjectContractStatusUpdate(BaseModel):
 
 
 class PublicContractDecision(BaseModel):
+    status: Literal["accepted", "rejected"]
+
+
+ProjectFinalReportStatus = Literal[
+    "draft",
+    "pending_approval",
+    "sent",
+    "accepted",
+    "rejected",
+    "cancelled",
+]
+
+
+class ProjectFinalReportUpdate(BaseModel):
+    contractor_name: str | None = Field(default=None, max_length=180)
+    contractor_email: str | None = Field(default=None, max_length=320)
+    contractor_phone: str | None = Field(default=None, max_length=40)
+    client_name: str | None = Field(default=None, max_length=180)
+    client_email: str | None = Field(default=None, max_length=320)
+    client_phone: str | None = Field(default=None, max_length=40)
+    work_address: str | None = Field(default=None, max_length=300)
+    project_name: str | None = Field(default=None, min_length=1, max_length=220)
+    work_summary: str | None = Field(default=None, max_length=7000)
+    completed_scope: str | None = Field(default=None, max_length=7000)
+    issues_and_solutions: str | None = Field(default=None, max_length=5000)
+    materials_note: str | None = Field(default=None, max_length=4000)
+    final_cost_amount: Decimal | None = Field(default=None, ge=0)
+    final_cost_currency: str | None = Field(default=None, max_length=3)
+    final_cost_note: str | None = Field(default=None, max_length=2000)
+    started_at: str | None = Field(default=None, max_length=160)
+    completed_at: str | None = Field(default=None, max_length=160)
+    client_comment: str | None = Field(default=None, max_length=3000)
+    warranty_note: str | None = Field(default=None, max_length=3000)
+    attachments_note: str | None = Field(default=None, max_length=3000)
+    legal_note: str | None = Field(default=None, max_length=3000)
+
+
+class ProjectFinalReportStatusUpdate(BaseModel):
+    status: ProjectFinalReportStatus
+
+
+class PublicFinalReportDecision(BaseModel):
     status: Literal["accepted", "rejected"]
 
 
@@ -3704,6 +4147,234 @@ def patch_reject_public_project_contract(
     db: Session = Depends(get_db),
 ):
     return decide_public_project_contract(token, PublicContractDecision(status="rejected"), db)
+
+
+@router.get("/final-reports/me")
+def list_my_project_final_reports(
+    project_id: str | None = Query(default=None),
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    return [
+        project_final_report_payload(item)
+        for item in visible_project_final_reports_for_user(db, user, project_id=project_id)
+    ]
+
+
+@router.get("/final-reports/me/{report_id}")
+def get_my_project_final_report(
+    report_id: str,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.ProjectFinalReport, report_id)
+    if not item:
+        raise HTTPException(404, "Raport koncowy nie istnieje")
+    project_final_report_actor_for_item(db, user, item)
+    return project_final_report_payload(item)
+
+
+@router.post("/projects/{project_id}/final-report", status_code=201)
+def create_project_final_report(
+    project_id: str,
+    response: Response,
+    request: Request,
+    payload: ProjectFinalReportUpdate | None = None,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    access = get_project_access(request, db, project_id, allow_guest=False)
+    actor = project_final_report_actor_for_project(db, access, user)
+    existing = db.scalar(
+        select(models.ProjectFinalReport)
+        .where(models.ProjectFinalReport.project_id == access.project.id)
+        .with_for_update()
+    )
+    if existing:
+        response.status_code = 200
+        return {"created": False, "report": project_final_report_payload(existing)}
+
+    item = build_project_final_report_from_project(
+        db,
+        access.project,
+        user,
+        status="pending_approval" if actor == "company_worker" else "draft",
+        draft_origin="worker" if actor == "company_worker" else "manual",
+        draft_origin_label="od pracownika" if actor == "company_worker" else "",
+    )
+    if payload is not None:
+        apply_project_final_report_changes(item, payload, partial=True)
+    db.add(item)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(
+            select(models.ProjectFinalReport).where(
+                models.ProjectFinalReport.project_id == access.project.id
+            )
+        )
+        if existing:
+            response.status_code = 200
+            return {"created": False, "report": project_final_report_payload(existing)}
+        raise HTTPException(409, "Raport koncowy dla tego zlecenia juz istnieje")
+    db.refresh(item)
+    return {"created": True, "report": project_final_report_payload(item)}
+
+
+@router.post("/projects/{project_id}/guest-final-report-draft", status_code=201)
+def create_guest_project_final_report_draft(
+    project_id: str,
+    response: Response,
+    request: Request,
+    payload: ProjectFinalReportUpdate | None = None,
+    db: Session = Depends(get_db),
+):
+    access = guest_document_draft_access(request, db, project_id)
+    existing = db.scalar(
+        select(models.ProjectFinalReport)
+        .where(models.ProjectFinalReport.project_id == access.project.id)
+        .with_for_update()
+    )
+    if existing:
+        response.status_code = 200
+        return {
+            "created": False,
+            "message": "Raport koncowy dla tego zlecenia juz istnieje. Skontaktuj sie z szefem, jesli chcesz cos zmienic.",
+            "report": None,
+        }
+
+    creator = guest_link_creator(db, access.guest)
+    item = build_project_final_report_from_project(
+        db,
+        access.project,
+        creator,
+        status="pending_approval",
+        created_by_id=access.guest.created_by_id,
+        draft_origin="guest_link",
+        draft_origin_label=draft_origin_label_from_guest(access.guest),
+    )
+    if payload is not None:
+        apply_project_final_report_changes(item, payload, partial=True)
+    db.add(item)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        response.status_code = 200
+        return {
+            "created": False,
+            "message": "Raport koncowy dla tego zlecenia juz istnieje. Skontaktuj sie z szefem, jesli chcesz cos zmienic.",
+            "report": None,
+        }
+    db.refresh(item)
+    return {"created": True, "report": guest_project_final_report_draft_payload(item)}
+
+
+@router.patch("/final-reports/me/{report_id}")
+def update_my_project_final_report(
+    report_id: str,
+    payload: ProjectFinalReportUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.ProjectFinalReport, report_id)
+    if not item:
+        raise HTTPException(404, "Raport koncowy nie istnieje")
+    actor = project_final_report_actor_for_item(db, user, item)
+    ensure_project_final_report_editable(item, actor, user)
+    apply_project_final_report_changes(item, payload, partial=True)
+    db.commit()
+    db.refresh(item)
+    return project_final_report_payload(item)
+
+
+@router.patch("/final-reports/me/{report_id}/status")
+def update_my_project_final_report_status(
+    report_id: str,
+    payload: ProjectFinalReportStatusUpdate,
+    user: models.User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    item = db.get(models.ProjectFinalReport, report_id)
+    if not item:
+        raise HTTPException(404, "Raport koncowy nie istnieje")
+    actor = project_final_report_actor_for_item(db, user, item)
+    change_project_final_report_status(db, item, payload.status, actor, user)
+    db.commit()
+    db.refresh(item)
+    return project_final_report_payload(item)
+
+
+@router.get("/final-reports/public/{token}")
+def get_public_project_final_report(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return public_project_final_report_payload(
+        db, public_project_final_report_by_token(db, token)
+    )
+
+
+@router.post("/final-reports/public/{token}/decision")
+def decide_public_project_final_report(
+    token: str,
+    payload: PublicFinalReportDecision,
+    db: Session = Depends(get_db),
+):
+    item = public_project_final_report_by_token(db, token)
+    if item.status != "sent":
+        raise HTTPException(422, "Ten raport ma juz finalna decyzje")
+    item.status = payload.status
+    if payload.status == "accepted":
+        item.accepted_at = item.accepted_at or now()
+        item.rejected_at = None
+    else:
+        item.rejected_at = item.rejected_at or now()
+        item.accepted_at = None
+    db.commit()
+    db.refresh(item)
+    return public_project_final_report_payload(db, item)
+
+
+@router.post("/final-reports/public/{token}/accept")
+def accept_public_project_final_report(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return decide_public_project_final_report(
+        token, PublicFinalReportDecision(status="accepted"), db
+    )
+
+
+@router.patch("/final-reports/public/{token}/accept")
+def patch_accept_public_project_final_report(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return decide_public_project_final_report(
+        token, PublicFinalReportDecision(status="accepted"), db
+    )
+
+
+@router.post("/final-reports/public/{token}/reject")
+def reject_public_project_final_report(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return decide_public_project_final_report(
+        token, PublicFinalReportDecision(status="rejected"), db
+    )
+
+
+@router.patch("/final-reports/public/{token}/reject")
+def patch_reject_public_project_final_report(
+    token: str,
+    db: Session = Depends(get_db),
+):
+    return decide_public_project_final_report(
+        token, PublicFinalReportDecision(status="rejected"), db
+    )
 
 
 @router.get("/public-profile/me")

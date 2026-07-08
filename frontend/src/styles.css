@@ -3078,7 +3078,8 @@ audio { width: 100%; margin-top: 13px; }
   }
 
   .public-estimate-document,
-  .public-contract-document {
+  .public-contract-document,
+  .public-final-report-document {
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
